@@ -1,0 +1,13 @@
+name = "BrainlessLab"
+uuid = "d12add44-1e3e-4161-9a99-c2121a2f0f38"
+authors = ["btgaskin <bengaskin@outlook.com>"]
+version = "0.0.1"
+
+[compat]
+julia = "1.10"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

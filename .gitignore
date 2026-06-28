@@ -1,0 +1,5 @@
+runs/
+*.cov
+.DS_Store
+deps/build.log
+/docs/build/

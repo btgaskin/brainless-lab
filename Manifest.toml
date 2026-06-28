@@ -1,0 +1,10 @@
+# This file is machine-generated - editing it directly is not advised
+
+julia_version = "1.12.6"
+manifest_format = "2.0"
+project_hash = "72342c5f888974351053640373ed5dfdfea37224"
+
+[[deps.BrainlessLab]]
+path = "."
+uuid = "d12add44-1e3e-4161-9a99-c2121a2f0f38"
+version = "0.0.1"
