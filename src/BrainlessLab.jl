@@ -12,6 +12,9 @@ include("core/Traits.jl")
 include("core/Params.jl")
 include("core/Registry.jl")
 include("core/Recorder.jl")
+include("nodes/Drives.jl")
+include("nodes/Axes.jl")
+include("nodes/Falandays.jl")
 
 export NodeModel,
     Reservoir,
@@ -55,6 +58,27 @@ export sigmoid,
     TAU_MIN,
     mapped_tau
 
+export NoDrive,
+    OosawaDrive
+
+export Unsigned,
+    Dale,
+    recurrent_input,
+    learn!,
+    bernoulli_mask,
+    directed_watts_strogatz,
+    dale_signs
+
+export FalandaysParams,
+    FalandaysReservoir,
+    RngNoise,
+    RecordedNoise,
+    next_noise!,
+    reset_noise!,
+    noise_index,
+    falandays_oosawa,
+    falandays_dale
+
 export register_node!,
     resolve_node,
     register_task!,
@@ -76,5 +100,12 @@ export Recorder,
     record!,
     tick!,
     getchannel
+
+register_drive!(:none, NoDrive)
+register_drive!(:oosawa, OosawaDrive)
+
+register_node!(:falandays, FalandaysReservoir)
+register_node!(:falandays_oosawa, falandays_oosawa)
+register_node!(:falandays_dale, falandays_dale)
 
 end

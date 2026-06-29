@@ -1,6 +1,8 @@
 using BrainlessLab
 using Test
 
+include("test_falandays.jl")
+
 @testset "BrainlessLab scaffold" begin
     @test BrainlessLab isa Module
 
