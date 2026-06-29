@@ -18,6 +18,9 @@ include("nodes/Falandays.jl")
 include("nodes/Compartmental.jl")
 include("nodes/Wiring.jl")
 include("nodes/CompartmentalReservoir.jl")
+include("envs/WallBox.jl")
+include("envs/Envs.jl")
+include("tasks/Tasks.jl")
 
 export NodeModel,
     Reservoir,
@@ -42,9 +45,12 @@ export step!,
     observe,
     actuate!,
     receptors,
+    sense,
     motor,
     score,
     metrics,
+    default_ticks,
+    default_window,
     apply_drive!,
     apply!,
     ask,
@@ -99,6 +105,27 @@ export AbstractCompartmental,
     HILL_TAU,
     HILL_RESET
 
+export Environment,
+    RecordedDraws,
+    recorded_draw!,
+    draws_remaining,
+    WallBox,
+    WallEnv,
+    TrackingEnv,
+    PongEnv,
+    CartPoleEnv,
+    distance_last,
+    collisions_last
+
+export TaskSpec,
+    WALL_TASK,
+    TRACKING_TASK,
+    PONG_TASK,
+    PONG_HITRATE_TASK,
+    CARTPOLE_TASK,
+    make_env,
+    normalized_score
+
 export register_node!,
     resolve_node,
     register_task!,
@@ -129,5 +156,11 @@ register_node!(:falandays_oosawa, falandays_oosawa)
 register_node!(:falandays_dale, falandays_dale)
 register_node!(:compartmental_dense, DenseCompartmental)
 register_node!(:compartmental_structured, StructuredCompartmental)
+
+register_task!(:wall, WALL_TASK)
+register_task!(:tracking, TRACKING_TASK)
+register_task!(:pong, PONG_TASK)
+register_task!(:pong_hitrate, PONG_HITRATE_TASK)
+register_task!(:cartpole, CARTPOLE_TASK)
 
 end
