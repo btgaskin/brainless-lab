@@ -21,6 +21,10 @@ include("nodes/CompartmentalReservoir.jl")
 include("envs/WallBox.jl")
 include("envs/Envs.jl")
 include("tasks/Tasks.jl")
+include("world/Body.jl")
+include("world/Mediums.jl")
+include("world/Metrics.jl")
+include("world/Collective.jl")
 
 export NodeModel,
     Reservoir,
@@ -33,6 +37,7 @@ export NodeModel,
     AbstractEvolutionStrategy
 
 export step!,
+    rollout!,
     effectors,
     reset!,
     n_receptors,
@@ -126,6 +131,12 @@ export TaskSpec,
     make_env,
     normalized_score
 
+export Agent,
+    Collective,
+    PassthroughBody,
+    TaskMedium,
+    liveness
+
 export register_node!,
     resolve_node,
     register_task!,
@@ -162,5 +173,7 @@ register_task!(:tracking, TRACKING_TASK)
 register_task!(:pong, PONG_TASK)
 register_task!(:pong_hitrate, PONG_HITRATE_TASK)
 register_task!(:cartpole, CARTPOLE_TASK)
+
+register_body!(:passthrough, PassthroughBody)
 
 end

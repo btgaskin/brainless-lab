@@ -4,6 +4,7 @@ using Test
 include("test_falandays.jl")
 include("test_compartmental.jl")
 include("test_envs.jl")
+include("test_collective_single.jl")
 
 @testset "BrainlessLab scaffold" begin
     @test BrainlessLab isa Module
