@@ -12,6 +12,7 @@ include("core/Traits.jl")
 include("core/Params.jl")
 include("core/Registry.jl")
 include("core/Recorder.jl")
+include("viz/Views.jl")
 include("nodes/Drives.jl")
 include("nodes/Axes.jl")
 include("nodes/Falandays.jl")
@@ -26,6 +27,7 @@ include("world/Body.jl")
 include("world/Mediums.jl")
 include("world/Collective.jl")
 include("world/Metrics.jl")
+include("api/Highlevel.jl")
 
 export NodeModel,
     Reservoir,
@@ -61,7 +63,8 @@ export step!,
     apply!,
     ask,
     tell!,
-    result
+    result,
+    record_state!
 
 export PlasticityTrait,
     NoPlasticity,
@@ -177,6 +180,20 @@ export Recorder,
     tick!,
     getchannel
 
+export SimResult,
+    simulate
+
+export rasterplot,
+    rateplot,
+    trajectoryplot,
+    swarmplot,
+    networkplot,
+    driftplot,
+    fitnessplot,
+    visualize,
+    explore,
+    replay
+
 register_drive!(:none, NoDrive)
 register_drive!(:oosawa, OosawaDrive)
 
@@ -201,5 +218,16 @@ register_metric!(:mean_pairwise_distance, mean_pairwise_distance)
 register_metric!(:mean_nearest_neighbor_distance, mean_nearest_neighbor_distance)
 register_metric!(:input_stability, input_stability)
 register_metric!(:swarm_metrics, swarm_metrics)
+
+register_view!(:raster, rasterplot)
+register_view!(:rate, rateplot)
+register_view!(:trajectory, trajectoryplot)
+register_view!(:swarm, swarmplot)
+register_view!(:network, networkplot)
+register_view!(:drift, driftplot)
+register_view!(:fitness, fitnessplot)
+register_view!(:visualize, visualize)
+register_view!(:explore, explore)
+register_view!(:replay, replay)
 
 end

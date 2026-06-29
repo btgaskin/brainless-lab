@@ -39,11 +39,131 @@ function _record_payload(x)
     return x
 end
 
-function _record_collective!(rec, percepts, spikes, rates, Es)
-    record!(rec, :spikes, _record_payload(spikes))
-    record!(rec, :rates, copy(rates))
-    record!(rec, :effectors, _record_payload(Es))
-    record!(rec, :percepts, _record_payload(percepts))
+record_state!(channels::Dict{Symbol,Vector{Any}}, ::Reservoir) = channels
+record_state!(::Recorder, ::Reservoir) = nothing
+
+function record_state!(channels::Dict{Symbol,Vector{Any}}, r::FalandaysReservoir)
+    push!(get!(channels, :acts, Any[]), copy(r.acts))
+    return channels
+end
+
+function record_state!(channels::Dict{Symbol,Vector{Any}}, r::CompartmentalReservoir)
+    push!(get!(channels, :soma, Any[]), copy(r.soma_y))
+    push!(get!(channels, :V, Any[]), copy(r.V))
+    return channels
+end
+
+_record_active(rec) = rec isa Recorder && !isempty(rec.enabled)
+_record_sample(rec::Recorder) = rem(rec.tick, rec.every) == 0
+_record_wants(rec::Recorder, channel::Symbol) = channel in rec.enabled
+_record_wants_any(rec::Recorder, channels) = any(channel -> channel in rec.enabled, channels)
+
+function _pose_payload(m::TaskMedium, bodies)
+    env = m.env
+    if hasproperty(env, :box)
+        box = getproperty(env, :box)
+        return [(Float64(box.x), Float64(box.y), Float64(box.theta))]
+    end
+    return nothing
+end
+
+function _pose_payload(::Medium, bodies)
+    poses = NTuple{3,Float64}[]
+    for body in bodies
+        if body isa VENBody
+            push!(poses, (body.pos[1], body.pos[2], body.heading))
+        elseif hasproperty(body, :pos) && hasproperty(body, :heading)
+            pos = getproperty(body, :pos)
+            push!(poses, (Float64(pos[1]), Float64(pos[2]), Float64(getproperty(body, :heading))))
+        end
+    end
+    return isempty(poses) ? nothing : poses
+end
+
+function _record_swarm_metrics!(rec::Recorder, m::TorusMedium, poses)
+    if poses === nothing || isempty(poses)
+        return rec
+    end
+
+    wants_polarization = _record_wants(rec, :polarization)
+    wants_milling = _record_wants(rec, :milling)
+    (wants_polarization || wants_milling) || return rec
+
+    headings = [pose[3] for pose in poses]
+    if wants_polarization
+        record!(rec, :polarization, polarization(headings))
+    end
+
+    if wants_milling
+        positions = [(pose[1], pose[2]) for pose in poses]
+        centroid = (
+            sum(p[1] for p in positions) / length(positions),
+            sum(p[2] for p in positions) / length(positions),
+        )
+        record!(rec, :milling, milling(positions, headings, centroid))
+    end
+
+    return rec
+end
+
+function _record_state_channels!(rec::Recorder, agents)
+    _record_wants_any(rec, (:acts, :soma, :V)) || return rec
+
+    channels = Dict{Symbol,Vector{Any}}()
+    for agent in agents
+        record_state!(channels, agent.reservoir)
+    end
+
+    for (channel, payload) in channels
+        if _record_wants(rec, channel)
+            record!(rec, channel, _record_payload(payload))
+        end
+    end
+
+    return rec
+end
+
+function _record_collective!(rec::Recorder, c::Collective, bodies, percepts, spikes, rates, Es)
+    if !_record_active(rec)
+        tick!(rec)
+        return rec
+    end
+
+    if !_record_sample(rec)
+        tick!(rec)
+        return rec
+    end
+
+    if _record_wants(rec, :spikes)
+        record!(rec, :spikes, _record_payload(spikes))
+    end
+    if _record_wants(rec, :rate)
+        record!(rec, :rate, copy(rates))
+    end
+    if _record_wants(rec, :rates)
+        record!(rec, :rates, copy(rates))
+    end
+    if _record_wants(rec, :effectors)
+        record!(rec, :effectors, _record_payload(Es))
+    end
+    if _record_wants(rec, :percepts)
+        record!(rec, :percepts, _record_payload(percepts))
+    end
+    if _record_wants(rec, :sensors)
+        record!(rec, :sensors, _record_payload(percepts))
+    end
+
+    poses = _record_wants_any(rec, (:poses, :polarization, :milling)) ?
+        _pose_payload(c.medium, bodies) :
+        nothing
+    if poses !== nothing && _record_wants(rec, :poses)
+        record!(rec, :poses, _record_payload(poses))
+    end
+    if c.medium isa TorusMedium
+        _record_swarm_metrics!(rec, c.medium, poses)
+    end
+
+    _record_state_channels!(rec, c.agents)
     tick!(rec)
     return rec
 end
@@ -71,8 +191,8 @@ function step!(c::Collective)
     actuate!(c.medium, bodies, Es)
     c.t += 1
 
-    if c.recorder !== nothing
-        _record_collective!(c.recorder, percepts, spikes, rates, Es)
+    if c.recorder isa Recorder
+        _record_collective!(c.recorder, c, bodies, percepts, spikes, rates, Es)
     end
 
     return spikes

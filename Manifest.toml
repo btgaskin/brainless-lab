@@ -2,13 +2,19 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "2bc320676c058c9c71640710ae564c0d7e1c718a"
+project_hash = "8cd16090bccd0999274973d24f9c6af1bb0ccc31"
 
 [[deps.BrainlessLab]]
 deps = ["Random"]
 path = "."
 uuid = "d12add44-1e3e-4161-9a99-c2121a2f0f38"
 version = "0.0.1"
+
+    [deps.BrainlessLab.extensions]
+    BrainlessLabMakieExt = "Makie"
+
+    [deps.BrainlessLab.weakdeps]
+    Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 
 [[deps.Random]]
 deps = ["SHA"]
