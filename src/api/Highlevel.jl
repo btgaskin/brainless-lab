@@ -1,5 +1,12 @@
 using Random
 
+"""
+    SimResult
+
+High-level simulation output. `recorder` stores sampled channels for plotting,
+`metrics` stores task or swarm diagnostics, and `task`/`node` retain the
+registered symbols that produced the run.
+"""
 struct SimResult{R,M,C}
     recorder::R
     metrics::M
@@ -8,7 +15,29 @@ struct SimResult{R,M,C}
     config::C
 end
 
-const _DEFAULT_RECORD_CHANNELS = (:spikes, :rate, :poses)
+const _DEFAULT_RECORD_CHANNELS = (:spikes, :rate, :poses, :polarization, :milling)
+
+const _NODE_DEFAULT_N = Dict{Symbol,Int}(
+    :falandays => 100,
+    :falandays_oosawa => 100,
+    :falandays_dale => 100,
+    :compartmental_dense => 60,
+    :compartmental_structured => 60,
+)
+
+"""
+    variants()
+
+Return the registered high-level node variant symbols.
+"""
+variants() = sort!(collect(keys(NODES)))
+
+"""
+    tasks()
+
+Return the registered high-level task symbols.
+"""
+tasks() = sort!(collect(keys(TASKS)))
 
 function _record_symbols(record)
     record === nothing && return Symbol[]
@@ -45,7 +74,213 @@ end
 _sim_seed(seed, offset::Integer=0) = seed === nothing ? nothing : Int(seed) + Int(offset)
 _sim_rng(seed) = seed === nothing ? MersenneTwister() : MersenneTwister(Int(seed))
 
-function _build_reservoir(node_ctor, n_nodes::Integer, n_receptors_::Integer, n_effectors_::Integer; seed=0, node_kwargs=NamedTuple())
+_default_node_count(node::Symbol) = get(_NODE_DEFAULT_N, node, 100)
+
+function _resolve_n_nodes!(node::Symbol, explicit_n_nodes, node_kwargs::Dict{Symbol,Any})
+    node_kw_n = haskey(node_kwargs, :n_nodes) ? pop!(node_kwargs, :n_nodes) : nothing
+    explicit_n_nodes !== nothing && return Int(explicit_n_nodes)
+    node_kw_n !== nothing && return Int(node_kw_n)
+    return _default_node_count(node)
+end
+
+function _falandays_native(n_nodes::Integer, n_receptors_::Integer, n_effectors_::Integer; seed=nothing, kwargs...)
+    return FalandaysReservoir(Int(n_nodes), Int(n_receptors_), Int(n_effectors_); seed=seed, kwargs...)
+end
+
+function _falandays_oosawa_native(
+    n_nodes::Integer,
+    n_receptors_::Integer,
+    n_effectors_::Integer;
+    seed=nothing,
+    membrane_noise::Real=1.0,
+    noise_gain::Real=0.5,
+    kwargs...,
+)
+    options = _kwdict(kwargs)
+    drive = pop!(
+        options,
+        :drive,
+        OosawaDrive(membrane_noise=Float64(membrane_noise), noise_gain=Float64(noise_gain)),
+    )
+    return FalandaysReservoir(
+        Int(n_nodes),
+        Int(n_receptors_),
+        Int(n_effectors_);
+        seed=seed,
+        drive=drive,
+        _kwargs_tuple(options)...,
+    )
+end
+
+function _falandays_dale_native(
+    n_nodes::Integer,
+    n_receptors_::Integer,
+    n_effectors_::Integer;
+    seed=nothing,
+    membrane_noise::Real=1.0,
+    noise_gain::Real=0.5,
+    kwargs...,
+)
+    options = _kwdict(kwargs)
+    drive = pop!(
+        options,
+        :drive,
+        OosawaDrive(membrane_noise=Float64(membrane_noise), noise_gain=Float64(noise_gain)),
+    )
+    sign = pop!(options, :sign, :dale)
+    topology = pop!(options, :topology, :watts_strogatz)
+    rectify = pop!(options, :rectify, false)
+
+    return FalandaysReservoir(
+        Int(n_nodes),
+        Int(n_receptors_),
+        Int(n_effectors_);
+        seed=seed,
+        drive=drive,
+        sign=sign,
+        topology=topology,
+        rectify=rectify,
+        _kwargs_tuple(options)...,
+    )
+end
+
+function _native_compartmental_wiring(
+    n_nodes::Integer,
+    n_receptors_::Integer,
+    n_effectors_::Integer;
+    seed=nothing,
+    mode::Symbol,
+    k_rec::Integer=4,
+    k_in::Integer=2,
+    output_fanout::Integer=6,
+)
+    n_nodes = Int(n_nodes)
+    n_receptors_ = Int(n_receptors_)
+    n_effectors_ = Int(n_effectors_)
+    n_nodes >= 1 || throw(ArgumentError("n_nodes must be at least 1"))
+    n_receptors_ >= 1 || throw(ArgumentError("n_receptors must be at least 1"))
+    n_effectors_ >= 1 || throw(ArgumentError("n_effectors must be at least 1"))
+
+    rng = _sim_rng(seed)
+    K_rec_ = max(0, Int(k_rec))
+    K_in_ = max(1, min(Int(k_in), n_receptors_))
+    K_ = K_rec_ + K_in_
+
+    node_sources = rand(rng, 0:(n_nodes - 1), n_nodes, K_rec_)
+    receptor_sources = rand(rng, 0:(n_receptors_ - 1), n_nodes, K_in_)
+    dend_source = hcat(node_sources, receptor_sources .+ n_nodes)
+
+    M_ne = falses(n_nodes, n_effectors_)
+    fanout = max(1, min(n_nodes, Int(output_fanout)))
+    for eff in 1:n_effectors_
+        for node in rand(rng, 1:n_nodes, fanout)
+            M_ne[node, eff] = true
+        end
+        if !any(@view M_ne[:, eff])
+            M_ne[rand(rng, 1:n_nodes), eff] = true
+        end
+    end
+
+    fwd_unit = mode == :structured ? rand(rng, 0:(COMPARTMENTAL_S - 1), n_nodes, K_) : nothing
+    back_src = mode == :structured ? rand(rng, 0:(COMPARTMENTAL_S - 1), n_nodes, K_) : nothing
+
+    return inject_wiring(
+        mode=mode,
+        dend_source=dend_source,
+        M_ne=M_ne,
+        node_sources=node_sources,
+        receptor_sources=receptor_sources,
+        fwd_unit=fwd_unit,
+        back_src=back_src,
+        n_receptors=n_receptors_,
+        n_effectors=n_effectors_,
+    )
+end
+
+function _randomize_compartmental_state!(r::CompartmentalReservoir, rng::AbstractRNG, scale::Real)
+    scale = Float64(scale)
+    scale <= 0.0 && return r
+
+    r.dend_y .= scale .* randn(rng, size(r.dend_y)...)
+    r.soma_y .= scale .* randn(rng, size(r.soma_y)...)
+    r.V .= 0.5 .* rand(rng, length(r.V))
+    r.spike_buffer .= Float64.(rand(rng, length(r.spike_buffer)) .< 0.03)
+    copyto!(r.prev_spike, r.spike_buffer)
+    copyto!(r.prev_soma_y, r.soma_y)
+    return r
+end
+
+function _compartmental_native(
+    genome_type::Type{<:AbstractCompartmental},
+    n_nodes::Integer,
+    n_receptors_::Integer,
+    n_effectors_::Integer;
+    seed=nothing,
+    raw=nothing,
+    raw_scale::Real=0.25,
+    genome=nothing,
+    wiring=nothing,
+    k_rec::Integer=4,
+    k_in::Integer=2,
+    output_fanout::Integer=6,
+    init_random::Bool=true,
+    state_scale::Real=0.05,
+    dt::Real=1.0,
+    hill_tau::Real=HILL_TAU,
+    hill_reset::Real=HILL_RESET,
+    kwargs...,
+)
+    rng = _sim_rng(seed)
+    mode = _compartmental_mode(genome_type)
+
+    genome_ =
+        genome === nothing ?
+        unpack_params(genome_type, raw === nothing ? Float64(raw_scale) .* randn(rng, paramdim(genome_type)) : raw) :
+        genome
+
+    wiring_ =
+        wiring === nothing ?
+        _native_compartmental_wiring(
+            n_nodes,
+            n_receptors_,
+            n_effectors_;
+            seed=seed,
+            mode=mode,
+            k_rec=k_rec,
+            k_in=k_in,
+            output_fanout=output_fanout,
+        ) :
+        wiring
+
+    reservoir = CompartmentalReservoir(
+        genome_,
+        wiring_;
+        dt=dt,
+        hill_tau=hill_tau,
+        hill_reset=hill_reset,
+        _kwargs_tuple(_kwdict(kwargs))...,
+    )
+    init_random && _randomize_compartmental_state!(reservoir, rng, state_scale)
+    return reservoir
+end
+
+function _compartmental_dense_native(args...; kwargs...)
+    return _compartmental_native(DenseCompartmental, args...; kwargs...)
+end
+
+function _compartmental_structured_native(args...; kwargs...)
+    return _compartmental_native(StructuredCompartmental, args...; kwargs...)
+end
+
+function _build_reservoir(
+    node::Symbol,
+    node_ctor,
+    n_nodes::Integer,
+    n_receptors_::Integer,
+    n_effectors_::Integer;
+    seed=0,
+    node_kwargs=NamedTuple(),
+)
     options = _merge_kwdicts(node_kwargs)
     options[:seed] = _sim_seed(seed)
     kwargs = _kwargs_tuple(options)
@@ -53,21 +288,26 @@ function _build_reservoir(node_ctor, n_nodes::Integer, n_receptors_::Integer, n_
     try
         return node_ctor(Int(n_nodes), Int(n_receptors_), Int(n_effectors_); kwargs...)
     catch err
-        msg = "simulate expects registered node :$(node_ctor) to accept (n_nodes, n_receptors, n_effectors; seed, kwargs...)."
+        msg = "Registered node :$(node) must accept (n_nodes, n_receptors, n_effectors; seed, kwargs...). Original error: $(sprint(showerror, err))"
         throw(ArgumentError(msg))
     end
 end
 
-function _node_count(default_count, node_kwargs)
-    options = _merge_kwdicts(node_kwargs)
-    haskey(options, :n_nodes) && return Int(pop!(options, :n_nodes))
-    return Int(default_count)
-end
-
-function _make_task_collective(task_spec::TaskSpec, node_ctor; seed=0, record=Symbol[], every::Integer=1, n_nodes::Integer=250, node_kwargs=NamedTuple(), env_kwargs=NamedTuple())
+function _make_task_collective(
+    task_spec::TaskSpec,
+    node::Symbol,
+    node_ctor;
+    seed=0,
+    record=Symbol[],
+    every::Integer=1,
+    n_nodes::Integer=100,
+    node_kwargs=NamedTuple(),
+    env_kwargs=NamedTuple(),
+)
     env_options = _kwargs_tuple(_merge_kwdicts(env_kwargs))
     env = make_env(task_spec; rng=_sim_rng(seed), env_options...)
     reservoir = _build_reservoir(
+        node,
         node_ctor,
         n_nodes,
         task_spec.n_receptors,
@@ -81,7 +321,17 @@ function _make_task_collective(task_spec::TaskSpec, node_ctor; seed=0, record=Sy
     return collective, recorder
 end
 
-function _make_swarm_collective(node_ctor; seed=0, record=Symbol[], every::Integer=1, n_agents::Integer=8, n_nodes::Integer=250, node_kwargs=NamedTuple(), swarm_kwargs=NamedTuple())
+function _make_swarm_collective(
+    node::Symbol,
+    node_ctor;
+    seed=0,
+    record=Symbol[],
+    every::Integer=1,
+    n_agents::Integer=8,
+    n_nodes::Integer=100,
+    node_kwargs=NamedTuple(),
+    swarm_kwargs=NamedTuple(),
+)
     swarm_options = _merge_kwdicts(swarm_kwargs)
     swarm_options[:n_agents] = Int(n_agents)
     swarm_options[:n_nodes] = Int(n_nodes)
@@ -92,6 +342,7 @@ function _make_swarm_collective(node_ctor; seed=0, record=Symbol[], every::Integ
     agents = Vector{Agent}(undef, config.n_agents)
     @inbounds for i in 1:config.n_agents
         reservoir = _build_reservoir(
+            node,
             node_ctor,
             config.n_nodes,
             64,
@@ -190,20 +441,28 @@ end
 function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, record=_DEFAULT_RECORD_CHANNELS, every::Integer=1, kwargs...)
     options = _kwdict(kwargs)
     record_channels = _record_symbols(record)
-    n_agents = pop!(options, :n_agents, nothing)
-    n_nodes = Int(pop!(options, :n_nodes, 250))
-    window_arg = pop!(options, :window, nothing)
-    env_kwargs = pop!(options, :env_kwargs, NamedTuple())
-    node_kwargs = pop!(options, :node_kwargs, NamedTuple())
-    swarm_kwargs = pop!(options, :swarm_kwargs, pop!(options, :medium_kwargs, NamedTuple()))
+
+    n_agents = haskey(options, :n_agents) ? pop!(options, :n_agents) : nothing
+    explicit_n_nodes = haskey(options, :n_nodes) ? pop!(options, :n_nodes) : nothing
+    window_arg = haskey(options, :window) ? pop!(options, :window) : nothing
+    env_kwargs = haskey(options, :env_kwargs) ? pop!(options, :env_kwargs) : NamedTuple()
+    node_kwargs = haskey(options, :node_kwargs) ? pop!(options, :node_kwargs) : NamedTuple()
+
+    swarm_kwargs =
+        haskey(options, :swarm_kwargs) ? pop!(options, :swarm_kwargs) :
+        haskey(options, :medium_kwargs) ? pop!(options, :medium_kwargs) :
+        NamedTuple()
+
     node_kwargs = _merge_kwdicts(node_kwargs, options)
+    n_nodes = _resolve_n_nodes!(node, explicit_n_nodes, node_kwargs)
 
     node_ctor = resolve_node(node)
-    is_swarm = task == :swarm || n_agents !== nothing
+    is_swarm = task in (:torus, :swarm) || n_agents !== nothing
 
     if is_swarm
         n_agents_ = n_agents === nothing ? 8 : Int(n_agents)
         collective, recorder = _make_swarm_collective(
+            node,
             node_ctor;
             seed=seed,
             record=record_channels,
@@ -218,7 +477,7 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
         return (
             collective=collective,
             recorder=recorder,
-            task=:swarm,
+            task=:torus,
             node=node,
             ticks=tick_count,
             window=window,
@@ -230,8 +489,11 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
     end
 
     task_spec = resolve_task(task)
+    task_spec isa TaskSpec ||
+        throw(ArgumentError("Registered task :$(task) is not a TaskSpec and is not handled by simulate."))
     collective, recorder = _make_task_collective(
         task_spec,
+        node,
         node_ctor;
         seed=seed,
         record=record_channels,
@@ -257,8 +519,15 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
     )
 end
 
-function simulate(task::Symbol; node::Symbol=:falandays, ticks=nothing, seed=0, record=_DEFAULT_RECORD_CHANNELS, every::Integer=1, kwargs...)
-    setup = _build_collective(task, node; ticks=ticks, seed=seed, record=record, every=every, kwargs...)
+"""
+    simulate(task; node=:falandays, ticks=nothing, seed=0, record=..., every=1, kwargs...)
+
+Run a single-agent task such as `:wall`, `:tracking`, `:pong`, or `:cartpole`,
+or run a swarm with `simulate(:torus; node=:falandays, n_agents=5)`.
+"""
+function simulate(task::Symbol; node=:falandays, ticks=nothing, seed=0, record=_DEFAULT_RECORD_CHANNELS, every::Integer=1, kwargs...)
+    node_sym = Symbol(node)
+    setup = _build_collective(task, node_sym; ticks=ticks, seed=seed, record=record, every=every, kwargs...)
     result_metrics = rollout!(setup.collective, setup.ticks; window=setup.window)
     config = _simulation_config(
         setup.collective;

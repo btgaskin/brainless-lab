@@ -1,9 +1,14 @@
 """
     BrainlessLab
 
-A small, extensible Julia research-tinkering package for node-based collective
-systems. Stage 0 defines the core interfaces, registries, parameter/state
-contracts, and lightweight recording utilities used by later concrete models.
+An extensible Julia tinkering lab for brainless reservoirs, bodies, tasks, and
+collectives. The high-level workflow is intentionally two lines:
+
+    sim = simulate(:wall; node=:falandays)
+    visualize(sim)
+
+Load CairoMakie or another Makie backend before plotting; the compute core stays
+Makie-free.
 """
 module BrainlessLab
 
@@ -181,7 +186,9 @@ export Recorder,
     getchannel
 
 export SimResult,
-    simulate
+    simulate,
+    variants,
+    tasks
 
 export rasterplot,
     rateplot,
@@ -197,17 +204,18 @@ export rasterplot,
 register_drive!(:none, NoDrive)
 register_drive!(:oosawa, OosawaDrive)
 
-register_node!(:falandays, FalandaysReservoir)
-register_node!(:falandays_oosawa, falandays_oosawa)
-register_node!(:falandays_dale, falandays_dale)
-register_node!(:compartmental_dense, DenseCompartmental)
-register_node!(:compartmental_structured, CompartmentalReservoir)
+register_node!(:falandays, _falandays_native)
+register_node!(:falandays_oosawa, _falandays_oosawa_native)
+register_node!(:falandays_dale, _falandays_dale_native)
+register_node!(:compartmental_dense, _compartmental_dense_native)
+register_node!(:compartmental_structured, _compartmental_structured_native)
 
 register_task!(:wall, WALL_TASK)
 register_task!(:tracking, TRACKING_TASK)
 register_task!(:pong, PONG_TASK)
 register_task!(:pong_hitrate, PONG_HITRATE_TASK)
 register_task!(:cartpole, CARTPOLE_TASK)
+register_task!(:torus, :torus)
 
 register_body!(:passthrough, PassthroughBody)
 register_body!(:ven, VENBody)
