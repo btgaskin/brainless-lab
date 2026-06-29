@@ -5,6 +5,7 @@ include("test_falandays.jl")
 include("test_compartmental.jl")
 include("test_envs.jl")
 include("test_collective_single.jl")
+include("test_collective_dyad.jl")
 
 @testset "BrainlessLab scaffold" begin
     @test BrainlessLab isa Module

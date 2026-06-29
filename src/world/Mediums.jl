@@ -1,3 +1,5 @@
+using Random
+
 """
     TaskMedium(env)
 
@@ -27,3 +29,277 @@ end
 
 medium_metrics(m::TaskMedium, window::Integer=default_window(m.env)) =
     metrics(m.env, Int(window))
+
+Base.@kwdef struct SwarmConfig
+    n_agents::Int
+    space_size::Float64 = 15.0
+    n_nodes::Int = 250
+    link_p::Float64 = 0.1
+    sens_agent_dist::Int = 0
+    vision_range::Union{Nothing,Float64} = nothing
+    sensory_noise::Float64 = 0.1
+    membrane_noise::Float64 = 0.0
+    noise_gain::Float64 = 0.0
+    sensory_scaling::Bool = true
+    visual_coupling::Bool = true
+    physical_coupling::Bool = false
+    ven::VENParams = VENParams()
+    node_params::Any = nothing
+    seed::Int = 0
+    record_inputs::Bool = true
+    node_kind::String = "standard"
+    n_dendrites::Int = 4
+    soma_drive::Float64 = 0.0
+    dend_drive::Float64 = 0.0
+end
+
+mutable struct TorusMedium{R<:AbstractRNG} <: Medium
+    torus::Torus
+    config::SwarmConfig
+    bodies::Vector{VENBody}
+    visual_coupling::Bool
+    physical_coupling::Bool
+    sensory_noise::Float64
+    rng::R
+    sens_angles_rad::Vector{Float64}
+    history::Vector{Vector{NTuple{3,Float64}}}
+    input_history::Vector{Vector{Vector{Float64}}}
+    last_inputs::Union{Nothing,Vector{Vector{Float64}}}
+end
+
+function _as_ven_body_vector(bodies::AbstractVector)
+    out = Vector{VENBody}(undef, length(bodies))
+    @inbounds for i in eachindex(bodies)
+        bodies[i] isa VENBody ||
+            throw(ArgumentError("TorusMedium requires VENBody bodies"))
+        out[i] = bodies[i]
+    end
+    return out
+end
+
+function _sample_open_position(rng::AbstractRNG, torus::Torus, config::SwarmConfig, bodies, min_separation)
+    for _ in 1:10000
+        pos = (rand(rng) * config.space_size, rand(rng) * config.space_size)
+        open = true
+        for body in bodies
+            if tdistance(torus, pos, body.pos) < min_separation
+                open = false
+                break
+            end
+        end
+        open && return pos
+    end
+    throw(ArgumentError("could not place non-overlapping agents in the torus"))
+end
+
+function _sample_bodies(config::SwarmConfig, torus::Torus, rng::AbstractRNG)
+    Int(config.n_agents) >= 1 || throw(ArgumentError("n_agents must be at least 1"))
+    bodies = VENBody[]
+    min_separation = 2.0 * config.ven.agent_radius + 0.2
+
+    for _ in 1:config.n_agents
+        pos = _sample_open_position(rng, torus, config, bodies, min_separation)
+        heading = rand(rng) * _TWO_PI
+        push!(bodies, VENBody(pos, heading; params=config.ven))
+    end
+
+    return bodies
+end
+
+function TorusMedium(
+    torus::Torus,
+    bodies::AbstractVector;
+    visual_coupling::Bool=true,
+    physical_coupling::Bool=false,
+    sensory_noise::Real=0.0,
+    sensory_scaling::Bool=true,
+    sens_agent_dist::Integer=0,
+    vision_range=nothing,
+    record_inputs::Bool=true,
+    rng::AbstractRNG=MersenneTwister(0),
+    config=nothing,
+)
+    body_vec = _as_ven_body_vector(bodies)
+    !isempty(body_vec) || throw(ArgumentError("TorusMedium requires at least one body"))
+
+    config_ =
+        config === nothing ?
+        SwarmConfig(
+            n_agents=length(body_vec),
+            space_size=torus.size,
+            sens_agent_dist=Int(sens_agent_dist),
+            vision_range=vision_range === nothing ? nothing : Float64(vision_range),
+            sensory_noise=Float64(sensory_noise),
+            sensory_scaling=Bool(sensory_scaling),
+            visual_coupling=Bool(visual_coupling),
+            physical_coupling=Bool(physical_coupling),
+            ven=body_vec[1].params,
+            record_inputs=Bool(record_inputs),
+        ) :
+        config
+
+    config_ isa SwarmConfig || throw(ArgumentError("config must be a SwarmConfig"))
+    config_.n_agents == length(body_vec) ||
+        throw(DimensionMismatch("SwarmConfig expects $(config_.n_agents) bodies, got $(length(body_vec))"))
+
+    history = [NTuple{3,Float64}[] for _ in 1:length(body_vec)]
+    input_history = [Vector{Float64}[] for _ in 1:length(body_vec)]
+
+    return TorusMedium(
+        torus,
+        config_,
+        body_vec,
+        Bool(config_.visual_coupling),
+        Bool(config_.physical_coupling),
+        Float64(config_.sensory_noise),
+        rng,
+        copy(SENS_ANGLES_RAD),
+        history,
+        input_history,
+        nothing,
+    )
+end
+
+function TorusMedium(config::SwarmConfig; bodies=nothing, rng::AbstractRNG=MersenneTwister(config.seed))
+    torus = Torus(config.space_size)
+    body_vec = bodies === nothing ? _sample_bodies(config, torus, rng) : _as_ven_body_vector(bodies)
+    return TorusMedium(torus, body_vec; config=config, rng=rng)
+end
+
+function _require_torus_width(m::TorusMedium, bodies)
+    length(bodies) == length(m.bodies) ||
+        throw(DimensionMismatch("TorusMedium has $(length(m.bodies)) bodies, got $(length(bodies))"))
+    length(m.history) == length(bodies) ||
+        throw(DimensionMismatch("TorusMedium history has width $(length(m.history)), got $(length(bodies))"))
+    return nothing
+end
+
+function observe(m::TorusMedium, bodies)
+    body_vec = _as_ven_body_vector(bodies)
+    _require_torus_width(m, body_vec)
+
+    percepts = Vector{Vector{Float64}}(undef, length(body_vec))
+    inputs = Vector{Vector{Float64}}(undef, length(body_vec))
+
+    @inbounds for i in eachindex(body_vec)
+        if m.visual_coupling
+            others = VENBody[body_vec[j] for j in eachindex(body_vec) if j != i]
+            sens = sense_agents(
+                body_vec[i],
+                others,
+                m.torus,
+                body_vec[i].params,
+                m.sens_angles_rad,
+                m.config.sens_agent_dist,
+                m.sensory_noise,
+                m.rng;
+                vision_range=m.config.vision_range,
+            )
+        else
+            sens = zeros(Float64, length(m.sens_angles_rad))
+        end
+
+        percepts[i] = sens
+        inputs[i] = assemble_inputs(sens, m.config.sensory_scaling)
+    end
+
+    m.last_inputs = inputs
+    return percepts
+end
+
+function _apply_velocity!(body::VENBody, velocity::NTuple{2,Float64})
+    speed = hypot(velocity[1], velocity[2])
+    body.speed = Float64(speed)
+    if speed > 1e-12
+        body.heading = mod(atan(velocity[2], velocity[1]), _TWO_PI)
+    end
+    return body
+end
+
+function _resolve_collisions!(m::TorusMedium, bodies::Vector{VENBody})
+    m.physical_coupling || return nothing
+
+    radius = Float64(m.config.ven.agent_radius)
+    min_d = 2.0 * radius
+
+    for i in eachindex(bodies)
+        for j in (i + 1):length(bodies)
+            a = bodies[i]
+            b = bodies[j]
+            dx, dy = tdelta(m.torus, a.pos, b.pos)
+            dist = hypot(dx, dy)
+            dist >= min_d && continue
+
+            normal =
+                dist <= 1e-12 ?
+                (1.0, 0.0) :
+                (Float64(dx / dist), Float64(dy / dist))
+
+            overlap = min_d - dist
+            a.pos = wrap(
+                m.torus,
+                a.pos[1] - 0.5 * overlap * normal[1],
+                a.pos[2] - 0.5 * overlap * normal[2],
+            )
+            b.pos = wrap(
+                m.torus,
+                b.pos[1] + 0.5 * overlap * normal[1],
+                b.pos[2] + 0.5 * overlap * normal[2],
+            )
+
+            va_hat = velocity_hat(a)
+            vb_hat = velocity_hat(b)
+            va = (a.speed * va_hat[1], a.speed * va_hat[2])
+            vb = (b.speed * vb_hat[1], b.speed * vb_hat[2])
+            va_n = va[1] * normal[1] + va[2] * normal[2]
+            vb_n = vb[1] * normal[1] + vb[2] * normal[2]
+            va_new = (
+                va[1] + (vb_n - va_n) * normal[1],
+                va[2] + (vb_n - va_n) * normal[2],
+            )
+            vb_new = (
+                vb[1] + (va_n - vb_n) * normal[1],
+                vb[2] + (va_n - vb_n) * normal[2],
+            )
+            _apply_velocity!(a, va_new)
+            _apply_velocity!(b, vb_new)
+        end
+    end
+
+    return nothing
+end
+
+function actuate!(m::TorusMedium, bodies, Es)
+    body_vec = _as_ven_body_vector(bodies)
+    _require_torus_width(m, body_vec)
+    length(Es) == length(body_vec) ||
+        throw(DimensionMismatch("expected one effector vector per body"))
+
+    @inbounds for i in eachindex(body_vec)
+        motor(body_vec[i], Es[i], m.torus)
+    end
+
+    _resolve_collisions!(m, body_vec)
+
+    @inbounds for i in eachindex(body_vec)
+        body = body_vec[i]
+        push!(m.history[i], (body.pos[1], body.pos[2], body.heading))
+    end
+
+    inputs = m.last_inputs
+    if m.config.record_inputs && inputs !== nothing
+        @inbounds for i in eachindex(inputs)
+            push!(m.input_history[i], copy(inputs[i]))
+        end
+    end
+
+    return nothing
+end
+
+function _default_torus_window(m::TorusMedium)
+    isempty(m.history) && return 0
+    return minimum(length, m.history)
+end
+
+medium_metrics(m::TorusMedium, window::Integer=_default_torus_window(m)) =
+    swarm_metrics(m, Int(window))

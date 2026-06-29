@@ -21,10 +21,11 @@ include("nodes/CompartmentalReservoir.jl")
 include("envs/WallBox.jl")
 include("envs/Envs.jl")
 include("tasks/Tasks.jl")
+include("world/Torus.jl")
 include("world/Body.jl")
 include("world/Mediums.jl")
-include("world/Metrics.jl")
 include("world/Collective.jl")
+include("world/Metrics.jl")
 
 export NodeModel,
     Reservoir,
@@ -135,7 +136,24 @@ export Agent,
     Collective,
     PassthroughBody,
     TaskMedium,
-    liveness
+    Torus,
+    wrap,
+    tdelta,
+    tdistance,
+    bearing,
+    VENParams,
+    VENBody,
+    SwarmConfig,
+    TorusMedium,
+    assemble_inputs,
+    sense_agents,
+    liveness,
+    polarization,
+    milling,
+    mean_pairwise_distance,
+    mean_nearest_neighbor_distance,
+    input_stability,
+    swarm_metrics
 
 export register_node!,
     resolve_node,
@@ -166,7 +184,7 @@ register_node!(:falandays, FalandaysReservoir)
 register_node!(:falandays_oosawa, falandays_oosawa)
 register_node!(:falandays_dale, falandays_dale)
 register_node!(:compartmental_dense, DenseCompartmental)
-register_node!(:compartmental_structured, StructuredCompartmental)
+register_node!(:compartmental_structured, CompartmentalReservoir)
 
 register_task!(:wall, WALL_TASK)
 register_task!(:tracking, TRACKING_TASK)
@@ -175,5 +193,13 @@ register_task!(:pong_hitrate, PONG_HITRATE_TASK)
 register_task!(:cartpole, CARTPOLE_TASK)
 
 register_body!(:passthrough, PassthroughBody)
+register_body!(:ven, VENBody)
+
+register_metric!(:polarization, polarization)
+register_metric!(:milling, milling)
+register_metric!(:mean_pairwise_distance, mean_pairwise_distance)
+register_metric!(:mean_nearest_neighbor_distance, mean_nearest_neighbor_distance)
+register_metric!(:input_stability, input_stability)
+register_metric!(:swarm_metrics, swarm_metrics)
 
 end
