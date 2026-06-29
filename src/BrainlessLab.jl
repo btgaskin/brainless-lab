@@ -39,6 +39,11 @@ include("drivers/Parallel.jl")
 include("drivers/Evolve.jl")
 include("drivers/Fixed.jl")
 include("drivers/Plastic.jl")
+include("run/Config.jl")
+include("run/Profiles.jl")
+include("run/Manifest.jl")
+include("run/Artifacts.jl")
+include("run/Sweep.jl")
 
 export NodeModel,
     Reservoir,
@@ -207,6 +212,15 @@ export SepCMA,
     rollout,
     evolve,
     find_alive_centroid
+
+export RunConfig,
+    read_config,
+    write_config,
+    resolve,
+    run_experiment,
+    run_from_config,
+    run_sweep,
+    capture_manifest
 
 export rasterplot,
     rateplot,

@@ -12,6 +12,7 @@ include("test_viz.jl")
 include("test_examples.jl")
 include("test_sepcma.jl")
 include("test_evolve.jl")
+include("test_run.jl")
 
 @testset "BrainlessLab scaffold" begin
     @test BrainlessLab isa Module

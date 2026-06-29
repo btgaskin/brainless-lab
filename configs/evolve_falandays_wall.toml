@@ -1,0 +1,31 @@
+[run]
+name = "falandays-wall-teaching"
+driver = "evolve"
+seed_base = 0
+suite_seed_base = 100000
+profile = "teaching"
+
+[model]
+family = "falandays"
+node = "falandays"
+
+[task]
+train = ["wall"]
+suite = ["wall"]
+aggregator = "min"
+N = 40
+ticks = 80
+window = 80
+link_p = 0.1
+rho = 0.2
+lam = 1.0
+
+[evolve]
+generations = 3
+popsize = 6
+sigma0 = 2.5
+k_trials = 2
+suite_every = 0
+k_suite = 0
+cma_seed = 0
+threaded = true

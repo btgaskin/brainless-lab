@@ -3,3 +3,6 @@ runs/
 .DS_Store
 deps/build.log
 /docs/build/
+/test/Project.toml
+/test/Manifest.toml
+examples/output/
