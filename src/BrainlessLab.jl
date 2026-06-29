@@ -24,6 +24,7 @@ include("nodes/Falandays.jl")
 include("nodes/Compartmental.jl")
 include("nodes/Wiring.jl")
 include("nodes/CompartmentalReservoir.jl")
+include("nodes/Interventions.jl")
 include("envs/WallBox.jl")
 include("envs/Envs.jl")
 include("tasks/Tasks.jl")
@@ -107,7 +108,11 @@ export AbstractCompartmental,
     StructuredCompartmental,
     CompartmentalReservoir,
     Wiring,
+    build_wiring,
     inject_wiring,
+    ResetDendrites,
+    NoSomaBack,
+    NoHillockBack,
     COMPARTMENTAL_D,
     COMPARTMENTAL_S,
     IN_UNIT,
@@ -237,5 +242,9 @@ register_view!(:fitness, fitnessplot)
 register_view!(:visualize, visualize)
 register_view!(:explore, explore)
 register_view!(:replay, replay)
+
+register_ablation!(:reset_dendrites, ResetDendrites)
+register_ablation!(:no_soma_back, NoSomaBack)
+register_ablation!(:no_hillock_back, NoHillockBack)
 
 end

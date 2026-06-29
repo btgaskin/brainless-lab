@@ -150,9 +150,11 @@ function _native_compartmental_wiring(
     n_effectors_::Integer;
     seed=nothing,
     mode::Symbol,
-    k_rec::Integer=4,
-    k_in::Integer=2,
-    output_fanout::Integer=6,
+    link_p::Real=0.1,
+    rho::Real=0.2,
+    k_rec=nothing,
+    k_in=nothing,
+    output_fanout=nothing,
 )
     n_nodes = Int(n_nodes)
     n_receptors_ = Int(n_receptors_)
@@ -161,39 +163,18 @@ function _native_compartmental_wiring(
     n_receptors_ >= 1 || throw(ArgumentError("n_receptors must be at least 1"))
     n_effectors_ >= 1 || throw(ArgumentError("n_effectors must be at least 1"))
 
-    rng = _sim_rng(seed)
-    K_rec_ = max(0, Int(k_rec))
-    K_in_ = max(1, min(Int(k_in), n_receptors_))
-    K_ = K_rec_ + K_in_
+    link_p_ = k_rec === nothing ? Float64(link_p) : Float64(Int(k_rec)) / Float64(max(n_nodes - 1, 1))
+    K_rec_ = min(n_nodes - 1, max(1, round(Int, link_p_ * (n_nodes - 1))))
+    rho_ = k_in === nothing ? Float64(rho) : Float64(Int(k_in)) / Float64(max(K_rec_, 1))
 
-    node_sources = rand(rng, 0:(n_nodes - 1), n_nodes, K_rec_)
-    receptor_sources = rand(rng, 0:(n_receptors_ - 1), n_nodes, K_in_)
-    dend_source = hcat(node_sources, receptor_sources .+ n_nodes)
-
-    M_ne = falses(n_nodes, n_effectors_)
-    fanout = max(1, min(n_nodes, Int(output_fanout)))
-    for eff in 1:n_effectors_
-        for node in rand(rng, 1:n_nodes, fanout)
-            M_ne[node, eff] = true
-        end
-        if !any(@view M_ne[:, eff])
-            M_ne[rand(rng, 1:n_nodes), eff] = true
-        end
-    end
-
-    fwd_unit = mode == :structured ? rand(rng, 0:(COMPARTMENTAL_S - 1), n_nodes, K_) : nothing
-    back_src = mode == :structured ? rand(rng, 0:(COMPARTMENTAL_S - 1), n_nodes, K_) : nothing
-
-    return inject_wiring(
-        mode=mode,
-        dend_source=dend_source,
-        M_ne=M_ne,
-        node_sources=node_sources,
-        receptor_sources=receptor_sources,
-        fwd_unit=fwd_unit,
-        back_src=back_src,
+    return build_wiring(
+        n_nodes,
+        seed;
+        link_p=link_p_,
         n_receptors=n_receptors_,
         n_effectors=n_effectors_,
+        rho=rho_,
+        mode=mode,
     )
 end
 
@@ -210,6 +191,12 @@ function _randomize_compartmental_state!(r::CompartmentalReservoir, rng::Abstrac
     return r
 end
 
+function _resolve_compartmental_intervention(ablation, intervention)
+    intervention !== nothing && return _compartmental_intervention(intervention)
+    ablation === nothing && return nothing
+    return _compartmental_intervention(ablation)
+end
+
 function _compartmental_native(
     genome_type::Type{<:AbstractCompartmental},
     n_nodes::Integer,
@@ -220,14 +207,18 @@ function _compartmental_native(
     raw_scale::Real=0.25,
     genome=nothing,
     wiring=nothing,
-    k_rec::Integer=4,
-    k_in::Integer=2,
-    output_fanout::Integer=6,
+    link_p::Real=0.1,
+    rho::Real=0.2,
+    k_rec=nothing,
+    k_in=nothing,
+    output_fanout=nothing,
     init_random::Bool=true,
     state_scale::Real=0.05,
     dt::Real=1.0,
     hill_tau::Real=HILL_TAU,
     hill_reset::Real=HILL_RESET,
+    ablation=nothing,
+    intervention=nothing,
     kwargs...,
 )
     rng = _sim_rng(seed)
@@ -246,6 +237,8 @@ function _compartmental_native(
             n_effectors_;
             seed=seed,
             mode=mode,
+            link_p=link_p,
+            rho=rho,
             k_rec=k_rec,
             k_in=k_in,
             output_fanout=output_fanout,
@@ -258,6 +251,7 @@ function _compartmental_native(
         dt=dt,
         hill_tau=hill_tau,
         hill_reset=hill_reset,
+        intervention=_resolve_compartmental_intervention(ablation, intervention),
         _kwargs_tuple(_kwdict(kwargs))...,
     )
     init_random && _randomize_compartmental_state!(reservoir, rng, state_scale)
