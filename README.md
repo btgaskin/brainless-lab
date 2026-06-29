@@ -47,6 +47,12 @@ Single-agent tasks:
 - `:pong`
 - `:cartpole`
 
+CartPole variants (greenfield):
+
+- `:cartpole_hard` — tighter bounds / weaker actuation
+- `:cartpole_swingup` — pole starts hanging down; score is mean uprightness
+- `:cartpole_long` — double pole length (harder dynamics)
+
 Additional registered task entries:
 
 - `:pong_hitrate`
