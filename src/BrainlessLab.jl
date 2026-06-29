@@ -15,6 +15,9 @@ include("core/Recorder.jl")
 include("nodes/Drives.jl")
 include("nodes/Axes.jl")
 include("nodes/Falandays.jl")
+include("nodes/Compartmental.jl")
+include("nodes/Wiring.jl")
+include("nodes/CompartmentalReservoir.jl")
 
 export NodeModel,
     Reservoir,
@@ -79,6 +82,23 @@ export FalandaysParams,
     falandays_oosawa,
     falandays_dale
 
+export AbstractCompartmental,
+    DenseCompartmental,
+    StructuredCompartmental,
+    CompartmentalReservoir,
+    Wiring,
+    inject_wiring,
+    COMPARTMENTAL_D,
+    COMPARTMENTAL_S,
+    IN_UNIT,
+    OUT_UNIT,
+    FB_UNIT,
+    DRIVE_UNIT,
+    THR_UNIT,
+    HB_UNIT,
+    HILL_TAU,
+    HILL_RESET
+
 export register_node!,
     resolve_node,
     register_task!,
@@ -107,5 +127,7 @@ register_drive!(:oosawa, OosawaDrive)
 register_node!(:falandays, FalandaysReservoir)
 register_node!(:falandays_oosawa, falandays_oosawa)
 register_node!(:falandays_dale, falandays_dale)
+register_node!(:compartmental_dense, DenseCompartmental)
+register_node!(:compartmental_structured, StructuredCompartmental)
 
 end
