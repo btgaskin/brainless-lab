@@ -1,10 +1,12 @@
 using BrainlessLab
 using Test
 
+include("testutils.jl")
 include("test_falandays.jl")
 include("test_compartmental.jl")
 include("test_ablation.jl")
 include("test_envs.jl")
+include("test_cartpole_variants.jl")
 include("test_collective_single.jl")
 include("test_collective_dyad.jl")
 include("test_api.jl")

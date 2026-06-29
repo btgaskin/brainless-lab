@@ -27,6 +27,7 @@ include("nodes/CompartmentalReservoir.jl")
 include("nodes/Interventions.jl")
 include("envs/WallBox.jl")
 include("envs/Envs.jl")
+include("envs/CartPoleVariants.jl")
 include("tasks/Tasks.jl")
 include("world/Torus.jl")
 include("world/Body.jl")
@@ -143,6 +144,12 @@ export Environment,
     TrackingEnv,
     PongEnv,
     CartPoleEnv,
+    CartPoleVariantEnv,
+    CartPoleHardEnv,
+    CartPoleLongEnv,
+    CartPoleSwingupEnv,
+    cartpole_balancer,
+    cartpole_swingup_controller,
     distance_last,
     collisions_last
 
@@ -152,6 +159,9 @@ export TaskSpec,
     PONG_TASK,
     PONG_HITRATE_TASK,
     CARTPOLE_TASK,
+    CARTPOLE_HARD_TASK,
+    CARTPOLE_SWINGUP_TASK,
+    CARTPOLE_LONG_TASK,
     make_env,
     normalized_score
 
@@ -247,6 +257,9 @@ register_task!(:tracking, TRACKING_TASK)
 register_task!(:pong, PONG_TASK)
 register_task!(:pong_hitrate, PONG_HITRATE_TASK)
 register_task!(:cartpole, CARTPOLE_TASK)
+register_task!(:cartpole_hard, CARTPOLE_HARD_TASK)
+register_task!(:cartpole_swingup, CARTPOLE_SWINGUP_TASK)
+register_task!(:cartpole_long, CARTPOLE_LONG_TASK)
 register_task!(:torus, :torus)
 
 register_body!(:passthrough, PassthroughBody)

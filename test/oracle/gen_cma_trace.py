@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Optional
 
 import cma
 import numpy as np
@@ -18,6 +19,18 @@ def default_x0(dim: int) -> np.ndarray:
     if dim == 5:
         return np.array([0.8, -0.6, 0.4, -0.2, 0.1], dtype=float)
     return np.linspace(0.8, -0.4, dim, dtype=float)
+
+
+def diagonal_cscale(es) -> Optional[np.ndarray]:
+    try:
+        scaling = np.asarray(getattr(es.sigma_vec, "scaling", 1.0), dtype=float)
+        cmat = np.asarray(es.sm.C, dtype=float)
+        cdiag = cmat if cmat.ndim == 1 else np.diag(cmat)
+        if scaling.ndim == 0:
+            scaling = np.full_like(cdiag, float(scaling), dtype=float)
+        return scaling * np.sqrt(cdiag)
+    except Exception:
+        return None
 
 
 def main() -> None:
@@ -51,6 +64,8 @@ def main() -> None:
     losses_by_gen = []
     means = []
     sigmas = []
+    cscales = []
+    cscale_available = True
 
     for _ in range(args.generations):
         X = es.ask()
@@ -60,9 +75,13 @@ def main() -> None:
         losses_by_gen.append(np.asarray(losses, dtype=float))
         means.append(np.asarray(es.mean, dtype=float).copy())
         sigmas.append(float(es.sigma))
+        cscale = diagonal_cscale(es)
+        if cscale is None:
+            cscale_available = False
+        elif cscale_available:
+            cscales.append(np.asarray(cscale, dtype=float).copy())
 
-    np.savez(
-        output,
+    payload = dict(
         x0=x0,
         sigma0=np.array(args.sigma0, dtype=float),
         popsize=np.array(args.popsize, dtype=np.int64),
@@ -72,6 +91,10 @@ def main() -> None:
         mean=np.asarray(means, dtype=float),
         sigma=np.asarray(sigmas, dtype=float),
     )
+    if cscale_available and len(cscales) == args.generations:
+        payload["cscale"] = np.asarray(cscales, dtype=float)
+
+    np.savez(output, **payload)
 
 
 if __name__ == "__main__":

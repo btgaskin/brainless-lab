@@ -19,16 +19,6 @@ function _ensure_cma_trace_fixture(path)
     end
 end
 
-function _scalar(data, key::AbstractString)
-    value = data[key]
-    return value isa Number ? Float64(value) : Float64(only(value))
-end
-
-function _int_scalar(data, key::AbstractString)
-    value = data[key]
-    return value isa Number ? Int(value) : Int(only(value))
-end
-
 _sphere(x) = sum(abs2, x)
 
 function _rosenbrock(x)
@@ -55,14 +45,15 @@ end
     data = npzread(path)
 
     x0 = Vector{Float64}(vec(Float64.(data["x0"])))
-    sigma0 = _scalar(data, "sigma0")
-    popsize = _int_scalar(data, "popsize")
+    sigma0 = BrainlessLabTestUtils.scalar(data, "sigma0")
+    popsize = BrainlessLabTestUtils.int_scalar(data, "popsize")
 
     es = SepCMA(x0, sigma0; popsize=popsize, seed=0)
     X = Float64.(data["X"])
     losses = Float64.(data["losses"])
     means = Float64.(data["mean"])
     sigmas = Float64.(data["sigma"])
+    cscales = haskey(data, "cscale") ? Float64.(data["cscale"]) : nothing
 
     for g in axes(X, 1)
         solutions = [Vector{Float64}(vec(X[g, p, :])) for p in axes(X, 2)]
@@ -71,7 +62,13 @@ end
 
         @test es.x_mean ≈ Vector{Float64}(vec(means[g, :])) atol = 1e-6 rtol = 1e-6
         @test es.sigma ≈ Float64(sigmas[g]) atol = 1e-6 rtol = 1e-6
+        if cscales !== nothing
+            @test sqrt.(es.C_diag) ≈ Vector{Float64}(vec(cscales[g, :])) atol = 1e-6 rtol = 1e-6
+        end
     end
+
+    # Older fixtures did not record pycma's diagonal scale; keep the existing parity gate green.
+    cscales === nothing && @info "SepCMA fixture lacks cscale; skipped diagonal covariance parity check"
 end
 
 @testset "SepCMA toy convergence" begin

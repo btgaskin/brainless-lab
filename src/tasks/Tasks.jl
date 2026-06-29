@@ -73,6 +73,28 @@ const CARTPOLE_TASK = TaskSpec(
     score_ceiling=1.0,
 )
 
+const CARTPOLE_HARD_TASK = TaskSpec(
+    :cartpole_hard,
+    CartPoleHardEnv;
+    score_floor=0.0,
+    score_ceiling=1.0,
+)
+
+const CARTPOLE_SWINGUP_TASK = TaskSpec(
+    :cartpole_swingup,
+    CartPoleSwingupEnv;
+    score_floor=0.02,
+    score_ceiling=1.0,
+    score_key=:mean_uprightness,
+)
+
+const CARTPOLE_LONG_TASK = TaskSpec(
+    :cartpole_long,
+    CartPoleLongEnv;
+    score_floor=0.0,
+    score_ceiling=1.0,
+)
+
 resolve_task(task::TaskSpec) = task
 resolve_task(name::AbstractString) = resolve_task(Symbol(name))
 
