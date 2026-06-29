@@ -65,8 +65,10 @@ julia --project=. run.jl cartpole_swingup --save
 
 Flags: `--node <name>` · `--ticks <n>` · `--seed <n>` · `--n-agents <n>` · `--no-gif` · `--out <runs-root>`.
 
-The figure is a spike raster + firing-rate trace + trajectory/swarm; the GIF plays the agent
-moving (trail + heading) with a marker sweeping the firing-rate timeline.
+The figure is a spike raster + firing-rate trace + trajectory/swarm; the GIF (`activity.gif`)
+plays the **actual task behaviour** — every task animates: tracking shows the eye chasing the
+stimulus, pong the ball + paddle, cartpole the cart + pole, wall/torus the agent moving — with
+a marker sweeping the firing-rate timeline.
 
 ---
 
@@ -79,7 +81,7 @@ Visualisation is a **clean optional layer** — the engine never imports Makie; 
 | Call | What it gives you |
 | --- | --- |
 | `visualize(sim; panels=[...])` | a static `CairoMakie` figure assembling chosen panels |
-| `animate(sim; path="…​.gif")` | a **GIF/MP4** of the rollout: agent moving (trail + heading) + a synced firing-rate marker |
+| `animate(sim; path="…​.gif")` | a **GIF/MP4** of the actual task behaviour: tracking (eye chasing the stimulus), pong (ball + paddle), cartpole (cart + pole), wall/torus (agent moving) — with a synced firing-rate marker |
 | `explore(task; node=..., ...)` | a live **GLMakie** window: Play / Step / speed slider |
 | `replay(rundir)` | reconstruct views from a saved run's artifacts |
 | `rasterplot` / `rateplot` / `trajectoryplot` / `swarmplot` / `networkplot` / `driftplot` / `fitnessplot` | individual recipes |

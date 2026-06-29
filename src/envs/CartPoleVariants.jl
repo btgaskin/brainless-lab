@@ -345,3 +345,6 @@ function cartpole_swingup_controller(env)
     end
     return _cartpole_force_effectors(command)
 end
+
+scene(env::CartPoleVariantEnv) = (kind=:cartpole, x=env.state[1], theta=env.state[3],
+                                  max_x=env.max_x, pole_length=env.pole_length)

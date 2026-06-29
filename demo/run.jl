@@ -34,7 +34,7 @@ const PANELS = Dict(
 )
 
 # Channels needed so both the static panels and the animation have data.
-const RECORD = [:spikes, :rate, :poses, :polarization, :milling]
+const RECORD = [:spikes, :rate, :poses, :polarization, :milling, :scene]
 
 function parse_args(args)
     opts = Dict{Symbol,Any}(:task=>nothing, :node=>:falandays, :ticks=>nothing,

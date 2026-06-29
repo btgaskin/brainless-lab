@@ -490,3 +490,16 @@ function metrics(env::CartPoleEnv, window::Integer=default_window(env))
         xy_path=nothing,
     )
 end
+
+# --- Visualizable scene state (consumed by `animate`) ---
+# Default: no scene (the agent is shown via :poses instead, e.g. wall/torus).
+scene(::Environment) = nothing
+
+scene(env::TrackingEnv) = (kind=:tracking, theta=env.theta, phi=env.phi)
+
+scene(env::PongEnv) = (kind=:pong, width=env.width, height=env.height,
+                       ball_x=env.ball_x, ball_y=env.ball_y, ball_r=env.ball_r,
+                       paddle_x=env.paddle_x, paddle_y=env.paddle_y, paddle_h=env.paddle_h)
+
+scene(env::CartPoleEnv) = (kind=:cartpole, x=env.state[1], theta=env.state[3],
+                           max_x=env.max_x, pole_length=env.pole_length)

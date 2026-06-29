@@ -67,6 +67,10 @@ function _pose_payload(m::TaskMedium, bodies)
     return nothing
 end
 
+# Per-task visualizable scene (tracking/pong/cartpole expose one; swarm/wall use poses).
+_scene_payload(m::TaskMedium) = scene(m.env)
+_scene_payload(::Medium) = nothing
+
 function _pose_payload(::Medium, bodies)
     poses = NTuple{3,Float64}[]
     for body in bodies
@@ -158,6 +162,10 @@ function _record_collective!(rec::Recorder, c::Collective, bodies, percepts, spi
         nothing
     if poses !== nothing && _record_wants(rec, :poses)
         record!(rec, :poses, _record_payload(poses))
+    end
+    if _record_wants(rec, :scene)
+        sc = _scene_payload(c.medium)
+        sc === nothing || record!(rec, :scene, sc)
     end
     if c.medium isa TorusMedium
         _record_swarm_metrics!(rec, c.medium, poses)

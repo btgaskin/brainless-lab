@@ -394,15 +394,76 @@ end
 
 BL.replay(sim::BL.SimResult; kwargs...) = BL.visualize(sim; kwargs...)
 
+# Draw one frame of a task-specific behaviour scene (tracking/pong/cartpole).
+function _draw_scene_frame!(ax, s, f, nt)
+    if s.kind === :tracking
+        ts = range(0.0, 2pi; length=96)
+        Makie.lines!(ax, cos.(ts), sin.(ts); color=:gray75, linewidth=1)
+        Makie.xlims!(ax, -1.3, 1.3); Makie.ylims!(ax, -1.3, 1.3)
+        Makie.scatter!(ax, [cos(s.phi)], [sin(s.phi)]; markersize=20, color=:orange)        # stimulus
+        Makie.linesegments!(ax, [Makie.Point2f(0, 0), Makie.Point2f(0.9cos(s.theta), 0.9sin(s.theta))];
+                            color=:seagreen4, linewidth=3)                                   # eye heading
+        Makie.scatter!(ax, [0.0], [0.0]; markersize=9, color=:black)
+        err = rad2deg(abs(atan(sin(s.theta - s.phi), cos(s.theta - s.phi))))
+        ax.title = "tracking   tick $f/$nt   error=$(round(err; digits=1))°"
+    elseif s.kind === :pong
+        Makie.lines!(ax, [0, s.width, s.width, 0, 0], [0, 0, s.height, s.height, 0]; color=:gray75)
+        Makie.xlims!(ax, -0.03s.width, 1.03s.width); Makie.ylims!(ax, -0.03s.height, 1.03s.height)
+        Makie.lines!(ax, [s.paddle_x, s.paddle_x], [s.paddle_y - s.paddle_h / 2, s.paddle_y + s.paddle_h / 2];
+                     color=:seagreen4, linewidth=7)                                          # paddle
+        Makie.scatter!(ax, [s.ball_x], [s.ball_y]; markersize=16, color=:orange)             # ball
+        ax.title = "pong   tick $f/$nt"
+    elseif s.kind === :cartpole
+        L = 2.0 * s.pole_length
+        Makie.lines!(ax, [-s.max_x, s.max_x], [0.0, 0.0]; color=:gray75)                     # track
+        Makie.xlims!(ax, -s.max_x - 0.5, s.max_x + 0.5); Makie.ylims!(ax, -0.4, L + 0.4)
+        Makie.scatter!(ax, [s.x], [0.0]; marker=:rect, markersize=24, color=:gray30)         # cart
+        Makie.linesegments!(ax, [Makie.Point2f(s.x, 0.0), Makie.Point2f(s.x + L * sin(s.theta), L * cos(s.theta))];
+                            color=:seagreen4, linewidth=4)                                    # pole
+        Makie.scatter!(ax, [s.x + L * sin(s.theta)], [L * cos(s.theta)]; markersize=12, color=:orange)
+        ax.title = "cartpole   tick $f/$nt   θ=$(round(rad2deg(s.theta); digits=1))°"
+    else
+        ax.title = "tick $f/$nt"
+    end
+    return ax
+end
+
+# Animate a task that exposes a per-tick :scene (tracking/pong/cartpole).
+function _animate_scenes(sim, scenes, path, framerate, maxframes)
+    rate = _rate_trace(sim)
+    nr = length(rate)
+    rmax = nr == 0 ? 1.0 : max(1e-6, maximum(rate)) * 1.05
+    nt = length(scenes)
+    frames = unique(round.(Int, range(1, nt; length=min(nt, maxframes))))
+    fig = Makie.Figure(size=(720, 720))
+    axw = Makie.Axis(fig[1, 1]; aspect=Makie.DataAspect())
+    axr = Makie.Axis(fig[2, 1]; xlabel="tick", ylabel="rate", title="firing rate")
+    Makie.rowsize!(fig.layout, 2, Makie.Relative(0.20))
+    Makie.record(fig, path, frames; framerate=framerate) do f
+        Makie.empty!(axw)
+        _draw_scene_frame!(axw, scenes[min(f, nt)], f, nt)
+        Makie.empty!(axr)
+        if nr > 0
+            Makie.lines!(axr, 1:nr, rate; color=:dodgerblue4, linewidth=1.5)
+            Makie.vlines!(axr, [min(f, nr)]; color=:red, linewidth=1.5)
+            Makie.xlims!(axr, 1, max(nr, 2)); Makie.ylims!(axr, 0, rmax)
+        end
+    end
+    return path
+end
+
 """
     animate(sim; path="activity.gif", framerate=20, trail=40, maxframes=200)
 
-Render a GIF/MP4 of the rollout: the agent(s) moving in the world (trail +
-heading) with a synced firing-rate marker. Replays the recorder's per-tick
-`:poses`/`:rate` channels. Returns the output path.
+Render a GIF/MP4 of the rollout. Tasks that expose a per-tick `:scene`
+(tracking/pong/cartpole) get a task-specific behaviour view; embodied tasks
+(wall/torus) get the agent(s) moving via `:poses`. A synced firing-rate marker
+runs underneath. Returns the output path.
 """
 function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
                     framerate::Integer=20, trail::Integer=40, maxframes::Integer=200)
+    scenes = _channel(sim, :scene)
+    isempty(scenes) || return _animate_scenes(sim, scenes, path, framerate, maxframes)
     tracks = _pose_tracks(sim)
     rate = _rate_trace(sim)
     nt = isempty(tracks) ? length(rate) : maximum(length, tracks)
