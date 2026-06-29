@@ -241,7 +241,8 @@ export rasterplot,
     fitnessplot,
     visualize,
     explore,
-    replay
+    replay,
+    animate
 
 register_drive!(:none, NoDrive)
 register_drive!(:oosawa, OosawaDrive)
@@ -282,6 +283,7 @@ register_view!(:fitness, fitnessplot)
 register_view!(:visualize, visualize)
 register_view!(:explore, explore)
 register_view!(:replay, replay)
+register_view!(:animate, animate)
 
 register_ablation!(:reset_dendrites, ResetDendrites)
 register_ablation!(:no_soma_back, NoSomaBack)

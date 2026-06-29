@@ -40,7 +40,7 @@ A turnkey runner for showing the standard Falandays models on the standard tasks
 
 ```bash
 cd brainless-lab/demo
-julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.add("CairoMakie"); Pkg.instantiate()'
+julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.add(["CairoMakie","TOML"]); Pkg.instantiate()'
 # for the live interactive window, also:
 julia --project=. -e 'using Pkg; Pkg.add("GLMakie")'
 ```
@@ -50,21 +50,23 @@ julia --project=. -e 'using Pkg; Pkg.add("GLMakie")'
 ```bash
 julia --project=. run.jl --list                       # list tasks and node variants
 julia --project=. run.jl wall                         # interactive window (Play / Step / speed)
-julia --project=. run.jl wall --save                  # save a static figure to demo/output/
+julia --project=. run.jl wall --save                  # archive a run dir (figure + GIF + config)
 julia --project=. run.jl pong --node falandays_oosawa --save
 julia --project=. run.jl torus --n-agents 6 --save    # multi-agent swarm
 julia --project=. run.jl cartpole_swingup --save
 ```
 
-- **`--save`** → renders static panels (spike raster + firing rate + trajectory/swarm) to a
-  PNG in `demo/output/`. Works headless, anywhere, on any task.
+- **`--save`** → archives a **timestamped run directory** under `demo/runs/<task>/fixed/<UTC>_<git>_<id>/`
+  containing `config.resolved.toml`, `manifest.toml` (git SHA, Julia + package versions, seeds),
+  `metrics.toml`, `figure.png` (static panels), and `activity.gif` (the rollout animation). Headless,
+  any task. Add `--no-gif` to skip the (slower) animation.
 - **no flag** → opens a **live GLMakie window** with Play / Step / speed controls (needs
   `GLMakie` and a display).
 
-Flags: `--node <name>` · `--ticks <n>` · `--seed <n>` · `--n-agents <n>` · `--out <dir>`.
+Flags: `--node <name>` · `--ticks <n>` · `--seed <n>` · `--n-agents <n>` · `--no-gif` · `--out <runs-root>`.
 
-A `wall` figure looks like: a spike raster over time, the population firing-rate trace, and
-the agent's 2-D path through the box.
+The figure is a spike raster + firing-rate trace + trajectory/swarm; the GIF plays the agent
+moving (trail + heading) with a marker sweeping the firing-rate timeline.
 
 ---
 
@@ -77,6 +79,7 @@ Visualisation is a **clean optional layer** — the engine never imports Makie; 
 | Call | What it gives you |
 | --- | --- |
 | `visualize(sim; panels=[...])` | a static `CairoMakie` figure assembling chosen panels |
+| `animate(sim; path="…​.gif")` | a **GIF/MP4** of the rollout: agent moving (trail + heading) + a synced firing-rate marker |
 | `explore(task; node=..., ...)` | a live **GLMakie** window: Play / Step / speed slider |
 | `replay(rundir)` | reconstruct views from a saved run's artifacts |
 | `rasterplot` / `rateplot` / `trajectoryplot` / `swarmplot` / `networkplot` / `driftplot` / `fitnessplot` | individual recipes |

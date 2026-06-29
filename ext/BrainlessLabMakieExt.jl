@@ -394,6 +394,69 @@ end
 
 BL.replay(sim::BL.SimResult; kwargs...) = BL.visualize(sim; kwargs...)
 
+"""
+    animate(sim; path="activity.gif", framerate=20, trail=40, maxframes=200)
+
+Render a GIF/MP4 of the rollout: the agent(s) moving in the world (trail +
+heading) with a synced firing-rate marker. Replays the recorder's per-tick
+`:poses`/`:rate` channels. Returns the output path.
+"""
+function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
+                    framerate::Integer=20, trail::Integer=40, maxframes::Integer=200)
+    tracks = _pose_tracks(sim)
+    rate = _rate_trace(sim)
+    nt = isempty(tracks) ? length(rate) : maximum(length, tracks)
+    nt == 0 && throw(ArgumentError("animate: nothing recorded (need :poses or :rate)"))
+    frames = unique(round.(Int, range(1, nt; length=min(nt, maxframes))))
+    bounds = _plot_bounds(sim)
+    pol = _channel(sim, :polarization)
+    mill = _channel(sim, :milling)
+    has_world = !isempty(tracks)
+    nr = length(rate)
+    rmax = nr == 0 ? 1.0 : max(1e-6, maximum(rate)) * 1.05
+
+    fig = Makie.Figure(size=(720, has_world ? 760 : 340))
+    axw = has_world ? Makie.Axis(fig[1, 1]; xlabel="x", ylabel="y") : nothing
+    axr = Makie.Axis(fig[has_world ? 2 : 1, 1]; xlabel="tick", ylabel="rate", title="firing rate")
+    has_world && Makie.rowsize!(fig.layout, 2, Makie.Relative(0.22))
+
+    Makie.record(fig, path, frames; framerate=framerate) do f
+        if axw !== nothing
+            Makie.empty!(axw)
+            if bounds !== nothing
+                x0, x1, y0, y1 = bounds
+                Makie.lines!(axw, [x0, x1, x1, x0, x0], [y0, y0, y1, y1, y0]; color=:gray70, linewidth=1)
+                Makie.xlims!(axw, x0, x1)
+                Makie.ylims!(axw, y0, y1)
+            end
+            for tr in tracks
+                isempty(tr) && continue
+                ff = min(f, length(tr))
+                lo = max(1, ff - trail)
+                Makie.lines!(axw, [p[1] for p in tr[lo:ff]], [p[2] for p in tr[lo:ff]];
+                             color=(:dodgerblue4, 0.55), linewidth=2)
+                p = tr[ff]
+                Makie.scatter!(axw, [p[1]], [p[2]]; markersize=13, color=:seagreen4)
+                Makie.linesegments!(axw,
+                    [Makie.Point2f(p[1], p[2]), Makie.Point2f(p[1] + 0.5cos(p[3]), p[2] + 0.5sin(p[3]))];
+                    color=:black, linewidth=2)
+            end
+            ttl = "tick $f / $nt"
+            if !isempty(pol)
+                pf = Float64(pol[min(f, length(pol))]); mf = Float64(mill[min(f, length(mill))])
+                ttl *= "    P=$(round(pf; digits=2))  M=$(round(mf; digits=2))"
+            end
+            axw.title = ttl
+        end
+        Makie.empty!(axr)
+        Makie.lines!(axr, 1:nr, rate; color=:dodgerblue4, linewidth=1.5)
+        Makie.vlines!(axr, [min(f, nr)]; color=:red, linewidth=1.5)
+        Makie.xlims!(axr, 1, max(nr, 2))
+        Makie.ylims!(axr, 0, rmax)
+    end
+    return path
+end
+
 function _require_glmakie()
     isdefined(Main, :GLMakie) && return getproperty(Main, :GLMakie)
     throw(ArgumentError("explore requires `using GLMakie` before calling explore."))

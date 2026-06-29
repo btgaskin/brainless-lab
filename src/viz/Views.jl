@@ -68,3 +68,10 @@ function explore end
 Generic recorded-run replay hook.
 """
 function replay end
+
+"""
+    animate(args...; kwargs...)
+
+Generic rollout-animation hook: render a GIF/MP4 of activity + movement over time.
+"""
+function animate end
