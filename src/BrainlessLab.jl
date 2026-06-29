@@ -34,6 +34,11 @@ include("world/Mediums.jl")
 include("world/Collective.jl")
 include("world/Metrics.jl")
 include("api/Highlevel.jl")
+include("drivers/Driver.jl")
+include("drivers/Parallel.jl")
+include("drivers/Evolve.jl")
+include("drivers/Fixed.jl")
+include("drivers/Plastic.jl")
 
 export NodeModel,
     Reservoir,
@@ -195,6 +200,14 @@ export SimResult,
     variants,
     tasks
 
+export SepCMA,
+    EvolveDriver,
+    FixedDriver,
+    PlasticDriver,
+    rollout,
+    evolve,
+    find_alive_centroid
+
 export rasterplot,
     rateplot,
     trajectoryplot,
@@ -246,5 +259,7 @@ register_view!(:replay, replay)
 register_ablation!(:reset_dendrites, ResetDendrites)
 register_ablation!(:no_soma_back, NoSomaBack)
 register_ablation!(:no_hillock_back, NoHillockBack)
+
+register_optimizer!(:sepcma, SepCMA)
 
 end

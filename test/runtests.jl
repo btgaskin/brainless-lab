@@ -10,6 +10,8 @@ include("test_collective_dyad.jl")
 include("test_api.jl")
 include("test_viz.jl")
 include("test_examples.jl")
+include("test_sepcma.jl")
+include("test_evolve.jl")
 
 @testset "BrainlessLab scaffold" begin
     @test BrainlessLab isa Module

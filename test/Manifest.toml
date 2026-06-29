@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "b8880ef27c7d3201364368718ea6ee43012f5714"
+project_hash = "72342c5f888974351053640373ed5dfdfea37224"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -10,7 +10,7 @@ version = "1.11.0"
 
 [[deps.BrainlessLab]]
 deps = ["LinearAlgebra", "Random", "StaticArrays"]
-path = "."
+path = ".."
 uuid = "d12add44-1e3e-4161-9a99-c2121a2f0f38"
 version = "0.0.1"
 

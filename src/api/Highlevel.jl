@@ -252,7 +252,6 @@ function _compartmental_native(
         hill_tau=hill_tau,
         hill_reset=hill_reset,
         intervention=_resolve_compartmental_intervention(ablation, intervention),
-        _kwargs_tuple(_kwdict(kwargs))...,
     )
     init_random && _randomize_compartmental_state!(reservoir, rng, state_scale)
     return reservoir
