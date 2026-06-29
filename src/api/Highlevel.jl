@@ -144,6 +144,21 @@ function _falandays_dale_native(
     )
 end
 
+# `:falandays_noisy` — the base reservoir wrapped with sensory input noise
+# (Uniform(±sensory_noise), clip >= 0). Distinct from `:falandays_oosawa`, which
+# is membrane noise. `sensory_noise` defaults to the v0.2 body value of 0.1.
+function _falandays_noisy_native(
+    n_nodes::Integer,
+    n_receptors_::Integer,
+    n_effectors_::Integer;
+    seed=nothing,
+    sensory_noise::Real=0.1,
+    kwargs...,
+)
+    inner = _falandays_native(n_nodes, n_receptors_, n_effectors_; seed=seed, kwargs...)
+    return NoisyInput(inner; sensory_noise=Float64(sensory_noise), seed=(seed === nothing ? 0 : Int(seed)))
+end
+
 function _native_compartmental_wiring(
     n_nodes::Integer,
     n_receptors_::Integer,

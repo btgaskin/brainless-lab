@@ -21,6 +21,7 @@ include("viz/Views.jl")
 include("nodes/Drives.jl")
 include("nodes/Axes.jl")
 include("nodes/Falandays.jl")
+include("nodes/NoisyInput.jl")
 include("nodes/Compartmental.jl")
 include("nodes/Wiring.jl")
 include("nodes/CompartmentalReservoir.jl")
@@ -247,7 +248,9 @@ export rasterplot,
 register_drive!(:none, NoDrive)
 register_drive!(:oosawa, OosawaDrive)
 
-register_node!(:falandays, _falandays_native)
+register_node!(:falandays, _falandays_native)        # alias of :falandays_base
+register_node!(:falandays_base, _falandays_native)
+register_node!(:falandays_noisy, _falandays_noisy_native)
 register_node!(:falandays_oosawa, _falandays_oosawa_native)
 register_node!(:falandays_dale, _falandays_dale_native)
 register_node!(:compartmental_dense, _compartmental_dense_native)
