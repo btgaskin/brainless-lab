@@ -91,6 +91,7 @@ function save_run_dir(task, sim, o)
         TOML.print(io, capture_manifest(cfg))
     end
     _write_metrics(joinpath(dir, "metrics.toml"), sim.metrics)
+    save_recorder(dir, sim)
 
     panels = get(PANELS, task, [:raster, :rate])
     fig = Base.invokelatest(visualize, sim; panels=panels)

@@ -45,6 +45,7 @@ include("drivers/Plastic.jl")
 include("run/Config.jl")
 include("run/Profiles.jl")
 include("run/Manifest.jl")
+include("run/Replay.jl")
 include("run/Artifacts.jl")
 include("run/Sweep.jl")
 
@@ -228,6 +229,7 @@ export RunConfig,
     read_config,
     write_config,
     resolve,
+    save_recorder,
     run_experiment,
     run_from_config,
     run_sweep,

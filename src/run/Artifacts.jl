@@ -238,6 +238,7 @@ function save_run(result, cfg::RunConfig, dir::AbstractString; manifest=nothing,
     _write_suite_log(joinpath(dir, "logs", "suite_log.jsonl"), result, resolved)
     _save_best_jld2(joinpath(dir, "genomes", "best.jld2"), result, resolved)
     _write_json_file(joinpath(dir, "metrics", "final.json"), _final_metrics(result, resolved))
+    result isa SimResult && save_recorder(dir, result)
     return dir
 end
 
