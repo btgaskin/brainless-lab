@@ -92,8 +92,8 @@ function _falandays_oosawa_native(
     n_receptors_::Integer,
     n_effectors_::Integer;
     seed=nothing,
-    membrane_noise::Real=1.0,
-    noise_gain::Real=0.3,
+    membrane_noise::Real=0.0,
+    noise_gain::Real=0.8,
     kwargs...,
 )
     options = _kwdict(kwargs)
