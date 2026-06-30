@@ -1,0 +1,19 @@
+neurons = []
+tasks = ["wall", "tracking", "pong", "cartpole", "cartpole_swingup"]
+
+n_trials = 20
+n_nodes = 120
+ticks = 300
+seed_base = 1000
+baseline = "falandays_base"
+alpha = 0.05
+gifs = true
+
+[prep]
+# Empty neurons means all registered BrainlessLab variants.
+# Defaults are:
+#   falandays* -> untrained
+#   compartmental* -> trained
+# Override examples:
+# falandays_base = "untrained"
+# compartmental_dense = "trained"

@@ -9,3 +9,7 @@ examples/output/
 /demo/output/
 /demo/Manifest.toml
 /demo/runs/
+/bench/runs/
+/bench/genomes/
+/bench/Manifest.toml
+/bench/output/

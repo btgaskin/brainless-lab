@@ -1,0 +1,12 @@
+neurons = ["falandays_base", "falandays_ablated", "compartmental_structured"]
+tasks = ["wall", "tracking"]
+
+n_trials = 5
+n_nodes = 60
+ticks = 150
+seed_base = 1000
+baseline = "falandays_base"
+alpha = 0.05
+gifs = true
+
+[prep]
