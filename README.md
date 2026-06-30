@@ -11,6 +11,10 @@ Every node family, environment, collective, ablation, and the evolutionary optim
 **validated to Float64 against the original numpy implementation** (`../v0`, `../v0.2`) as
 the oracle. The compute core is pure and fast; visualisation is an optional layer.
 
+**Documentation:** see [`docs/`](docs/README.md) — [nodes & variants](docs/nodes.md),
+[tasks & their I/O mappings](docs/tasks.md), [receptors & effectors](docs/receptors-effectors.md),
+[the collective](docs/collective.md), [evolution](docs/evolution.md).
+
 ---
 
 ## Quickstart
