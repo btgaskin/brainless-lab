@@ -29,6 +29,12 @@ Run outputs are written to:
 
 Each run contains resolved configuration, a provenance manifest, raw per-trial CSV, summary CSV, nonparametric statistics JSON, Markdown report, plots, and per-cell score/artifact directories.
 
+Compare two or more completed benchmark runs:
+
+    julia --project=. compare.jl runs/<runA> runs/<runB> --out comparisons/<label>
+
+The comparison tool reads each run's `summary.csv`, aligns rows by neuron, task, and metric, and writes `comparison.csv` plus `comparison.md`. Missing cells are marked explicitly. The Markdown report groups tables by task and flags runs whose confidence interval does not overlap the first run's confidence interval.
+
 Fairness rule:
 
 Falandays-family neurons default to `untrained`, which uses seeded per-trial wiring and default parameters while online plasticity acts during the rollout. Compartmental-family neurons default to `trained`, because untrained non-plastic weights are not a meaningful benchmark. If a cell requires a trained genome and none exists, the pipeline falls back to untrained evaluation and marks that cell with `trained-required-but-untrained` in outputs.

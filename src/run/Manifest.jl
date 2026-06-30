@@ -58,6 +58,27 @@ function _direct_package_versions()
     return out
 end
 
+function _fnv1a64_hex(bytes::Vector{UInt8})
+    h = UInt64(0xcbf29ce484222325)
+    prime = UInt64(0x00000100000001b3)
+    for byte in bytes
+        h = xor(h, UInt64(byte)) * prime
+    end
+    return string(h; base=16, pad=16)
+end
+
+function _manifest_toml_fnv1a()
+    try
+        root = pkgdir(@__MODULE__)
+        root === nothing && return "unknown"
+        man_path = joinpath(root, "Manifest.toml")
+        isfile(man_path) || return "unknown"
+        return _fnv1a64_hex(read(man_path))
+    catch
+        return "unknown"
+    end
+end
+
 function _seed_scheme(cfg::RunConfig)
     resolved = resolve(cfg)
     train_preview = [
@@ -123,6 +144,7 @@ function capture_manifest(cfg::RunConfig; seeds=nothing)
     repo = _repo_root()
     sha = _git_sha(repo)
     seed_info = seeds === nothing ? _seed_scheme(resolved) : seeds
+    manifest_sha = _manifest_toml_fnv1a()
 
     return Dict{String,Any}(
         "manifest_version" => "1",
@@ -130,6 +152,8 @@ function capture_manifest(cfg::RunConfig; seeds=nothing)
         "repo_path" => repo,
         "git_sha" => sha,
         "git_dirty" => _git_dirty(repo),
+        "manifest_sha" => manifest_sha,
+        "manifest_toml_fnv1a" => manifest_sha,
         "julia_version" => string(VERSION),
         "hostname" => _hostname(),
         "threads" => Threads.nthreads(),

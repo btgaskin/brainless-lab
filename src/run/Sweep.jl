@@ -155,6 +155,51 @@ function _write_sweep_index(path::AbstractString, rows, axis_names)
     return path
 end
 
+_sweep_done_path(cell_dir::AbstractString) = joinpath(cell_dir, "DONE")
+
+function _sweep_result_file(cell_dir::AbstractString)
+    return joinpath(cell_dir, "metrics", "final.json")
+end
+
+function _sweep_cell_complete(cell_dir::AbstractString)
+    isdir(cell_dir) || return false
+    has_result = isfile(_sweep_result_file(cell_dir))
+    has_core_artifacts =
+        isfile(joinpath(cell_dir, "manifest.toml")) &&
+        isfile(joinpath(cell_dir, "config.resolved.toml"))
+    return has_result && (isfile(_sweep_done_path(cell_dir)) || has_core_artifacts)
+end
+
+function _sweep_best_fitness(cell_dir::AbstractString)
+    checkpoint = joinpath(cell_dir, "genomes", "best.jld2")
+    isfile(checkpoint) || return missing
+    try
+        data = JLD2.load(checkpoint)
+        return get(data, "best_fitness", missing)
+    catch
+        return missing
+    end
+end
+
+function _write_sweep_done(cell_dir::AbstractString, cell_id::AbstractString, best_fitness)
+    open(_sweep_done_path(cell_dir), "w") do io
+        println(io, "status = \"done\"")
+        println(io, "cell = \"", _sanitize_path_part(cell_id), "\"")
+        println(io, "completed_utc = \"", _utc_timestamp(), "\"")
+        best_fitness === missing || println(io, "best_fitness = ", _csv_cell(best_fitness))
+    end
+    return _sweep_done_path(cell_dir)
+end
+
+function _sweep_row(cell_id::AbstractString, params, cell_dir::AbstractString, best_fitness)
+    return Dict{String,Any}(
+        "cell" => cell_id,
+        "params" => params,
+        "result_path" => cell_dir,
+        "best_fitness" => best_fitness,
+    )
+end
+
 function run_sweep(sweep_toml::AbstractString; root=nothing)
     data = TOML.parsefile(sweep_toml)
     axes = _axis_table(data)
@@ -175,16 +220,19 @@ function run_sweep(sweep_toml::AbstractString; root=nothing)
         cell_id = "cell_" * lpad(string(idx), 3, "0")
         cell_dir = joinpath(sweep_root, cell_id)
         cfg = _apply_sweep_params(base_cfg, params)
+
+        if _sweep_cell_complete(cell_dir)
+            best_fitness = _sweep_best_fitness(cell_dir)
+            isfile(_sweep_done_path(cell_dir)) || _write_sweep_done(cell_dir, cell_id, best_fitness)
+            @info "Skipping completed sweep cell" cell=cell_id dir=cell_dir
+            push!(rows, _sweep_row(cell_id, params, cell_dir, best_fitness))
+            continue
+        end
+
         run = run_experiment(cfg; dir=cell_dir)
-        push!(
-            rows,
-            Dict{String,Any}(
-                "cell" => cell_id,
-                "params" => params,
-                "result_path" => run.dir,
-                "best_fitness" => _getprop(run.result, :best_fitness, missing),
-            ),
-        )
+        best_fitness = _getprop(run.result, :best_fitness, missing)
+        _write_sweep_done(run.dir, cell_id, best_fitness)
+        push!(rows, _sweep_row(cell_id, params, run.dir, best_fitness))
     end
 
     index_path = joinpath(sweep_root, "index.csv")

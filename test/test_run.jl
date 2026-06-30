@@ -68,6 +68,10 @@ end
     manifest = TOML.parsefile(joinpath(out.dir, "manifest.toml"))
     @test haskey(manifest, "git_sha")
     @test manifest["git_sha"] isa AbstractString
+    @test haskey(manifest, "manifest_sha")
+    @test haskey(manifest, "manifest_toml_fnv1a")
+    @test manifest["manifest_sha"] == manifest["manifest_toml_fnv1a"]
+    @test manifest["manifest_sha"] isa AbstractString
     @test haskey(manifest, "julia_version")
     @test haskey(manifest, "seeds")
     @test manifest["seeds"]["seed_base"] == cfg.run.seed_base
@@ -138,7 +142,24 @@ end
     @test length(sweep.cells) == 2
     @test isfile(sweep.index)
     @test all(row -> isdir(row["result_path"]), sweep.cells)
+    @test all(row -> isfile(joinpath(row["result_path"], "DONE")), sweep.cells)
 
     index_rows = readlines(sweep.index)
     @test length(index_rows) == 3
+
+    first_index = read(sweep.index, String)
+    first_manifests = Dict(
+        row["cell"] => read(joinpath(row["result_path"], "manifest.toml"), String)
+        for row in sweep.cells
+    )
+
+    resumed = run_sweep(sweep_path; root=joinpath(dir, "sweeps"))
+    @test length(resumed.cells) == 2
+    @test resumed.dir == sweep.dir
+    @test read(resumed.index, String) == first_index
+    @test all(row -> isfile(joinpath(row["result_path"], "DONE")), resumed.cells)
+    @test all(
+        row -> read(joinpath(row["result_path"], "manifest.toml"), String) == first_manifests[row["cell"]],
+        resumed.cells,
+    )
 end
