@@ -4,6 +4,8 @@ mutable struct CompartmentalReservoir{G<:AbstractCompartmental} <: Reservoir
     genome::G
     wiring::Wiring
     dt::Float64
+    substeps::Int      # forward-Euler integration sub-steps per env update
+    dt_sub::Float64    # = dt / substeps (the actual per-sub-step Euler dt)
     hill_tau::Float64
     hill_reset::Float64
     dend_y::Array{Float64,3}
@@ -19,6 +21,7 @@ function CompartmentalReservoir(
     genome::G,
     wiring::Wiring;
     dt::Real=1.0,
+    substeps::Integer=5,
     hill_tau::Real=HILL_TAU,
     hill_reset::Real=HILL_RESET,
     intervention=nothing,
@@ -27,11 +30,14 @@ function CompartmentalReservoir(
     wiring.mode == expected_mode ||
         throw(ArgumentError("genome mode $expected_mode does not match wiring mode $(wiring.mode)"))
 
+    substeps_ = max(1, Int(substeps))
     intervention_ = _compartmental_intervention(intervention)
     reservoir = CompartmentalReservoir{G}(
         genome,
         wiring,
         Float64(dt),
+        substeps_,
+        Float64(dt) / substeps_,
         Float64(hill_tau),
         Float64(hill_reset),
         zeros(Float64, wiring.N, wiring.K, COMPARTMENTAL_D),
@@ -196,7 +202,7 @@ function _update_dense_soma_and_hillock!(r::CompartmentalReservoir, g::DenseComp
         end
         hill_back = prev_spike_n * kernel.w_h_s[s_out]
         dy = (-soma_old[s_out] + rec + conv[s_out] + hill_back + kernel.b_s[s_out]) / kernel.tau_s[s_out]
-        soma_new[s_out] = soma_old[s_out] + r.dt * dy
+        soma_new[s_out] = soma_old[s_out] + r.dt_sub * dy
         r.soma_y[n, s_out] = soma_new[s_out]
     end
 
@@ -209,7 +215,7 @@ function _update_dense_soma_and_hillock!(r::CompartmentalReservoir, g::DenseComp
     end
 
     phi = g.thr_base + g.thr_gain * thr_readout
-    v_after = r.V[n] + r.dt * (-r.V[n] + drive) / r.hill_tau
+    v_after = r.V[n] + r.dt_sub * (-r.V[n] + drive) / r.hill_tau
     if v_after >= phi
         r.prev_spike[n] = 1.0
         r.V[n] = r.hill_reset
@@ -241,14 +247,14 @@ function _update_structured_soma_and_hillock!(r::CompartmentalReservoir, g::Stru
         end
         hill_back = s_out == hb_idx ? g.w_hb * prev_spike_n : 0.0
         dy = (-soma_old[s_out] + rec + conv[s_out] + hill_back + kernel.b_s[s_out]) / kernel.tau_s[s_out]
-        soma_new[s_out] = soma_old[s_out] + r.dt * dy
+        soma_new[s_out] = soma_old[s_out] + r.dt_sub * dy
         r.soma_y[n, s_out] = soma_new[s_out]
     end
 
     soma_out = _sigmoid_svector(_svector_s_from_mvector(soma_new))
     drive = g.w_drv * soma_out[drive_idx]
     phi = soma_out[thr_idx]
-    v_after = r.V[n] + r.dt * (-r.V[n] + drive) / r.hill_tau
+    v_after = r.V[n] + r.dt_sub * (-r.V[n] + drive) / r.hill_tau
     if v_after >= phi
         r.prev_spike[n] = 1.0
         r.V[n] = r.hill_reset
@@ -269,7 +275,19 @@ function step!(r::CompartmentalReservoir, receptor_currents)
     length(receptor_c) == r.wiring.n_receptors ||
         throw(DimensionMismatch("expected $(r.wiring.n_receptors) receptor currents, got $(length(receptor_c))"))
 
-    spikes = _step_compartmental!(r, receptor_c, r.genome)
+    # Integrate the CTRNN with `substeps` forward-Euler sub-steps of dt_sub per env
+    # update (afferent input held constant; recurrence propagates per sub-step).
+    # The env-step output is the per-node spike RATE over the sub-steps; at
+    # substeps=1 this is the single-tick binary spike vector (== legacy behaviour).
+    if r.substeps <= 1
+        spikes = _step_compartmental!(r, receptor_c, r.genome)
+    else
+        acc = zeros(Float64, r.wiring.N)
+        for _ in 1:r.substeps
+            acc .+= _step_compartmental!(r, receptor_c, r.genome)
+        end
+        spikes = acc ./ r.substeps
+    end
     _compartmental_tick_intervention!(r.intervention, r)
     return spikes
 end
@@ -290,7 +308,7 @@ function _step_compartmental!(r::CompartmentalReservoir, receptor_c::Vector{Floa
             for d in 1:COMPARTMENTAL_D
                 rec = _dendrite_rec(o_d, kernel.W_dd, d)
                 dy = (-y_old[d] + rec + s_d * kernel.w_aff_d[d] + back[d] + kernel.b_d[d]) / kernel.tau_d[d]
-                r.dend_y[n, k, d] = y_old[d] + r.dt * dy
+                r.dend_y[n, k, d] = y_old[d] + r.dt_sub * dy
             end
         end
 
@@ -331,7 +349,7 @@ function _step_compartmental!(r::CompartmentalReservoir, receptor_c::Vector{Floa
                 aff = d == in_idx ? g.w_aff * s_d : 0.0
                 back = d == fb_idx ? g.w_back * prev_soma_out[back_unit] : 0.0
                 dy = (-y_old[d] + rec + aff + back + kernel.b_d[d]) / kernel.tau_d[d]
-                r.dend_y[n, k, d] = y_old[d] + r.dt * dy
+                r.dend_y[n, k, d] = y_old[d] + r.dt_sub * dy
             end
 
             unit = fwd_unit[n, k] + 1

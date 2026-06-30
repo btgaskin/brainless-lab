@@ -114,6 +114,13 @@ For Pong, the env-preserving options (`output_window` or a small `substeps`) are
 `substeps` that would freeze the ball. These belong to the same per-task spec as the sensor/effector layout
 (Angle A) and would be set from config; defaults reproduce the current paper-faithful 1-tick/step scheme.
 
+**Built so far (CTRNN only):** the compartmental nodes already implement integration sub-stepping —
+`CompartmentalReservoir(...; substeps=k)`, **default 5** (`dt_sub = dt/5 = 0.2`), with the afferent held
+across sub-steps and the env-step output being the per-node spike *rate* over the sub-steps; `substeps=1`
+reproduces the oracle single-step. See [nodes.md](nodes.md). This is the CTRNN's internal-integration
+version of the knob; the **readout-side** `output_window`/`input_encoding` for the Falandays nodes (which
+hold their input one tick/step) are still unbuilt.
+
 ## Status
 
 - ✅ Per-task R/E **documented and inspectable** (this page + [tasks.md](tasks.md)).

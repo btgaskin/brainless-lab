@@ -77,6 +77,7 @@ function _build_compartmental(mode::AbstractString, data)
     return CompartmentalReservoir(
         genome,
         wiring;
+        substeps=1,   # match the single forward-Euler step (dt=1.0) of the numpy oracle
         hill_tau=Float64(only(data["hill_tau"])),
         hill_reset=Float64(only(data["hill_reset"])),
     )

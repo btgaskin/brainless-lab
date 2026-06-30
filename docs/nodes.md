@@ -30,13 +30,19 @@ A dendrite→soma→hillock CTRNN cell with **emergent (evolved) weights and no 
 weights don't adapt, an **untrained** compartmental node is random/meaningless — it **must be evolved** to be
 tested fairly (see [evolution.md](evolution.md)). The genome is the full cell weight set.
 
-**Integration:** forward Euler, `dt = 1.0`, **one step per env update** (1 env-step : 1 reservoir-tick :
-1 integration-step). Each compartment updates `y ← y + dt·(−y + input)/τ`. Temporal dynamics come from the
-**time constants**, not sub-`dt` stepping: dendrite/soma `τ = TAU_MIN(1.0) + softplus(evolved) ≥ 1`
-(per-compartment, evolved); hillock `hill_tau = 3.5`, `hill_reset = 0`. Note `dt/τ ∈ (0,1]`: at the τ floor
-the state is fully overwritten each step (no memory, edge of Euler stability), so smooth integration relies
-on evolution lifting τ above 1. Finer dynamics would need K Euler sub-steps of `dt/K` (currently K=1) — the
-CTRNN analog of the `substeps` knob in [receptors-effectors.md](receptors-effectors.md#timing--temporal-coding).
+**Integration:** forward Euler over **`substeps = 5`** sub-steps of `dt_sub = dt/substeps = 0.2` per env
+update (total integration time `dt = 1.0` unchanged — *finer resolution*). Each compartment updates
+`y ← y + dt_sub·(−y + input)/τ`; the afferent input is held across the sub-steps and recurrence propagates at
+the fine timescale. The env-step output is the per-node **spike rate over the sub-steps** (∈ {0, 0.2, …, 1});
+at `substeps=1` this collapses to the single `dt=1.0` step with a binary spike vector — **exactly the numpy
+oracle** (parity tests pin `substeps=1`). Time constants: dendrite/soma `τ = TAU_MIN(1.0) +
+softplus(evolved) ≥ 1` (per-compartment, evolved); hillock `hill_tau = 3.5`, `hill_reset = 0`.
+
+Why 5: with a single `dt=1.0` step and `τ` near its floor of 1.0, `dt/τ = 1` overwrites the state each step
+(no memory, edge of Euler stability). Five sub-steps of `dt_sub=0.2` integrate the continuous dynamics
+smoothly (`dt_sub/τ ≤ 0.2`), so the cell retains genuine temporal state regardless of the evolved `τ`.
+Set `substeps` via the constructor (`CompartmentalReservoir(g, w; substeps=k)`); applies to both
+`:compartmental_dense` and `:compartmental_structured`.
 
 | variant | genome dim | notes |
 |---|---|---|
