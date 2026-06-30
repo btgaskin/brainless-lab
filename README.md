@@ -95,7 +95,10 @@ signature (behaviour persisting with no stable recurring codes).
 
 | Symbol | Description |
 | --- | --- |
-| `:falandays` | Base Falandays homeostatic spiking reservoir (the default). |
+| `:falandays_base` | Base Falandays homeostatic spiking reservoir (the default; `:falandays` is an alias). |
+| `:falandays_noisy` | + sensory input noise (`Uniform(±0.1)`, clip ≥0 — the v0.2 body formula). |
+| `:falandays_ablated` | Target homeostasis frozen (`lrate_targ=0`): target pinned at 1.0, threshold fixed at 2.0; weights still learn. |
+| `:falandays_hemispheric` | Two half-size reservoirs, contralateral wiring (right sensors→left effectors, left→right). |
 | `:falandays_oosawa` | + Oosawa endogenous membrane drive (stays active when blind). |
 | `:falandays_dale` | + Dale's-law signed weights, Watts–Strogatz wiring, Oosawa drive. |
 | `:compartmental_dense` | Dense compartmental cell (dendrite→soma→hillock CTRNN, emergent weights, no plasticity). |

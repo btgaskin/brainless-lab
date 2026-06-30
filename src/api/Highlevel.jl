@@ -165,6 +165,36 @@ function _with_lrate_targ(p::FalandaysParams, value::Real)
     return FalandaysParams(; fields..., lrate_targ=Float64(value))
 end
 
+# `:falandays_hemispheric` -- two half-size reservoirs with CONTRALATERAL wiring:
+# right sensors drive left effectors (one hemisphere), left sensors drive right
+# effectors (the other). Sensors/effectors are split into contiguous left/right
+# blocks; the two hemispheres are independent (~N/2 nodes each).
+function _falandays_hemispheric_native(
+    n_nodes::Integer,
+    n_receptors_::Integer,
+    n_effectors_::Integer;
+    seed=nothing,
+    kwargs...,
+)
+    n_receptors_ >= 2 || throw(ArgumentError("hemispheric node needs >= 2 receptors to split left/right"))
+    n_effectors_ >= 2 || throw(ArgumentError("hemispheric node needs >= 2 effectors to split left/right"))
+    n_nodes >= 2 || throw(ArgumentError("hemispheric node needs >= 2 nodes"))
+
+    n_left_sens = n_receptors_ ÷ 2
+    n_right_sens = n_receptors_ - n_left_sens
+    n_left_eff = n_effectors_ ÷ 2
+    n_right_eff = n_effectors_ - n_left_eff
+    na = cld(n_nodes, 2)          # hemi_a nodes
+    nb = n_nodes - na             # hemi_b nodes (sum == n_nodes)
+    s = seed === nothing ? nothing : Int(seed)
+    sb = s === nothing ? nothing : s + 7919   # distinct wiring for the two hemispheres
+
+    hemi_a = _falandays_native(na, n_right_sens, n_left_eff; seed=s, kwargs...)   # right -> left
+    hemi_b = _falandays_native(nb, n_left_sens, n_right_eff; seed=sb, kwargs...)  # left -> right
+    return HemisphericReservoir(hemi_a, hemi_b, Int(n_receptors_), Int(n_effectors_),
+                                n_left_sens, n_left_eff, na)
+end
+
 # `:falandays_ablated` -- target homeostasis ablated: lrate_targ=0 pins every
 # node's target at its init (1.0), so the firing threshold stays fixed at 2.0;
 # recurrent weights still learn. Tests the homeostatic-target mechanism.
