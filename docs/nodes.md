@@ -30,6 +30,14 @@ A dendrite→soma→hillock CTRNN cell with **emergent (evolved) weights and no 
 weights don't adapt, an **untrained** compartmental node is random/meaningless — it **must be evolved** to be
 tested fairly (see [evolution.md](evolution.md)). The genome is the full cell weight set.
 
+**Integration:** forward Euler, `dt = 1.0`, **one step per env update** (1 env-step : 1 reservoir-tick :
+1 integration-step). Each compartment updates `y ← y + dt·(−y + input)/τ`. Temporal dynamics come from the
+**time constants**, not sub-`dt` stepping: dendrite/soma `τ = TAU_MIN(1.0) + softplus(evolved) ≥ 1`
+(per-compartment, evolved); hillock `hill_tau = 3.5`, `hill_reset = 0`. Note `dt/τ ∈ (0,1]`: at the τ floor
+the state is fully overwritten each step (no memory, edge of Euler stability), so smooth integration relies
+on evolution lifting τ above 1. Finer dynamics would need K Euler sub-steps of `dt/K` (currently K=1) — the
+CTRNN analog of the `substeps` knob in [receptors-effectors.md](receptors-effectors.md#timing--temporal-coding).
+
 | variant | genome dim | notes |
 |---|---|---|
 | `:compartmental_structured` | **220** | single-port dendrite/soma routing, emergent threshold; the recommended ("structured") build, faster |
