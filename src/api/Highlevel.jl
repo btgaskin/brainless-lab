@@ -159,6 +159,29 @@ function _falandays_noisy_native(
     return NoisyInput(inner; sensory_noise=Float64(sensory_noise), seed=(seed === nothing ? 0 : Int(seed)))
 end
 
+# Copy a FalandaysParams with the target learning rate overridden.
+function _with_lrate_targ(p::FalandaysParams, value::Real)
+    fields = (; (f => getfield(p, f) for f in fieldnames(FalandaysParams))...)
+    return FalandaysParams(; fields..., lrate_targ=Float64(value))
+end
+
+# `:falandays_ablated` -- target homeostasis ablated: lrate_targ=0 pins every
+# node's target at its init (1.0), so the firing threshold stays fixed at 2.0;
+# recurrent weights still learn. Tests the homeostatic-target mechanism.
+function _falandays_ablated_native(
+    n_nodes::Integer,
+    n_receptors_::Integer,
+    n_effectors_::Integer;
+    seed=nothing,
+    kwargs...,
+)
+    options = _kwdict(kwargs)
+    base_params = _as_falandays_params(pop!(options, :params, FalandaysParams()))
+    pinned = _with_lrate_targ(base_params, 0.0)
+    return _falandays_native(n_nodes, n_receptors_, n_effectors_;
+                             seed=seed, params=pinned, _kwargs_tuple(options)...)
+end
+
 function _native_compartmental_wiring(
     n_nodes::Integer,
     n_receptors_::Integer,
