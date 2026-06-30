@@ -89,10 +89,36 @@ geometry (eye offsets, field of view, vision range) **is** the interaction topol
 tunable/evolvable means you can study how collective behaviour (flocking, milling) depends on, or co-evolves
 with, the sensorimotor interface — which is a central question, not a detail.
 
+## Timing & temporal coding
+
+Distinct from *what* the sensors are (above) is *how the reservoir is clocked against the world*.
+
+**Today:** exactly **one reservoir tick per env step**, graded continuous input, and the effector is read
+from that **single tick's** spike pattern — so the "rate" is the **spatial** proportion of the N nodes
+spiking (a population code), not a temporal accumulation. The reservoir is leaky + recurrent and is *not*
+reset between steps, so temporal memory lives in its **state**; only the **readout** is instantaneous. This
+is paper-faithful and, at large N, the spatial average is fairly smooth.
+
+**Where it bites:** fast tasks with a sensitive readout — **Pong** above all (fast ball, jittery single-tick
+paddle command), and small-N runs.
+
+**Levers (planned, all defaulting to today's behaviour):**
+
+| knob | default | meaning |
+|---|---|---|
+| `substeps` (K) | 1 | reservoir ticks per env step; accumulate output spikes over K → `E = mean`. Smoothest, but freezes the env during the window. |
+| `input_encoding` | `:graded` | `:graded` (current value) vs `:poisson`/`:regular` (spike train at rate ∝ value over the window) |
+| `output_window` (W) | 1 | moving-average the effector over the last W env-steps — cheap, doesn't freeze the env, lags by ~W |
+
+For Pong, the env-preserving options (`output_window` or a small `substeps`) are preferable to a large
+`substeps` that would freeze the ball. These belong to the same per-task spec as the sensor/effector layout
+(Angle A) and would be set from config; defaults reproduce the current paper-faithful 1-tick/step scheme.
+
 ## Status
 
 - ✅ Per-task R/E **documented and inspectable** (this page + [tasks.md](tasks.md)).
-- ⬜ Spec refactor (Angle A) — not yet built.
+- ✅ Timing scheme **documented** (1 tick/env-step, graded in, spatial-rate readout).
+- ⬜ Spec refactor (Angle A: sensor/effector layout **+ timing knobs**) — not yet built.
 - ⬜ Evolvable morphology (Angle B) — not yet built; depends on A.
 
 These are the next build targets for the I/O layer; see [evolution.md](evolution.md) for how the controller
