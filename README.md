@@ -108,7 +108,7 @@ Visualisation is a **clean optional layer** -- the engine never imports Makie; a
 | `visualize(sim; panels=[...])` | a static `CairoMakie` figure assembling chosen panels |
 | `animate(sim; path="...gif")` | a **GIF/MP4** of the actual task behaviour: tracking (eye chasing the stimulus), pong (ball + paddle), cartpole (cart + pole), wall/torus (agent moving) -- with a synced firing-rate marker |
 | `explore(task; node=..., ...)` | a live **GLMakie** window: Play / Step / speed slider |
-| `replay(sim)` | re-render an in-memory `SimResult` through `visualize`; saved run-directory replay is planned, not implemented |
+| `replay(sim)` / `replay(rundir)` | re-render an in-memory `SimResult`, or **load a saved run directory** (`recorder.jld2`) back into a `SimResult` and re-render it with `visualize`/`animate` |
 | `rasterplot` / `rateplot` / `trajectoryplot` / `swarmplot` / `networkplot` / `driftplot` / `fitnessplot` | individual recipes |
 
 `driftplot` shows the spike-pattern autocorrelation over time -- the representational-drift
