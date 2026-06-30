@@ -26,7 +26,7 @@ let
     ticks = 220
     base = simulate(:wall; node=:falandays, ticks=ticks, seed=11)
     oosawa = simulate(:wall; node=:falandays_oosawa, ticks=ticks, seed=11)
-    dale = simulate(:wall; node=:falandays_dale, ticks=ticks, seed=11)
+    noisy = simulate(:wall; node=:falandays_noisy, ticks=ticks, seed=11)
     oosawa_endogenous = no_input_trace(:falandays_oosawa; ticks=ticks, seed=11)
 
     fig = Figure(size=(900, 560))
@@ -34,17 +34,17 @@ let
     lines!(ax_rate, rate_trace(base); label="falandays")
     lines!(ax_rate, rate_trace(oosawa); label="oosawa with wall input")
     lines!(ax_rate, oosawa_endogenous; label="oosawa no input")
-    lines!(ax_rate, rate_trace(dale); label="dale + oosawa")
+    lines!(ax_rate, rate_trace(noisy); label="noisy (sensory)")
     axislegend(ax_rate)
 
     ax_score = Axis(fig[2, 1]; xlabel="variant", ylabel="wall score", title="Short-run score")
-    scores = [base.metrics.score, oosawa.metrics.score, dale.metrics.score]
-    labels = ["base", "oosawa", "dale"]
+    scores = [base.metrics.score, oosawa.metrics.score, noisy.metrics.score]
+    labels = ["base", "oosawa", "noisy"]
     barplot!(ax_score, 1:3, scores)
     ax_score.xticks = (1:3, labels)
 
     save(joinpath(output_dir, "variant_tour.png"), fig)
 
-    println("variant scores base=$(round(base.metrics.score; digits=3)) oosawa=$(round(oosawa.metrics.score; digits=3)) dale=$(round(dale.metrics.score; digits=3))")
+    println("variant scores base=$(round(base.metrics.score; digits=3)) oosawa=$(round(oosawa.metrics.score; digits=3)) noisy=$(round(noisy.metrics.score; digits=3))")
     println("saved figures to $(output_dir)")
 end

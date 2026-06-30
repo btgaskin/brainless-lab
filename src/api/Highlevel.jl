@@ -20,7 +20,6 @@ const _DEFAULT_RECORD_CHANNELS = (:spikes, :rate, :poses, :polarization, :millin
 const _NODE_DEFAULT_N = Dict{Symbol,Int}(
     :falandays => 100,
     :falandays_oosawa => 100,
-    :falandays_dale => 100,
     :compartmental_dense => 60,
     :compartmental_structured => 60,
 )
@@ -108,38 +107,6 @@ function _falandays_oosawa_native(
         Int(n_effectors_);
         seed=seed,
         drive=drive,
-        _kwargs_tuple(options)...,
-    )
-end
-
-function _falandays_dale_native(
-    n_nodes::Integer,
-    n_receptors_::Integer,
-    n_effectors_::Integer;
-    seed=nothing,
-    membrane_noise::Real=1.0,
-    noise_gain::Real=0.5,
-    kwargs...,
-)
-    options = _kwdict(kwargs)
-    drive = pop!(
-        options,
-        :drive,
-        OosawaDrive(membrane_noise=Float64(membrane_noise), noise_gain=Float64(noise_gain)),
-    )
-    sign = pop!(options, :sign, :dale)
-    topology = pop!(options, :topology, :watts_strogatz)
-    rectify = pop!(options, :rectify, false)
-
-    return FalandaysReservoir(
-        Int(n_nodes),
-        Int(n_receptors_),
-        Int(n_effectors_);
-        seed=seed,
-        drive=drive,
-        sign=sign,
-        topology=topology,
-        rectify=rectify,
         _kwargs_tuple(options)...,
     )
 end

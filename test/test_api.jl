@@ -50,7 +50,6 @@ _myview(x; kwargs...) = x
     required_variants = (
         :falandays,
         :falandays_oosawa,
-        :falandays_dale,
         :compartmental_dense,
         :compartmental_structured,
     )

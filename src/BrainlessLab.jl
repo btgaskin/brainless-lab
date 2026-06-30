@@ -113,8 +113,7 @@ export FalandaysParams,
     next_noise!,
     reset_noise!,
     noise_index,
-    falandays_oosawa,
-    falandays_dale
+    falandays_oosawa
 
 export AbstractCompartmental,
     DenseCompartmental,
@@ -255,7 +254,6 @@ register_node!(:falandays_noisy, _falandays_noisy_native)
 register_node!(:falandays_ablated, _falandays_ablated_native)
 register_node!(:falandays_hemispheric, _falandays_hemispheric_native)
 register_node!(:falandays_oosawa, _falandays_oosawa_native)
-register_node!(:falandays_dale, _falandays_dale_native)
 register_node!(:compartmental_dense, _compartmental_dense_native)
 register_node!(:compartmental_structured, _compartmental_structured_native)
 

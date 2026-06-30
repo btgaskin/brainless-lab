@@ -490,12 +490,3 @@ function falandays_oosawa(args...; membrane_noise::Real=0.0, noise_gain::Real=0.
     )
 end
 
-function falandays_dale(args...; kwargs...)
-    return FalandaysReservoir(
-        args...;
-        sign=:dale,
-        topology=:watts_strogatz,
-        rectify=false,
-        kwargs...,
-    )
-end
