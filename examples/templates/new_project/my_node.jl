@@ -260,13 +260,15 @@ function snapshot_state(r::MyNode)
     )
 end
 
+_state_get(state, key::Symbol) = state isa AbstractDict ? state[key] : getproperty(state, key)
+
 function load_state!(r::MyNode, state)
-    copyto!(r.acts, _float_vector(getproperty(state, :acts), "state.acts"))
-    copyto!(r.targets, _float_vector(getproperty(state, :targets), "state.targets"))
-    copyto!(r.spikes, _float_vector(getproperty(state, :spikes), "state.spikes"))
-    copyto!(r.errors, _float_vector(getproperty(state, :errors), "state.errors"))
-    copyto!(r.prev_spikes, _float_vector(getproperty(state, :prev_spikes), "state.prev_spikes"))
-    r.wmat .= Float64.(getproperty(state, :wmat))
+    copyto!(r.acts, _float_vector(_state_get(state, :acts), "state.acts"))
+    copyto!(r.targets, _float_vector(_state_get(state, :targets), "state.targets"))
+    copyto!(r.spikes, _float_vector(_state_get(state, :spikes), "state.spikes"))
+    copyto!(r.errors, _float_vector(_state_get(state, :errors), "state.errors"))
+    copyto!(r.prev_spikes, _float_vector(_state_get(state, :prev_spikes), "state.prev_spikes"))
+    r.wmat .= Float64.(_state_get(state, :wmat))
     return r
 end
 

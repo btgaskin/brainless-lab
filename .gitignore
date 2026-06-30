@@ -13,3 +13,5 @@ examples/output/
 /bench/genomes/
 /bench/Manifest.toml
 /bench/output/
+/examples/templates/new_project/output/
+/examples/templates/new_project/Manifest.toml
