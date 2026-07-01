@@ -8,7 +8,6 @@ struct Port{P}
 end
 
 Port(id::Symbol) = Port(id, NO_PLACEMENT)
-Port(id::Symbol, placement::P) where {P} = Port{P}(id, placement)
 
 struct PortSpec{RP,EP}
     n_receptors::Int
