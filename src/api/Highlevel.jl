@@ -321,6 +321,29 @@ function _build_reservoir(
     end
 end
 
+function _validate_agent_ports(reservoir::Reservoir, body::Body, morphology::Morphology)
+    spec = portspec(morphology)
+    reservoir_receptors = n_receptors(reservoir)
+    reservoir_effectors = n_effectors(reservoir)
+    morphology_receptors = n_receptors(spec)
+    morphology_effectors = n_effectors(spec)
+
+    if reservoir_receptors != morphology_receptors || reservoir_effectors != morphology_effectors
+        msg =
+            "Agent port mismatch for $(typeof(body)) / $(typeof(morphology)): " *
+            "reservoir has ($(reservoir_receptors), $(reservoir_effectors)) " *
+            "but morphology expects ($(morphology_receptors), $(morphology_effectors))"
+        throw(DimensionMismatch(msg))
+    end
+
+    return nothing
+end
+
+function _make_agent(reservoir::Reservoir, body::Body, morphology::Morphology)
+    _validate_agent_ports(reservoir, body, morphology)
+    return Agent(reservoir, body)
+end
+
 function _make_task_collective(
     task_spec::TaskSpec,
     node::Symbol,
@@ -334,16 +357,18 @@ function _make_task_collective(
 )
     env_options = _kwargs_tuple(_merge_kwdicts(env_kwargs))
     env = make_env(task_spec; rng=_sim_rng(seed), env_options...)
+    morphology = default_morphology(env)
+    spec = portspec(morphology)
     reservoir = _build_reservoir(
         node,
         node_ctor,
         n_nodes,
-        task_spec.n_receptors,
-        task_spec.n_effectors;
+        n_receptors(spec),
+        n_effectors(spec);
         seed=seed,
         node_kwargs=node_kwargs,
     )
-    agent = Agent(reservoir, PassthroughBody())
+    agent = _make_agent(reservoir, PassthroughBody(), morphology)
     recorder = Recorder(enabled=record, every=every)
     collective = Collective([agent], TaskMedium(env); recorder=recorder)
     return collective, recorder
@@ -369,16 +394,19 @@ function _make_swarm_collective(
 
     agents = Vector{Agent}(undef, config.n_agents)
     @inbounds for i in 1:config.n_agents
+        body = medium.bodies[i]
+        morphology = default_morphology(body)
+        spec = portspec(morphology)
         reservoir = _build_reservoir(
             node,
             node_ctor,
             config.n_nodes,
-            64,
-            3;
+            n_receptors(spec),
+            n_effectors(spec);
             seed=_sim_seed(seed, i - 1),
             node_kwargs=node_kwargs,
         )
-        agents[i] = Agent(reservoir, medium.bodies[i])
+        agents[i] = _make_agent(reservoir, body, morphology)
     end
 
     recorder = Recorder(enabled=record, every=every)

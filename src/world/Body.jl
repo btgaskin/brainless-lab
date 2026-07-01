@@ -18,10 +18,6 @@ percepts and accept reservoir-shaped motor commands.
 """
 struct PassthroughBody <: Body end
 
-receptors(::PassthroughBody, percept) = percept
-
-motor(::PassthroughBody, e) = e
-
 Base.@kwdef struct VENParams
     top_speed::Float64 = 0.2
     accel_time::Float64 = 5.0
@@ -62,8 +58,6 @@ function _ven_output_acts(output_acts)
     return clamp.(vals, 0.0, 1.0)
 end
 
-motor(::VENBody, e) = _ven_output_acts(e)
-
 function motor(b::VENBody, e, torus::Torus)
     output_acts = _ven_output_acts(e)
     params = b.params
@@ -103,16 +97,6 @@ function assemble_inputs(sens_agents_vec, sensory_scaling::Bool=true)
     end
 
     return inputs
-end
-
-function receptors(::VENBody, percept)
-    vals = Float64.(vec(collect(percept)))
-    if length(vals) == 64
-        return copy(vals)
-    elseif length(vals) == 62
-        return assemble_inputs(vals)
-    end
-    throw(DimensionMismatch("VENBody percept must have length 62 or 64, got $(length(vals))"))
 end
 
 function sense_agents(
