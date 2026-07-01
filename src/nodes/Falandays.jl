@@ -134,20 +134,6 @@ function Base.getproperty(r::ReservoirInstance, s::Symbol)
         return getfield(r, :state)
     elseif s === :io
         return getfield(r, :io)
-    elseif s === :acts || s === :targets || s === :spikes || s === :errors || s === :prev_spikes
-        return getfield(getfield(r, :state), s)
-    elseif s === :noise_source
-        return getfield(getfield(r, :state), :noise)
-    elseif s === :wmat
-        return getfield(getfield(r, :conn), :wmat)
-    elseif s === :recurrent_mask || s === :input_wmat || s === :output_mask || s === :wmat0
-        return getfield(getfield(r, :connectome), s)
-    elseif s === :params || s === :drive || s === :sign || s === :rectify
-        return getfield(getfield(r, :model), s)
-    elseif s === :n_receptors
-        return n_receptors(getfield(r, :io))
-    elseif s === :n_effectors
-        return n_effectors(getfield(r, :io))
     end
     return getfield(r, s)
 end
@@ -188,6 +174,35 @@ mutable struct FalandaysNeuronState{NS}
 end
 
 const FalandaysReservoir = ReservoirInstance{<:FalandaysModel, <:DenseConnectome, <:FalandaysConnState}
+
+function Base.getproperty(r::FalandaysReservoir, s::Symbol)
+    if s === :model
+        return getfield(r, :model)
+    elseif s === :connectome
+        return getfield(r, :connectome)
+    elseif s === :conn
+        return getfield(r, :conn)
+    elseif s === :state
+        return getfield(r, :state)
+    elseif s === :io
+        return getfield(r, :io)
+    elseif s === :acts || s === :targets || s === :spikes || s === :errors || s === :prev_spikes
+        return getfield(getfield(r, :state), s)
+    elseif s === :noise_source
+        return getfield(getfield(r, :state), :noise)
+    elseif s === :wmat
+        return getfield(getfield(r, :conn), :wmat)
+    elseif s === :recurrent_mask || s === :input_wmat || s === :output_mask || s === :wmat0
+        return getfield(getfield(r, :connectome), s)
+    elseif s === :params || s === :drive || s === :sign || s === :rectify
+        return getfield(getfield(r, :model), s)
+    elseif s === :n_receptors
+        return n_receptors(getfield(r, :io))
+    elseif s === :n_effectors
+        return n_effectors(getfield(r, :io))
+    end
+    return getfield(r, s)
+end
 
 _as_falandays_params(p::FalandaysParams) = p
 _as_falandays_params(raw::AbstractVector{<:Real}) = unpack_params(FalandaysParams, raw)

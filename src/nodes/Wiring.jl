@@ -1,6 +1,6 @@
 using Random
 
-struct Wiring
+struct Wiring <: Connectome
     N::Int
     K_rec::Int
     K_in::Int
@@ -18,6 +18,8 @@ struct Wiring
     n_receptors::Int
     n_effectors::Int
 end
+
+const CompartmentalConnectome = Wiring
 
 function _wiring_mode(mode::Symbol)
     mode in (:dense, :structured) ||

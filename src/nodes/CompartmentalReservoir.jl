@@ -1,20 +1,69 @@
 using StaticArrays: MVector, SMatrix, SVector
 
-mutable struct CompartmentalReservoir{G<:AbstractCompartmental} <: Reservoir
+struct CompartmentalModel{G<:AbstractCompartmental} <: NodeModel
     genome::G
-    wiring::Wiring
     dt::Float64
     substeps::Int      # forward-Euler integration sub-steps per env update
     dt_sub::Float64    # = dt / substeps (the actual per-sub-step Euler dt)
     hill_tau::Float64
     hill_reset::Float64
+    intervention::Union{Nothing,Intervention}
+end
+
+struct CompartmentalConnState <: ConnState end
+
+mutable struct CompartmentalNeuronState
     dend_y::Array{Float64,3}
     soma_y::Matrix{Float64}
     V::Vector{Float64}
     prev_soma_y::Matrix{Float64}
     prev_spike::Vector{Float64}
     spike_buffer::Vector{Float64}
-    intervention::Union{Nothing,Intervention}
+end
+
+const CompartmentalReservoir{G<:AbstractCompartmental} =
+    ReservoirInstance{CompartmentalModel{G}, <:Wiring, <:CompartmentalConnState, <:CompartmentalNeuronState}
+
+function Base.getproperty(r::CompartmentalReservoir, s::Symbol)
+    if s === :model
+        return getfield(r, :model)
+    elseif s === :connectome
+        return getfield(r, :connectome)
+    elseif s === :conn
+        return getfield(r, :conn)
+    elseif s === :state
+        return getfield(r, :state)
+    elseif s === :io
+        return getfield(r, :io)
+    elseif s === :genome || s === :dt || s === :substeps || s === :dt_sub ||
+           s === :hill_tau || s === :hill_reset || s === :intervention
+        return getfield(getfield(r, :model), s)
+    elseif s === :wiring
+        return getfield(r, :connectome)
+    elseif s === :dend_y || s === :soma_y || s === :V || s === :prev_soma_y ||
+           s === :prev_spike || s === :spike_buffer
+        return getfield(getfield(r, :state), s)
+    end
+    return getfield(r, s)
+end
+
+function Base.setproperty!(r::CompartmentalReservoir, s::Symbol, value)
+    if s === :genome
+        model = getfield(r, :model)
+        updated = CompartmentalModel(
+            value,
+            getfield(model, :dt),
+            getfield(model, :substeps),
+            getfield(model, :dt_sub),
+            getfield(model, :hill_tau),
+            getfield(model, :hill_reset),
+            getfield(model, :intervention),
+        )
+        setfield!(r, :model, updated)
+        return value
+    end
+    setfield!(r, s, value)
+    return value
 end
 
 function CompartmentalReservoir(
@@ -32,21 +81,27 @@ function CompartmentalReservoir(
 
     substeps_ = max(1, Int(substeps))
     intervention_ = _compartmental_intervention(intervention)
-    reservoir = CompartmentalReservoir{G}(
-        genome,
+    reservoir = ReservoirInstance(
+        CompartmentalModel(
+            genome,
+            Float64(dt),
+            substeps_,
+            Float64(dt) / substeps_,
+            Float64(hill_tau),
+            Float64(hill_reset),
+            intervention_,
+        ),
         wiring,
-        Float64(dt),
-        substeps_,
-        Float64(dt) / substeps_,
-        Float64(hill_tau),
-        Float64(hill_reset),
-        zeros(Float64, wiring.N, wiring.K, COMPARTMENTAL_D),
-        zeros(Float64, wiring.N, COMPARTMENTAL_S),
-        zeros(Float64, wiring.N),
-        zeros(Float64, wiring.N, COMPARTMENTAL_S),
-        zeros(Float64, wiring.N),
-        zeros(Float64, wiring.N),
-        intervention_,
+        CompartmentalConnState(),
+        CompartmentalNeuronState(
+            zeros(Float64, wiring.N, wiring.K, COMPARTMENTAL_D),
+            zeros(Float64, wiring.N, COMPARTMENTAL_S),
+            zeros(Float64, wiring.N),
+            zeros(Float64, wiring.N, COMPARTMENTAL_S),
+            zeros(Float64, wiring.N),
+            zeros(Float64, wiring.N),
+        ),
+        PortSpec(wiring.n_receptors, wiring.n_effectors),
     )
 
     return _compartmental_constructor_intervention!(intervention_, reservoir)
@@ -391,12 +446,13 @@ end
 effectors(r::CompartmentalReservoir) = effectors(r, r.spike_buffer)
 
 function reset!(r::CompartmentalReservoir)
-    fill!(r.dend_y, 0.0)
-    fill!(r.soma_y, 0.0)
-    fill!(r.V, 0.0)
-    fill!(r.prev_soma_y, 0.0)
-    fill!(r.prev_spike, 0.0)
-    fill!(r.spike_buffer, 0.0)
+    state = r.state
+    fill!(state.dend_y, 0.0)
+    fill!(state.soma_y, 0.0)
+    fill!(state.V, 0.0)
+    fill!(state.prev_soma_y, 0.0)
+    fill!(state.prev_spike, 0.0)
+    fill!(state.spike_buffer, 0.0)
     return r
 end
 
@@ -404,13 +460,14 @@ n_receptors(r::CompartmentalReservoir) = r.wiring.n_receptors
 n_effectors(r::CompartmentalReservoir) = r.wiring.n_effectors
 
 function snapshot_state(r::CompartmentalReservoir)
+    state = r.state
     return (
-        dend_y=copy(r.dend_y),
-        soma_y=copy(r.soma_y),
-        V=copy(r.V),
-        prev_soma_y=copy(r.prev_soma_y),
-        prev_spike=copy(r.prev_spike),
-        spike_buffer=copy(r.spike_buffer),
+        dend_y=copy(state.dend_y),
+        soma_y=copy(state.soma_y),
+        V=copy(state.V),
+        prev_soma_y=copy(state.prev_soma_y),
+        prev_spike=copy(state.prev_spike),
+        spike_buffer=copy(state.spike_buffer),
     )
 end
 
@@ -435,12 +492,13 @@ function _compartmental_load_vector!(dest, value, name::AbstractString)
 end
 
 function load_state!(r::CompartmentalReservoir, state)
-    _compartmental_load_array!(r.dend_y, _compartmental_state_get(state, :dend_y), "state.dend_y")
-    _compartmental_load_array!(r.soma_y, _compartmental_state_get(state, :soma_y), "state.soma_y")
-    _compartmental_load_vector!(r.V, _compartmental_state_get(state, :V), "state.V")
-    _compartmental_load_array!(r.prev_soma_y, _compartmental_state_get(state, :prev_soma_y), "state.prev_soma_y")
-    _compartmental_load_vector!(r.prev_spike, _compartmental_state_get(state, :prev_spike), "state.prev_spike")
-    _compartmental_load_vector!(r.spike_buffer, _compartmental_state_get(state, :spike_buffer), "state.spike_buffer")
+    dest = r.state
+    _compartmental_load_array!(dest.dend_y, _compartmental_state_get(state, :dend_y), "state.dend_y")
+    _compartmental_load_array!(dest.soma_y, _compartmental_state_get(state, :soma_y), "state.soma_y")
+    _compartmental_load_vector!(dest.V, _compartmental_state_get(state, :V), "state.V")
+    _compartmental_load_array!(dest.prev_soma_y, _compartmental_state_get(state, :prev_soma_y), "state.prev_soma_y")
+    _compartmental_load_vector!(dest.prev_spike, _compartmental_state_get(state, :prev_spike), "state.prev_spike")
+    _compartmental_load_vector!(dest.spike_buffer, _compartmental_state_get(state, :spike_buffer), "state.spike_buffer")
     return r
 end
 
