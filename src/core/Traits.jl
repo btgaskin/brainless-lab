@@ -5,6 +5,14 @@ Holy-trait supertype for declaring reservoir plasticity behavior.
 """
 abstract type PlasticityTrait end
 
+abstract type SpatialTrait end
+struct Aspatial <: SpatialTrait end
+struct Embedded{D} <: SpatialTrait end
+
+abstract type DelayTrait end
+struct UnitDelay <: DelayTrait end
+struct HeteroDelay <: DelayTrait end
+
 """
     NoPlasticity
 

@@ -115,6 +115,9 @@ noise_index(source) = nothing
 abstract type Connectome end
 abstract type ConnState end
 
+spatiality(::Connectome) = Aspatial()
+delaykind(::Connectome) = UnitDelay()
+
 mutable struct ReservoirInstance{M<:NodeModel,C<:Connectome,K<:ConnState,S} <: Reservoir
     model::M
     connectome::C
@@ -163,6 +166,9 @@ end
 mutable struct FalandaysConnState <: ConnState
     wmat::Matrix{Float64}
 end
+
+recurrent_input(c::DenseConnectome, sign, cs::FalandaysConnState, prev_spikes) =
+    recurrent_input(sign, cs.wmat, prev_spikes)
 
 mutable struct FalandaysNeuronState{NS}
     acts::Vector{Float64}
@@ -450,7 +456,7 @@ function step!(
     copyto!(ns.prev_spikes, ns.spikes)
 
     input_current = vec(transpose(receptor_currents) * c.input_wmat)
-    recurrent_current = recurrent_input(m.sign, cs.wmat, ns.prev_spikes)
+    recurrent_current = recurrent_input(c, m.sign, cs, ns.prev_spikes)
 
     @inbounds for i in 1:n
         ns.acts[i] = ns.acts[i] * (1.0 - params.leak) + input_current[i] + recurrent_current[i]
