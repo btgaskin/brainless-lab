@@ -20,6 +20,7 @@ const _DEFAULT_RECORD_CHANNELS = (:spikes, :rate, :poses, :polarization, :millin
 const _NODE_DEFAULT_N = Dict{Symbol,Int}(
     :falandays => 100,
     :falandays_oosawa => 100,
+    :falandays_spatial => 100,
     :compartmental_dense => 60,
     :compartmental_structured => 60,
 )

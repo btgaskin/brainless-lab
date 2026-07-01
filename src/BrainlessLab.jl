@@ -24,6 +24,7 @@ include("world/Torus.jl")
 include("world/Body.jl")
 include("world/Morphology.jl")
 include("nodes/Falandays.jl")
+include("nodes/Spatial.jl")
 include("nodes/NoisyInput.jl")
 include("nodes/Hemispheric.jl")
 include("nodes/Compartmental.jl")
@@ -124,9 +125,18 @@ export Unsigned,
 export FalandaysParams,
     ReservoirInstance,
     Connectome,
+    FalandaysConnectome,
     ConnState,
     FalandaysModel,
     DenseConnectome,
+    MetricSpace,
+    Embedding,
+    ExpKernel,
+    connection_prob,
+    SpatialRule,
+    SpatialConnectome,
+    build_spatial_connectome,
+    distance,
     FalandaysConnState,
     FalandaysNeuronState,
     FalandaysReservoir,
@@ -288,6 +298,7 @@ register_node!(:falandays_noisy, _falandays_noisy_native)
 register_node!(:falandays_ablated, _falandays_ablated_native)
 register_node!(:falandays_hemispheric, _falandays_hemispheric_native)
 register_node!(:falandays_oosawa, _falandays_oosawa_native)
+register_node!(:falandays_spatial, _falandays_spatial_native)
 register_node!(:compartmental_dense, _compartmental_dense_native)
 register_node!(:compartmental_structured, _compartmental_structured_native)
 

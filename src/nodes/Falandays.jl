@@ -113,6 +113,7 @@ noise_index(source::RecordedNoise) = source.idx
 noise_index(source) = nothing
 
 abstract type Connectome end
+abstract type FalandaysConnectome <: Connectome end
 abstract type ConnState end
 
 spatiality(::Connectome) = Aspatial()
@@ -156,7 +157,7 @@ struct FalandaysModel{D<:Drive,S} <: NodeModel
     rectify::Bool
 end
 
-struct DenseConnectome <: Connectome
+struct DenseConnectome <: FalandaysConnectome
     recurrent_mask::BitMatrix
     input_wmat::Matrix{Float64}
     output_mask::Matrix{Float64}
@@ -167,7 +168,7 @@ mutable struct FalandaysConnState <: ConnState
     wmat::Matrix{Float64}
 end
 
-recurrent_input(c::DenseConnectome, sign, cs::FalandaysConnState, prev_spikes) =
+recurrent_input(c::FalandaysConnectome, sign, cs::FalandaysConnState, prev_spikes) =
     recurrent_input(sign, cs.wmat, prev_spikes)
 
 mutable struct FalandaysNeuronState{NS}
@@ -179,7 +180,7 @@ mutable struct FalandaysNeuronState{NS}
     noise::NS
 end
 
-const FalandaysReservoir = ReservoirInstance{<:FalandaysModel, <:DenseConnectome, <:FalandaysConnState}
+const FalandaysReservoir = ReservoirInstance{<:FalandaysModel, <:FalandaysConnectome, <:FalandaysConnState}
 
 function Base.getproperty(r::FalandaysReservoir, s::Symbol)
     if s === :model
@@ -441,7 +442,7 @@ end
 
 function step!(
     m::FalandaysModel,
-    c::DenseConnectome,
+    c::FalandaysConnectome,
     cs::FalandaysConnState,
     ns::FalandaysNeuronState,
     receptor_currents,
@@ -489,7 +490,7 @@ function step!(
     return copy(ns.spikes)
 end
 
-function effectors(m::FalandaysModel, c::DenseConnectome, spikes, n_eff)
+function effectors(m::FalandaysModel, c::FalandaysConnectome, spikes, n_eff)
     spikes = _float_vector(spikes, "spikes")
     n_nodes = size(c.output_mask, 1)
     length(spikes) == n_nodes ||
