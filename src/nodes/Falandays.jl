@@ -112,25 +112,82 @@ reset_noise!(source) = source
 noise_index(source::RecordedNoise) = source.idx
 noise_index(source) = nothing
 
-mutable struct FalandaysReservoir{D<:Drive,S} <: Reservoir
+abstract type Connectome end
+abstract type ConnState end
+
+mutable struct ReservoirInstance{M<:NodeModel,C<:Connectome,K<:ConnState,S} <: Reservoir
+    model::M
+    connectome::C
+    conn::K
+    state::S
+    io::PortSpec
+end
+
+function Base.getproperty(r::ReservoirInstance, s::Symbol)
+    if s === :model
+        return getfield(r, :model)
+    elseif s === :connectome
+        return getfield(r, :connectome)
+    elseif s === :conn
+        return getfield(r, :conn)
+    elseif s === :state
+        return getfield(r, :state)
+    elseif s === :io
+        return getfield(r, :io)
+    elseif s === :acts || s === :targets || s === :spikes || s === :errors || s === :prev_spikes
+        return getfield(getfield(r, :state), s)
+    elseif s === :noise_source
+        return getfield(getfield(r, :state), :noise)
+    elseif s === :wmat
+        return getfield(getfield(r, :conn), :wmat)
+    elseif s === :recurrent_mask || s === :input_wmat || s === :output_mask || s === :wmat0
+        return getfield(getfield(r, :connectome), s)
+    elseif s === :params || s === :drive || s === :sign || s === :rectify
+        return getfield(getfield(r, :model), s)
+    elseif s === :n_receptors
+        return n_receptors(getfield(r, :io))
+    elseif s === :n_effectors
+        return n_effectors(getfield(r, :io))
+    end
+    return getfield(r, s)
+end
+
+step!(r::ReservoirInstance, R) = step!(r.model, r.connectome, r.conn, r.state, R)
+effectors(r::ReservoirInstance, spikes) = effectors(r.model, r.connectome, spikes, n_effectors(r.io))
+effectors(r::ReservoirInstance) = effectors(r, r.state.spikes)
+n_receptors(r::ReservoirInstance) = n_receptors(r.io)
+n_effectors(r::ReservoirInstance) = n_effectors(r.io)
+activations(r::ReservoirInstance) = r.state.acts
+weights(r::ReservoirInstance) = r.conn.wmat
+
+struct FalandaysModel{D<:Drive,S} <: NodeModel
     params::FalandaysParams
     drive::D
     sign::S
     rectify::Bool
+end
+
+struct DenseConnectome <: Connectome
     recurrent_mask::BitMatrix
     input_wmat::Matrix{Float64}
     output_mask::Matrix{Float64}
-    wmat::Matrix{Float64}
     wmat0::Matrix{Float64}
+end
+
+mutable struct FalandaysConnState <: ConnState
+    wmat::Matrix{Float64}
+end
+
+mutable struct FalandaysNeuronState{NS}
     acts::Vector{Float64}
     targets::Vector{Float64}
     spikes::Vector{Float64}
     errors::Vector{Float64}
     prev_spikes::Vector{Float64}
-    noise_source::Any
-    n_receptors::Int
-    n_effectors::Int
+    noise::NS
 end
+
+const FalandaysReservoir = ReservoirInstance{<:FalandaysModel, <:DenseConnectome, <:FalandaysConnState}
 
 _as_falandays_params(p::FalandaysParams) = p
 _as_falandays_params(raw::AbstractVector{<:Real}) = unpack_params(FalandaysParams, raw)
@@ -231,24 +288,20 @@ function FalandaysReservoir(;
     axis = _normalize_axis(sign, n_nodes)
     source = noise_source === nothing ? RngNoise(0) : noise_source
 
-    return FalandaysReservoir(
-        params,
-        drive,
-        axis,
-        rectify,
-        recurrent_mask,
-        input_wmat,
-        output_mask,
-        copy(wmat0),
-        copy(wmat0),
-        zeros(Float64, n_nodes),
-        ones(Float64, n_nodes),
-        zeros(Float64, n_nodes),
-        zeros(Float64, n_nodes),
-        zeros(Float64, n_nodes),
-        source,
-        n_receptors_,
-        n_effectors_,
+    wmat = copy(wmat0)
+    wmat0_copy = copy(wmat0)
+    acts = zeros(Float64, n_nodes)
+    targets = ones(Float64, n_nodes)
+    spikes = zeros(Float64, n_nodes)
+    errors = zeros(Float64, n_nodes)
+    prev_spikes = zeros(Float64, n_nodes)
+
+    return ReservoirInstance(
+        FalandaysModel(params, drive, axis, rectify),
+        DenseConnectome(recurrent_mask, input_wmat, output_mask, wmat0_copy),
+        FalandaysConnState(wmat),
+        FalandaysNeuronState(acts, targets, spikes, errors, prev_spikes, source),
+        PortSpec(n_receptors_, n_effectors_),
     )
 end
 
@@ -365,61 +418,69 @@ function FalandaysReservoir(
     )
 end
 
-function step!(r::FalandaysReservoir, receptor_currents)
+function step!(
+    m::FalandaysModel,
+    c::DenseConnectome,
+    cs::FalandaysConnState,
+    ns::FalandaysNeuronState,
+    receptor_currents,
+)
     receptor_currents = _float_vector(receptor_currents, "receptor_currents")
-    length(receptor_currents) == r.n_receptors ||
-        throw(DimensionMismatch("expected $(r.n_receptors) receptor currents, got $(length(receptor_currents))"))
+    n_receptors_ = size(c.input_wmat, 1)
+    length(receptor_currents) == n_receptors_ ||
+        throw(DimensionMismatch("expected $(n_receptors_) receptor currents, got $(length(receptor_currents))"))
 
-    params = r.params
-    n = length(r.acts)
-    copyto!(r.prev_spikes, r.spikes)
+    params = m.params
+    n = length(ns.acts)
+    copyto!(ns.prev_spikes, ns.spikes)
 
-    input_current = vec(transpose(receptor_currents) * r.input_wmat)
-    recurrent_current = recurrent_input(r.sign, r.wmat, r.prev_spikes)
+    input_current = vec(transpose(receptor_currents) * c.input_wmat)
+    recurrent_current = recurrent_input(m.sign, cs.wmat, ns.prev_spikes)
 
     @inbounds for i in 1:n
-        r.acts[i] = r.acts[i] * (1.0 - params.leak) + input_current[i] + recurrent_current[i]
+        ns.acts[i] = ns.acts[i] * (1.0 - params.leak) + input_current[i] + recurrent_current[i]
     end
 
-    apply_drive!(r.drive, r.acts, r.targets, params, next_noise!(r.noise_source, n))
+    apply_drive!(m.drive, ns.acts, ns.targets, params, next_noise!(ns.noise, n))
 
-    if r.rectify
+    if m.rectify
         @inbounds for i in 1:n
-            if r.acts[i] < 0.0
-                r.acts[i] = 0.0
+            if ns.acts[i] < 0.0
+                ns.acts[i] = 0.0
             end
         end
     end
 
-    thresholds = r.targets .* params.threshold_mult
+    thresholds = ns.targets .* params.threshold_mult
 
     @inbounds for i in 1:n
-        r.spikes[i] = r.acts[i] >= thresholds[i] ? 1.0 : 0.0
-        if r.spikes[i] == 1.0
-            r.acts[i] -= thresholds[i]
+        ns.spikes[i] = ns.acts[i] >= thresholds[i] ? 1.0 : 0.0
+        if ns.spikes[i] == 1.0
+            ns.acts[i] -= thresholds[i]
         end
-        r.errors[i] = r.acts[i] - r.targets[i]
+        ns.errors[i] = ns.acts[i] - ns.targets[i]
     end
 
     if params.learn_on
-        learn!(r.sign, r.wmat, r.targets, r.errors, r.recurrent_mask, r.prev_spikes, params)
+        learn!(m.sign, cs.wmat, ns.targets, ns.errors, c.recurrent_mask, ns.prev_spikes, params)
     end
 
-    return copy(r.spikes)
+    return copy(ns.spikes)
 end
 
-function effectors(r::FalandaysReservoir, spikes)
+function effectors(m::FalandaysModel, c::DenseConnectome, spikes, n_eff)
     spikes = _float_vector(spikes, "spikes")
-    length(spikes) == length(r.spikes) ||
-        throw(DimensionMismatch("expected $(length(r.spikes)) spikes, got $(length(spikes))"))
+    n_nodes = size(c.output_mask, 1)
+    length(spikes) == n_nodes ||
+        throw(DimensionMismatch("expected $(n_nodes) spikes, got $(length(spikes))"))
 
-    out = zeros(Float64, r.n_effectors)
-    @inbounds for k in 1:r.n_effectors
+    out = zeros(Float64, n_eff)
+    @inbounds for k in 1:n_eff
         count = 0.0
         total = 0.0
         for i in eachindex(spikes)
-            count += r.output_mask[i, k]
-            total += spikes[i] * r.output_mask[i, k]
+            count += c.output_mask[i, k]
+            total += spikes[i] * c.output_mask[i, k]
         end
         if count > 0.0
             out[k] = total / count
@@ -428,31 +489,31 @@ function effectors(r::FalandaysReservoir, spikes)
     return out
 end
 
-effectors(r::FalandaysReservoir) = effectors(r, r.spikes)
-
 function reset!(r::FalandaysReservoir)
-    r.wmat .= r.wmat0
-    fill!(r.acts, 0.0)
-    fill!(r.targets, 1.0)
-    fill!(r.spikes, 0.0)
-    fill!(r.errors, 0.0)
-    fill!(r.prev_spikes, 0.0)
-    reset_noise!(r.noise_source)
+    cs = r.conn
+    c = r.connectome
+    ns = r.state
+    cs.wmat .= c.wmat0
+    fill!(ns.acts, 0.0)
+    fill!(ns.targets, 1.0)
+    fill!(ns.spikes, 0.0)
+    fill!(ns.errors, 0.0)
+    fill!(ns.prev_spikes, 0.0)
+    reset_noise!(ns.noise)
     return r
 end
 
-n_receptors(r::FalandaysReservoir) = r.n_receptors
-n_effectors(r::FalandaysReservoir) = r.n_effectors
-
 function snapshot_state(r::FalandaysReservoir)
+    ns = r.state
+    cs = r.conn
     return (
-        acts=copy(r.acts),
-        targets=copy(r.targets),
-        spikes=copy(r.spikes),
-        errors=copy(r.errors),
-        prev_spikes=copy(r.prev_spikes),
-        wmat=copy(r.wmat),
-        noise_idx=noise_index(r.noise_source),
+        acts=copy(ns.acts),
+        targets=copy(ns.targets),
+        spikes=copy(ns.spikes),
+        errors=copy(ns.errors),
+        prev_spikes=copy(ns.prev_spikes),
+        wmat=copy(cs.wmat),
+        noise_idx=noise_index(ns.noise),
     )
 end
 
@@ -465,17 +526,19 @@ function _state_get(state, key::Symbol)
 end
 
 function load_state!(r::FalandaysReservoir, state)
-    copyto!(r.acts, _float_vector(_state_get(state, :acts), "state.acts"))
-    copyto!(r.targets, _float_vector(_state_get(state, :targets), "state.targets"))
-    copyto!(r.spikes, _float_vector(_state_get(state, :spikes), "state.spikes"))
-    copyto!(r.errors, _float_vector(_state_get(state, :errors), "state.errors"))
-    copyto!(r.prev_spikes, _float_vector(_state_get(state, :prev_spikes), "state.prev_spikes"))
-    r.wmat .= _float_matrix(_state_get(state, :wmat), "state.wmat")
+    ns = r.state
+    cs = r.conn
+    copyto!(ns.acts, _float_vector(_state_get(state, :acts), "state.acts"))
+    copyto!(ns.targets, _float_vector(_state_get(state, :targets), "state.targets"))
+    copyto!(ns.spikes, _float_vector(_state_get(state, :spikes), "state.spikes"))
+    copyto!(ns.errors, _float_vector(_state_get(state, :errors), "state.errors"))
+    copyto!(ns.prev_spikes, _float_vector(_state_get(state, :prev_spikes), "state.prev_spikes"))
+    cs.wmat .= _float_matrix(_state_get(state, :wmat), "state.wmat")
 
-    if _state_has(state, :noise_idx) && r.noise_source isa RecordedNoise
+    if _state_has(state, :noise_idx) && ns.noise isa RecordedNoise
         idx = _state_get(state, :noise_idx)
         if idx !== nothing
-            r.noise_source.idx = Int(idx)
+            ns.noise.idx = Int(idx)
         end
     end
 
@@ -489,4 +552,3 @@ function falandays_oosawa(args...; membrane_noise::Real=0.0, noise_gain::Real=0.
         kwargs...,
     )
 end
-

@@ -20,6 +20,9 @@ include("core/Recorder.jl")
 include("viz/Views.jl")
 include("nodes/Drives.jl")
 include("nodes/Axes.jl")
+include("world/Torus.jl")
+include("world/Body.jl")
+include("world/Morphology.jl")
 include("nodes/Falandays.jl")
 include("nodes/NoisyInput.jl")
 include("nodes/Hemispheric.jl")
@@ -31,9 +34,6 @@ include("envs/WallBox.jl")
 include("envs/Envs.jl")
 include("envs/CartPoleVariants.jl")
 include("tasks/Tasks.jl")
-include("world/Torus.jl")
-include("world/Body.jl")
-include("world/Morphology.jl")
 include("world/Mediums.jl")
 include("world/Collective.jl")
 include("world/Metrics.jl")
@@ -114,7 +114,16 @@ export Unsigned,
     dale_signs
 
 export FalandaysParams,
+    ReservoirInstance,
+    Connectome,
+    ConnState,
+    FalandaysModel,
+    DenseConnectome,
+    FalandaysConnState,
+    FalandaysNeuronState,
     FalandaysReservoir,
+    activations,
+    weights,
     RngNoise,
     RecordedNoise,
     next_noise!,
