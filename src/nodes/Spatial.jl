@@ -106,6 +106,228 @@ function build_spatial_connectome(
     return SpatialConnectome{D}(recurrent_mask, input_wmat, output_wmat, wmat0, embedding, regions)
 end
 
+function _validate_hemispheric_dimensions(
+    N::Integer,
+    n_receptors_::Integer,
+    n_effectors_::Integer,
+)
+    n_nodes, n_receptors_, n_effectors_ =
+        _validate_spatial_dimensions(N, n_receptors_, n_effectors_)
+    n_nodes >= 2 || throw(ArgumentError("hemispheric node needs >= 2 nodes"))
+    n_receptors_ >= 2 || throw(ArgumentError("hemispheric node needs >= 2 receptors to split left/right"))
+    n_effectors_ >= 2 || throw(ArgumentError("hemispheric node needs >= 2 effectors to split left/right"))
+    return n_nodes, n_receptors_, n_effectors_
+end
+
+function _validate_spatial_probability(name::AbstractString, p::Real)
+    p_ = Float64(p)
+    0.0 <= p_ <= 1.0 || throw(ArgumentError("$name must be in [0, 1]"))
+    return p_
+end
+
+function _body_target_nodes(index::Integer, left_count::Integer, na::Integer, n_nodes::Integer, contralateral::Bool)
+    is_left_body = Int(index) <= Int(left_count)
+    target_left_region = contralateral ? !is_left_body : is_left_body
+    return target_left_region ? (1:Int(na)) : ((Int(na) + 1):Int(n_nodes))
+end
+
+function _node_source_receptors(node::Integer, left_receptors::Integer, na::Integer, n_receptors_::Integer, contralateral::Bool)
+    is_left_region = Int(node) <= Int(na)
+    source_left_body = contralateral ? !is_left_region : is_left_region
+    return source_left_body ? (1:Int(left_receptors)) : ((Int(left_receptors) + 1):Int(n_receptors_))
+end
+
+function _effector_source_nodes(effector::Integer, left_effectors::Integer, na::Integer, n_nodes::Integer, contralateral::Bool)
+    is_left_body = Int(effector) <= Int(left_effectors)
+    source_left_region = contralateral ? !is_left_body : is_left_body
+    return source_left_region ? (1:Int(na)) : ((Int(na) + 1):Int(n_nodes))
+end
+
+function _mask_hemispheric_input_blocks!(
+    input_mask::BitMatrix,
+    left_receptors::Integer,
+    na::Integer,
+    contralateral::Bool,
+)
+    n_receptors_, n_nodes = size(input_mask)
+    left_receptor_rows = 1:Int(left_receptors)
+    right_receptor_rows = (Int(left_receptors) + 1):n_receptors_
+    left_nodes = 1:Int(na)
+    right_nodes = (Int(na) + 1):n_nodes
+
+    if contralateral
+        input_mask[left_receptor_rows, left_nodes] .= false
+        input_mask[right_receptor_rows, right_nodes] .= false
+    else
+        input_mask[left_receptor_rows, right_nodes] .= false
+        input_mask[right_receptor_rows, left_nodes] .= false
+    end
+    return input_mask
+end
+
+function _mask_hemispheric_output_blocks!(
+    output_mask::BitMatrix,
+    left_effectors::Integer,
+    na::Integer,
+    contralateral::Bool,
+)
+    n_nodes, n_effectors_ = size(output_mask)
+    left_nodes = 1:Int(na)
+    right_nodes = (Int(na) + 1):n_nodes
+    left_effector_cols = 1:Int(left_effectors)
+    right_effector_cols = (Int(left_effectors) + 1):n_effectors_
+
+    if contralateral
+        output_mask[left_nodes, left_effector_cols] .= false
+        output_mask[right_nodes, right_effector_cols] .= false
+    else
+        output_mask[left_nodes, right_effector_cols] .= false
+        output_mask[right_nodes, left_effector_cols] .= false
+    end
+    return output_mask
+end
+
+function _ensure_hemispheric_input_mask!(
+    input_mask::BitMatrix,
+    recurrent_mask::BitMatrix,
+    left_receptors::Integer,
+    na::Integer,
+    rng::AbstractRNG,
+    contralateral::Bool,
+)
+    n_receptors_, n_nodes = size(input_mask)
+
+    @inbounds for receptor in 1:n_receptors_
+        targets = _body_target_nodes(receptor, left_receptors, na, n_nodes, contralateral)
+        if !any(@view input_mask[receptor, targets])
+            input_mask[receptor, rand(rng, targets)] = true
+        end
+    end
+
+    @inbounds for node in 1:n_nodes
+        degree = count(@view recurrent_mask[:, node]) + count(@view input_mask[:, node])
+        if degree == 0
+            sources = _node_source_receptors(node, left_receptors, na, n_receptors_, contralateral)
+            input_mask[rand(rng, sources), node] = true
+        end
+    end
+
+    return input_mask
+end
+
+function _ensure_hemispheric_output_mask!(
+    output_mask::BitMatrix,
+    left_effectors::Integer,
+    na::Integer,
+    rng::AbstractRNG,
+    contralateral::Bool,
+)
+    n_nodes, n_effectors_ = size(output_mask)
+
+    @inbounds for effector in 1:n_effectors_
+        sources = _effector_source_nodes(effector, left_effectors, na, n_nodes, contralateral)
+        if !any(@view output_mask[sources, effector])
+            output_mask[rand(rng, sources), effector] = true
+        end
+    end
+
+    return output_mask
+end
+
+"""
+    build_hemispheric_connectome(N, n_receptors, n_effectors; rng, ...)
+
+Build a two-region `SpatialConnectome{2}` with mirrored left/right node
+positions. By default receptor and effector wiring is contralateral; set
+`contralateral=false` for ipsilateral body-to-region and region-to-body wiring.
+`callosum_density` controls bidirectional homotopic cross-region recurrent
+links, with `0.0` yielding isolated hemispheres.
+"""
+function build_hemispheric_connectome(
+    N::Integer,
+    n_receptors_::Integer,
+    n_effectors_::Integer;
+    rng::AbstractRNG,
+    p0::Real=0.5,
+    lambda::Real=0.3,
+    link_p::Real=0.1,
+    extent::Real=1.0,
+    callosum_density::Real=0.0,
+    contralateral::Bool=true,
+    weight_init_std::Real,
+    input_weight::Real,
+)
+    n_nodes, n_receptors_, n_effectors_ =
+        _validate_hemispheric_dimensions(N, n_receptors_, n_effectors_)
+    p0_ = _validate_spatial_probability("p0", p0)
+    lambda_ = Float64(lambda)
+    lambda_ > 0.0 || throw(ArgumentError("lambda must be positive"))
+    link_p_ = _validate_spatial_probability("link_p", link_p)
+    callosum_density_ = _validate_spatial_probability("callosum_density", callosum_density)
+    extent_ = Float64(extent)
+    extent_ >= 0.0 || throw(ArgumentError("extent must be non-negative"))
+    weight_init_std_ = Float64(weight_init_std)
+    weight_init_std_ >= 0.0 || throw(ArgumentError("weight_init_std must be non-negative"))
+    input_weight_ = Float64(input_weight)
+
+    na = cld(n_nodes, 2)
+    nb = n_nodes - na
+    regions = Vector{Int}(undef, n_nodes)
+    regions[1:na] .= 1
+    regions[(na + 1):n_nodes] .= 2
+
+    gap = extent_ * 0.1
+    left_x_hi = max(0.0, extent_ / 2.0 - gap)
+    positions = Vector{SVector{2,Float64}}(undef, n_nodes)
+    @inbounds for i in 1:na
+        x = rand(rng) * left_x_hi
+        y = rand(rng) * extent_
+        positions[i] = SVector{2,Float64}(x, y)
+        if i <= nb
+            positions[na + i] = SVector{2,Float64}(extent_ - x, y)
+        end
+    end
+
+    space = MetricSpace(SVector{2,Float64}(0.0, 0.0), SVector{2,Float64}(extent_, extent_))
+    kernel = ExpKernel(p0_, lambda_)
+    recurrent_mask = falses(n_nodes, n_nodes)
+    @inbounds for j in 1:n_nodes, i in 1:n_nodes
+        if i != j && regions[i] == regions[j]
+            dist = distance(space, positions[i], positions[j])
+            recurrent_mask[i, j] = rand(rng) < connection_prob(kernel, dist)
+        end
+    end
+
+    @inbounds for i in 1:min(na, nb)
+        if rand(rng) < callosum_density_
+            a = i
+            b = na + i
+            recurrent_mask[a, b] = true
+            recurrent_mask[b, a] = true
+        end
+    end
+
+    input_mask = bernoulli_mask(n_receptors_, n_nodes, link_p_, rng; diagonal=true)
+    output_mask = bernoulli_mask(n_nodes, n_effectors_, link_p_, rng; diagonal=true)
+    left_receptors = cld(n_receptors_, 2)
+    left_effectors = cld(n_effectors_, 2)
+
+    _mask_hemispheric_input_blocks!(input_mask, left_receptors, na, contralateral)
+    _ensure_hemispheric_input_mask!(input_mask, recurrent_mask, left_receptors, na, rng, contralateral)
+    _ensure_unsigned_degree!(recurrent_mask, input_mask, rng)
+
+    _mask_hemispheric_output_blocks!(output_mask, left_effectors, na, contralateral)
+    _ensure_hemispheric_output_mask!(output_mask, left_effectors, na, rng, contralateral)
+    _ensure_output_mask!(output_mask, rng)
+
+    input_wmat = input_weight_ .* Float64.(input_mask)
+    output_wmat = Float64.(output_mask)
+    wmat0 = Float64.(recurrent_mask) .* (weight_init_std_ .* randn(rng, n_nodes, n_nodes))
+    embedding = Embedding(positions, SVector{2,Float64}[], SVector{2,Float64}[])
+
+    return SpatialConnectome{2}(recurrent_mask, input_wmat, output_wmat, wmat0, embedding, regions)
+end
+
 function _metric_space_extent(extent::Real, dims::Integer)
     D = Int(dims)
     D >= 1 || throw(ArgumentError("dims must be at least 1"))

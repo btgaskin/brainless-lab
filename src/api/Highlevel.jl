@@ -133,34 +133,66 @@ function _with_lrate_targ(p::FalandaysParams, value::Real)
     return FalandaysParams(; fields..., lrate_targ=Float64(value))
 end
 
-# `:falandays_hemispheric` -- two half-size reservoirs with CONTRALATERAL wiring:
-# right sensors drive left effectors (one hemisphere), left sensors drive right
-# effectors (the other). Sensors/effectors are split into contiguous left/right
-# blocks; the two hemispheres are independent (~N/2 nodes each).
 function _falandays_hemispheric_native(
     n_nodes::Integer,
     n_receptors_::Integer,
     n_effectors_::Integer;
     seed=nothing,
+    callosum_density::Real=0.0,
+    contralateral=true,
+    p0::Real=0.5,
+    lambda::Real=0.3,
+    link_p::Real=0.1,
+    extent::Real=1.0,
+    params=FalandaysParams(),
+    drive::Drive=NoDrive(),
+    sign=Unsigned(),
+    rectify=true,
+    noise_source=nothing,
     kwargs...,
 )
+    n_nodes = Int(n_nodes)
+    n_receptors_ = Int(n_receptors_)
+    n_effectors_ = Int(n_effectors_)
     n_receptors_ >= 2 || throw(ArgumentError("hemispheric node needs >= 2 receptors to split left/right"))
     n_effectors_ >= 2 || throw(ArgumentError("hemispheric node needs >= 2 effectors to split left/right"))
     n_nodes >= 2 || throw(ArgumentError("hemispheric node needs >= 2 nodes"))
 
-    n_left_sens = n_receptors_ ÷ 2
-    n_right_sens = n_receptors_ - n_left_sens
-    n_left_eff = n_effectors_ ÷ 2
-    n_right_eff = n_effectors_ - n_left_eff
-    na = cld(n_nodes, 2)          # hemi_a nodes
-    nb = n_nodes - na             # hemi_b nodes (sum == n_nodes)
-    s = seed === nothing ? nothing : Int(seed)
-    sb = s === nothing ? nothing : s + 7919   # distinct wiring for the two hemispheres
+    params = _as_falandays_params(params)
+    input_weight, inhibitory_frac = _spatial_native_options(params, kwargs)
 
-    hemi_a = _falandays_native(na, n_right_sens, n_left_eff; seed=s, kwargs...)   # right -> left
-    hemi_b = _falandays_native(nb, n_left_sens, n_right_eff; seed=sb, kwargs...)  # left -> right
-    return HemisphericReservoir(hemi_a, hemi_b, Int(n_receptors_), Int(n_effectors_),
-                                n_left_sens, n_left_eff, na)
+    rng = _rng_from_seed(seed)
+    axis = _native_axis(sign, n_nodes, rng, inhibitory_frac)
+    connectome = build_hemispheric_connectome(
+        n_nodes,
+        n_receptors_,
+        n_effectors_;
+        rng=rng,
+        p0=p0,
+        lambda=lambda,
+        link_p=link_p,
+        extent=extent,
+        callosum_density=callosum_density,
+        contralateral=Bool(contralateral),
+        weight_init_std=params.weight_init_std,
+        input_weight=input_weight,
+    )
+
+    source = noise_source === nothing ? _noise_source_from_seed(seed) : noise_source
+    wmat = copy(connectome.wmat0)
+    acts = zeros(Float64, n_nodes)
+    targets = ones(Float64, n_nodes)
+    spikes = zeros(Float64, n_nodes)
+    errors = zeros(Float64, n_nodes)
+    prev_spikes = zeros(Float64, n_nodes)
+
+    return ReservoirInstance(
+        FalandaysModel(params, drive, axis, Bool(rectify)),
+        connectome,
+        FalandaysConnState(wmat),
+        FalandaysNeuronState(acts, targets, spikes, errors, prev_spikes, source),
+        PortSpec(n_receptors_, n_effectors_),
+    )
 end
 
 # `:falandays_ablated` -- target homeostasis ablated: lrate_targ=0 pins every

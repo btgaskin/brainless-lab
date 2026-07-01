@@ -26,7 +26,6 @@ include("world/Morphology.jl")
 include("nodes/Falandays.jl")
 include("nodes/Spatial.jl")
 include("nodes/NoisyInput.jl")
-include("nodes/Hemispheric.jl")
 include("nodes/Compartmental.jl")
 include("nodes/Wiring.jl")
 include("nodes/CompartmentalReservoir.jl")
@@ -136,6 +135,7 @@ export FalandaysParams,
     SpatialRule,
     SpatialConnectome,
     build_spatial_connectome,
+    build_hemispheric_connectome,
     distance,
     FalandaysConnState,
     FalandaysNeuronState,
