@@ -166,7 +166,10 @@ end
 
 mutable struct FalandaysConnState <: ConnState
     wmat::Matrix{Float64}
+    history::Union{Nothing,SpikeHistory}
 end
+
+FalandaysConnState(wmat) = FalandaysConnState(wmat, nothing)
 
 recurrent_input(c::FalandaysConnectome, sign, cs::FalandaysConnState, prev_spikes) =
     recurrent_input(sign, cs.wmat, prev_spikes)
@@ -178,6 +181,16 @@ mutable struct FalandaysNeuronState{NS}
     errors::Vector{Float64}
     prev_spikes::Vector{Float64}
     noise::NS
+end
+
+function learn_connectome!(
+    c::FalandaysConnectome,
+    sign,
+    cs::FalandaysConnState,
+    ns::FalandaysNeuronState,
+    params,
+)
+    return learn!(sign, cs.wmat, ns.targets, ns.errors, c.recurrent_mask, ns.prev_spikes, params)
 end
 
 const FalandaysReservoir = ReservoirInstance{<:FalandaysModel, <:FalandaysConnectome, <:FalandaysConnState}
@@ -483,9 +496,7 @@ function step!(
         ns.errors[i] = ns.acts[i] - ns.targets[i]
     end
 
-    if params.learn_on
-        learn!(m.sign, cs.wmat, ns.targets, ns.errors, c.recurrent_mask, ns.prev_spikes, params)
-    end
+    params.learn_on && learn_connectome!(c, m.sign, cs, ns, params)
 
     return copy(ns.spikes)
 end
@@ -516,6 +527,7 @@ function reset!(r::FalandaysReservoir)
     c = r.connectome
     ns = r.state
     cs.wmat .= c.wmat0
+    cs.history === nothing || reset_history!(cs.history)
     fill!(ns.acts, 0.0)
     fill!(ns.targets, 1.0)
     fill!(ns.spikes, 0.0)

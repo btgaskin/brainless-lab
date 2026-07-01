@@ -23,8 +23,10 @@ include("nodes/Axes.jl")
 include("world/Torus.jl")
 include("world/Body.jl")
 include("world/Morphology.jl")
+include("nodes/SpikeHistory.jl")
 include("nodes/Falandays.jl")
 include("nodes/Spatial.jl")
+include("nodes/Delays.jl")
 include("nodes/NoisyInput.jl")
 include("nodes/Compartmental.jl")
 include("nodes/Wiring.jl")
@@ -134,8 +136,12 @@ export FalandaysParams,
     connection_prob,
     SpatialRule,
     SpatialConnectome,
+    SpikeHistory,
+    DelayedConnectome,
     build_spatial_connectome,
     build_hemispheric_connectome,
+    build_delayed_connectome,
+    delays_from_embedding,
     distance,
     FalandaysConnState,
     FalandaysNeuronState,
@@ -299,6 +305,7 @@ register_node!(:falandays_ablated, _falandays_ablated_native)
 register_node!(:falandays_hemispheric, _falandays_hemispheric_native)
 register_node!(:falandays_oosawa, _falandays_oosawa_native)
 register_node!(:falandays_spatial, _falandays_spatial_native)
+register_node!(:falandays_delayed, _falandays_delayed_native)
 register_node!(:compartmental_dense, _compartmental_dense_native)
 register_node!(:compartmental_structured, _compartmental_structured_native)
 

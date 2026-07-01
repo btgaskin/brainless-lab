@@ -2,7 +2,8 @@ using Random
 
 const _FALANDAYS_MODEL_SYMS = Set((:falandays, :falandays_base, :falandays_noisy,
                                    :falandays_ablated, :falandays_hemispheric,
-                                   :falandays_oosawa, :falandays_spatial))
+                                   :falandays_oosawa, :falandays_spatial,
+                                   :falandays_delayed))
 const _DENSE_COMPARTMENTAL_MODEL_SYMS = Set((:dense, :compartmental_dense))
 const _STRUCTURED_COMPARTMENTAL_MODEL_SYMS = Set((:compartmental, :structured, :compartmental_structured))
 

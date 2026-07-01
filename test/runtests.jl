@@ -4,6 +4,7 @@ using Test
 include("testutils.jl")
 include("test_falandays.jl")
 include("test_spatial.jl")
+include("test_delays.jl")
 include("test_compartmental.jl")
 include("test_ablation.jl")
 include("test_envs.jl")
