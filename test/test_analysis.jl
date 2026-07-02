@@ -24,3 +24,31 @@ using Test
     @test resolve_analysis(:branching_ratio) === branching_ratio
     @test :branching_ratio in analyses()
 end
+
+@testset "Task performance analyses" begin
+    wall_sim = simulate(:wall; node=:falandays_base, ticks=40, seed=1, record=(:rate, :poses))
+    wd = wall_distance(wall_sim)
+    @test length(wd) == length(getchannel(wall_sim.recorder, :poses))
+    @test all(isfinite, wd)
+    @test all(x -> x >= 0.0, wd)
+
+    tracking_sim = simulate(:tracking; node=:falandays_base, ticks=40, seed=1, record=(:rate, :scene))
+    he = heading_error(tracking_sim)
+    @test length(he) == length(getchannel(tracking_sim.recorder, :scene))
+    @test all(isfinite, he)
+    @test all(x -> x >= 0.0, he)
+
+    pong_sim = simulate(:pong; node=:falandays_base, ticks=40, seed=1, record=(:rate, :scene))
+    bpd = ball_paddle_distance(pong_sim)
+    @test length(bpd) == length(getchannel(pong_sim.recorder, :scene))
+    @test all(isfinite, bpd)
+    @test all(x -> x >= 0.0, bpd)
+
+    @test task_analyses(:wall) == [:wall_distance]
+    @test isempty(task_analyses(:cartpole))
+    @test :branching_ratio in analyses()
+    @test !in(:wall_distance, analyses())
+    @test :wall_distance in analyses(task=:wall)
+    @test resolve_analysis(:branching_ratio) === branching_ratio
+    @test analysis_meta(:heading_error).label == "heading error (rad)"
+end

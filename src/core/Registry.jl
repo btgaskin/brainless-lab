@@ -95,25 +95,55 @@ type.
 resolve_metric(sym::Symbol)::Any = _resolve(METRICS, "metric", sym)
 
 """
-    register_analysis!(sym, f)
+    register_analysis!(sym, f; task=nothing, label=string(sym))
 
 Register an analysis function under `sym`.
 """
-register_analysis!(sym::Symbol, f) = _register!(ANALYSES, "analysis", sym, f)
+function register_analysis!(
+    sym::Symbol,
+    f;
+    task::Union{Nothing,Symbol}=nothing,
+    label::AbstractString=string(sym),
+)
+    ANALYSES[sym] = (f=f, task=task, label=String(label))
+    return sym
+end
 
 """
     resolve_analysis(sym)
 
 Resolve a registered analysis symbol to its function.
 """
-resolve_analysis(sym::Symbol)::Any = _resolve(ANALYSES, "analysis", sym)
+resolve_analysis(sym::Symbol)::Any = _resolve(ANALYSES, "analysis", sym).f
 
 """
-    analyses()
+    analysis_meta(sym)
 
-Return the registered analysis symbols.
+Return task scope and label metadata for a registered analysis.
 """
-analyses() = sort!(collect(keys(ANALYSES)))
+function analysis_meta(sym::Symbol)
+    entry = _resolve(ANALYSES, "analysis", sym)
+    return (task=entry.task, label=entry.label)
+end
+
+"""
+    analyses(; task=nothing)
+
+Return registered analysis symbols visible in the requested task scope. Global
+analyses are always visible; task analyses are visible only for their task.
+"""
+function analyses(; task::Union{Nothing,Symbol}=nothing)
+    return sort!([sym for (sym, entry) in ANALYSES if entry.task === nothing || entry.task === task])
+end
+
+"""
+    task_analyses(task)
+
+Return registered analysis symbols scoped exactly to `task`.
+"""
+function task_analyses(task::Symbol)
+    return sort!([sym for (sym, entry) in ANALYSES if entry.task === task])
+end
 
 """
     register_view!(sym, T)

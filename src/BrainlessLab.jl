@@ -41,6 +41,7 @@ include("world/Collective.jl")
 include("world/Metrics.jl")
 include("api/Highlevel.jl")
 include("analysis/Branching.jl")
+include("analysis/TaskSignals.jl")
 include("drivers/Driver.jl")
 include("drivers/Parallel.jl")
 include("drivers/Evolve.jl")
@@ -251,7 +252,9 @@ export register_node!,
     resolve_metric,
     register_analysis!,
     resolve_analysis,
+    analysis_meta,
     analyses,
+    task_analyses,
     register_view!,
     resolve_view,
     register_optimizer!,
@@ -268,7 +271,10 @@ export SimResult,
     simulate,
     variants,
     tasks,
-    branching_ratio
+    branching_ratio,
+    wall_distance,
+    heading_error,
+    ball_paddle_distance
 
 export SepCMA,
     EvolveRunner,
@@ -335,6 +341,9 @@ register_metric!(:input_stability, input_stability)
 register_metric!(:swarm_metrics, swarm_metrics)
 
 register_analysis!(:branching_ratio, branching_ratio)
+register_analysis!(:wall_distance, wall_distance; task=:wall, label="distance to nearest wall")
+register_analysis!(:heading_error, heading_error; task=:tracking, label="heading error (rad)")
+register_analysis!(:ball_paddle_distance, ball_paddle_distance; task=:pong, label="ball–paddle distance")
 
 register_view!(:raster, rasterplot)
 register_view!(:rate, rateplot)
