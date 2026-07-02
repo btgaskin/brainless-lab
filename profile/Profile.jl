@@ -142,61 +142,6 @@ function _percentile(xs::AbstractVector{<:Real}, p::Real)
 end
 
 """
-    _pearson(xs, ys)
-
-Pearson correlation over paired points, ignoring pairs with any non-finite
-value. Returns `NaN` if fewer than 2 valid pairs or zero variance.
-"""
-function _pearson(xs::AbstractVector, ys::AbstractVector)
-    n = min(length(xs), length(ys))
-    vx = Float64[]; vy = Float64[]
-    @inbounds for i in 1:n
-        x = Float64(xs[i]); y = Float64(ys[i])
-        if isfinite(x) && isfinite(y)
-            push!(vx, x); push!(vy, y)
-        end
-    end
-    length(vx) < 2 && return NaN
-    mx = mean(vx); my = mean(vy)
-    sx = 0.0; sy = 0.0; sxy = 0.0
-    @inbounds for i in eachindex(vx)
-        dx = vx[i] - mx; dy = vy[i] - my
-        sxy += dx * dy; sx += dx * dx; sy += dy * dy
-    end
-    (sx <= 0.0 || sy <= 0.0) && return NaN
-    return sxy / sqrt(sx * sy)
-end
-
-"""
-    _binned_means(xs, ys; nbins=12)
-
-Bin `xs` into `nbins` equal-width bins over its finite range, returning bin
-centers and the mean `y` per non-empty bin (NaN-aware).
-"""
-function _binned_means(xs::AbstractVector{<:Real}, ys::AbstractVector{<:Real}; nbins::Integer=12)
-    lo, hi = extrema(xs)
-    (isfinite(lo) && isfinite(hi) && hi > lo) || return (Float64[], Float64[])
-    w = (hi - lo) / nbins
-    centers = Float64[]
-    means = Float64[]
-    for b in 1:nbins
-        blo = lo + (b - 1) * w
-        bhi = b == nbins ? hi : lo + b * w
-        acc = Float64[]
-        @inbounds for i in eachindex(xs)
-            x = xs[i]
-            in_bin = b == nbins ? (x >= blo && x <= bhi) : (x >= blo && x < bhi)
-            in_bin && push!(acc, ys[i])
-        end
-        if !isempty(acc)
-            push!(centers, (blo + bhi) / 2)
-            push!(means, mean(acc))
-        end
-    end
-    return centers, means
-end
-
-"""
     _seedwise_series(mats::Vector{Vector{Float64}})
 
 Given one per-tick branching-ratio series per seed (all seeds the same
@@ -260,42 +205,83 @@ function _branching_figure(seed_mean, seed_lo, seed_hi; title::String="")
 end
 
 """
-    _factor_scatter_figure(factor_x, sigma_y, xlabel; title, r)
+    _situated_figure(sigma, factor, factor_label; title)
 
-Pooled scatter of per-tick branching ratio σ (y) against a per-task
-performance factor (x), with a binned-mean trend line and a σ=1 reference.
+Situated per-run chart for a single representative rollout (seed 1): two
+vertically-stacked, x-linked panels sharing the tick/time axis. Top: σ(t) with
+a dashed σ=1 reference; bottom: the performance factor(t) over the same ticks.
+Lets you read vertically whether σ moves as the factor (e.g. distance to the
+nearest wall) rises and falls through the run. Both y-axes auto-fit the data.
 """
-function _factor_scatter_figure(factor_x::Vector{Float64}, sigma_y::Vector{Float64}, xlabel::String; title::String="")
-    fig = CairoMakie.Figure(size=(820, 320), backgroundcolor=:white)
+function _situated_figure(sigma::Vector{Float64}, factor::Vector{Float64}, factor_label::String; title::String="")
+    n = length(sigma)                       # σ has length T-1
+    ts = collect(1:n)
+    fac = factor[1:min(length(factor), n)]  # align to σ's ticks (1:T-1)
+    fts = collect(1:length(fac))
+
+    fig = CairoMakie.Figure(size=(820, 460), backgroundcolor=:white)
+    grid = CairoMakie.RGBf(0.93, 0.92, 0.89)
+
+    ax_top = CairoMakie.Axis(
+        fig[1, 1];
+        ylabel="branching ratio  σ", title=title, titlesize=14, ylabelsize=12,
+        backgroundcolor=:white, xgridcolor=grid, ygridcolor=grid,
+        leftspinevisible=true, rightspinevisible=false, topspinevisible=false,
+        xticklabelsvisible=false, xticksvisible=false,
+    )
+    ax_bot = CairoMakie.Axis(
+        fig[2, 1];
+        xlabel="tick", ylabel=factor_label, xlabelsize=12, ylabelsize=12,
+        backgroundcolor=:white, xgridcolor=grid, ygridcolor=grid,
+        leftspinevisible=true, rightspinevisible=false, topspinevisible=false,
+    )
+
+    # Top: σ(t), auto-fit y over finite values, with σ=1 reference in view.
+    finite = isfinite.(sigma)
+    if any(finite)
+        CairoMakie.lines!(ax_top, ts[finite], sigma[finite]; color=_TEAL, linewidth=1.4, label="σ(t)")
+        fv = sigma[finite]
+        lo = min(minimum(fv), 1.0); hi = max(maximum(fv), 1.0)
+        pad = 0.05 * max(hi - lo, eps())
+        CairoMakie.ylims!(ax_top, lo - pad, hi + pad)
+    end
+    CairoMakie.hlines!(ax_top, [1.0]; color=_AMBER, linestyle=:dash, linewidth=1.5, label="σ = 1 (critical)")
+    CairoMakie.axislegend(ax_top; position=:rt, labelsize=10, framevisible=false)
+
+    # Bottom: factor(t) over the same ticks.
+    CairoMakie.lines!(ax_bot, fts, fac; color=_INK, linewidth=1.4)
+
+    CairoMakie.linkxaxes!(ax_top, ax_bot)
+    CairoMakie.xlims!(ax_bot, 1, max(n, 2))
+    CairoMakie.rowgap!(fig.layout, 6)
+    return fig
+end
+
+"""
+    _spectral_figure(xs, mean, lo, hi; title)
+
+Seed-mean spectral radius ρ(W) trajectory over the run, with a ±1 std band.
+Y-axis auto-fits the data (no σ=1 reference — this is a weight-scale plot, not
+a branching plot).
+"""
+function _spectral_figure(xs::Vector{<:Integer}, smean, slo, shi; title::String="")
+    fig = CairoMakie.Figure(size=(820, 300), backgroundcolor=:white)
     ax = CairoMakie.Axis(
         fig[1, 1];
-        xlabel=xlabel, ylabel="branching ratio  σ",
+        xlabel="tick", ylabel="spectral radius  ρ(W)",
         title=title, titlesize=14, xlabelsize=12, ylabelsize=12,
         backgroundcolor=:white,
         xgridcolor=CairoMakie.RGBf(0.93, 0.92, 0.89), ygridcolor=CairoMakie.RGBf(0.93, 0.92, 0.89),
         leftspinevisible=true, rightspinevisible=false, topspinevisible=false,
     )
-    if !isempty(factor_x)
-        CairoMakie.scatter!(ax, factor_x, sigma_y; color=(_TEAL, 0.10), markersize=3, strokewidth=0, label="ticks (pooled)")
-        cx, cy = _binned_means(factor_x, sigma_y; nbins=12)
-        if !isempty(cx)
-            CairoMakie.lines!(ax, cx, cy; color=_INK, linewidth=2.2, label="binned mean σ")
-            CairoMakie.scatter!(ax, cx, cy; color=_INK, markersize=6)
-        end
-        # Robust y-limits: 1st–99th percentile of pooled σ so a single outlier
-        # tick doesn't flatten the view. Keep the σ=1 reference inside.
-        fin = _finite(sigma_y)
-        if !isempty(fin)
-            lo = _percentile(fin, 1.0)
-            hi = _percentile(fin, 99.0)
-            lo = min(lo, 1.0)
-            hi = max(hi, 1.0)
-            pad = 0.05 * max(hi - lo, eps())
-            CairoMakie.ylims!(ax, lo - pad, hi + pad)
-        end
+    fx = Float64.(xs)
+    finite = isfinite.(smean)
+    if any(finite)
+        CairoMakie.band!(ax, fx[finite], slo[finite], shi[finite]; color=(_AMBER, 0.18))
+        CairoMakie.lines!(ax, fx[finite], smean[finite]; color=_AMBER, linewidth=2.0, label="seed mean")
     end
-    CairoMakie.hlines!(ax, [1.0]; color=_AMBER, linestyle=:dash, linewidth=1.5, label="σ = 1 (critical)")
-    CairoMakie.axislegend(ax; position=:rb, labelsize=10, framevisible=false)
+    isempty(fx) || CairoMakie.xlims!(ax, minimum(fx), max(maximum(fx), 1.0))
+    CairoMakie.axislegend(ax; position=:rt, labelsize=10, framevisible=false)
     return fig
 end
 
@@ -318,8 +304,8 @@ Run `n_seeds` rollouts of `task` with `node_sym` at the task's canonical N,
 recording `(:rate, :scene, :poses)`, over the task's default ticks. Returns a
 NamedTuple with the seed-averaged branching-ratio series, mean/std sigma,
 mean/std score, the run parameters used (N, R, E, ticks), and `factor_data`:
-one pooled (factor, branching σ) scatter + Pearson r per task-scoped analysis
-registered for the task (empty when the task registers none).
+per task-scoped analysis registered for the task, the seed-1 σ(t) and
+factor(t) series for the situated time chart (empty when the task registers none).
 """
 function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canonical_N=CANONICAL_N)
     task_spec = resolve_task(task)
@@ -332,10 +318,9 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
     per_tick_series = Vector{Vector{Float64}}(undef, n_seeds)
     sigmas = Vector{Float64}(undef, n_seeds)
     scores = Vector{Float64}(undef, n_seeds)
-    # For each factor sym: pooled (x=factor, y=branching σ) points across all
-    # ticks and all seeds, NaN-branching pairs dropped.
-    factor_x = Dict{Symbol,Vector{Float64}}(f => Float64[] for f in factors)
-    factor_y = Dict{Symbol,Vector{Float64}}(f => Float64[] for f in factors)
+    # Situated chart uses a single representative run (seed 1): its per-tick σ
+    # and the full factor(t) series, kept time-ordered (NOT pooled).
+    seed1_factor = Dict{Symbol,Vector{Float64}}()
 
     for s in 1:n_seeds
         sim = simulate(task; node=node_sym, n_nodes=N, seed=s, record=(:rate, :scene, :poses))
@@ -344,30 +329,52 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
         sigmas[s] = br.sigma
         scores[s] = Float64(sim.metrics.score)
 
-        for f in factors
-            sig = resolve_analysis(f)(sim)          # length T
-            bt = br.per_tick                          # length T-1
-            m = min(length(sig), length(bt))
-            xs = factor_x[f]; ys = factor_y[f]
-            @inbounds for t in 1:m
-                y = bt[t]
-                isnan(y) && continue
-                x = Float64(sig[t])
-                isfinite(x) || continue
-                push!(xs, x); push!(ys, y)
+        if s == 1
+            for f in factors
+                seed1_factor[f] = Float64.(resolve_analysis(f)(sim))   # length T
             end
         end
     end
 
     seed_mean, seed_lo, seed_hi = _seedwise_series(per_tick_series)
 
+    # Separate COARSE rollout per seed for spectral radius ρ(W): eigenvalues are
+    # expensive, so this is downsample-only (every=K, ~60 samples), NOT part of
+    # the every-tick branching run. Empty for nodes without a learned recurrent
+    # matrix (e.g. compartmental) -> no spectral panel is rendered.
+    K = max(1, cld(ticks, 60))
+    spectral_series = Vector{Vector{Float64}}()
+    for s in 1:n_seeds
+        rho = try
+            ssim = simulate(task; node=node_sym, n_nodes=N, seed=s, record=(:spectral_radius,), every=K)
+            spectral_radius(ssim).series
+        catch
+            Float64[]
+        end
+        isempty(rho) && continue
+        push!(spectral_series, rho)
+    end
+    if isempty(spectral_series)
+        spectral_x = Int[]
+        spectral_mean = Float64[]
+        spectral_lo = Float64[]
+        spectral_hi = Float64[]
+    else
+        # Same ticks/K per task -> same length; guard against any ragged tail.
+        L = minimum(length.(spectral_series))
+        trimmed = [r[1:L] for r in spectral_series]
+        spectral_mean, spectral_lo, spectral_hi = _seedwise_series(trimmed)
+        spectral_x = [(i - 1) * K for i in 1:L]
+    end
+
+    # Situated per-run data: seed-1 σ(t) (length T-1) paired with seed-1
+    # factor(t) over the same ticks. Kept time-ordered for the stacked chart.
     factor_data = [
         (
             sym=f,
             label=analysis_meta(f).label,
-            x=factor_x[f],
-            y=factor_y[f],
-            r=_pearson(factor_x[f], factor_y[f]),
+            sigma=per_tick_series[1],       # σ(t), length T-1
+            factor=seed1_factor[f],         # factor(t), length T
         )
         for f in factors
     ]
@@ -390,6 +397,10 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
         score_norm_mean=_nanmean(normalized_score.(Ref(task_spec), scores)),
         scores=scores,
         factor_data=factor_data,
+        spectral_x=spectral_x,
+        spectral_mean=spectral_mean,
+        spectral_lo=spectral_lo,
+        spectral_hi=spectral_hi,
     )
 end
 
@@ -531,19 +542,34 @@ function _task_card(res, task_note::String)
     println(io, "<figure><img src=\"$plot_uri\" alt=\"branching ratio over time for :$(res.task)\">")
     println(io, "<figcaption>Seed-mean &sigma;(t) (teal line) &plusmn;1 std across $(res.n_seeds) seeds (shaded band); dashed amber line marks &sigma;=1, the self-sustaining/critical reference.</figcaption></figure>")
 
-    # Additional panel(s): branching σ vs each registered per-task performance
-    # factor. Gated by the task-scoped analysis registry -- tasks with no
-    # registered factor (e.g. the cartpole family) get no scatter here.
+    # Spectral radius ρ(W) over time -- the weight reorganization homeostasis
+    # drives, which the rate-pinned branching ratio can't show. Gated: rendered
+    # only for nodes with a learned recurrent matrix (series non-empty).
+    if !isempty(res.spectral_mean)
+        s0 = first(res.spectral_mean); s1 = last(res.spectral_mean)
+        stride = length(res.spectral_x) >= 2 ? (res.spectral_x[2] - res.spectral_x[1]) : res.ticks
+        suri = _fig_to_data_uri(_spectral_figure(res.spectral_x, res.spectral_mean, res.spectral_lo, res.spectral_hi; title="$(res.task) — spectral radius ρ(W)"))
+        println(io, "<figure><img src=\"$suri\" alt=\"spectral radius over time for :$(res.task)\">")
+        println(io, "<figcaption>Seed-mean spectral radius &rho;(W) &mdash; the largest |eigenvalue| of the learned recurrent ",
+                     "matrix, sampled every $(stride) ticks over the run (amber line, &plusmn;1 std band across $(res.n_seeds) seeds). ",
+                     "It tracks the weight reorganization the homeostatic learning drives (branching, rate-pinned, does not): ",
+                     "for <code>falandays_base</code> &rho;(W) falls over the run as <code>W -= error/N</code> shrinks the ",
+                     "recurrent weights &mdash; here $(_fmt(s0; digits=2)) &rarr; $(_fmt(s1; digits=2)).</figcaption></figure>")
+    end
+
+    # Additional panel(s): SITUATED per-run chart -- branching σ(t) and the
+    # registered per-task performance factor(t) over shared time, from a single
+    # representative run (seed 1). Gated by the task-scoped analysis registry --
+    # tasks with no registered factor (the cartpole family) get none.
     for fd in res.factor_data
-        rtxt = isnan(fd.r) ? "n/a" : _fmt(fd.r)
-        title = "Branching σ vs $(fd.label) (r = $rtxt)"
-        npts = length(fd.x)
-        uri = _fig_to_data_uri(_factor_scatter_figure(fd.x, fd.y, fd.label; title=title))
-        println(io, "<figure><img src=\"$uri\" alt=\"branching ratio vs $(fd.label) for :$(res.task)\">")
-        println(io, "<figcaption>Pooled per-tick points ($(npts) across $(res.n_seeds) seeds): x = <b>$(fd.label)</b> ",
-                     "(the registered <code>:$(fd.sym)</code> performance factor), y = branching ratio &sigma;. ",
-                     "Dark line = binned-mean &sigma; (12 bins); dashed amber line marks &sigma;=1. ",
-                     "Pearson <b>r = $rtxt</b> &mdash; does the reservoir sit nearer criticality (&sigma;&asymp;1) when performing well?</figcaption></figure>")
+        title = "Situated: branching σ and $(fd.label) — one run (seed 1)"
+        uri = _fig_to_data_uri(_situated_figure(fd.sigma, fd.factor, fd.label; title=title))
+        println(io, "<figure><img src=\"$uri\" alt=\"situated branching σ and $(fd.label) over time for :$(res.task)\">")
+        println(io, "<figcaption>A single representative run (seed 1): <b>top</b> = branching ratio &sigma;(t) ",
+                     "(dashed amber line marks &sigma;=1); <b>bottom</b> = <b>$(fd.label)</b> ",
+                     "(the registered <code>:$(fd.sym)</code> performance factor) over the same ticks. ",
+                     "Panels share the time axis &mdash; read vertically: does &sigma; move as the agent's ",
+                     "situation (e.g. nearing a wall) changes?</figcaption></figure>")
     end
     println(io, "</div>")
     return String(take!(io))
@@ -623,12 +649,19 @@ function node_profile(
     println(io, "<section id=\"tasks\"><h2>Per-task branching-ratio profile</h2>")
     println(io, "<p>Each task card carries the branching ratio <strong>over time</strong> (seed-mean &sigma;(t) ",
                  "with a &plusmn;1 std band). Where the task registers a per-tick <strong>performance factor</strong> ",
-                 "in the task-scoped analysis registry (<code>task_analyses(task)</code>), a second panel plots ",
-                 "branching &sigma; <strong>against that factor</strong>, pooling every tick across every seed: it asks ",
-                 "<em>does the reservoir sit nearer criticality (&sigma;&asymp;1) when it is performing well &mdash; small ",
-                 "heading error, far from the wall, close ball&ndash;paddle tracking?</em> A Pearson <code>r</code> ",
-                 "summarizes the pooled relationship. Tasks with no registered factor (the cartpole family) show only ",
-                 "the over-time panel.</p>")
+                 "in the task-scoped analysis registry (<code>task_analyses(task)</code>), a <strong>situated</strong> ",
+                 "panel shows &mdash; for a single representative run (seed 1) &mdash; branching &sigma;(t) and that ",
+                 "factor(t) as two time-aligned, x-linked panels. Reading vertically asks ",
+                 "<em>does &sigma; move as the agent moves through its environment &mdash; when heading error grows, when it ",
+                 "nears a wall, when the ball pulls away from the paddle?</em> (This keeps time, which a pooled scatter ",
+                 "would have thrown away.) Tasks with no registered factor (the cartpole family) show only the over-time panel.</p>")
+    println(io, "<p>Each card also carries <strong>spectral radius &rho;(W) over time</strong> &mdash; the largest ",
+                 "|eigenvalue| of the learned recurrent matrix, sampled over the run (a separate coarse, downsample-only ",
+                 "rollout, since eigenvalues are expensive). It tracks the <em>weight reorganization</em> the homeostatic ",
+                 "learning drives, which the branching ratio cannot: branching is rate-pinned by homeostasis, whereas ",
+                 "&rho;(W) reveals the underlying recurrent scale. For <code>falandays_base</code> &rho;(W) <strong>falls</strong> ",
+                 "over the run as <code>W -= error/N</code> shrinks the recurrent weights. The panel is gated on availability ",
+                 "&mdash; nodes without a learned recurrent matrix (e.g. compartmental) produce an empty series and no panel.</p>")
     for res in results
         note = get(CANONICAL_NOTE, res.task, "")
         println(io, _task_card(res, note))
