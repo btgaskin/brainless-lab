@@ -98,6 +98,50 @@ function _nanstd(xs)
 end
 
 """
+    _over_time_ylims(mean_series)
+
+Fit the branching-over-time y-axis to the seed-mean σ series' [min, max].
+The switch-on transient is short (a handful of ticks) so percentile clipping
+would hide it; instead we drop only the near-zero-denominator explosions
+(where A(t)→0 makes σ = A(t+1)/A(t) blow up) by keeping mean values within a
+log-symmetric plausibility band [median/3, median·3] of the series' own
+median. Returns `(lo, hi)` with ~5% padding and σ=1 always inside the view;
+falls back to a tight band around 1 if too little survives.
+"""
+function _over_time_ylims(mean_series::AbstractVector{<:Real})
+    med = _percentile(mean_series, 50.0)
+    if !isfinite(med) || med <= 0
+        return (0.8, 1.2)
+    end
+    capL = med / 3
+    capH = med * 3
+    vals = [Float64(x) for x in mean_series if isfinite(x) && x >= capL && x <= capH]
+    if length(vals) < 3
+        return (0.8, 1.2)
+    end
+    lo = min(minimum(vals), 1.0)
+    hi = max(maximum(vals), 1.0)
+    pad = 0.05 * max(hi - lo, eps())
+    return (lo - pad, hi + pad)
+end
+
+"""
+    _percentile(xs, p)
+
+Linear-interpolated `p`-th percentile (0..100) over finite values of `xs`.
+"""
+function _percentile(xs::AbstractVector{<:Real}, p::Real)
+    v = sort(_finite(xs))
+    isempty(v) && return NaN
+    length(v) == 1 && return Float64(v[1])
+    r = clamp(Float64(p) / 100, 0.0, 1.0) * (length(v) - 1) + 1
+    lo = floor(Int, r); hi = ceil(Int, r)
+    lo == hi && return Float64(v[lo])
+    frac = r - lo
+    return Float64(v[lo]) * (1 - frac) + Float64(v[hi]) * frac
+end
+
+"""
     _pearson(xs, ys)
 
 Pearson correlation over paired points, ignoring pairs with any non-finite
@@ -204,6 +248,10 @@ function _branching_figure(seed_mean, seed_lo, seed_hi; title::String="")
         fx = xs[finite]
         CairoMakie.band!(ax, fx, seed_lo[finite], seed_hi[finite]; color=(_TEAL, 0.18))
         CairoMakie.lines!(ax, fx, seed_mean[finite]; color=_TEAL, linewidth=2.0, label="seed mean")
+        # Fit y-axis to the seed-MEAN σ series' [min,max] (with σ=1 kept in view),
+        # dropping only near-zero-denominator switch-on explosions.
+        ylo, yhi = _over_time_ylims(seed_mean)
+        CairoMakie.ylims!(ax, ylo, yhi)
     end
     CairoMakie.hlines!(ax, [1.0]; color=_AMBER, linestyle=:dash, linewidth=1.5, label="σ = 1 (critical)")
     CairoMakie.xlims!(ax, 1, max(n, 2))
@@ -233,6 +281,17 @@ function _factor_scatter_figure(factor_x::Vector{Float64}, sigma_y::Vector{Float
         if !isempty(cx)
             CairoMakie.lines!(ax, cx, cy; color=_INK, linewidth=2.2, label="binned mean σ")
             CairoMakie.scatter!(ax, cx, cy; color=_INK, markersize=6)
+        end
+        # Robust y-limits: 1st–99th percentile of pooled σ so a single outlier
+        # tick doesn't flatten the view. Keep the σ=1 reference inside.
+        fin = _finite(sigma_y)
+        if !isempty(fin)
+            lo = _percentile(fin, 1.0)
+            hi = _percentile(fin, 99.0)
+            lo = min(lo, 1.0)
+            hi = max(hi, 1.0)
+            pad = 0.05 * max(hi - lo, eps())
+            CairoMakie.ylims!(ax, lo - pad, hi + pad)
         end
     end
     CairoMakie.hlines!(ax, [1.0]; color=_AMBER, linestyle=:dash, linewidth=1.5, label="σ = 1 (critical)")
