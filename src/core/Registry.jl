@@ -3,6 +3,7 @@ const TASKS = Dict{Symbol,Any}()
 const DRIVES = Dict{Symbol,Any}()
 const BODIES = Dict{Symbol,Any}()
 const METRICS = Dict{Symbol,Any}()
+const ANALYSES = Dict{Symbol,Any}()
 const VIEWS = Dict{Symbol,Any}()
 const OPTIMIZERS = Dict{Symbol,Any}()
 const ABLATIONS = Dict{Symbol,Any}()
@@ -92,6 +93,27 @@ Resolve a registered metric symbol to its constructor, function, or concrete
 type.
 """
 resolve_metric(sym::Symbol)::Any = _resolve(METRICS, "metric", sym)
+
+"""
+    register_analysis!(sym, f)
+
+Register an analysis function under `sym`.
+"""
+register_analysis!(sym::Symbol, f) = _register!(ANALYSES, "analysis", sym, f)
+
+"""
+    resolve_analysis(sym)
+
+Resolve a registered analysis symbol to its function.
+"""
+resolve_analysis(sym::Symbol)::Any = _resolve(ANALYSES, "analysis", sym)
+
+"""
+    analyses()
+
+Return the registered analysis symbols.
+"""
+analyses() = sort!(collect(keys(ANALYSES)))
 
 """
     register_view!(sym, T)

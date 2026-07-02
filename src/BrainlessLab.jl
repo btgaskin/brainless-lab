@@ -40,6 +40,7 @@ include("world/Mediums.jl")
 include("world/Collective.jl")
 include("world/Metrics.jl")
 include("api/Highlevel.jl")
+include("analysis/Branching.jl")
 include("drivers/Driver.jl")
 include("drivers/Parallel.jl")
 include("drivers/Evolve.jl")
@@ -248,6 +249,9 @@ export register_node!,
     resolve_body,
     register_metric!,
     resolve_metric,
+    register_analysis!,
+    resolve_analysis,
+    analyses,
     register_view!,
     resolve_view,
     register_optimizer!,
@@ -263,7 +267,8 @@ export Recorder,
 export SimResult,
     simulate,
     variants,
-    tasks
+    tasks,
+    branching_ratio
 
 export SepCMA,
     EvolveRunner,
@@ -328,6 +333,8 @@ register_metric!(:mean_pairwise_distance, mean_pairwise_distance)
 register_metric!(:mean_nearest_neighbor_distance, mean_nearest_neighbor_distance)
 register_metric!(:input_stability, input_stability)
 register_metric!(:swarm_metrics, swarm_metrics)
+
+register_analysis!(:branching_ratio, branching_ratio)
 
 register_view!(:raster, rasterplot)
 register_view!(:rate, rateplot)
