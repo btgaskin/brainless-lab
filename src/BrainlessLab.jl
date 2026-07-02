@@ -41,6 +41,7 @@ include("world/Collective.jl")
 include("world/Metrics.jl")
 include("api/Highlevel.jl")
 include("analysis/Branching.jl")
+include("analysis/Spectral.jl")
 include("analysis/TaskSignals.jl")
 include("drivers/Driver.jl")
 include("drivers/Parallel.jl")
@@ -272,6 +273,7 @@ export SimResult,
     variants,
     tasks,
     branching_ratio,
+    spectral_radius,
     wall_distance,
     heading_error,
     ball_paddle_distance
@@ -341,6 +343,7 @@ register_metric!(:input_stability, input_stability)
 register_metric!(:swarm_metrics, swarm_metrics)
 
 register_analysis!(:branching_ratio, branching_ratio)
+register_analysis!(:spectral_radius, spectral_radius; label="spectral radius ρ(W)")
 register_analysis!(:wall_distance, wall_distance; task=:wall, label="distance to nearest wall")
 register_analysis!(:heading_error, heading_error; task=:tracking, label="heading error (rad)")
 register_analysis!(:ball_paddle_distance, ball_paddle_distance; task=:pong, label="ball–paddle distance")

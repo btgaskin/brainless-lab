@@ -25,6 +25,25 @@ using Test
     @test :branching_ratio in analyses()
 end
 
+@testset "Spectral radius analysis" begin
+    @test BrainlessLab._spectral_radius([0.0 0.0; 0.0 0.0]) == 0.0
+    @test BrainlessLab._spectral_radius([2.0 0.0; 0.0 -3.0]) ≈ 3.0
+
+    sim = simulate(:wall; node=:falandays_base, ticks=120, seed=1, record=(:spectral_radius,), every=10)
+    sr = spectral_radius(sim)
+    @test !isempty(sr.series)
+    @test all(isfinite, sr.series)
+    @test all(x -> x >= 0.0, sr.series)
+    @test length(unique(round.(sr.series, digits=6))) > 1
+
+    sim2 = simulate(:wall; node=:falandays_base, ticks=20)
+    @test haskey(sim2.recorder, :spectral_radius) == false
+    @test_throws ArgumentError spectral_radius(sim2)
+
+    @test :spectral_radius in analyses()
+    @test analysis_meta(:spectral_radius).label == "spectral radius ρ(W)"
+end
+
 @testset "Task performance analyses" begin
     wall_sim = simulate(:wall; node=:falandays_base, ticks=40, seed=1, record=(:rate, :poses))
     wd = wall_distance(wall_sim)

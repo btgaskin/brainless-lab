@@ -127,6 +127,13 @@ function _record_state_channels!(rec::Recorder, agents)
     return rec
 end
 
+_record_spectral!(::Recorder, ::Reservoir) = nothing
+
+function _record_spectral!(rec::Recorder, r::FalandaysReservoir)
+    record!(rec, :spectral_radius, _spectral_radius(r))
+    return rec
+end
+
 function _record_collective!(rec::Recorder, c::Collective, bodies, percepts, spikes, rates, Es)
     if !_record_active(rec)
         tick!(rec)
@@ -146,6 +153,9 @@ function _record_collective!(rec::Recorder, c::Collective, bodies, percepts, spi
     end
     if _record_wants(rec, :rates)
         record!(rec, :rates, copy(rates))
+    end
+    if _record_wants(rec, :spectral_radius)
+        _record_spectral!(rec, c.agents[1].reservoir)
     end
     if _record_wants(rec, :effectors)
         record!(rec, :effectors, _record_payload(Es))
