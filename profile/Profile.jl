@@ -98,6 +98,61 @@ function _nanstd(xs)
 end
 
 """
+    _pearson(xs, ys)
+
+Pearson correlation over paired points, ignoring pairs with any non-finite
+value. Returns `NaN` if fewer than 2 valid pairs or zero variance.
+"""
+function _pearson(xs::AbstractVector, ys::AbstractVector)
+    n = min(length(xs), length(ys))
+    vx = Float64[]; vy = Float64[]
+    @inbounds for i in 1:n
+        x = Float64(xs[i]); y = Float64(ys[i])
+        if isfinite(x) && isfinite(y)
+            push!(vx, x); push!(vy, y)
+        end
+    end
+    length(vx) < 2 && return NaN
+    mx = mean(vx); my = mean(vy)
+    sx = 0.0; sy = 0.0; sxy = 0.0
+    @inbounds for i in eachindex(vx)
+        dx = vx[i] - mx; dy = vy[i] - my
+        sxy += dx * dy; sx += dx * dx; sy += dy * dy
+    end
+    (sx <= 0.0 || sy <= 0.0) && return NaN
+    return sxy / sqrt(sx * sy)
+end
+
+"""
+    _binned_means(xs, ys; nbins=12)
+
+Bin `xs` into `nbins` equal-width bins over its finite range, returning bin
+centers and the mean `y` per non-empty bin (NaN-aware).
+"""
+function _binned_means(xs::AbstractVector{<:Real}, ys::AbstractVector{<:Real}; nbins::Integer=12)
+    lo, hi = extrema(xs)
+    (isfinite(lo) && isfinite(hi) && hi > lo) || return (Float64[], Float64[])
+    w = (hi - lo) / nbins
+    centers = Float64[]
+    means = Float64[]
+    for b in 1:nbins
+        blo = lo + (b - 1) * w
+        bhi = b == nbins ? hi : lo + b * w
+        acc = Float64[]
+        @inbounds for i in eachindex(xs)
+            x = xs[i]
+            in_bin = b == nbins ? (x >= blo && x <= bhi) : (x >= blo && x < bhi)
+            in_bin && push!(acc, ys[i])
+        end
+        if !isempty(acc)
+            push!(centers, (blo + bhi) / 2)
+            push!(means, mean(acc))
+        end
+    end
+    return centers, means
+end
+
+"""
     _seedwise_series(mats::Vector{Vector{Float64}})
 
 Given one per-tick branching-ratio series per seed (all seeds the same
@@ -156,6 +211,35 @@ function _branching_figure(seed_mean, seed_lo, seed_hi; title::String="")
     return fig
 end
 
+"""
+    _factor_scatter_figure(factor_x, sigma_y, xlabel; title, r)
+
+Pooled scatter of per-tick branching ratio σ (y) against a per-task
+performance factor (x), with a binned-mean trend line and a σ=1 reference.
+"""
+function _factor_scatter_figure(factor_x::Vector{Float64}, sigma_y::Vector{Float64}, xlabel::String; title::String="")
+    fig = CairoMakie.Figure(size=(820, 320), backgroundcolor=:white)
+    ax = CairoMakie.Axis(
+        fig[1, 1];
+        xlabel=xlabel, ylabel="branching ratio  σ",
+        title=title, titlesize=14, xlabelsize=12, ylabelsize=12,
+        backgroundcolor=:white,
+        xgridcolor=CairoMakie.RGBf(0.93, 0.92, 0.89), ygridcolor=CairoMakie.RGBf(0.93, 0.92, 0.89),
+        leftspinevisible=true, rightspinevisible=false, topspinevisible=false,
+    )
+    if !isempty(factor_x)
+        CairoMakie.scatter!(ax, factor_x, sigma_y; color=(_TEAL, 0.10), markersize=3, strokewidth=0, label="ticks (pooled)")
+        cx, cy = _binned_means(factor_x, sigma_y; nbins=12)
+        if !isempty(cx)
+            CairoMakie.lines!(ax, cx, cy; color=_INK, linewidth=2.2, label="binned mean σ")
+            CairoMakie.scatter!(ax, cx, cy; color=_INK, markersize=6)
+        end
+    end
+    CairoMakie.hlines!(ax, [1.0]; color=_AMBER, linestyle=:dash, linewidth=1.5, label="σ = 1 (critical)")
+    CairoMakie.axislegend(ax; position=:rb, labelsize=10, framevisible=false)
+    return fig
+end
+
 function _fig_to_data_uri(fig)
     path = tempname() * ".png"
     CairoMakie.save(path, fig)
@@ -172,28 +256,62 @@ end
     task_profile(node_sym, task; n_seeds=8, canonical_N=CANONICAL_N)
 
 Run `n_seeds` rollouts of `task` with `node_sym` at the task's canonical N,
-recording `:rate`, over the task's default ticks. Returns a NamedTuple with
-the seed-averaged branching-ratio series, mean/std sigma, mean/std score, and
-the run parameters used (N, R, E, ticks).
+recording `(:rate, :scene, :poses)`, over the task's default ticks. Returns a
+NamedTuple with the seed-averaged branching-ratio series, mean/std sigma,
+mean/std score, the run parameters used (N, R, E, ticks), and `factor_data`:
+one pooled (factor, branching σ) scatter + Pearson r per task-scoped analysis
+registered for the task (empty when the task registers none).
 """
 function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canonical_N=CANONICAL_N)
     task_spec = resolve_task(task)
     N = canonical_N[task]
     ticks = task_spec.default_ticks
 
+    # Task-scoped per-tick "performance factors" registered for this task.
+    factors = task_analyses(task)
+
     per_tick_series = Vector{Vector{Float64}}(undef, n_seeds)
     sigmas = Vector{Float64}(undef, n_seeds)
     scores = Vector{Float64}(undef, n_seeds)
+    # For each factor sym: pooled (x=factor, y=branching σ) points across all
+    # ticks and all seeds, NaN-branching pairs dropped.
+    factor_x = Dict{Symbol,Vector{Float64}}(f => Float64[] for f in factors)
+    factor_y = Dict{Symbol,Vector{Float64}}(f => Float64[] for f in factors)
 
     for s in 1:n_seeds
-        sim = simulate(task; node=node_sym, n_nodes=N, seed=s, record=(:rate,))
+        sim = simulate(task; node=node_sym, n_nodes=N, seed=s, record=(:rate, :scene, :poses))
         br = branching_ratio(sim)
         per_tick_series[s] = br.per_tick
         sigmas[s] = br.sigma
         scores[s] = Float64(sim.metrics.score)
+
+        for f in factors
+            sig = resolve_analysis(f)(sim)          # length T
+            bt = br.per_tick                          # length T-1
+            m = min(length(sig), length(bt))
+            xs = factor_x[f]; ys = factor_y[f]
+            @inbounds for t in 1:m
+                y = bt[t]
+                isnan(y) && continue
+                x = Float64(sig[t])
+                isfinite(x) || continue
+                push!(xs, x); push!(ys, y)
+            end
+        end
     end
 
     seed_mean, seed_lo, seed_hi = _seedwise_series(per_tick_series)
+
+    factor_data = [
+        (
+            sym=f,
+            label=analysis_meta(f).label,
+            x=factor_x[f],
+            y=factor_y[f],
+            r=_pearson(factor_x[f], factor_y[f]),
+        )
+        for f in factors
+    ]
 
     return (
         task=task,
@@ -212,6 +330,7 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
         score_std=_nanstd(scores),
         score_norm_mean=_nanmean(normalized_score.(Ref(task_spec), scores)),
         scores=scores,
+        factor_data=factor_data,
     )
 end
 
@@ -352,6 +471,21 @@ function _task_card(res, task_note::String)
     println(io, "</div>")
     println(io, "<figure><img src=\"$plot_uri\" alt=\"branching ratio over time for :$(res.task)\">")
     println(io, "<figcaption>Seed-mean &sigma;(t) (teal line) &plusmn;1 std across $(res.n_seeds) seeds (shaded band); dashed amber line marks &sigma;=1, the self-sustaining/critical reference.</figcaption></figure>")
+
+    # Additional panel(s): branching σ vs each registered per-task performance
+    # factor. Gated by the task-scoped analysis registry -- tasks with no
+    # registered factor (e.g. the cartpole family) get no scatter here.
+    for fd in res.factor_data
+        rtxt = isnan(fd.r) ? "n/a" : _fmt(fd.r)
+        title = "Branching σ vs $(fd.label) (r = $rtxt)"
+        npts = length(fd.x)
+        uri = _fig_to_data_uri(_factor_scatter_figure(fd.x, fd.y, fd.label; title=title))
+        println(io, "<figure><img src=\"$uri\" alt=\"branching ratio vs $(fd.label) for :$(res.task)\">")
+        println(io, "<figcaption>Pooled per-tick points ($(npts) across $(res.n_seeds) seeds): x = <b>$(fd.label)</b> ",
+                     "(the registered <code>:$(fd.sym)</code> performance factor), y = branching ratio &sigma;. ",
+                     "Dark line = binned-mean &sigma; (12 bins); dashed amber line marks &sigma;=1. ",
+                     "Pearson <b>r = $rtxt</b> &mdash; does the reservoir sit nearer criticality (&sigma;&asymp;1) when performing well?</figcaption></figure>")
+    end
     println(io, "</div>")
     return String(take!(io))
 end
@@ -428,6 +562,14 @@ function node_profile(
 
     # --- per-task sections ----------------------------------------------
     println(io, "<section id=\"tasks\"><h2>Per-task branching-ratio profile</h2>")
+    println(io, "<p>Each task card carries the branching ratio <strong>over time</strong> (seed-mean &sigma;(t) ",
+                 "with a &plusmn;1 std band). Where the task registers a per-tick <strong>performance factor</strong> ",
+                 "in the task-scoped analysis registry (<code>task_analyses(task)</code>), a second panel plots ",
+                 "branching &sigma; <strong>against that factor</strong>, pooling every tick across every seed: it asks ",
+                 "<em>does the reservoir sit nearer criticality (&sigma;&asymp;1) when it is performing well &mdash; small ",
+                 "heading error, far from the wall, close ball&ndash;paddle tracking?</em> A Pearson <code>r</code> ",
+                 "summarizes the pooled relationship. Tasks with no registered factor (the cartpole family) show only ",
+                 "the over-time panel.</p>")
     for res in results
         note = get(CANONICAL_NOTE, res.task, "")
         println(io, _task_card(res, note))
