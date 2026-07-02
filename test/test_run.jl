@@ -7,7 +7,7 @@ function _tiny_run_config(; name="tiny-run", seed=17, generations=3, popsize=6, 
     return resolve(RunConfig(
         run=BrainlessLab.RunSection(
             name=name,
-            driver=:evolve,
+            runner=:evolve,
             seed_base=seed,
             suite_seed_base=seed + 100_000,
             profile=:teaching,
@@ -110,7 +110,7 @@ end
         println(io)
         println(io, "[run]")
         println(io, "name = \"sweep-cell\"")
-        println(io, "driver = \"evolve\"")
+        println(io, "runner = \"evolve\"")
         println(io, "profile = \"teaching\"")
         println(io)
         println(io, "[model]")

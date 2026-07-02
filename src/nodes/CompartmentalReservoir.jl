@@ -12,7 +12,7 @@ end
 
 struct CompartmentalConnState <: ConnState end
 
-mutable struct CompartmentalNeuronState
+mutable struct CompartmentalNodeState
     dend_y::Array{Float64,3}
     soma_y::Matrix{Float64}
     V::Vector{Float64}
@@ -22,7 +22,7 @@ mutable struct CompartmentalNeuronState
 end
 
 const CompartmentalReservoir{G<:AbstractCompartmental} =
-    ReservoirInstance{CompartmentalModel{G}, <:Wiring, <:CompartmentalConnState, <:CompartmentalNeuronState}
+    ReservoirInstance{CompartmentalModel{G}, <:Wiring, <:CompartmentalConnState, <:CompartmentalNodeState}
 
 function Base.getproperty(r::CompartmentalReservoir, s::Symbol)
     if s === :model
@@ -93,7 +93,7 @@ function CompartmentalReservoir(
         ),
         wiring,
         CompartmentalConnState(),
-        CompartmentalNeuronState(
+        CompartmentalNodeState(
             zeros(Float64, wiring.N, wiring.K, COMPARTMENTAL_D),
             zeros(Float64, wiring.N, COMPARTMENTAL_S),
             zeros(Float64, wiring.N),

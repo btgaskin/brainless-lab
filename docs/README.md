@@ -38,7 +38,7 @@ does not make the experimental pieces paper-faithful; v0.2 itself includes docum
 Everything is *neurons as nodes within a collective* -- the same node contract at every scale:
 
 ```
-NodeModel -> Reservoir -> Body -> Agent -> Collective{Medium} -> Task -> Driver(evolve|fixed) -> Run
+NodeModel -> Reservoir -> Body -> Agent -> Collective{Medium} -> Task -> Runner(evolve|fixed) -> Run
                                                        \-> Recorder ->  (viz reads this, off the hot path)
 ```
 

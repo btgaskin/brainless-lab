@@ -2,7 +2,7 @@ using BrainlessLab
 using Random
 using Test
 
-@testset "Evolve driver smoke" begin
+@testset "Evolve runner smoke" begin
     result = evolve(
         model_sym=:falandays,
         train_tasks=(:wall,),

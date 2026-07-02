@@ -48,12 +48,12 @@ Named `AbstractTask` to avoid clashing with `Base.Task`.
 abstract type AbstractTask end
 
 """
-    Driver
+    Runner
 
-Abstract supertype for simulation drivers that coordinate reservoirs, bodies,
+Abstract supertype for simulation runners that coordinate reservoirs, bodies,
 media, tasks, drives, and interventions.
 """
-abstract type Driver end
+abstract type Runner end
 
 """
     Drive

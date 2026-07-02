@@ -155,8 +155,8 @@ result = evolve(model_sym=:compartmental_structured, train_tasks=(:wall,),
 
 Selection uses a hand-rolled diagonal **sep-CMA-ES** (validated against pycma to ~1e-6),
 with thread-parallel rollouts (`Threads.@threads`, deterministic regardless of thread count)
-and the multi-task `:min`/`:mean` aggregation of the numpy line. `FixedDriver` (baseline
-eval) and `PlasticDriver` (online-learning runs) share the same `rollout` substrate.
+and the multi-task `:min`/`:mean` aggregation of the numpy line. `FixedRunner` (baseline
+eval) and `PlasticRunner` (online-learning runs) share the same `rollout` substrate.
 
 Evolution is part of the experimental platform. Evolving the 7 Falandays control parameters is
 an optional experimental perturbation of the baseline; evolving compartmental/CTRNN genomes is
@@ -165,7 +165,7 @@ required before those non-plastic nodes are a meaningful test.
 ## Reproducible runs
 
 `run_experiment(read_config("configs/evolve_falandays_wall.toml"))` resolves a TOML config
-(with `:teaching` / `:oracle` / `:evolution` profiles), runs the driver, and writes a run
+(with `:teaching` / `:oracle` / `:evolution` profiles), runs the runner, and writes a run
 directory under `runs/` containing a `manifest.toml` (git SHA, Julia + package versions,
 timestamps, full seed scheme), the resolved config, CSV/JSONL logs, and a JLD2 genome
 checkpoint. A run reproduces **bit-for-bit** from its own artifacts. `run_sweep` does
@@ -231,7 +231,7 @@ optimizers (`<: AbstractEvolutionStrategy` with `ask`/`tell!`/`result`). See
 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-The test suite covers node families, envs, collectives, ablations, the CMA driver, run
+The test suite covers node families, envs, collectives, ablations, the CMA runner, run
 artifacts, and Makie extension loading against Float64 numpy fixtures where applicable.
 
 ## Layout
@@ -241,7 +241,7 @@ src/core/    interfaces, traits, registries, params, Recorder
 src/nodes/   Falandays baseline/variants + compartmental (cell, reservoir, wiring, interventions)
 src/world/   Body, Torus, Mediums, Collective, Metrics  (single-agent task = collective of one)
 src/envs/    WallBox + the four environments + cartpole variants
-src/drivers/ rollout, SepCMA + EvolveDriver, Fixed/Plastic, threaded harness
+src/drivers/ rollout, SepCMA + EvolveRunner, Fixed/Plastic, threaded harness
 src/run/     TOML config, profiles, manifest, artifacts, sweeps
 src/api/     simulate / explore / visualize / replay
 ext/         BrainlessLabMakieExt  (viz -- never on the compute path)

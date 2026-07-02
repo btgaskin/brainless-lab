@@ -29,7 +29,7 @@ function _delayed_clone_from_dense(dense, embedding, delays, maxdelay, all_unit,
         FalandaysModel(dense.params, dense.drive, dense.sign, dense.rectify),
         connectome,
         conn,
-        FalandaysNeuronState(
+        FalandaysNodeState(
             zeros(Float64, n_nodes),
             ones(Float64, n_nodes),
             zeros(Float64, n_nodes),
@@ -133,7 +133,7 @@ function _tiny_delayed_reservoir(delay::Integer)
         FalandaysModel(params, NoDrive(), BrainlessLab.Unsigned(), true),
         connectome,
         FalandaysConnState(copy(wmat0), SpikeHistory(n_nodes, delay)),
-        FalandaysNeuronState(
+        FalandaysNodeState(
             zeros(Float64, n_nodes),
             ones(Float64, n_nodes),
             zeros(Float64, n_nodes),

@@ -174,7 +174,7 @@ FalandaysConnState(wmat) = FalandaysConnState(wmat, nothing)
 recurrent_input(c::FalandaysConnectome, sign, cs::FalandaysConnState, prev_spikes) =
     recurrent_input(sign, cs.wmat, prev_spikes)
 
-mutable struct FalandaysNeuronState{NS}
+mutable struct FalandaysNodeState{NS}
     acts::Vector{Float64}
     targets::Vector{Float64}
     spikes::Vector{Float64}
@@ -187,7 +187,7 @@ function learn_connectome!(
     c::FalandaysConnectome,
     sign,
     cs::FalandaysConnState,
-    ns::FalandaysNeuronState,
+    ns::FalandaysNodeState,
     params,
 )
     return learn!(sign, cs.wmat, ns.targets, ns.errors, c.recurrent_mask, ns.prev_spikes, params)
@@ -335,7 +335,7 @@ function FalandaysReservoir(;
         FalandaysModel(params, drive, axis, rectify),
         DenseConnectome(recurrent_mask, input_wmat, output_mask, wmat0_copy),
         FalandaysConnState(wmat),
-        FalandaysNeuronState(acts, targets, spikes, errors, prev_spikes, source),
+        FalandaysNodeState(acts, targets, spikes, errors, prev_spikes, source),
         PortSpec(n_receptors_, n_effectors_),
     )
 end
@@ -457,7 +457,7 @@ function step!(
     m::FalandaysModel,
     c::FalandaysConnectome,
     cs::FalandaysConnState,
-    ns::FalandaysNeuronState,
+    ns::FalandaysNodeState,
     receptor_currents,
 )
     receptor_currents = _float_vector(receptor_currents, "receptor_currents")

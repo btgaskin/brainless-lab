@@ -191,7 +191,7 @@ function _falandays_hemispheric_native(
         FalandaysModel(params, drive, axis, Bool(rectify)),
         connectome,
         FalandaysConnState(wmat),
-        FalandaysNeuronState(acts, targets, spikes, errors, prev_spikes, source),
+        FalandaysNodeState(acts, targets, spikes, errors, prev_spikes, source),
         PortSpec(n_receptors_, n_effectors_),
     )
 end

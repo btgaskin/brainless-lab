@@ -61,10 +61,10 @@ end
 
 _family(node) = startswith(String(node), "compartmental") ? :compartmental : :falandays
 
-# Build a RunConfig for this demo run (driver :fixed — a single fixed-model rollout).
+# Build a RunConfig for this demo run (runner :fixed — a single fixed-model rollout).
 function _demo_config(task, o)
     BrainlessLab.RunConfig(
-        run = BrainlessLab.RunSection(; name="demo_$(task)_$(o[:node])", driver=:fixed,
+        run = BrainlessLab.RunSection(; name="demo_$(task)_$(o[:node])", runner=:fixed,
                                       seed_base=max(0, o[:seed]), profile=:teaching),
         model = BrainlessLab.ModelSection(; family=_family(o[:node]), node=o[:node]),
         task = BrainlessLab.TaskSection(; train=(task,),

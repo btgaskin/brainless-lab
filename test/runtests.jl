@@ -27,7 +27,7 @@ include("test_run.jl")
     @test Reservoir isa Type
     @test Body isa Type
     @test Medium isa Type
-    @test Driver isa Type
+    @test Runner isa Type
     @test Drive isa Type
     @test Intervention isa Type
     @test AbstractEvolutionStrategy isa Type

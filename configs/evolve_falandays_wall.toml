@@ -1,6 +1,6 @@
 [run]
 name = "falandays-wall-teaching"
-driver = "evolve"
+runner = "evolve"
 seed_base = 0
 suite_seed_base = 100000
 profile = "teaching"

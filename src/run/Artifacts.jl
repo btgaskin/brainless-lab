@@ -21,12 +21,12 @@ end
 function run_dir(cfg::RunConfig; root::AbstractString=joinpath(_repo_root(), "runs"))
     resolved = resolve(cfg)
     task_id = _sanitize_path_part(join((string(t) for t in resolved.task.train), "+"))
-    driver_id = _sanitize_path_part(resolved.run.driver)
+    runner_id = _sanitize_path_part(resolved.run.runner)
     runid = string(Random.rand(UInt32), base=16, pad=8)
     dir = joinpath(
         root,
         task_id,
-        driver_id,
+        runner_id,
         "$(_path_timestamp())_$(_short_git())_$runid",
     )
     mkpath(dir)
@@ -200,7 +200,7 @@ end
 function _final_metrics(result, cfg::RunConfig)
     out = Dict{String,Any}(
         "run_name" => cfg.run.name,
-        "driver" => string(cfg.run.driver),
+        "runner" => string(cfg.run.runner),
     )
 
     if _hasprop(result, :best_fitness)
@@ -275,7 +275,7 @@ function _run_evolve_config(cfg::RunConfig)
 end
 
 function _run_fixed_config(cfg::RunConfig)
-    driver = FixedDriver(
+    runner = FixedRunner(
         model_sym=cfg.model.node,
         model=_default_model_for_run(cfg),
         tasks=cfg.task.suite,
@@ -287,11 +287,11 @@ function _run_fixed_config(cfg::RunConfig)
         window=cfg.task.window,
         lam=cfg.task.lam,
     )
-    return evaluate(driver)
+    return evaluate(runner)
 end
 
 function _run_plastic_config(cfg::RunConfig)
-    driver = PlasticDriver(
+    runner = PlasticRunner(
         model_sym=cfg.model.node,
         model=_default_model_for_run(cfg),
         tasks=cfg.task.suite,
@@ -302,7 +302,7 @@ function _run_plastic_config(cfg::RunConfig)
         window=cfg.task.window,
         lam=cfg.task.lam,
     )
-    return evaluate(driver)
+    return evaluate(runner)
 end
 
 function run_experiment(cfg::RunConfig; dir=nothing)
@@ -311,10 +311,10 @@ function run_experiment(cfg::RunConfig; dir=nothing)
     manifest_info = capture_manifest(resolved; seeds=seed_info)
 
     result =
-        resolved.run.driver == :evolve ? _run_evolve_config(resolved) :
-        resolved.run.driver == :fixed ? _run_fixed_config(resolved) :
-        resolved.run.driver == :plastic ? _run_plastic_config(resolved) :
-        throw(ArgumentError("unsupported run driver :$(resolved.run.driver)"))
+        resolved.run.runner == :evolve ? _run_evolve_config(resolved) :
+        resolved.run.runner == :fixed ? _run_fixed_config(resolved) :
+        resolved.run.runner == :plastic ? _run_plastic_config(resolved) :
+        throw(ArgumentError("unsupported run.runner :$(resolved.run.runner)"))
 
     out_dir = dir === nothing ? run_dir(resolved) : String(dir)
     mkpath(out_dir)

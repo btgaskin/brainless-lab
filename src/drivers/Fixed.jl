@@ -1,4 +1,4 @@
-Base.@kwdef struct FixedDriver <: Driver
+Base.@kwdef struct FixedRunner <: Runner
     model_sym::Symbol = :falandays
     model::Any = pack_params(FalandaysParams())
     tasks::Tuple = (:wall,)
@@ -23,26 +23,26 @@ function _summarize_rollouts(outs)
     )
 end
 
-function evaluate(driver::FixedDriver)
+function evaluate(runner::FixedRunner)
     results = Dict{Symbol,Vector{Any}}()
     summary = Dict{Symbol,Any}()
-    for task in driver.tasks
+    for task in runner.tasks
         task_spec = resolve_task(task)
         outs = Any[]
-        for seed in driver.seeds
+        for seed in runner.seeds
             push!(
                 outs,
                 rollout(
                     task_spec,
-                    driver.model,
+                    runner.model,
                     seed;
-                    model_sym=driver.model_sym,
-                    N=driver.N,
-                    ticks=driver.ticks,
-                    link_p=driver.link_p,
-                    rho=driver.rho,
-                    window=driver.window,
-                    lam=driver.lam,
+                    model_sym=runner.model_sym,
+                    N=runner.N,
+                    ticks=runner.ticks,
+                    link_p=runner.link_p,
+                    rho=runner.rho,
+                    window=runner.window,
+                    lam=runner.lam,
                 ),
             )
         end

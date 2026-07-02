@@ -154,7 +154,7 @@ function learn_connectome!(
     c::DelayedConnectome,
     sign::Unsigned,
     cs::FalandaysConnState,
-    ns::FalandaysNeuronState,
+    ns::FalandaysNodeState,
     params,
 )
     if c.all_unit
@@ -185,7 +185,7 @@ function learn_connectome!(
     c::DelayedConnectome,
     sign::Dale,
     cs::FalandaysConnState,
-    ns::FalandaysNeuronState,
+    ns::FalandaysNodeState,
     params,
 )
     if c.all_unit
@@ -324,7 +324,7 @@ function _falandays_delayed_native(
         FalandaysModel(params, drive, axis, Bool(rectify)),
         connectome,
         conn,
-        FalandaysNeuronState(acts, targets, spikes, errors, prev_spikes, source),
+        FalandaysNodeState(acts, targets, spikes, errors, prev_spikes, source),
         PortSpec(n_receptors_, n_effectors_),
     )
 end

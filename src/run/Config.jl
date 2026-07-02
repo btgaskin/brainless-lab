@@ -2,7 +2,7 @@ import TOML
 
 Base.@kwdef struct RunSection
     name::String = "experiment"
-    driver::Symbol = :evolve
+    runner::Symbol = :evolve
     seed_base::Int = 0
     suite_seed_base::Int = 100_000
     profile::Symbol = :teaching
@@ -45,7 +45,7 @@ Base.@kwdef struct RunConfig
     evolve::EvolveSection = EvolveSection()
 end
 
-const _RUN_CONFIG_DRIVERS = Set((:evolve, :fixed, :plastic))
+const _RUN_CONFIG_RUNNERS = Set((:evolve, :fixed, :plastic))
 const _RUN_CONFIG_AGGREGATORS = Set((:min, :mean))
 const _RUN_CONFIG_PROFILES = Set((:none, :teaching, :oracle, :evolution))
 
@@ -97,7 +97,7 @@ function _config_from_dict(data)
     return RunConfig(
         run=RunSection(
             name=_as_string(_get(run, "name", nothing), "experiment"),
-            driver=_as_symbol(_get(run, "driver", nothing), :evolve),
+            runner=_as_symbol(_get(run, "runner", nothing), :evolve),
             seed_base=_as_int(_get(run, "seed_base", nothing), 0),
             suite_seed_base=_as_int(_get(run, "suite_seed_base", nothing), 100_000),
             profile=_as_symbol(_get(run, "profile", nothing), :teaching),
@@ -166,7 +166,7 @@ function write_config(cfg::RunConfig, path::AbstractString)
     open(path, "w") do io
         println(io, "[run]")
         _write_toml_field(io, "name", cfg.run.name)
-        _write_toml_field(io, "driver", cfg.run.driver)
+        _write_toml_field(io, "runner", cfg.run.runner)
         _write_toml_field(io, "seed_base", cfg.run.seed_base)
         _write_toml_field(io, "suite_seed_base", cfg.run.suite_seed_base)
         _write_toml_field(io, "profile", cfg.run.profile)
@@ -216,8 +216,8 @@ function _task_specs_for_config(tasks_)
 end
 
 function _validate_resolved_config(cfg::RunConfig)
-    cfg.run.driver in _RUN_CONFIG_DRIVERS ||
-        throw(ArgumentError("run.driver must be one of evolve, fixed, plastic"))
+    cfg.run.runner in _RUN_CONFIG_RUNNERS ||
+        throw(ArgumentError("run.runner must be one of evolve, fixed, plastic"))
     cfg.run.profile in _RUN_CONFIG_PROFILES ||
         throw(ArgumentError("run.profile must be one of none, teaching, oracle, evolution"))
     cfg.run.seed_base >= 0 || throw(ArgumentError("run.seed_base must be non-negative"))
@@ -248,7 +248,7 @@ end
 function resolve(cfg::RunConfig)::RunConfig
     profiled = apply_profile(cfg)
 
-    driver = Symbol(profiled.run.driver)
+    runner = Symbol(profiled.run.runner)
     profile = Symbol(profiled.run.profile)
     seed_base = Int(profiled.run.seed_base)
     suite_seed_base = Int(profiled.run.suite_seed_base)
@@ -283,7 +283,7 @@ function resolve(cfg::RunConfig)::RunConfig
     resolved = RunConfig(
         run=RunSection(
             name=profiled.run.name,
-            driver=driver,
+            runner=runner,
             seed_base=seed_base,
             suite_seed_base=suite_seed_base,
             profile=profile,

@@ -1,4 +1,4 @@
-Base.@kwdef struct PlasticDriver <: Driver
+Base.@kwdef struct PlasticRunner <: Runner
     model_sym::Symbol = :falandays
     model::Any = pack_params(FalandaysParams())
     tasks::Tuple = (:wall,)
@@ -33,7 +33,7 @@ function _plastic_rollout(
 )
     node_sym = _canonical_model_sym(model_sym)
     node_sym in _FALANDAYS_MODEL_SYMS ||
-        throw(ArgumentError("PlasticDriver currently records Falandays online-plastic diagnostics only"))
+        throw(ArgumentError("PlasticRunner currently records Falandays online-plastic diagnostics only"))
 
     task_spec = resolve_task(task)
     n_nodes = N === nothing ? _default_node_count(node_sym) : Int(N)
@@ -82,25 +82,25 @@ function _plastic_rollout(
     )
 end
 
-function evaluate(driver::PlasticDriver)
+function evaluate(runner::PlasticRunner)
     results = Dict{Symbol,Vector{Any}}()
     summary = Dict{Symbol,Any}()
-    for task in driver.tasks
+    for task in runner.tasks
         task_spec = resolve_task(task)
         outs = Any[]
-        for seed in driver.seeds
+        for seed in runner.seeds
             push!(
                 outs,
                 _plastic_rollout(
                     task_spec,
-                    driver.model,
+                    runner.model,
                     seed;
-                    model_sym=driver.model_sym,
-                    N=driver.N,
-                    ticks=driver.ticks,
-                    link_p=driver.link_p,
-                    window=driver.window,
-                    lam=driver.lam,
+                    model_sym=runner.model_sym,
+                    N=runner.N,
+                    ticks=runner.ticks,
+                    link_p=runner.link_p,
+                    window=runner.window,
+                    lam=runner.lam,
                 ),
             )
         end

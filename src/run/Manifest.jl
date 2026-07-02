@@ -104,7 +104,7 @@ function _manifest_config(cfg::RunConfig)
     return Dict{String,Any}(
         "run" => Dict{String,Any}(
             "name" => cfg.run.name,
-            "driver" => string(cfg.run.driver),
+            "runner" => string(cfg.run.runner),
             "seed_base" => cfg.run.seed_base,
             "suite_seed_base" => cfg.run.suite_seed_base,
             "profile" => string(cfg.run.profile),

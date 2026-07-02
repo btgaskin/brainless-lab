@@ -49,7 +49,7 @@ end
 
 function _coerce_section_field(::Type{RunSection}, field::Symbol, value)
     field === :name && return string(value)
-    field in (:driver, :profile) && return Symbol(value)
+    field in (:runner, :profile) && return Symbol(value)
     field in (:seed_base, :suite_seed_base) && return Int(value)
     throw(KeyError(field))
 end

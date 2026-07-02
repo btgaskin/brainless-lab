@@ -304,7 +304,7 @@ function result(es::SepCMA)
     )
 end
 
-Base.@kwdef mutable struct EvolveDriver <: Driver
+Base.@kwdef mutable struct EvolveRunner <: Runner
     model_sym::Symbol = :falandays
     train_tasks::Tuple = (:wall,)
     generations::Int = 30
@@ -488,27 +488,27 @@ function evolve(;
     return out
 end
 
-function evolve(driver::EvolveDriver)
+function evolve(runner::EvolveRunner)
     out = evolve(
-        model_sym=driver.model_sym,
-        train_tasks=driver.train_tasks,
-        generations=driver.generations,
-        popsize=driver.popsize,
-        k_trials=driver.k_trials,
-        aggregator=driver.aggregator,
-        N=driver.N,
-        ticks=driver.ticks,
-        sigma0=driver.sigma0,
-        x0=driver.x0,
-        seed=driver.seed,
-        wiring_seed_base=driver.wiring_seed_base,
-        link_p=driver.link_p,
-        rho=driver.rho,
-        window=driver.window,
-        lam=driver.lam,
-        threaded=driver.threaded,
+        model_sym=runner.model_sym,
+        train_tasks=runner.train_tasks,
+        generations=runner.generations,
+        popsize=runner.popsize,
+        k_trials=runner.k_trials,
+        aggregator=runner.aggregator,
+        N=runner.N,
+        ticks=runner.ticks,
+        sigma0=runner.sigma0,
+        x0=runner.x0,
+        seed=runner.seed,
+        wiring_seed_base=runner.wiring_seed_base,
+        link_p=runner.link_p,
+        rho=runner.rho,
+        window=runner.window,
+        lam=runner.lam,
+        threaded=runner.threaded,
     )
-    driver.result = out
+    runner.result = out
     return out
 end
 
