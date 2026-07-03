@@ -44,6 +44,7 @@ record_state!(::Recorder, ::Reservoir) = nothing
 
 function record_state!(channels::Dict{Symbol,Vector{Any}}, r::FalandaysReservoir)
     push!(get!(channels, :acts, Any[]), copy(r.acts))
+    push!(get!(channels, :targets, Any[]), copy(r.targets))
     return channels
 end
 
@@ -108,7 +109,7 @@ function _record_swarm_metrics!(rec::Recorder, m::TorusMedium, poses)
 end
 
 function _record_state_channels!(rec::Recorder, agents)
-    _record_wants_any(rec, (:acts, :soma, :V)) || return rec
+    _record_wants_any(rec, (:acts, :targets, :soma, :V)) || return rec
 
     channels = Dict{Symbol,Vector{Any}}()
     for agent in agents

@@ -285,6 +285,52 @@ function _spectral_figure(xs::Vector{<:Integer}, smean, slo, shi; title::String=
     return fig
 end
 
+"""
+    _target_error_figure(target_error; title)
+
+Representative rollout target-error panel. Left: across-node mean with the
+node-wise IQR band through time. Right: final-tick across-node distribution.
+"""
+function _target_error_figure(target_error; title::String="")
+    err = target_error.per_node_error
+    n_nodes, n_ticks = size(err)
+    xs = collect(1:n_ticks)
+    mean_series = target_error.mean_over_nodes
+    q25 = Vector{Float64}(undef, n_ticks)
+    q75 = Vector{Float64}(undef, n_ticks)
+    @inbounds for t in 1:n_ticks
+        col = @view err[:, t]
+        q25[t] = _percentile(col, 25.0)
+        q75[t] = _percentile(col, 75.0)
+    end
+
+    grid = CairoMakie.RGBf(0.93, 0.92, 0.89)
+    fig = CairoMakie.Figure(size=(820, 340), backgroundcolor=:white)
+    ax_time = CairoMakie.Axis(
+        fig[1, 1];
+        xlabel="tick", ylabel="|act - T|",
+        title=title, titlesize=14, xlabelsize=12, ylabelsize=12,
+        backgroundcolor=:white, xgridcolor=grid, ygridcolor=grid,
+        leftspinevisible=true, rightspinevisible=false, topspinevisible=false,
+    )
+    CairoMakie.band!(ax_time, xs, q25, q75; color=(_TEAL, 0.18), label="node IQR")
+    CairoMakie.lines!(ax_time, xs, mean_series; color=_TEAL, linewidth=2.0, label="node mean")
+    CairoMakie.xlims!(ax_time, 1, max(n_ticks, 2))
+    CairoMakie.axislegend(ax_time; position=:rt, labelsize=10, framevisible=false)
+
+    ax_hist = CairoMakie.Axis(
+        fig[1, 2];
+        xlabel="final |act - T|", ylabel="nodes",
+        backgroundcolor=:white, xgridcolor=grid, ygridcolor=grid,
+        leftspinevisible=true, rightspinevisible=false, topspinevisible=false,
+    )
+    bins = max(8, min(40, ceil(Int, sqrt(max(n_nodes, 1)))))
+    CairoMakie.hist!(ax_hist, target_error.final_distribution; bins=bins, color=(_AMBER, 0.45),
+                     strokecolor=_AMBER, strokewidth=0.5)
+    CairoMakie.colgap!(fig.layout, 18)
+    return fig
+end
+
 function _fig_to_data_uri(fig)
     path = tempname() * ".png"
     CairoMakie.save(path, fig)
@@ -323,9 +369,11 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
     # the seed-1 SimResult itself, to render the behaviour + σ(t) MP4.
     seed1_factor = Dict{Symbol,Vector{Float64}}()
     seed1_sim = nothing
+    seed1_target_error = nothing
 
     for s in 1:n_seeds
-        sim = simulate(task; node=node_sym, n_nodes=N, seed=s, record=(:rate, :scene, :poses))
+        record_channels = s == 1 ? (:rate, :scene, :poses, :acts, :targets) : (:rate, :scene, :poses)
+        sim = simulate(task; node=node_sym, n_nodes=N, seed=s, record=record_channels)
         br = branching_ratio(sim)
         per_tick_series[s] = br.per_tick
         sigmas[s] = br.sigma
@@ -333,6 +381,11 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
 
         if s == 1
             seed1_sim = sim
+            seed1_target_error = try
+                node_target_error(sim)
+            catch err
+                err isa ArgumentError ? nothing : rethrow()
+            end
             for f in factors
                 seed1_factor[f] = Float64.(resolve_analysis(f)(sim))   # length T
             end
@@ -405,6 +458,7 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
         spectral_lo=spectral_lo,
         spectral_hi=spectral_hi,
         seed1_sim=seed1_sim,
+        target_error=seed1_target_error,
     )
 end
 
@@ -570,6 +624,17 @@ function _task_card(res, task_note::String, mp4_name::AbstractString="")
                      "It tracks the weight reorganization the homeostatic learning drives (branching, rate-pinned, does not): ",
                      "for <code>falandays_base</code> &rho;(W) falls over the run as <code>W -= error/N</code> shrinks the ",
                      "recurrent weights &mdash; here $(_fmt(s0; digits=2)) &rarr; $(_fmt(s1; digits=2)).</figcaption></figure>")
+    end
+
+    # Falandays-family nodes expose homeostatic targets. Compartmental nodes do
+    # not, so the analysis is absent and this panel is skipped.
+    if res.target_error !== nothing
+        turi = _fig_to_data_uri(_target_error_figure(res.target_error; title="$(res.task) — per-node distance to target"))
+        println(io, "<figure><img src=\"$turi\" alt=\"per-node distance to target over time for :$(res.task)\">")
+        println(io, "<figcaption>Representative run (seed 1): mean <code>|act - T|</code> across nodes (teal) ",
+                     "with the across-node interquartile band, plus the final-tick node distribution. ",
+                     "This is the primary per-node homeostatic workload signal because Falandays weight-update ",
+                     "magnitude scales with <code>|error|</code>.</figcaption></figure>")
     end
 
     # Additional panel(s): SITUATED per-run chart -- branching σ(t) and the
