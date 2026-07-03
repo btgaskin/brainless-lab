@@ -88,6 +88,10 @@ function _falandays_native(n_nodes::Integer, n_receptors_::Integer, n_effectors_
     return FalandaysReservoir(Int(n_nodes), Int(n_receptors_), Int(n_effectors_); seed=seed, kwargs...)
 end
 
+function _sorn_native(n_nodes::Integer, n_receptors_::Integer, n_effectors_::Integer; seed=nothing, kwargs...)
+    return SORNReservoir(Int(n_nodes), Int(n_receptors_), Int(n_effectors_); seed=seed, kwargs...)
+end
+
 function _falandays_oosawa_native(
     n_nodes::Integer,
     n_receptors_::Integer,

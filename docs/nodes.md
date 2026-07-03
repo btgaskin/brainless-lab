@@ -37,6 +37,7 @@ variants, compartmental nodes, or evolution experiments.
 | `:falandays_ablated` | experimental | **target homeostasis frozen** (`lrate_targ=0`): target pinned at 1.0, threshold fixed at 2.0; weights still learn -- an ablation probe of the homeostatic mechanism |
 | `:falandays_hemispheric` | experimental | **two half-size reservoirs, contralateral wiring**: right sensors -> left effectors, left sensors -> right effectors; the hemispheres couple only through the body/world |
 | `:falandays_oosawa` | experimental | + **Oosawa membrane drive**: target-modulated stochastic membrane noise. `sigma = membrane_noise + noise_gain * max(0, 2T - acts)` is the noise amplitude, so exploration grows when a node is below threshold and vanishes at set-point when there is no constant floor; keeps a blind network alive |
+| `:sorn` | experimental | **SORN** criticality reference with STDP + intrinsic plasticity + synaptic normalization; Lazar/Pipa/Triesch 2009; not yet validated for avalanche-scaling criticality in this implementation |
 | `:compartmental_dense` | experimental | dense dendrite -> soma -> hillock CTRNN cell with emergent weights and no online plasticity |
 | `:compartmental_structured` | experimental | structured single-port dendrite/soma routing with emergent threshold; the recommended compartmental build |
 
