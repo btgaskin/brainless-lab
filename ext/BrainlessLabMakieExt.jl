@@ -454,7 +454,14 @@ function _draw_panel!(ax, sim, panel::Symbol)
     elseif panel == :drift
         return _draw_drift!(ax, sim)
     end
-    throw(ArgumentError("unknown visualization panel :$(panel)"))
+
+    panel_view = BL.resolve_view(panel)
+    if applicable(panel_view, ax, sim)
+        return panel_view(ax, sim)
+    elseif applicable(panel_view, sim, ax)
+        return panel_view(sim, ax)
+    end
+    throw(ArgumentError("registered view :$(panel) cannot draw as a visualize panel; define a method accepting (axis, sim)"))
 end
 
 function BL.visualize(sim::BL.SimResult; panels=[:raster, :rate, :trajectory], size=nothing)

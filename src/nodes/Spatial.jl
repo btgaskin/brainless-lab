@@ -370,7 +370,7 @@ function _falandays_spatial_native(
     extent::Real=1.0,
     dims::Integer=2,
     params=FalandaysParams(),
-    drive::Drive=NoDrive(),
+    drive=NoDrive(),
     sign=Unsigned(),
     rectify=true,
     noise_source=nothing,
@@ -403,7 +403,7 @@ function _falandays_spatial_native(
     prev_spikes = zeros(Float64, n_nodes)
 
     return ReservoirInstance(
-        FalandaysModel(params, drive, axis, Bool(rectify)),
+        FalandaysModel(params, _resolve_drive_instance(drive), axis, Bool(rectify)),
         connectome,
         FalandaysConnState(wmat),
         FalandaysNodeState(acts, targets, spikes, errors, prev_spikes, source),

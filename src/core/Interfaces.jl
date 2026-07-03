@@ -141,6 +141,15 @@ Return the number of evolvable scalar parameters represented by `object`.
 function paramdim end
 
 """
+    genome_type(node)
+
+Return the `NodeModel` type that represents a registered node's evolvable
+parameters. Evolution code uses this type with `pack_params`, `paramdim`, and
+`unpack_params` instead of branching on built-in node symbols.
+"""
+function genome_type end
+
+"""
     snapshot_state(object, args...)
 
 Return a representation of dynamic runtime state.

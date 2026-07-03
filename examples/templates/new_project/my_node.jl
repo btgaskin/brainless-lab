@@ -21,6 +21,8 @@ end
 paramdim(::Type{MyNodeParams}) = 8
 paramdim(::MyNodeParams) = 8
 
+pack_params(::Type{MyNodeParams}) = pack_params(MyNodeParams())
+
 pack_params(p::MyNodeParams) = Float64[
     p.leak,
     p.lrate_wmat,
@@ -272,11 +274,4 @@ function load_state!(r::MyNode, state)
     return r
 end
 
-register_node!(:my_node, MyNode)
-
-# The current benchmark runner routes untrained online-plastic baselines through
-# the Falandays-family rollout path. This bridge lets the template participate
-# in that runner while keeping the public API surface to `register_node!`.
-if isdefined(BrainlessLab, :_FALANDAYS_MODEL_SYMS)
-    push!(getfield(BrainlessLab, :_FALANDAYS_MODEL_SYMS), :my_node)
-end
+register_node!(:my_node, MyNode; genome_type=MyNodeParams)

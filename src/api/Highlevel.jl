@@ -15,6 +15,14 @@ struct SimResult{R,M,C}
     config::C
 end
 
+function view(sim::SimResult, sym::Union{Symbol,AbstractString}; kwargs...)
+    return resolve_view(Symbol(sym))(sim; kwargs...)
+end
+
+function view(rec::Recorder, sym::Union{Symbol,AbstractString}; kwargs...)
+    return resolve_view(Symbol(sym))(rec; kwargs...)
+end
+
 const _DEFAULT_RECORD_CHANNELS = (:spikes, :rate, :poses, :polarization, :milling)
 
 const _NODE_DEFAULT_N = Dict{Symbol,Int}(
@@ -105,7 +113,12 @@ function _falandays_oosawa_native(
     drive = pop!(
         options,
         :drive,
-        OosawaDrive(membrane_noise=Float64(membrane_noise), noise_gain=Float64(noise_gain)),
+        :oosawa,
+    )
+    drive = _resolve_drive_instance(
+        drive;
+        membrane_noise=Float64(membrane_noise),
+        noise_gain=Float64(noise_gain),
     )
     return FalandaysReservoir(
         Int(n_nodes),
@@ -150,7 +163,7 @@ function _falandays_hemispheric_native(
     link_p::Real=0.1,
     extent::Real=1.0,
     params=FalandaysParams(),
-    drive::Drive=NoDrive(),
+    drive=NoDrive(),
     sign=Unsigned(),
     rectify=true,
     noise_source=nothing,
@@ -192,7 +205,7 @@ function _falandays_hemispheric_native(
     prev_spikes = zeros(Float64, n_nodes)
 
     return ReservoirInstance(
-        FalandaysModel(params, drive, axis, Bool(rectify)),
+        FalandaysModel(params, _resolve_drive_instance(drive), axis, Bool(rectify)),
         connectome,
         FalandaysConnState(wmat),
         FalandaysNodeState(acts, targets, spikes, errors, prev_spikes, source),
@@ -382,6 +395,21 @@ function _make_agent(reservoir::Reservoir, body::Body, morphology::Morphology)
     return Agent(reservoir, body)
 end
 
+function _resolve_task_body(body)
+    body isa Body && return body
+    ctor =
+        body isa Symbol ? resolve_body(body) :
+        body isa AbstractString ? resolve_body(Symbol(body)) :
+        body
+    if applicable(ctor)
+        body_obj = ctor()
+        body_obj isa Body ||
+            throw(ArgumentError("task body constructor returned $(typeof(body_obj)), not a Body"))
+        return body_obj
+    end
+    throw(ArgumentError("task body must be a Body instance, registered body symbol, or zero-argument Body constructor"))
+end
+
 function _make_task_collective(
     task_spec::TaskSpec,
     node::Symbol,
@@ -392,6 +420,7 @@ function _make_task_collective(
     n_nodes::Integer=100,
     node_kwargs=NamedTuple(),
     env_kwargs=NamedTuple(),
+    body=:passthrough,
 )
     env_options = _kwargs_tuple(_merge_kwdicts(env_kwargs))
     env = make_env(task_spec; rng=_sim_rng(seed), env_options...)
@@ -406,7 +435,7 @@ function _make_task_collective(
         seed=seed,
         node_kwargs=node_kwargs,
     )
-    agent = _make_agent(reservoir, PassthroughBody(), morphology)
+    agent = _make_agent(reservoir, _resolve_task_body(body), morphology)
     recorder = Recorder(enabled=record, every=every)
     collective = Ensemble([agent], TaskMedium(env); recorder=recorder)
     return collective, recorder
@@ -423,13 +452,14 @@ function _make_swarm_collective(
     node_kwargs=NamedTuple(),
     swarm_kwargs=NamedTuple(),
     forage::Bool=false,
+    body=:ven,
 )
     swarm_options = _merge_kwdicts(swarm_kwargs)
     swarm_options[:n_agents] = Int(n_agents)
     swarm_options[:n_nodes] = Int(n_nodes)
     swarm_options[:seed] = seed === nothing ? 0 : Int(seed)
     config = SwarmConfig(; _kwargs_tuple(swarm_options)...)
-    medium = forage ? ForageMedium(config; rng=_sim_rng(seed)) : TorusMedium(config; rng=_sim_rng(seed))
+    medium = forage ? ForageMedium(config; rng=_sim_rng(seed), body=body) : TorusMedium(config; rng=_sim_rng(seed), body=body)
 
     agents = Vector{Agent}(undef, config.n_agents)
     @inbounds for i in 1:config.n_agents
@@ -568,6 +598,7 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
     window_arg = haskey(options, :window) ? pop!(options, :window) : nothing
     env_kwargs = haskey(options, :env_kwargs) ? pop!(options, :env_kwargs) : NamedTuple()
     node_kwargs = haskey(options, :node_kwargs) ? pop!(options, :node_kwargs) : NamedTuple()
+    body = haskey(options, :body) ? pop!(options, :body) : nothing
 
     swarm_kwargs =
         haskey(options, :swarm_kwargs) ? pop!(options, :swarm_kwargs) :
@@ -598,6 +629,7 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
             node_kwargs=node_kwargs,
             swarm_kwargs=swarm_kwargs,
             forage=forage,
+            body=body === nothing ? :ven : body,
         )
         tick_count = ticks === nothing ? 1000 : Int(ticks)
         window = window_arg === nothing ? tick_count : Int(window_arg)
@@ -629,6 +661,7 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
         n_nodes=n_nodes,
         node_kwargs=node_kwargs,
         env_kwargs=env_kwargs,
+        body=body === nothing ? :passthrough : body,
     )
     tick_count = ticks === nothing ? task_spec.default_ticks : Int(ticks)
     window = window_arg === nothing ? min(tick_count, task_spec.default_window) : Int(window_arg)
@@ -653,10 +686,10 @@ end
 Run a single-agent task such as `:wall`, `:tracking`, `:pong`, or `:cartpole`,
 or run a swarm with `simulate(:torus; node=:falandays, n_agents=5)`.
 """
-function simulate(task::Symbol; node=:falandays, ticks=nothing, seed=0, record=_DEFAULT_RECORD_CHANNELS, every::Integer=1, kwargs...)
+function simulate(task::Symbol; node=:falandays, ticks=nothing, seed=0, record=_DEFAULT_RECORD_CHANNELS, every::Integer=1, metrics=nothing, kwargs...)
     node_sym = Symbol(node)
     setup = _build_collective(task, node_sym; ticks=ticks, seed=seed, record=record, every=every, kwargs...)
-    result_metrics = rollout!(setup.collective, setup.ticks; window=setup.window)
+    result_metrics = rollout!(setup.collective, setup.ticks; window=setup.window, metrics=metrics)
     config = _simulation_config(
         setup.collective;
         ticks=setup.ticks,

@@ -52,8 +52,6 @@ function _print_metrics(metrics)
         end
     end
 
-    custom_metric = BrainlessLab.resolve_metric(:final_error_abs)
-    println("  final_error_abs = ", custom_metric(metrics))
     return nothing
 end
 
@@ -68,6 +66,7 @@ function main(args)
         seed=opts[:seed],
         n_nodes=opts[:n_nodes],
         record=RECORD,
+        metrics=[:final_error_abs],
     )
 
     _print_metrics(sim.metrics)

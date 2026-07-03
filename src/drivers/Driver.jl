@@ -1,26 +1,18 @@
 using Random
 
-const _FALANDAYS_MODEL_SYMS = Set((:falandays, :falandays_base, :falandays_noisy,
-                                   :falandays_ablated, :falandays_hemispheric,
-                                   :falandays_oosawa, :falandays_spatial,
-                                   :falandays_delayed))
-const _DENSE_COMPARTMENTAL_MODEL_SYMS = Set((:dense, :compartmental_dense))
-const _STRUCTURED_COMPARTMENTAL_MODEL_SYMS = Set((:compartmental, :structured, :compartmental_structured))
+const _MODEL_SYM_ALIASES = Dict{Symbol,Symbol}(
+    :dense => :compartmental_dense,
+    :compartmental => :compartmental_structured,
+    :structured => :compartmental_structured,
+)
 
 function _canonical_model_sym(model_sym::Union{Symbol,AbstractString})
     sym = Symbol(model_sym)
-    sym in _FALANDAYS_MODEL_SYMS && return sym
-    sym in _DENSE_COMPARTMENTAL_MODEL_SYMS && return :compartmental_dense
-    sym in _STRUCTURED_COMPARTMENTAL_MODEL_SYMS && return :compartmental_structured
-    return sym
+    return get(_MODEL_SYM_ALIASES, sym, sym)
 end
 
 function _model_param_type(model_sym::Symbol)
-    sym = _canonical_model_sym(model_sym)
-    sym in _FALANDAYS_MODEL_SYMS && return FalandaysParams
-    sym == :compartmental_dense && return DenseCompartmental
-    sym == :compartmental_structured && return StructuredCompartmental
-    throw(ArgumentError("no evolvable parameter type is known for model :$(model_sym)"))
+    return genome_type(_canonical_model_sym(model_sym))
 end
 
 _model_mode(::Type{DenseCompartmental}) = :dense
@@ -43,8 +35,9 @@ end
 function _node_kwargs_for_model(model_sym::Symbol, model; learn_on=nothing)
     node_sym = _canonical_model_sym(model_sym)
     options = Dict{Symbol,Any}()
+    genome_T = _model_param_type(node_sym)
 
-    if node_sym in _FALANDAYS_MODEL_SYMS
+    if genome_T === FalandaysParams
         params =
             model isa FalandaysParams ? model :
             model isa AbstractVector{<:Real} ? unpack_params(FalandaysParams, model) :
@@ -53,15 +46,23 @@ function _node_kwargs_for_model(model_sym::Symbol, model; learn_on=nothing)
         return options
     end
 
-    genome_type = _model_param_type(node_sym)
-    if model isa AbstractCompartmental
+    if genome_T <: AbstractCompartmental
+        model isa AbstractCompartmental || model isa AbstractVector{<:Real} ||
+            throw(ArgumentError("compartmental rollout model must be an AbstractCompartmental genome or raw parameter vector"))
         options[:genome] = model
-    elseif model isa AbstractVector{<:Real}
-        options[:raw] = Vector{Float64}(Float64.(model))
-    else
-        throw(ArgumentError("compartmental rollout model must be an AbstractCompartmental genome or raw parameter vector"))
+        if model isa AbstractVector{<:Real}
+            delete!(options, :genome)
+            options[:raw] = Vector{Float64}(Float64.(model))
+        end
+        options[:mode] = _model_mode(genome_T)
+        return options
     end
-    options[:mode] = _model_mode(genome_type)
+
+    params =
+        model isa genome_T ? model :
+        model isa AbstractVector{<:Real} ? unpack_params(genome_T, model) :
+        throw(ArgumentError("rollout model for :$(node_sym) must be $(genome_T) or a raw parameter vector"))
+    options[:params] = params
     return options
 end
 
@@ -95,8 +96,10 @@ function rollout(
     lam::Real=1.0,
     record=Symbol[],
     every::Integer=1,
+    metrics=nothing,
     learn_on=nothing,
     return_collective::Bool=false,
+    body=:passthrough,
     node_kwargs=NamedTuple(),
     env_kwargs=NamedTuple(),
     kwargs...,
@@ -137,9 +140,10 @@ function rollout(
         n_nodes=n_nodes,
         node_kwargs=node_options,
         env_kwargs=env_options,
+        body=body,
     )
 
-    metrics_nt = rollout!(collective, tick_count; window=win)
+    metrics_nt = rollout!(collective, tick_count; window=win, metrics=metrics)
     raw_score = _metric_value(metrics_nt, task_spec.score_key)
     norm = normalized_score(task_spec, raw_score)
 

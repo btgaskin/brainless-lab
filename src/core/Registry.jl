@@ -7,6 +7,7 @@ const ANALYSES = Dict{Symbol,Any}()
 const VIEWS = Dict{Symbol,Any}()
 const OPTIMIZERS = Dict{Symbol,Any}()
 const ABLATIONS = Dict{Symbol,Any}()
+const NODE_GENOME_TYPES = Dict{Symbol,Any}()
 
 function _register!(registry::Dict{Symbol,Any}, kind::AbstractString, sym::Symbol, T)
     registry[sym] = T
@@ -24,11 +25,24 @@ function _resolve(registry::Dict{Symbol,Any}, kind::AbstractString, sym::Symbol)
 end
 
 """
-    register_node!(sym, T)
+    register_node!(sym, T; genome_type=nothing)
 
 Register a node constructor or concrete type under `sym`.
+
+If the node can be evolved, pass `genome_type=<:NodeModel` so drivers can
+derive parameter dimension and unpacking from the public node contract.
 """
-register_node!(sym::Symbol, T) = _register!(NODES, "node", sym, T)
+function register_node!(sym::Symbol, T; genome_type=nothing)
+    registered = _register!(NODES, "node", sym, T)
+    if genome_type !== nothing
+        genome_type isa Type && genome_type <: NodeModel ||
+            throw(ArgumentError("genome_type for node :$(sym) must be a NodeModel type"))
+        NODE_GENOME_TYPES[sym] = genome_type
+    else
+        delete!(NODE_GENOME_TYPES, sym)
+    end
+    return registered
+end
 
 """
     resolve_node(sym)
@@ -36,6 +50,18 @@ register_node!(sym::Symbol, T) = _register!(NODES, "node", sym, T)
 Resolve a registered node symbol to its constructor or concrete type.
 """
 resolve_node(sym::Symbol)::Any = _resolve(NODES, "node", sym)
+
+function genome_type(node::Union{Symbol,AbstractString})
+    sym = Symbol(node)
+    if haskey(NODE_GENOME_TYPES, sym)
+        return NODE_GENOME_TYPES[sym]
+    end
+    return genome_type(resolve_node(sym))
+end
+
+function genome_type(node)
+    throw(ArgumentError("no evolvable genome_type is registered for node constructor $(node)"))
+end
 
 """
     register_task!(sym, T)

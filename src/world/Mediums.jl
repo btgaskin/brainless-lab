@@ -166,8 +166,29 @@ function _sample_open_position(rng::AbstractRNG, torus::Torus, config::SwarmConf
     throw(ArgumentError("could not place non-overlapping agents in the torus"))
 end
 
-function _sample_bodies(config::SwarmConfig, torus::Torus, rng::AbstractRNG; source_bank::Bool=false)
+function _resolve_body_constructor(body)
+    body isa Symbol && return resolve_body(body)
+    body isa AbstractString && return resolve_body(Symbol(body))
+    return body
+end
+
+function _construct_sampled_ven_body(body_ctor, pos, heading, config::SwarmConfig; source_bank::Bool=false)
+    body = body_ctor(
+        pos,
+        heading;
+        params=config.ven,
+        sensory_scaling=config.sensory_scaling,
+        source_bank=source_bank,
+        source_gain=config.source_gain,
+    )
+    body isa VENBody ||
+        throw(ArgumentError("Torus/forage media currently require body constructors that return VENBody, got $(typeof(body))"))
+    return body
+end
+
+function _sample_bodies(config::SwarmConfig, torus::Torus, rng::AbstractRNG; source_bank::Bool=false, body=:ven)
     Int(config.n_agents) >= 1 || throw(ArgumentError("n_agents must be at least 1"))
+    body_ctor = _resolve_body_constructor(body)
     bodies = VENBody[]
     min_separation = 2.0 * config.ven.agent_radius + 0.2
 
@@ -176,13 +197,12 @@ function _sample_bodies(config::SwarmConfig, torus::Torus, rng::AbstractRNG; sou
         heading = rand(rng) * _TWO_PI
         push!(
             bodies,
-            VENBody(
+            _construct_sampled_ven_body(
+                body_ctor,
                 pos,
-                heading;
-                params=config.ven,
-                sensory_scaling=config.sensory_scaling,
+                heading,
+                config;
                 source_bank=source_bank,
-                source_gain=config.source_gain,
             ),
         )
     end
@@ -244,10 +264,10 @@ function TorusMedium(
     )
 end
 
-function TorusMedium(config::SwarmConfig; bodies=nothing, rng::AbstractRNG=MersenneTwister(config.seed))
+function TorusMedium(config::SwarmConfig; bodies=nothing, rng::AbstractRNG=MersenneTwister(config.seed), body=:ven)
     torus = Torus(config.space_size)
     body_vec = bodies === nothing ?
-        _sample_bodies(config, torus, rng; source_bank=false) :
+        _sample_bodies(config, torus, rng; source_bank=false, body=body) :
         _as_ven_body_vector(bodies)
     return TorusMedium(torus, body_vec; config=config, rng=rng)
 end
@@ -318,10 +338,10 @@ function ForageMedium(
     )
 end
 
-function ForageMedium(config::SwarmConfig; bodies=nothing, rng::AbstractRNG=MersenneTwister(config.seed))
+function ForageMedium(config::SwarmConfig; bodies=nothing, rng::AbstractRNG=MersenneTwister(config.seed), body=:ven)
     torus = Torus(config.space_size)
     body_vec = bodies === nothing ?
-        _sample_bodies(config, torus, rng; source_bank=true) :
+        _sample_bodies(config, torus, rng; source_bank=true, body=body) :
         _as_ven_body_vector(bodies)
     return ForageMedium(torus, body_vec; config=config, rng=rng)
 end
