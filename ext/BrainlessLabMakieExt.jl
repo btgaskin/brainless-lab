@@ -294,14 +294,39 @@ function _draw_rate!(ax, sim)
     return ax
 end
 
+# On a periodic torus, a seam crossing jumps the raw coordinate by ~L, which
+# lines! would draw as a segment straight across the world. Break the polyline
+# (insert NaN, which Makie renders as a gap) wherever a step exceeds half the
+# world extent — a legitimate per-tick move is never that large.
+function _wrap_break(xs::Vector{Float64}, ys::Vector{Float64}, bounds)
+    bounds === nothing && return xs, ys
+    x0, x1, y0, y1 = bounds
+    halfx = 0.5 * (Float64(x1) - Float64(x0))
+    halfy = 0.5 * (Float64(y1) - Float64(y0))
+    ox = Float64[]
+    oy = Float64[]
+    @inbounds for i in eachindex(xs)
+        if i > 1 && ((halfx > 0.0 && abs(xs[i] - xs[i - 1]) > halfx) ||
+                     (halfy > 0.0 && abs(ys[i] - ys[i - 1]) > halfy))
+            push!(ox, NaN)
+            push!(oy, NaN)
+        end
+        push!(ox, xs[i])
+        push!(oy, ys[i])
+    end
+    return ox, oy
+end
+
 function _draw_trajectory!(ax, sim)
     _draw_bounds!(ax, sim)
+    bounds = _plot_bounds(sim)
     tracks = _pose_tracks(sim)
     for track in tracks
         isempty(track) && continue
-        xs = [pose[1] for pose in track]
-        ys = [pose[2] for pose in track]
-        Makie.lines!(ax, xs, ys; color=(_TEAL, 0.55), linewidth=2)
+        xs = [Float64(pose[1]) for pose in track]
+        ys = [Float64(pose[2]) for pose in track]
+        bx, by = _wrap_break(xs, ys, bounds)
+        Makie.lines!(ax, bx, by; color=(_TEAL, 0.55), linewidth=2)
         Makie.scatter!(ax, [xs[end]], [ys[end]]; markersize=8, color=_TEAL,
                        strokecolor=_PAPER, strokewidth=0.6)
     end
@@ -680,8 +705,10 @@ function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
                 isempty(tr) && continue
                 ff = min(f, length(tr))
                 lo = max(1, ff - trail)
-                Makie.lines!(axw, [p[1] for p in tr[lo:ff]], [p[2] for p in tr[lo:ff]];
-                             color=(_TEAL, 0.45), linewidth=2)
+                tx = [Float64(p[1]) for p in tr[lo:ff]]
+                ty = [Float64(p[2]) for p in tr[lo:ff]]
+                bx, by = _wrap_break(tx, ty, bounds)
+                Makie.lines!(axw, bx, by; color=(_TEAL, 0.45), linewidth=2)
                 push!(frame_poses, tr[ff])
             end
             _draw_agent_boids!(axw, frame_poses)
