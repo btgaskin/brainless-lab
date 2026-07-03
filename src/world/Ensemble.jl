@@ -121,10 +121,18 @@ function _record_state_channels!(rec::Recorder, agents)
     return rec
 end
 
-_record_spectral!(::Recorder, ::Reservoir) = nothing
+_spectral_radius_payload(::Reservoir) = nothing
+_spectral_radius_payload(r::FalandaysReservoir) = _spectral_radius(r)
 
-function _record_spectral!(rec::Recorder, r::FalandaysReservoir)
-    record!(rec, :spectral_radius, _spectral_radius(r))
+function _record_spectral!(rec::Recorder, agents)
+    values = Float64[]
+    for agent in agents
+        rho = _spectral_radius_payload(agent.reservoir)
+        rho === nothing && return rec
+        push!(values, Float64(rho))
+    end
+    payload = length(values) == 1 ? values[1] : values
+    record!(rec, :spectral_radius, payload)
     return rec
 end
 
@@ -149,7 +157,7 @@ function _record_collective!(rec::Recorder, c::Ensemble, bodies, percepts, spike
         record!(rec, :rates, copy(rates))
     end
     if _record_wants(rec, :spectral_radius)
-        _record_spectral!(rec, c.agents[1].reservoir)
+        _record_spectral!(rec, c.agents)
     end
     if _record_wants(rec, :effectors)
         record!(rec, :effectors, _record_payload(Es))

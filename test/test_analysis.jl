@@ -25,6 +25,27 @@ using Test
     @test isfinite(br.sigma)
     @test isfinite(br.sigma_ols)
 
+    swarm = simulate(:torus; node=:falandays_base, ticks=70, seed=12, n_agents=4, n_nodes=12, record=(:spikes, :rate))
+    node_br = branching_ratio(swarm; level=:node)
+    @test node_br.level == :node
+    @test node_br.n_agents == 4
+    @test length(node_br.per_agent) == 4
+    @test length(node_br.sigma_distribution) == 4
+    @test size(node_br.population_rate) == (length(getchannel(swarm.recorder, :rate)), 4)
+    @test isfinite(node_br.sigma)
+
+    agent_br = branching_ratio(swarm; level=:agent)
+    @test agent_br.level == :agent
+    @test agent_br.n_agents == 4
+    @test isfinite(agent_br.sigma)
+
+    single_swarm = simulate(:torus; node=:falandays_base, ticks=60, seed=13, n_agents=1, n_nodes=12, record=(:spikes, :rate))
+    pooled_single = branching_ratio(single_swarm)
+    node_single = branching_ratio(single_swarm; level=:node)
+    agent_single = branching_ratio(single_swarm; level=:agent)
+    @test (isnan(node_single.sigma) && isnan(pooled_single.sigma)) || node_single.sigma ≈ pooled_single.sigma
+    @test (isnan(agent_single.sigma) && isnan(pooled_single.sigma)) || agent_single.sigma ≈ pooled_single.sigma
+
     @test resolve_analysis(:branching_ratio) === branching_ratio
     @test :branching_ratio in analyses()
     @test resolve_analysis(:branching_ratio_mr) === branching_ratio_mr
@@ -56,6 +77,19 @@ end
     @test isfinite(mr.m_mr)
     @test abs(mr.m_mr - true_m) < 0.05
     @test abs(mr.m_mr - true_m) < abs(legacy.sigma - true_m)
+
+    swarm = simulate(:torus; node=:falandays_base, ticks=90, seed=14, n_agents=3, n_nodes=10, record=(:spikes, :rate))
+    node_mr = branching_ratio_mr(swarm; kmax=4, level=:node)
+    @test node_mr.level == :node
+    @test node_mr.n_agents == 3
+    @test length(node_mr.per_agent) == 3
+    @test length(node_mr.m_mr_distribution) == 3
+    @test node_mr.kmax == 4
+
+    agent_mr = branching_ratio_mr(swarm; kmax=4, level=:agent)
+    @test agent_mr.level == :agent
+    @test agent_mr.n_agents == 3
+    @test agent_mr.kmax == 4
 end
 
 @testset "Avalanche statistics analysis" begin
@@ -79,6 +113,20 @@ end
     @test got.durations == [2]
     @test got.n_avalanches == 1
     @test isnan(got.tau)
+
+    swarm = simulate(:torus; node=:falandays_base, ticks=80, seed=15, n_agents=4, n_nodes=12, record=(:spikes, :rate))
+    node_av = avalanches(swarm; level=:node)
+    @test node_av.level == :node
+    @test node_av.n_agents == 4
+    @test length(node_av.per_agent) == 4
+    @test length(node_av.sizes) == 4
+    @test length(node_av.n_avalanches_distribution) == 4
+
+    agent_av = avalanches(swarm; level=:agent)
+    @test agent_av.level == :agent
+    @test agent_av.n_agents == 4
+    @test isfinite(Float64(agent_av.n_avalanches))
+
     @test resolve_analysis(:avalanches) === avalanches
     @test analysis_meta(:avalanches).label == "neuronal avalanche size/duration exponents"
 end
@@ -160,6 +208,15 @@ end
     @test all(isfinite, sr.series)
     @test all(x -> x >= 0.0, sr.series)
     @test length(unique(round.(sr.series, digits=6))) > 1
+    @test sr.rho isa Float64
+    @test length(sr.distribution) == 1
+
+    swarm = simulate(:torus; node=:falandays_base, ticks=30, seed=6, n_agents=3, n_nodes=10, record=(:spectral_radius,), every=10)
+    sr_swarm = spectral_radius(swarm)
+    @test size(sr_swarm.series, 2) == 3
+    @test length(sr_swarm.rho) == 3
+    @test length(sr_swarm.distribution) == 3
+    @test all(isfinite, sr_swarm.series)
 
     sim2 = simulate(:wall; node=:falandays_base, ticks=20)
     @test haskey(sim2.recorder, :spectral_radius) == false
@@ -167,6 +224,66 @@ end
 
     @test :spectral_radius in analyses()
     @test analysis_meta(:spectral_radius).label == "spectral radius ρ(W)"
+end
+
+@testset "Second-order level-aware signatures" begin
+    sim = simulate(:torus; node=:falandays_base, ticks=70, seed=9, n_agents=4, n_nodes=12, record=(:spikes, :rate, :poses, :polarization))
+
+    node_sus = susceptibility(sim; level=:node)
+    agent_sus = susceptibility(sim; level=:agent)
+    @test node_sus.level == :node
+    @test agent_sus.level == :agent
+    @test length(node_sus.distribution) == 4
+    @test isfinite(node_sus.susceptibility)
+    @test isfinite(agent_sus.susceptibility)
+
+    node_fano = fano_factor(sim; level=:node)
+    agent_fano = fano_factor(sim; level=:agent)
+    @test node_fano.level == :node
+    @test agent_fano.level == :agent
+    @test length(node_fano.distribution) == 4
+    @test isfinite(node_fano.fano_factor)
+    @test isfinite(agent_fano.fano_factor)
+
+    node_pr = participation_ratio(sim; level=:node)
+    agent_pr = participation_ratio(sim; level=:agent)
+    @test node_pr.level == :node
+    @test agent_pr.level == :agent
+    @test length(node_pr.distribution) == 4
+    @test isfinite(node_pr.participation_ratio)
+    @test isfinite(agent_pr.participation_ratio)
+
+    @test resolve_analysis(:susceptibility) === susceptibility
+    @test resolve_analysis(:fano_factor) === fano_factor
+    @test resolve_analysis(:participation_ratio) === participation_ratio
+    @test analysis_meta(:susceptibility).label == "susceptibility χ (experimental)"
+    @test analysis_meta(:fano_factor).label == "Fano factor (experimental)"
+    @test analysis_meta(:participation_ratio).label == "participation ratio (experimental)"
+end
+
+@testset "Swarm regime and correlation length" begin
+    valid_labels = (:polarized, :milling, :swarming, :static)
+
+    torus_sim = simulate(:torus; node=:falandays_base, ticks=70, seed=10, n_agents=5, n_nodes=12, record=(:poses, :polarization, :milling, :rate))
+    torus_regime = swarm_regime(torus_sim)
+    @test torus_regime.label in valid_labels
+    @test isfinite(torus_regime.polarization)
+    @test isfinite(torus_regime.milling)
+    @test isfinite(torus_regime.speed)
+    @test isfinite(correlation_length(torus_sim))
+
+    forage_sim = simulate(:forage; node=:falandays_base, ticks=70, seed=11, n_agents=5, n_nodes=12, record=(:poses, :polarization, :milling, :rate))
+    forage_regime = swarm_regime(forage_sim)
+    @test forage_regime.label in valid_labels
+    @test isfinite(forage_regime.polarization)
+    @test isfinite(forage_regime.milling)
+    @test isfinite(forage_regime.speed)
+    @test isfinite(correlation_length(forage_sim))
+
+    @test resolve_analysis(:swarm_regime) === swarm_regime
+    @test resolve_analysis(:correlation_length) === correlation_length
+    @test analysis_meta(:swarm_regime).label == "swarm regime classifier (experimental)"
+    @test analysis_meta(:correlation_length).label == "swarm velocity correlation length (experimental)"
 end
 
 @testset "Task performance analyses" begin

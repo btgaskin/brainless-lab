@@ -1,0 +1,363 @@
+const _ANALYSIS_LEVELS = (:pooled, :node, :agent)
+
+function _analysis_level(level::Symbol, name::Symbol)
+    level in _ANALYSIS_LEVELS ||
+        throw(ArgumentError("$(name) level must be one of :pooled, :node, or :agent"))
+    return level
+end
+
+function _analysis_numeric_vector(entry, name::Symbol, t::Integer)
+    if entry isa Number
+        return [Float64(entry)]
+    elseif entry isa AbstractArray
+        if all(x -> x isa Number, entry)
+            return [Float64(x) for x in entry]
+        end
+
+        out = Float64[]
+        for x in entry
+            append!(out, _analysis_numeric_vector(x, name, t))
+        end
+        return out
+    elseif entry isa Tuple
+        out = Float64[]
+        for x in entry
+            append!(out, _analysis_numeric_vector(x, name, t))
+        end
+        return out
+    end
+
+    throw(ArgumentError("$(name) needs numeric recorder entries; bad entry at tick $(t)"))
+end
+
+function _analysis_sample_matrix(raw, name::Symbol)
+    isempty(raw) && throw(ArgumentError("$(name) needs a recorded channel with at least one sample"))
+
+    n_ticks = length(raw)
+    rows = Vector{Vector{Float64}}(undef, n_ticks)
+    @inbounds for t in 1:n_ticks
+        rows[t] = _analysis_numeric_vector(raw[t], name, t)
+    end
+
+    width = length(rows[1])
+    width > 0 || throw(ArgumentError("$(name) needs non-empty numeric recorder entries"))
+
+    out = Matrix{Float64}(undef, n_ticks, width)
+    @inbounds for t in 1:n_ticks
+        length(rows[t]) == width ||
+            throw(DimensionMismatch("$(name) sample $(t) has width $(length(rows[t])); expected $(width)"))
+        out[t, :] .= rows[t]
+    end
+    return out
+end
+
+function _analysis_config_int(sim::SimResult, field::Symbol, default::Integer)
+    if hasproperty(sim.config, field)
+        return Int(getproperty(sim.config, field))
+    end
+    return Int(default)
+end
+
+function _analysis_agent_node_vectors(entry, name::Symbol, t::Integer)
+    if entry isa Number
+        return [[Float64(entry)]]
+    elseif entry isa AbstractArray
+        if all(x -> x isa Number, entry)
+            return [[Float64(x) for x in entry]]
+        end
+
+        entry isa AbstractVector ||
+            throw(ArgumentError("$(name) needs per-agent entries as a vector of node vectors; bad entry at tick $(t)"))
+        out = Vector{Float64}[]
+        for agent_entry in entry
+            push!(out, _analysis_numeric_vector(agent_entry, name, t))
+        end
+        return out
+    elseif entry isa Tuple
+        return [_analysis_numeric_vector(entry, name, t)]
+    end
+
+    throw(ArgumentError("$(name) needs numeric recorder entries; bad entry at tick $(t)"))
+end
+
+function _analysis_spike_matrices(sim::SimResult, name::Symbol)
+    raw = getchannel(sim.recorder, :spikes)
+    isempty(raw) && throw(ArgumentError("$(name) needs the :spikes channel recorded; run simulate(...; record=(:spikes, ...))"))
+
+    n_ticks = length(raw)
+    first = _analysis_agent_node_vectors(raw[1], name, 1)
+    n_agents = length(first)
+    n_agents > 0 || throw(ArgumentError("$(name) needs at least one recorded agent"))
+    widths = length.(first)
+    all(>(0), widths) || throw(ArgumentError("$(name) needs non-empty node vectors"))
+
+    out = [Matrix{Float64}(undef, n_ticks, widths[i]) for i in 1:n_agents]
+    @inbounds for i in 1:n_agents
+        out[i][1, :] .= first[i]
+    end
+
+    @inbounds for t in 2:n_ticks
+        rows = _analysis_agent_node_vectors(raw[t], name, t)
+        length(rows) == n_agents ||
+            throw(DimensionMismatch("$(name) sample $(t) has $(length(rows)) agents; expected $(n_agents)"))
+        for i in 1:n_agents
+            length(rows[i]) == widths[i] ||
+                throw(DimensionMismatch("$(name) sample $(t) agent $(i) has width $(length(rows[i])); expected $(widths[i])"))
+            out[i][t, :] .= rows[i]
+        end
+    end
+
+    return out
+end
+
+function _analysis_rate_matrix_from_raw(raw, name::Symbol)
+    isempty(raw) && throw(ArgumentError("$(name) needs the :rate channel recorded; run simulate(...; record=(:rate, ...))"))
+
+    n_ticks = length(raw)
+    rows = Vector{Vector{Float64}}(undef, n_ticks)
+    @inbounds for t in 1:n_ticks
+        entry = raw[t]
+        if entry isa Number
+            rows[t] = [Float64(entry)]
+        elseif entry isa AbstractVector && all(x -> x isa Number, entry)
+            rows[t] = Float64.(entry)
+        else
+            rows[t] = _analysis_numeric_vector(entry, name, t)
+        end
+    end
+
+    n_agents = length(rows[1])
+    n_agents > 0 || throw(ArgumentError("$(name) needs non-empty rate samples"))
+    out = Matrix{Float64}(undef, n_ticks, n_agents)
+    @inbounds for t in 1:n_ticks
+        length(rows[t]) == n_agents ||
+            throw(DimensionMismatch("$(name) sample $(t) has $(length(rows[t])) rates; expected $(n_agents)"))
+        out[t, :] .= rows[t]
+    end
+    return out
+end
+
+function _analysis_row_sums(mat::AbstractMatrix{<:Real})
+    out = Vector{Float64}(undef, size(mat, 1))
+    @inbounds for t in axes(mat, 1)
+        total = 0.0
+        for j in axes(mat, 2)
+            total += Float64(mat[t, j])
+        end
+        out[t] = total
+    end
+    return out
+end
+
+function _analysis_row_means(mat::AbstractMatrix{<:Real})
+    out = Vector{Float64}(undef, size(mat, 1))
+    width = size(mat, 2)
+    @inbounds for t in axes(mat, 1)
+        total = 0.0
+        for j in axes(mat, 2)
+            total += Float64(mat[t, j])
+        end
+        out[t] = width == 0 ? 0.0 : total / width
+    end
+    return out
+end
+
+function _analysis_rate_matrix_from_spikes(sim::SimResult, name::Symbol)
+    spike_mats = _analysis_spike_matrices(sim, name)
+    n_ticks = size(spike_mats[1], 1)
+    n_agents = length(spike_mats)
+    rates = Matrix{Float64}(undef, n_ticks, n_agents)
+    @inbounds for i in 1:n_agents
+        rates[:, i] .= _analysis_row_means(spike_mats[i])
+    end
+    return rates
+end
+
+function _analysis_rate_matrix(sim::SimResult, name::Symbol)
+    raw = getchannel(sim.recorder, :rate)
+    isempty(raw) || return _analysis_rate_matrix_from_raw(raw, name)
+    return _analysis_rate_matrix_from_spikes(sim, name)
+end
+
+function _analysis_node_rate_matrix(sim::SimResult, name::Symbol)
+    raw = getchannel(sim.recorder, :spikes)
+    if !isempty(raw)
+        return _analysis_rate_matrix_from_spikes(sim, name)
+    end
+    return _analysis_rate_matrix(sim, name)
+end
+
+function _analysis_node_count_matrix_and_widths(sim::SimResult, name::Symbol)
+    raw = getchannel(sim.recorder, :spikes)
+    if !isempty(raw)
+        spike_mats = _analysis_spike_matrices(sim, name)
+        n_ticks = size(spike_mats[1], 1)
+        n_agents = length(spike_mats)
+        counts = Matrix{Float64}(undef, n_ticks, n_agents)
+        widths = Vector{Int}(undef, n_agents)
+        @inbounds for i in 1:n_agents
+            widths[i] = size(spike_mats[i], 2)
+            counts[:, i] .= _analysis_row_sums(spike_mats[i])
+        end
+        return counts, widths
+    end
+
+    n_nodes = _analysis_config_int(sim, :n_nodes, 1)
+    rates = _analysis_rate_matrix(sim, name)
+    return rates .* Float64(n_nodes), fill(Int(n_nodes), size(rates, 2))
+end
+
+function _analysis_node_count_matrix(sim::SimResult, name::Symbol)
+    counts, _ = _analysis_node_count_matrix_and_widths(sim, name)
+    return counts
+end
+
+function _analysis_population_rate_series(sim::SimResult, name::Symbol)
+    return _analysis_row_means(_analysis_rate_matrix(sim, name))
+end
+
+function _analysis_agent_activity_series(sim::SimResult, name::Symbol)
+    return _analysis_row_sums(_analysis_rate_matrix(sim, name))
+end
+
+function _analysis_population_count_series(sim::SimResult, name::Symbol)
+    raw_spikes = getchannel(sim.recorder, :spikes)
+    if !isempty(raw_spikes)
+        return _analysis_row_sums(_analysis_node_count_matrix(sim, name))
+    end
+
+    raw_rates = getchannel(sim.recorder, :rate)
+    isempty(raw_rates) && throw(ArgumentError("$(name) needs :spikes recorded, or :rate recorded for the rate*N fallback"))
+
+    n_nodes = _analysis_config_int(sim, :n_nodes, 1)
+    n_agents = _analysis_config_int(sim, :n_agents, 1)
+    activity = Vector{Float64}(undef, length(raw_rates))
+    @inbounds for t in eachindex(raw_rates)
+        rates = _analysis_numeric_vector(raw_rates[t], name, t)
+        multiplier = length(rates) == 1 ? n_nodes * n_agents : n_nodes
+        activity[t] = multiplier * sum(rates)
+    end
+    return activity
+end
+
+function _analysis_finite_values(values)
+    out = Float64[]
+    for value in values
+        x = Float64(value)
+        isfinite(x) && push!(out, x)
+    end
+    return out
+end
+
+function _analysis_finite_mean(values)
+    xs = _analysis_finite_values(values)
+    isempty(xs) && return NaN
+    total = 0.0
+    @inbounds for x in xs
+        total += x
+    end
+    return total / length(xs)
+end
+
+function _analysis_finite_std(values)
+    xs = _analysis_finite_values(values)
+    isempty(xs) && return NaN
+    length(xs) == 1 && return 0.0
+    mean = _analysis_finite_mean(xs)
+    total = 0.0
+    @inbounds for x in xs
+        dx = x - mean
+        total += dx * dx
+    end
+    return sqrt(total / length(xs))
+end
+
+function _analysis_pose_matrices(raw, name::Symbol)
+    isempty(raw) && throw(ArgumentError("$(name) needs the :poses channel recorded; run simulate(...; record=(:poses, ...))"))
+    first_entry = raw[1]
+    first_entry isa AbstractVector ||
+        throw(ArgumentError("$(name) needs :poses entries shaped as vectors of (x, y, heading) tuples"))
+
+    n_ticks = length(raw)
+    n_agents = length(first_entry)
+    n_agents > 0 || throw(ArgumentError("$(name) needs at least one recorded agent pose"))
+
+    xs = Matrix{Float64}(undef, n_ticks, n_agents)
+    ys = Matrix{Float64}(undef, n_ticks, n_agents)
+    headings = Matrix{Float64}(undef, n_ticks, n_agents)
+
+    @inbounds for t in 1:n_ticks
+        entry = raw[t]
+        entry isa AbstractVector ||
+            throw(ArgumentError("$(name) needs :poses entries shaped as vectors of (x, y, heading) tuples"))
+        length(entry) == n_agents ||
+            throw(DimensionMismatch("$(name) sample $(t) has $(length(entry)) poses; expected $(n_agents)"))
+        for i in 1:n_agents
+            pose = entry[i]
+            (pose isa Tuple || pose isa AbstractVector) && length(pose) >= 3 ||
+                throw(ArgumentError("$(name) needs each pose shaped as (x, y, heading)"))
+            xs[t, i] = Float64(pose[1])
+            ys[t, i] = Float64(pose[2])
+            headings[t, i] = Float64(pose[3])
+        end
+    end
+
+    return xs, ys, headings
+end
+
+function _analysis_medium_size(sim::SimResult)
+    hasproperty(sim.config, :medium) || return nothing
+    medium = getproperty(sim.config, :medium)
+    if hasproperty(medium, :size)
+        size = getproperty(medium, :size)
+        size === nothing || return Float64(size)
+    end
+    return nothing
+end
+
+function _analysis_axis_delta(a::Real, b::Real, size)
+    delta = Float64(b) - Float64(a)
+    size === nothing && return delta
+    s = Float64(size)
+    return mod(delta + 0.5 * s, s) - 0.5 * s
+end
+
+function _analysis_sample_stride(sim::SimResult)
+    if hasproperty(sim.config, :every)
+        return max(Float64(getproperty(sim.config, :every)), 1.0)
+    end
+    return 1.0
+end
+
+function _analysis_velocity_matrices(sim::SimResult, name::Symbol)
+    xs, ys, headings = _analysis_pose_matrices(getchannel(sim.recorder, :poses), name)
+    n_ticks, n_agents = size(xs)
+    n_ticks >= 2 || return zeros(Float64, 0, n_agents), zeros(Float64, 0, n_agents), xs, ys, headings
+
+    torus_size = _analysis_medium_size(sim)
+    stride = _analysis_sample_stride(sim)
+    vx = Matrix{Float64}(undef, n_ticks - 1, n_agents)
+    vy = Matrix{Float64}(undef, n_ticks - 1, n_agents)
+    @inbounds for t in 1:(n_ticks - 1), i in 1:n_agents
+        vx[t, i] = _analysis_axis_delta(xs[t, i], xs[t + 1, i], torus_size) / stride
+        vy[t, i] = _analysis_axis_delta(ys[t, i], ys[t + 1, i], torus_size) / stride
+    end
+    return vx, vy, xs, ys, headings
+end
+
+function _analysis_polarization_series(sim::SimResult, name::Symbol)
+    raw = getchannel(sim.recorder, :polarization)
+    if !isempty(raw)
+        mat = _analysis_sample_matrix(raw, name)
+        size(mat, 2) == 1 ||
+            throw(DimensionMismatch("$(name) expected scalar :polarization samples, got width $(size(mat, 2))"))
+        return vec(copy(mat[:, 1]))
+    end
+
+    _, _, headings = _analysis_pose_matrices(getchannel(sim.recorder, :poses), name)
+    out = Vector{Float64}(undef, size(headings, 1))
+    @inbounds for t in axes(headings, 1)
+        out[t] = polarization(@view headings[t, :])
+    end
+    return out
+end

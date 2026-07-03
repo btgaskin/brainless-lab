@@ -41,10 +41,13 @@ include("world/Mediums.jl")
 include("world/Ensemble.jl")
 include("world/Metrics.jl")
 include("api/Highlevel.jl")
+include("analysis/ActivityLevels.jl")
 include("analysis/Branching.jl")
 include("analysis/Avalanches.jl")
 include("analysis/TargetError.jl")
 include("analysis/Spectral.jl")
+include("analysis/SecondOrder.jl")
+include("analysis/SwarmAnalysis.jl")
 include("analysis/TaskSignals.jl")
 include("analysis/TransferEntropy.jl")
 include("drivers/Driver.jl")
@@ -290,6 +293,11 @@ export SimResult,
     agent_transfer_entropy,
     node_target_error,
     spectral_radius,
+    susceptibility,
+    fano_factor,
+    participation_ratio,
+    swarm_regime,
+    correlation_length,
     wall_distance,
     heading_error,
     ball_paddle_distance
@@ -368,6 +376,11 @@ register_analysis!(:node_transfer_entropy, node_transfer_entropy; label="node-le
 register_analysis!(:agent_transfer_entropy, agent_transfer_entropy; label="agent-level transfer entropy (experimental)")
 register_analysis!(:node_target_error, node_target_error; label="per-node distance to target |act−T|")
 register_analysis!(:spectral_radius, spectral_radius; label="spectral radius ρ(W)")
+register_analysis!(:susceptibility, susceptibility; label="susceptibility χ (experimental)")
+register_analysis!(:fano_factor, fano_factor; label="Fano factor (experimental)")
+register_analysis!(:participation_ratio, participation_ratio; label="participation ratio (experimental)")
+register_analysis!(:swarm_regime, swarm_regime; label="swarm regime classifier (experimental)")
+register_analysis!(:correlation_length, correlation_length; label="swarm velocity correlation length (experimental)")
 register_analysis!(:wall_distance, wall_distance; task=:wall, label="distance to nearest wall")
 register_analysis!(:heading_error, heading_error; task=:tracking, label="heading error (rad)")
 register_analysis!(:ball_paddle_distance, ball_paddle_distance; task=:pong, label="ball–paddle distance")

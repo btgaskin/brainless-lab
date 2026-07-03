@@ -74,48 +74,31 @@ function _branching_from_rates(rates::AbstractVector{<:Real})
     return (per_tick=per_tick, sigma=sigma, sigma_ols=sigma_ols)
 end
 
-function _population_rate(raw, name::Symbol)
-    isempty(raw) && throw(ArgumentError("$(name) needs the :rate channel recorded; run simulate(...; record=(:rate, ...))"))
-    return [
-        v isa AbstractVector ? (isempty(v) ? 0.0 : sum(Float64, v) / length(v)) : Float64(v)
-        for v in raw
-    ]
+function _branching_level_summary(level::Symbol, rates::AbstractMatrix{<:Real}, per_agent)
+    sigmas = [res.sigma for res in per_agent]
+    sigma_ols = [res.sigma_ols for res in per_agent]
+    return (;
+        level=level,
+        per_agent=per_agent,
+        per_tick=[res.per_tick for res in per_agent],
+        population_rate=Matrix{Float64}(rates),
+        sigma=_analysis_finite_mean(sigmas),
+        sigma_std=_analysis_finite_std(sigmas),
+        sigma_distribution=Float64.(sigmas),
+        sigma_ols=_analysis_finite_mean(sigma_ols),
+        sigma_ols_std=_analysis_finite_std(sigma_ols),
+        sigma_ols_distribution=Float64.(sigma_ols),
+        n_agents=size(rates, 2),
+        summary=(
+            sigma_mean=_analysis_finite_mean(sigmas),
+            sigma_std=_analysis_finite_std(sigmas),
+            sigma_ols_mean=_analysis_finite_mean(sigma_ols),
+            sigma_ols_std=_analysis_finite_std(sigma_ols),
+        ),
+    )
 end
 
-"""
-    branching_ratio(sim)
-
-Compute branching-ratio summaries from a recorded rollout's `:rate` channel.
-
-Returns the high-variance per-tick ratio `A(t+1)/A(t)`, the legacy
-through-origin least-squares `sigma`, the intercept-corrected single-lag
-`sigma_ols`, and the population-rate series. The legacy `sigma` is kept for
-backward compatibility and existing visualizations; under subsampling it is
-biased. Prefer `branching_ratio_mr` for a subsampling-robust estimate of m.
-"""
-function branching_ratio(sim::SimResult)
-    raw = getchannel(sim.recorder, :rate)
-    pop = _population_rate(raw, :branching_ratio)
-    res = _branching_from_rates(pop)
-    return (per_tick=res.per_tick, sigma=res.sigma, sigma_ols=res.sigma_ols, population_rate=pop)
-end
-
-"""
-    branching_ratio_mr(sim; kmax=20, transient=0)
-
-Estimate the branching ratio m with the Wilting-Priesemann multistep-regression
-(MR) estimator. After optionally dropping `transient` initial ticks, it computes
-the intercept-corrected lag slopes `r_k` for `k = 1:kmax` and fits
-`r_k = b * m^k` over positive finite `r_k`.
-"""
-function branching_ratio_mr(sim::SimResult; kmax::Integer=20, transient::Integer=0)
-    kmax = Int(kmax)
-    transient = Int(transient)
-    kmax >= 1 || throw(ArgumentError("branching_ratio_mr needs kmax >= 1"))
-    transient >= 0 || throw(ArgumentError("branching_ratio_mr needs transient >= 0"))
-
-    raw = getchannel(sim.recorder, :rate)
-    pop = _population_rate(raw, :branching_ratio_mr)
+function _branching_mr_from_rates(pop::AbstractVector{<:Real}; kmax::Integer, transient::Integer)
     transient < length(pop) - 2 ||
         throw(ArgumentError("branching_ratio_mr needs at least 3 rate samples after transient"))
 
@@ -137,4 +120,103 @@ function branching_ratio_mr(sim::SimResult; kmax::Integer=20, transient::Integer
     ys = log.(@view r_k[fit_lags])
     slope = _intercept_corrected_slope(xs, ys)
     return (m_mr=isfinite(slope) ? exp(slope) : NaN, r_k=r_k, kmax=kmax)
+end
+
+function _branching_mr_level_summary(level::Symbol, rates::AbstractMatrix{<:Real}, per_agent, kmax::Integer, transient::Integer)
+    m_values = [res.m_mr for res in per_agent]
+    return (;
+        level=level,
+        per_agent=per_agent,
+        m_mr=_analysis_finite_mean(m_values),
+        m_mr_std=_analysis_finite_std(m_values),
+        m_mr_distribution=Float64.(m_values),
+        r_k=[res.r_k for res in per_agent],
+        kmax=Int(kmax),
+        transient=Int(transient),
+        population_rate=Matrix{Float64}(rates),
+        n_agents=size(rates, 2),
+        summary=(
+            m_mr_mean=_analysis_finite_mean(m_values),
+            m_mr_std=_analysis_finite_std(m_values),
+        ),
+    )
+end
+
+"""
+    branching_ratio(sim; level=:pooled)
+
+Compute branching-ratio summaries from a recorded rollout's `:rate` channel.
+
+`level=:pooled` preserves the legacy population series. `level=:node` computes
+the estimator inside each agent's node population and returns per-agent
+distributions plus mean/std summaries. `level=:agent` treats each agent's
+population rate as the unit activity and estimates the ensemble-level signature.
+
+Returns the high-variance per-tick ratio `A(t+1)/A(t)`, the legacy
+through-origin least-squares `sigma`, the intercept-corrected single-lag
+`sigma_ols`, and the activity series. The legacy `sigma` is kept for backward
+compatibility and existing visualizations; under subsampling it is biased.
+Prefer `branching_ratio_mr` for a subsampling-robust estimate of m.
+"""
+function branching_ratio(sim::SimResult; level::Symbol=:pooled)
+    level = _analysis_level(level, :branching_ratio)
+    if level == :pooled
+        pop = _analysis_population_rate_series(sim, :branching_ratio)
+        res = _branching_from_rates(pop)
+        return (per_tick=res.per_tick, sigma=res.sigma, sigma_ols=res.sigma_ols, population_rate=pop)
+    elseif level == :node
+        rates = _analysis_node_rate_matrix(sim, :branching_ratio)
+        per_agent = [_branching_from_rates(@view(rates[:, i])) for i in axes(rates, 2)]
+        return _branching_level_summary(:node, rates, per_agent)
+    end
+
+    rates = _analysis_rate_matrix(sim, :branching_ratio)
+    pop = _analysis_row_sums(rates)
+    res = _branching_from_rates(pop)
+    return (;
+        level=:agent,
+        per_tick=res.per_tick,
+        sigma=res.sigma,
+        sigma_ols=res.sigma_ols,
+        population_rate=pop,
+        agent_activity=pop,
+        n_agents=size(rates, 2),
+    )
+end
+
+"""
+    branching_ratio_mr(sim; kmax=20, transient=0, level=:pooled)
+
+Estimate the branching ratio m with the Wilting-Priesemann multistep-regression
+(MR) estimator. After optionally dropping `transient` initial ticks, it computes
+the intercept-corrected lag slopes `r_k` for `k = 1:kmax` and fits
+`r_k = b * m^k` over positive finite `r_k`.
+
+`level=:pooled` preserves the legacy population series. `level=:node` returns
+per-agent MR estimates across reservoirs. `level=:agent` uses the per-agent
+population-rate vector as the ensemble activity.
+"""
+function branching_ratio_mr(sim::SimResult; kmax::Integer=20, transient::Integer=0, level::Symbol=:pooled)
+    kmax = Int(kmax)
+    transient = Int(transient)
+    level = _analysis_level(level, :branching_ratio_mr)
+    kmax >= 1 || throw(ArgumentError("branching_ratio_mr needs kmax >= 1"))
+    transient >= 0 || throw(ArgumentError("branching_ratio_mr needs transient >= 0"))
+
+    if level == :pooled
+        pop = _analysis_population_rate_series(sim, :branching_ratio_mr)
+        return _branching_mr_from_rates(pop; kmax=kmax, transient=transient)
+    elseif level == :node
+        rates = _analysis_node_rate_matrix(sim, :branching_ratio_mr)
+        per_agent = [
+            _branching_mr_from_rates(@view(rates[:, i]); kmax=kmax, transient=transient)
+            for i in axes(rates, 2)
+        ]
+        return _branching_mr_level_summary(:node, rates, per_agent, kmax, transient)
+    end
+
+    rates = _analysis_rate_matrix(sim, :branching_ratio_mr)
+    pop = _analysis_row_sums(rates)
+    res = _branching_mr_from_rates(pop; kmax=kmax, transient=transient)
+    return (; level=:agent, res..., population_rate=pop, n_agents=size(rates, 2), transient=transient)
 end
