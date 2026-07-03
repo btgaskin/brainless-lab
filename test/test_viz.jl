@@ -26,4 +26,16 @@ using Test
     Makie.save(path, fig)
     @test isfile(path)
     rm(path; force=true)
+
+    for short_sim in (
+        simulate(:wall; node=:falandays, n_nodes=30, ticks=8, seed=7, record=(:spikes, :rate, :poses)),
+        simulate(:forage; node=:falandays_base, n_agents=3, n_nodes=30, ticks=8, seed=7,
+                 record=(:spikes, :rate, :poses, :polarization, :milling)),
+    )
+        @test visualize(short_sim; panels=[:raster, :rate, short_sim.task == :forage ? :swarm : :trajectory]) isa Makie.Figure
+        gif = tempname() * ".gif"
+        @test animate(short_sim; path=gif, maxframes=2, framerate=2) == gif
+        @test isfile(gif)
+        rm(gif; force=true)
+    end
 end

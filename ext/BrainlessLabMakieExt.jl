@@ -6,17 +6,23 @@ import Makie
 const BL = BrainlessLab
 
 # ─── Visual identity ──────────────────────────────────────────────────────────
-# One warm editorial palette across every figure and GIF, shared with the docs
-# site (index.html). Each entity has a canonical glyph: agents are teal boids
-# that point where they head; the source is an amber target with its capture
-# ring; spikes are ink, population rate is teal.
-const _PAPER     = Makie.RGBf(0.984, 0.980, 0.969)  # #fbfaf7 warm paper
-const _INK       = Makie.RGBf(0.141, 0.157, 0.169)  # #24282b
-const _INKSOFT   = Makie.RGBf(0.322, 0.345, 0.365)  # #52585d
-const _GRID      = Makie.RGBf(0.871, 0.855, 0.816)  # #dedad0
-const _TEAL      = Makie.RGBf(0.184, 0.435, 0.369)  # #2f6f5e accent
-const _TEALSOFT  = Makie.RGBf(0.396, 0.612, 0.545)
-const _AMBER     = Makie.RGBf(0.612, 0.420, 0.122)  # #9c6b1f
+# One warm editorial palette across every figure and GIF. Each entity has a
+# canonical glyph: agents are teal boids that point where they head; the source
+# is an amber target with its capture ring; spikes are ink, population rate is
+# teal. Core palette triples live in src/viz/Style.jl.
+const _PAPER     = Makie.RGBf(BL.BL_PAPER...)
+const _INK       = Makie.RGBf(BL.BL_INK...)
+const _INKSOFT   = Makie.RGBf(BL.BL_INKSOFT...)
+const _GRID      = Makie.RGBf(BL.BL_GRID...)
+const _TEAL      = Makie.RGBf(BL.BL_TEAL...)
+const _TEALSOFT  = Makie.RGBf(BL.BL_TEALSOFT...)
+const _AMBER     = Makie.RGBf(BL.BL_AMBER...)
+const _AMBERSOFT = Makie.RGBf(BL.BL_AMBERSOFT...)
+const _INKMUTED  = Makie.RGBf(BL.BL_INKMUTED...)
+const _BRAND_RAMP = Makie.cgrad([_PAPER, _TEAL, _INK])
+const _CATEGORICAL = (_TEAL, _AMBER, _INKSOFT, _TEALSOFT, _AMBERSOFT, _INKMUTED)
+
+_series_color(i::Integer) = i <= length(_CATEGORICAL) ? _CATEGORICAL[i] : _INKMUTED
 
 function _style_axis!(ax)
     ax.backgroundcolor = _PAPER
@@ -140,10 +146,10 @@ function _draw_branching!(axb, sigma::Vector{Float64}, f::Integer, lims::Tuple{F
     Makie.empty!(axb)
     nsig = length(sigma)
     nsig == 0 && return axb
-    Makie.lines!(axb, 1:nsig, sigma; color=:seagreen4, linewidth=1.2)
-    Makie.hlines!(axb, [1.0]; color=(:darkorange3, 0.9), linestyle=:dash, linewidth=1.2)
+    Makie.lines!(axb, 1:nsig, sigma; color=_TEAL, linewidth=1.2)
+    Makie.hlines!(axb, [1.0]; color=(_AMBER, 0.9), linestyle=:dash, linewidth=1.2)
     fi = clamp(f, 1, nsig)
-    Makie.vlines!(axb, [fi]; color=:red, linewidth=1.5)
+    Makie.vlines!(axb, [fi]; color=(_INK, 0.8), linewidth=1.5)
     cur = sigma[fi]
     # Fall back to the nearest earlier finite σ for the readout if this tick is NaN.
     if !isfinite(cur)
@@ -153,10 +159,24 @@ function _draw_branching!(axb, sigma::Vector{Float64}, f::Integer, lims::Tuple{F
     end
     label = isfinite(cur) ? "σ = $(round(cur; digits=2))" : "σ = n/a"
     Makie.text!(axb, 0.015, 0.92; text=label, space=:relative, align=(:left, :top),
-                color=:black, fontsize=15, font=:bold)
+                color=_INK, fontsize=15, font=:bold)
     Makie.xlims!(axb, 1, max(nsig, 2))
     Makie.ylims!(axb, lims[1], lims[2])
     return axb
+end
+
+function _draw_rate_frame!(ax, rate::Vector{Float64}, f::Integer, rmax::Float64)
+    Makie.empty!(ax)
+    nr = length(rate)
+    if nr > 0
+        xs = 1:nr
+        Makie.band!(ax, xs, fill(0.0, nr), rate; color=(_TEAL, 0.10))
+        Makie.lines!(ax, xs, rate; color=_TEAL, linewidth=1.5)
+        Makie.vlines!(ax, [min(f, nr)]; color=(_INK, 0.75), linewidth=1.4)
+    end
+    Makie.xlims!(ax, 1, max(nr, 2))
+    Makie.ylims!(ax, 0, rmax)
+    return ax
 end
 
 function _collect_poses!(out::Vector{NTuple{3,Float64}}, x)
@@ -281,12 +301,22 @@ function _draw_trajectory!(ax, sim)
         isempty(track) && continue
         xs = [pose[1] for pose in track]
         ys = [pose[2] for pose in track]
-        Makie.lines!(ax, xs, ys; linewidth=2)
-        Makie.scatter!(ax, [xs[end]], [ys[end]]; markersize=8)
+        Makie.lines!(ax, xs, ys; color=(_TEAL, 0.55), linewidth=2)
+        Makie.scatter!(ax, [xs[end]], [ys[end]]; markersize=8, color=_TEAL,
+                       strokecolor=_PAPER, strokewidth=0.6)
     end
     ax.xlabel = "x"
     ax.ylabel = "y"
     ax.title = "Trajectory"
+    return ax
+end
+
+function _draw_agent_boids!(ax, poses; markersize=16)
+    xs = [pose[1] for pose in poses]
+    ys = [pose[2] for pose in poses]
+    hd = [pose[3] for pose in poses]
+    Makie.scatter!(ax, xs, ys; marker=:utriangle, rotation=(hd .- (pi / 2)),
+                   markersize=markersize, color=_TEAL, strokecolor=_PAPER, strokewidth=0.8)
     return ax
 end
 
@@ -300,12 +330,8 @@ function _draw_swarm!(ax, sim)
     _draw_bounds!(ax, sim)
     _draw_source!(ax, sim)
     poses = _latest_pose_rows(sim)
-    xs = [pose[1] for pose in poses]
-    ys = [pose[2] for pose in poses]
-    hd = [pose[3] for pose in poses]
     # agents are teal boids: the glyph points along its heading (no separate tail)
-    Makie.scatter!(ax, xs, ys; marker=:utriangle, rotation=(hd .- (pi / 2)),
-                   markersize=16, color=_TEAL, strokecolor=_PAPER, strokewidth=0.8)
+    _draw_agent_boids!(ax, poses)
 
     pol = _channel(sim, :polarization)
     mill = _channel(sim, :milling)
@@ -358,11 +384,13 @@ function _draw_network!(ax, sim)
         push!(segments, Makie.Point2f(xs[i], ys[i]))
         push!(segments, Makie.Point2f(xs[j], ys[j]))
     end
-    isempty(segments) || Makie.linesegments!(ax, segments; color=(:gray45, 0.35), linewidth=0.5)
+    isempty(segments) || Makie.linesegments!(ax, segments; color=(_INKSOFT, 0.28), linewidth=0.5)
 
-    Makie.scatter!(ax, xs, ys; color=_network_state(sim, n), colormap=:viridis, markersize=8)
+    Makie.scatter!(ax, xs, ys; color=_network_state(sim, n), colormap=_BRAND_RAMP,
+                   markersize=8, strokecolor=_PAPER, strokewidth=0.35)
     Makie.hidedecorations!(ax)
     Makie.hidespines!(ax)
+    ax.aspect = Makie.DataAspect()
     ax.title = "Reservoir network"
     return ax
 end
@@ -414,8 +442,9 @@ function _drift_matrix(sim; bin::Integer=5)
 end
 
 function _draw_drift!(ax, sim; bin::Integer=5)
+    _style_axis!(ax)
     corr = _drift_matrix(sim; bin=bin)
-    Makie.heatmap!(ax, corr; colormap=:viridis, colorrange=(0.0, 1.0))
+    Makie.heatmap!(ax, corr; colormap=_BRAND_RAMP, colorrange=(0.0, 1.0))
     ax.xlabel = "time bin"
     ax.ylabel = "time bin"
     ax.title = "Spike-pattern autocorrelation"
@@ -425,11 +454,11 @@ end
 function _draw_fitness!(ax, curve)
     values = Float64.(curve)
     if ndims(values) == 1
-        Makie.lines!(ax, 1:length(values), values; linewidth=2)
+        Makie.lines!(ax, 1:length(values), values; color=_TEAL, linewidth=2)
     else
         mat = Matrix{Float64}(values)
         for col in axes(mat, 2)
-            Makie.lines!(ax, 1:size(mat, 1), mat[:, col]; linewidth=1.5)
+            Makie.lines!(ax, 1:size(mat, 1), mat[:, col]; color=_series_color(col), linewidth=1.5)
         end
     end
     ax.xlabel = "generation"
@@ -529,29 +558,34 @@ BL.replay(sim::BL.SimResult; kwargs...) = BL.visualize(sim; kwargs...)
 function _draw_scene_frame!(ax, s, f, nt)
     if s.kind === :tracking
         ts = range(0.0, 2pi; length=96)
-        Makie.lines!(ax, cos.(ts), sin.(ts); color=:gray75, linewidth=1)
+        Makie.lines!(ax, cos.(ts), sin.(ts); color=(_GRID, 0.85), linewidth=1)
         Makie.xlims!(ax, -1.3, 1.3); Makie.ylims!(ax, -1.3, 1.3)
-        Makie.scatter!(ax, [cos(s.phi)], [sin(s.phi)]; markersize=20, color=:orange)        # stimulus
+        Makie.scatter!(ax, [cos(s.phi)], [sin(s.phi)]; markersize=20, color=_AMBER,
+                       strokecolor=_PAPER, strokewidth=1.0)                                  # stimulus
         Makie.linesegments!(ax, [Makie.Point2f(0, 0), Makie.Point2f(0.9cos(s.theta), 0.9sin(s.theta))];
-                            color=:seagreen4, linewidth=3)                                   # eye heading
-        Makie.scatter!(ax, [0.0], [0.0]; markersize=9, color=:black)
+                            color=_TEAL, linewidth=3)                                        # eye heading
+        Makie.scatter!(ax, [0.0], [0.0]; markersize=9, color=_INKSOFT)
         err = rad2deg(abs(atan(sin(s.theta - s.phi), cos(s.theta - s.phi))))
         ax.title = "tracking   tick $f/$nt   error=$(round(err; digits=1))°"
     elseif s.kind === :pong
-        Makie.lines!(ax, [0, s.width, s.width, 0, 0], [0, 0, s.height, s.height, 0]; color=:gray75)
+        Makie.lines!(ax, [0, s.width, s.width, 0, 0], [0, 0, s.height, s.height, 0];
+                     color=(_GRID, 0.9))
         Makie.xlims!(ax, -0.03s.width, 1.03s.width); Makie.ylims!(ax, -0.03s.height, 1.03s.height)
         Makie.lines!(ax, [s.paddle_x, s.paddle_x], [s.paddle_y - s.paddle_h / 2, s.paddle_y + s.paddle_h / 2];
-                     color=:seagreen4, linewidth=7)                                          # paddle
-        Makie.scatter!(ax, [s.ball_x], [s.ball_y]; markersize=16, color=:orange)             # ball
+                     color=_TEAL, linewidth=7)                                                # paddle
+        Makie.scatter!(ax, [s.ball_x], [s.ball_y]; markersize=16, color=_AMBER,
+                       strokecolor=_PAPER, strokewidth=1.0)                                  # ball
         ax.title = "pong   tick $f/$nt"
     elseif s.kind === :cartpole
         L = 2.0 * s.pole_length
-        Makie.lines!(ax, [-s.max_x, s.max_x], [0.0, 0.0]; color=:gray75)                     # track
+        Makie.lines!(ax, [-s.max_x, s.max_x], [0.0, 0.0]; color=(_GRID, 0.9))                # track
         Makie.xlims!(ax, -s.max_x - 0.5, s.max_x + 0.5); Makie.ylims!(ax, -0.4, L + 0.4)
-        Makie.scatter!(ax, [s.x], [0.0]; marker=:rect, markersize=24, color=:gray30)         # cart
+        Makie.scatter!(ax, [s.x], [0.0]; marker=:rect, markersize=24, color=_TEALSOFT,
+                       strokecolor=_TEAL, strokewidth=1.0)                                   # cart
         Makie.linesegments!(ax, [Makie.Point2f(s.x, 0.0), Makie.Point2f(s.x + L * sin(s.theta), L * cos(s.theta))];
-                            color=:seagreen4, linewidth=4)                                    # pole
-        Makie.scatter!(ax, [s.x + L * sin(s.theta)], [L * cos(s.theta)]; markersize=12, color=:orange)
+                            color=_TEAL, linewidth=4)                                        # pole
+        Makie.scatter!(ax, [s.x + L * sin(s.theta)], [L * cos(s.theta)];
+                       markersize=12, color=_TEAL, strokecolor=_PAPER, strokewidth=0.8)
         ax.title = "cartpole   tick $f/$nt   θ=$(round(rad2deg(s.theta); digits=1))°"
     else
         ax.title = "tick $f/$nt"
@@ -566,11 +600,13 @@ function _animate_scenes(sim, scenes, path, framerate, maxframes; branching::Boo
     sigma = branching ? _branching_trace(sim) : Float64[]
     show_b = branching && !isempty(sigma)
 
-    fig = Makie.Figure(size=(720, 720))
+    fig = _bl_figure((720, 720))
     axw = Makie.Axis(fig[1, 1]; aspect=Makie.DataAspect())
+    _style_axis!(axw)
     if show_b
         slims = _sigma_limits(sigma)
         axb = Makie.Axis(fig[2, 1]; xlabel="tick", ylabel="σ", title="branching ratio")
+        _style_axis!(axb)
         Makie.rowsize!(fig.layout, 2, Makie.Relative(0.24))
         Makie.record(fig, path, frames; framerate=framerate) do f
             Makie.empty!(axw)
@@ -582,16 +618,12 @@ function _animate_scenes(sim, scenes, path, framerate, maxframes; branching::Boo
         nr = length(rate)
         rmax = nr == 0 ? 1.0 : max(1e-6, maximum(rate)) * 1.05
         axr = Makie.Axis(fig[2, 1]; xlabel="tick", ylabel="rate", title="firing rate")
+        _style_axis!(axr)
         Makie.rowsize!(fig.layout, 2, Makie.Relative(0.20))
         Makie.record(fig, path, frames; framerate=framerate) do f
             Makie.empty!(axw)
             _draw_scene_frame!(axw, scenes[min(f, nt)], f, nt)
-            Makie.empty!(axr)
-            if nr > 0
-                Makie.lines!(axr, 1:nr, rate; color=:dodgerblue4, linewidth=1.5)
-                Makie.vlines!(axr, [min(f, nr)]; color=:red, linewidth=1.5)
-                Makie.xlims!(axr, 1, max(nr, 2)); Makie.ylims!(axr, 0, rmax)
-            end
+            _draw_rate_frame!(axr, rate, f, rmax)
         end
     end
     return path
@@ -629,35 +661,30 @@ function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
     show_b = branching && !isempty(sigma)
     slims = show_b ? _sigma_limits(sigma) : (0.0, 1.0)
 
-    fig = Makie.Figure(size=(720, has_world ? 760 : 340))
+    fig = _bl_figure((720, has_world ? 760 : 340))
     axw = has_world ? Makie.Axis(fig[1, 1]; xlabel="x", ylabel="y") : nothing
     axlow = show_b ?
         Makie.Axis(fig[has_world ? 2 : 1, 1]; xlabel="tick", ylabel="σ", title="branching ratio") :
         Makie.Axis(fig[has_world ? 2 : 1, 1]; xlabel="tick", ylabel="rate", title="firing rate")
+    axw !== nothing && (_style_axis!(axw); axw.aspect = Makie.DataAspect())
+    _style_axis!(axlow)
     has_world && Makie.rowsize!(fig.layout, 2, Makie.Relative(show_b ? 0.24 : 0.22))
 
     Makie.record(fig, path, frames; framerate=framerate) do f
         if axw !== nothing
             Makie.empty!(axw)
-            if bounds !== nothing
-                x0, x1, y0, y1 = bounds
-                Makie.lines!(axw, [x0, x1, x1, x0, x0], [y0, y0, y1, y1, y0]; color=:gray70, linewidth=1)
-                Makie.xlims!(axw, x0, x1)
-                Makie.ylims!(axw, y0, y1)
-            end
+            bounds === nothing || _draw_bounds!(axw, sim)
             _draw_source!(axw, sim)
+            frame_poses = NTuple{3,Float64}[]
             for tr in tracks
                 isempty(tr) && continue
                 ff = min(f, length(tr))
                 lo = max(1, ff - trail)
                 Makie.lines!(axw, [p[1] for p in tr[lo:ff]], [p[2] for p in tr[lo:ff]];
-                             color=(:dodgerblue4, 0.55), linewidth=2)
-                p = tr[ff]
-                Makie.scatter!(axw, [p[1]], [p[2]]; markersize=13, color=:seagreen4)
-                Makie.linesegments!(axw,
-                    [Makie.Point2f(p[1], p[2]), Makie.Point2f(p[1] + 0.5cos(p[3]), p[2] + 0.5sin(p[3]))];
-                    color=:black, linewidth=2)
+                             color=(_TEAL, 0.45), linewidth=2)
+                push!(frame_poses, tr[ff])
             end
+            _draw_agent_boids!(axw, frame_poses)
             ttl = "tick $f / $nt"
             if !isempty(pol)
                 pf = Float64(pol[min(f, length(pol))]); mf = Float64(mill[min(f, length(mill))])
@@ -668,11 +695,7 @@ function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
         if show_b
             _draw_branching!(axlow, sigma, f, slims)
         else
-            Makie.empty!(axlow)
-            Makie.lines!(axlow, 1:nr, rate; color=:dodgerblue4, linewidth=1.5)
-            Makie.vlines!(axlow, [min(f, nr)]; color=:red, linewidth=1.5)
-            Makie.xlims!(axlow, 1, max(nr, 2))
-            Makie.ylims!(axlow, 0, rmax)
+            _draw_rate_frame!(axlow, rate, f, rmax)
         end
     end
     return path
@@ -698,9 +721,11 @@ function BL.explore(task::Symbol; node::Symbol=:falandays, kwargs...)
         every=1,
         kwargs...,
     )
-    fig = GLMakie.Figure(size=(900, 620))
+    fig = GLMakie.Figure(size=(900, 620), backgroundcolor=_PAPER)
     ax_path = GLMakie.Axis(fig[1, 1]; title="Trajectory")
     ax_rate = GLMakie.Axis(fig[2, 1]; title="Rate")
+    _style_axis!(ax_path)
+    _style_axis!(ax_rate)
     controls = fig[3, 1] = GLMakie.GridLayout()
     play = GLMakie.Button(controls[1, 1]; label="Play")
     step_button = GLMakie.Button(controls[1, 2]; label="Step")
@@ -708,8 +733,8 @@ function BL.explore(task::Symbol; node::Symbol=:falandays, kwargs...)
 
     path_obs = GLMakie.Observable(Makie.Point2f[])
     rate_obs = GLMakie.Observable(Float64[])
-    GLMakie.lines!(ax_path, path_obs; linewidth=2)
-    GLMakie.lines!(ax_rate, rate_obs; linewidth=2)
+    GLMakie.lines!(ax_path, path_obs; color=_TEAL, linewidth=2)
+    GLMakie.lines!(ax_rate, rate_obs; color=_TEAL, linewidth=2)
     initial_sim = BL.SimResult(
         setup.recorder,
         NamedTuple(),
