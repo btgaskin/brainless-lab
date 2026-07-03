@@ -62,6 +62,64 @@ function _rate_trace(sim)
     return [_mean(_flat_sample(sample)) for sample in spikes]
 end
 
+# Per-tick branching ratio σ(t) = A(t+1)/A(t) from the recorded :rate channel.
+# Returns an empty vector when :rate isn't recorded (so callers can gate).
+function _branching_trace(sim)
+    try
+        return Float64.(BL.branching_ratio(sim).per_tick)
+    catch
+        return Float64[]
+    end
+end
+
+# Simple linear-interpolated percentile over finite values (0..100).
+function _pctl(sorted::Vector{Float64}, p::Real)
+    isempty(sorted) && return NaN
+    length(sorted) == 1 && return sorted[1]
+    r = clamp(p / 100, 0.0, 1.0) * (length(sorted) - 1) + 1
+    lo = floor(Int, r); hi = ceil(Int, r)
+    lo == hi && return sorted[lo]
+    frac = r - lo
+    return sorted[lo] * (1 - frac) + sorted[hi] * frac
+end
+
+# Robust y-limits for a σ(t) panel: 2nd–98th percentile of finite σ so the
+# switch-on spike (dividing by the near-zero initial rate) can't flatten the
+# view, with σ=1 kept inside and small padding.
+function _sigma_limits(sigma::Vector{Float64})
+    fin = sort!(filter(isfinite, sigma))
+    isempty(fin) && return (0.8, 1.2)
+    lo = min(_pctl(fin, 2.0), 1.0)
+    hi = max(_pctl(fin, 98.0), 1.0)
+    pad = 0.05 * max(hi - lo, eps())
+    return (lo - pad, hi + pad)
+end
+
+# Draw the branching-ratio σ(t) panel for animation frame f: the σ trace, a
+# swept marker at f, a dashed σ=1 reference, and the current σ printed as text.
+function _draw_branching!(axb, sigma::Vector{Float64}, f::Integer, lims::Tuple{Float64,Float64})
+    Makie.empty!(axb)
+    nsig = length(sigma)
+    nsig == 0 && return axb
+    Makie.lines!(axb, 1:nsig, sigma; color=:seagreen4, linewidth=1.2)
+    Makie.hlines!(axb, [1.0]; color=(:darkorange3, 0.9), linestyle=:dash, linewidth=1.2)
+    fi = clamp(f, 1, nsig)
+    Makie.vlines!(axb, [fi]; color=:red, linewidth=1.5)
+    cur = sigma[fi]
+    # Fall back to the nearest earlier finite σ for the readout if this tick is NaN.
+    if !isfinite(cur)
+        j = fi
+        while j >= 1 && !isfinite(sigma[j]); j -= 1; end
+        cur = j >= 1 ? sigma[j] : NaN
+    end
+    label = isfinite(cur) ? "σ = $(round(cur; digits=2))" : "σ = n/a"
+    Makie.text!(axb, 0.015, 0.92; text=label, space=:relative, align=(:left, :top),
+                color=:black, fontsize=15, font=:bold)
+    Makie.xlims!(axb, 1, max(nsig, 2))
+    Makie.ylims!(axb, lims[1], lims[2])
+    return axb
+end
+
 function _collect_poses!(out::Vector{NTuple{3,Float64}}, x)
     if x isa Tuple && length(x) >= 2 && x[1] isa Number && x[2] isa Number
         theta = length(x) >= 3 && x[3] isa Number ? Float64(x[3]) : 0.0
@@ -429,41 +487,59 @@ function _draw_scene_frame!(ax, s, f, nt)
 end
 
 # Animate a task that exposes a per-tick :scene (tracking/pong/cartpole).
-function _animate_scenes(sim, scenes, path, framerate, maxframes)
-    rate = _rate_trace(sim)
-    nr = length(rate)
-    rmax = nr == 0 ? 1.0 : max(1e-6, maximum(rate)) * 1.05
+function _animate_scenes(sim, scenes, path, framerate, maxframes; branching::Bool=false)
     nt = length(scenes)
     frames = unique(round.(Int, range(1, nt; length=min(nt, maxframes))))
+    sigma = branching ? _branching_trace(sim) : Float64[]
+    show_b = branching && !isempty(sigma)
+
     fig = Makie.Figure(size=(720, 720))
     axw = Makie.Axis(fig[1, 1]; aspect=Makie.DataAspect())
-    axr = Makie.Axis(fig[2, 1]; xlabel="tick", ylabel="rate", title="firing rate")
-    Makie.rowsize!(fig.layout, 2, Makie.Relative(0.20))
-    Makie.record(fig, path, frames; framerate=framerate) do f
-        Makie.empty!(axw)
-        _draw_scene_frame!(axw, scenes[min(f, nt)], f, nt)
-        Makie.empty!(axr)
-        if nr > 0
-            Makie.lines!(axr, 1:nr, rate; color=:dodgerblue4, linewidth=1.5)
-            Makie.vlines!(axr, [min(f, nr)]; color=:red, linewidth=1.5)
-            Makie.xlims!(axr, 1, max(nr, 2)); Makie.ylims!(axr, 0, rmax)
+    if show_b
+        slims = _sigma_limits(sigma)
+        axb = Makie.Axis(fig[2, 1]; xlabel="tick", ylabel="σ", title="branching ratio")
+        Makie.rowsize!(fig.layout, 2, Makie.Relative(0.24))
+        Makie.record(fig, path, frames; framerate=framerate) do f
+            Makie.empty!(axw)
+            _draw_scene_frame!(axw, scenes[min(f, nt)], f, nt)
+            _draw_branching!(axb, sigma, f, slims)
+        end
+    else
+        rate = _rate_trace(sim)
+        nr = length(rate)
+        rmax = nr == 0 ? 1.0 : max(1e-6, maximum(rate)) * 1.05
+        axr = Makie.Axis(fig[2, 1]; xlabel="tick", ylabel="rate", title="firing rate")
+        Makie.rowsize!(fig.layout, 2, Makie.Relative(0.20))
+        Makie.record(fig, path, frames; framerate=framerate) do f
+            Makie.empty!(axw)
+            _draw_scene_frame!(axw, scenes[min(f, nt)], f, nt)
+            Makie.empty!(axr)
+            if nr > 0
+                Makie.lines!(axr, 1:nr, rate; color=:dodgerblue4, linewidth=1.5)
+                Makie.vlines!(axr, [min(f, nr)]; color=:red, linewidth=1.5)
+                Makie.xlims!(axr, 1, max(nr, 2)); Makie.ylims!(axr, 0, rmax)
+            end
         end
     end
     return path
 end
 
 """
-    animate(sim; path="activity.gif", framerate=20, trail=40, maxframes=200)
+    animate(sim; path="activity.gif", framerate=20, trail=40, maxframes=200, branching=false)
 
-Render a GIF/MP4 of the rollout. Tasks that expose a per-tick `:scene`
-(tracking/pong/cartpole) get a task-specific behaviour view; embodied tasks
-(wall/torus) get the agent(s) moving via `:poses`. A synced firing-rate marker
-runs underneath. Returns the output path.
+Render a GIF/MP4 of the rollout (output format follows the `path` extension —
+`.gif` or `.mp4`). Tasks that expose a per-tick `:scene` (tracking/pong/cartpole)
+get a task-specific behaviour view; embodied tasks (wall/torus) get the agent(s)
+moving via `:poses`. A synced firing-rate marker runs underneath by default; with
+`branching=true` (needs `:rate` recorded) the lower panel instead shows the
+branching ratio σ(t) with a swept marker, a dashed σ=1 reference, and the current
+σ printed on each frame. Returns the output path.
 """
 function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
-                    framerate::Integer=20, trail::Integer=40, maxframes::Integer=200)
+                    framerate::Integer=20, trail::Integer=40, maxframes::Integer=200,
+                    branching::Bool=false)
     scenes = _channel(sim, :scene)
-    isempty(scenes) || return _animate_scenes(sim, scenes, path, framerate, maxframes)
+    isempty(scenes) || return _animate_scenes(sim, scenes, path, framerate, maxframes; branching=branching)
     tracks = _pose_tracks(sim)
     rate = _rate_trace(sim)
     nt = isempty(tracks) ? length(rate) : maximum(length, tracks)
@@ -476,10 +552,16 @@ function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
     nr = length(rate)
     rmax = nr == 0 ? 1.0 : max(1e-6, maximum(rate)) * 1.05
 
+    sigma = branching ? _branching_trace(sim) : Float64[]
+    show_b = branching && !isempty(sigma)
+    slims = show_b ? _sigma_limits(sigma) : (0.0, 1.0)
+
     fig = Makie.Figure(size=(720, has_world ? 760 : 340))
     axw = has_world ? Makie.Axis(fig[1, 1]; xlabel="x", ylabel="y") : nothing
-    axr = Makie.Axis(fig[has_world ? 2 : 1, 1]; xlabel="tick", ylabel="rate", title="firing rate")
-    has_world && Makie.rowsize!(fig.layout, 2, Makie.Relative(0.22))
+    axlow = show_b ?
+        Makie.Axis(fig[has_world ? 2 : 1, 1]; xlabel="tick", ylabel="σ", title="branching ratio") :
+        Makie.Axis(fig[has_world ? 2 : 1, 1]; xlabel="tick", ylabel="rate", title="firing rate")
+    has_world && Makie.rowsize!(fig.layout, 2, Makie.Relative(show_b ? 0.24 : 0.22))
 
     Makie.record(fig, path, frames; framerate=framerate) do f
         if axw !== nothing
@@ -509,11 +591,15 @@ function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
             end
             axw.title = ttl
         end
-        Makie.empty!(axr)
-        Makie.lines!(axr, 1:nr, rate; color=:dodgerblue4, linewidth=1.5)
-        Makie.vlines!(axr, [min(f, nr)]; color=:red, linewidth=1.5)
-        Makie.xlims!(axr, 1, max(nr, 2))
-        Makie.ylims!(axr, 0, rmax)
+        if show_b
+            _draw_branching!(axlow, sigma, f, slims)
+        else
+            Makie.empty!(axlow)
+            Makie.lines!(axlow, 1:nr, rate; color=:dodgerblue4, linewidth=1.5)
+            Makie.vlines!(axlow, [min(f, nr)]; color=:red, linewidth=1.5)
+            Makie.xlims!(axlow, 1, max(nr, 2))
+            Makie.ylims!(axlow, 0, rmax)
+        end
     end
     return path
 end

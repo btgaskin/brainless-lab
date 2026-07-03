@@ -319,8 +319,10 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
     sigmas = Vector{Float64}(undef, n_seeds)
     scores = Vector{Float64}(undef, n_seeds)
     # Situated chart uses a single representative run (seed 1): its per-tick σ
-    # and the full factor(t) series, kept time-ordered (NOT pooled).
+    # and the full factor(t) series, kept time-ordered (NOT pooled). We also keep
+    # the seed-1 SimResult itself, to render the behaviour + σ(t) MP4.
     seed1_factor = Dict{Symbol,Vector{Float64}}()
+    seed1_sim = nothing
 
     for s in 1:n_seeds
         sim = simulate(task; node=node_sym, n_nodes=N, seed=s, record=(:rate, :scene, :poses))
@@ -330,6 +332,7 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
         scores[s] = Float64(sim.metrics.score)
 
         if s == 1
+            seed1_sim = sim
             for f in factors
                 seed1_factor[f] = Float64.(resolve_analysis(f)(sim))   # length T
             end
@@ -401,6 +404,7 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
         spectral_mean=spectral_mean,
         spectral_lo=spectral_lo,
         spectral_hi=spectral_hi,
+        seed1_sim=seed1_sim,
     )
 end
 
@@ -517,7 +521,7 @@ function _params_table(p::FalandaysParams)
     return String(take!(io))
 end
 
-function _task_card(res, task_note::String)
+function _task_card(res, task_note::String, mp4_name::AbstractString="")
     prose = get(TASK_PROSE, res.task, (encoding="--", decode="--", scoring="--"))
     plot_uri = _fig_to_data_uri(_branching_figure(res.seed_mean, res.seed_lo, res.seed_hi; title=string(res.task)))
     live = res.sigma_mean >= 0.85 ? ("<span class=\"badge badge-ok\">self-sustaining</span>") :
@@ -539,6 +543,17 @@ function _task_card(res, task_note::String)
     println(io, "<div class=\"stat\"><div class=\"label\">mean branching &sigma;&#770;</div>",
                  "<div class=\"value\">$(_fmt(res.sigma_mean)) <span class=\"pm\">&plusmn; $(_fmt(res.sigma_std))</span></div></div>")
     println(io, "</div>")
+
+    # Behaviour + branching-ratio MP4 (seed 1): the task animation with the σ(t)
+    # trace below -- a swept marker and the current σ printed per frame.
+    if !isempty(mp4_name)
+        println(io, "<figure><video src=\"$mp4_name\" controls loop muted playsinline style=\"max-width:100%\"></video>")
+        println(io, "<figcaption>Behaviour + branching ratio, one run (seed 1): the task animation (top) with the ",
+                     "per-tick branching ratio &sigma;(t) below &mdash; the red marker sweeps in sync with the frame, ",
+                     "the dashed line marks &sigma;=1, and the current &sigma; is printed on each frame. One frame per ",
+                     "simulation tick.</figcaption></figure>")
+    end
+
     println(io, "<figure><img src=\"$plot_uri\" alt=\"branching ratio over time for :$(res.task)\">")
     println(io, "<figcaption>Seed-mean &sigma;(t) (teal line) &plusmn;1 std across $(res.n_seeds) seeds (shaded band); dashed amber line marks &sigma;=1, the self-sustaining/critical reference.</figcaption></figure>")
 
@@ -592,6 +607,9 @@ function node_profile(
     n_seeds::Integer=8,
     out_dir::AbstractString=joinpath(@__DIR__, "output", string(node_sym)),
     canonical_N=CANONICAL_N,
+    render_videos::Bool=true,
+    video_ticks::Integer=400,
+    video_fps::Integer=60,
 )
     mkpath(out_dir)
 
@@ -603,6 +621,26 @@ function node_profile(
     end
 
     results = [task_profile(node_sym, t; n_seeds=n_seeds, canonical_N=canonical_N) for t in tasks]
+
+    # Per-task behaviour + branching-ratio MP4 (seed 1), capped to a watchable window
+    # (video_ticks) so the per-tick render stays fast. Written to files (too big to embed)
+    # and referenced from the HTML via <video>. maxframes = vticks keeps it one frame/tick.
+    mp4_by_task = Dict{Symbol,String}()
+    if render_videos
+        for res in results
+            vticks = min(res.ticks, Int(video_ticks))
+            vsim = simulate(res.task; node=node_sym, n_nodes=res.n_nodes, seed=1,
+                            record=(:rate, :scene, :poses), ticks=vticks)
+            mp4 = "$(res.task).mp4"
+            try
+                Base.invokelatest(BrainlessLab.animate, vsim; path=joinpath(out_dir, mp4),
+                                  branching=true, framerate=Int(video_fps), maxframes=vticks)
+                mp4_by_task[res.task] = mp4
+            catch err
+                @warn "profile video render failed for $(res.task)" exception = (err, catch_backtrace())
+            end
+        end
+    end
 
     io = IOBuffer()
     println(io, "<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\">")
@@ -664,7 +702,7 @@ function node_profile(
                  "&mdash; nodes without a learned recurrent matrix (e.g. compartmental) produce an empty series and no panel.</p>")
     for res in results
         note = get(CANONICAL_NOTE, res.task, "")
-        println(io, _task_card(res, note))
+        println(io, _task_card(res, note, get(mp4_by_task, res.task, "")))
     end
     println(io, "</section>")
 
