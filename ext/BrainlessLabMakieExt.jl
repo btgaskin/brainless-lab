@@ -43,10 +43,10 @@ _bl_figure(sz) = Makie.Figure(size=sz, backgroundcolor=_PAPER)
 
 function _capture_radius(sim)
     sim isa BL.SimResult || return nothing
-    hasproperty(sim.config, :medium) || return nothing
-    medium = sim.config.medium
-    hasproperty(medium, :capture_radius) || return nothing
-    r = medium.capture_radius
+    hasproperty(sim.config, :environment) || return nothing
+    environment = sim.config.environment
+    hasproperty(environment, :capture_radius) || return nothing
+    r = environment.capture_radius
     return r === nothing ? nothing : Float64(r)
 end
 
@@ -222,18 +222,18 @@ end
 
 function _plot_bounds(sim)
     sim isa BL.SimResult || return nothing
-    hasproperty(sim.config, :medium) || return nothing
-    medium = sim.config.medium
-    hasproperty(medium, :bounds) || return nothing
-    return medium.bounds
+    hasproperty(sim.config, :environment) || return nothing
+    environment = sim.config.environment
+    hasproperty(environment, :bounds) || return nothing
+    return environment.bounds
 end
 
 function _source_position(sim)
     sim isa BL.SimResult || return nothing
-    hasproperty(sim.config, :medium) || return nothing
-    medium = sim.config.medium
-    hasproperty(medium, :source_position) || return nothing
-    source = medium.source_position
+    hasproperty(sim.config, :environment) || return nothing
+    environment = sim.config.environment
+    hasproperty(environment, :source_position) || return nothing
+    source = environment.source_position
     source === nothing && return nothing
     return (Float64(source[1]), Float64(source[2]))
 end

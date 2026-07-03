@@ -10,7 +10,7 @@ function _analysis_milling_series(sim::SimResult, name::Symbol)
     end
 
     xs, ys, headings = _analysis_pose_matrices(getchannel(sim.recorder, :poses), name)
-    torus_size = _analysis_medium_size(sim)
+    torus_size = _analysis_environment_size(sim)
     torus = torus_size === nothing ? nothing : Torus(torus_size)
     out = Vector{Float64}(undef, size(headings, 1))
     positions = Matrix{Float64}(undef, size(headings, 2), 2)
@@ -192,7 +192,7 @@ function correlation_length(sim::SimResult; nbins::Integer=12, crossing::Symbol=
         return 0.0
     end
 
-    torus_size = _analysis_medium_size(sim)
+    torus_size = _analysis_environment_size(sim)
     torus = torus_size === nothing ? nothing : Torus(torus_size)
     distances = Float64[]
     correlations = Float64[]

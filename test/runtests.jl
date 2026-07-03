@@ -29,7 +29,8 @@ include("test_run.jl")
     @test NodeModel isa Type
     @test Reservoir isa Type
     @test Body isa Type
-    @test Medium isa Type
+    @test Environment isa Type
+    @test TaskWorld isa Type
     @test Runner isa Type
     @test Drive isa Type
     @test Intervention isa Type

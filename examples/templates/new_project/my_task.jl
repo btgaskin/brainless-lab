@@ -1,11 +1,11 @@
 using Random
 
-import BrainlessLab: Environment, TaskSpec
+import BrainlessLab: TaskSpec, TaskWorld
 import BrainlessLab: sense, step!, reset!, metrics
 import BrainlessLab: n_receptors, n_effectors, default_ticks, default_window
 import BrainlessLab: register_task!
 
-mutable struct MyTrackingEnv <: Environment
+mutable struct MyTrackingEnv <: TaskWorld
     rng::Any
     x::Float64
     velocity::Float64

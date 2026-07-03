@@ -41,8 +41,8 @@ end
         @test sim isa SimResult
         @test sim.task == :forage
         @test sim.node == :falandays_base
-        @test sim.config.medium.kind == :forage
-        @test sim.config.medium.conspecific_vision == conspecific_vision
+        @test sim.config.environment.kind == :forage
+        @test sim.config.environment.conspecific_vision == conspecific_vision
         _test_forage_metrics(sim.metrics; ticks=20)
     end
 
@@ -96,16 +96,16 @@ end
         capture_radius=0.5,
         ven=params,
     )
-    medium = ForageMedium(torus, bodies; config=config, rng=MersenneTwister(7))
+    environment = ForageEnvironment(torus, bodies; config=config, rng=MersenneTwister(7))
 
-    percepts = observe(medium, bodies)
+    percepts = observe(environment, bodies)
     receptors_ = receptors(bodies[1], percepts[1])
     @test length(receptors_) == 128
     @test all(iszero, @view(receptors_[1:64]))
     @test maximum(@view(receptors_[65:128])) ≈ 2.0
 
     before = [body.pos for body in bodies]
-    actuate!(medium, bodies, [zeros(3), zeros(3)])
+    actuate!(environment, bodies, [zeros(3), zeros(3)])
     @test [body.pos for body in bodies] == before
 end
 

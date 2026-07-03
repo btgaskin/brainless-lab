@@ -125,7 +125,7 @@ function _assert_env_replay(name)
     @info "environment oracle parity" name max_sensor max_state
 end
 
-@testset "Environment oracle parity" begin
+@testset "TaskWorld oracle parity" begin
     for name in ("wall", "tracking", "pong", "cartpole")
         @testset "$name" begin
             _assert_env_replay(name)
@@ -133,7 +133,7 @@ end
     end
 end
 
-@testset "Environment RNG fields are concrete" begin
+@testset "TaskWorld RNG fields are concrete" begin
     wall = WallEnv(; rng=RecordedDraws([1.0, 1.0, 0.0]))
     tracking = TrackingEnv(; rng=RecordedDraws(Float64[]))
     pong = PongEnv(; rng=RecordedDraws([250.0, 1.0]))

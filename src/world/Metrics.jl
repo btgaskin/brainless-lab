@@ -239,7 +239,7 @@ _empty_swarm_metrics() = (
     input_stability=0.0,
 )
 
-function swarm_metrics(m::AbstractTorusMedium, window::Integer)
+function swarm_metrics(m::AbstractTorusEnvironment, window::Integer)
     window = Int(window)
     if window <= 0 || isempty(m.history) || any(isempty, m.history)
         return _empty_swarm_metrics()
@@ -294,9 +294,9 @@ function swarm_metrics(m::AbstractTorusMedium, window::Integer)
     )
 end
 
-swarm_metrics(c::Ensemble, window::Integer) = swarm_metrics(c.medium, Int(window))
+swarm_metrics(c::Ensemble, window::Integer) = swarm_metrics(c.environment, Int(window))
 
-metrics(m::TorusMedium, window::Integer=_default_torus_window(m)) =
+metrics(m::TorusEnvironment, window::Integer=_default_torus_window(m)) =
     swarm_metrics(m, Int(window))
 
 _empty_forage_only_metrics(window::Integer=0) = (
@@ -306,7 +306,7 @@ _empty_forage_only_metrics(window::Integer=0) = (
     forage_score=0.0,
 )
 
-function _forage_only_metrics(m::ForageMedium, window::Integer)
+function _forage_only_metrics(m::ForageEnvironment, window::Integer)
     window = Int(window)
     if window <= 0 || isempty(m.history) || any(isempty, m.history)
         return _empty_forage_only_metrics(window)
@@ -352,16 +352,16 @@ function _forage_only_metrics(m::ForageMedium, window::Integer)
     )
 end
 
-function forage_metrics(m::ForageMedium, window::Integer)
+function forage_metrics(m::ForageEnvironment, window::Integer)
     return (;
         swarm_metrics(m, Int(window))...,
         _forage_only_metrics(m, Int(window))...,
     )
 end
 
-forage_metrics(c::Ensemble, window::Integer) = forage_metrics(c.medium, Int(window))
+forage_metrics(c::Ensemble, window::Integer) = forage_metrics(c.environment, Int(window))
 
-metrics(m::ForageMedium, window::Integer=_default_torus_window(m)) =
+metrics(m::ForageEnvironment, window::Integer=_default_torus_window(m)) =
     forage_metrics(m, Int(window))
 
 function liveness(rates::AbstractVector, N, window)

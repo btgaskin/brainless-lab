@@ -111,7 +111,7 @@ function _dyad_collective(data)
     ]
 
     torus = Torus(_dyad_scalar(data, "torus_size"))
-    medium = TorusMedium(
+    environment = TorusEnvironment(
         torus,
         bodies;
         visual_coupling=_dyad_bool(data, "visual_coupling"),
@@ -124,7 +124,7 @@ function _dyad_collective(data)
     )
     agents = [Agent(_dyad_reservoir(data, i), bodies[i]) for i in eachindex(bodies)]
 
-    return Ensemble(agents, medium)
+    return Ensemble(agents, environment)
 end
 
 function _dyad_bodies(c::Ensemble)
@@ -133,7 +133,7 @@ end
 
 function _dyad_observed_inputs(c::Ensemble)
     bodies = _dyad_bodies(c)
-    percepts = observe(c.medium, bodies)
+    percepts = observe(c.environment, bodies)
     return [receptors(bodies[i], percepts[i]) for i in eachindex(bodies)]
 end
 
@@ -181,7 +181,7 @@ end
 # vision/metric correctness is covered by the "Torus vision and metric seam
 # corrections" tests above; paper-faithful fidelity is validated by the single-agent
 # Falandays fixtures, which remain the core reference.
-@testset "Ensemble dyad TorusMedium oracle parity (retired v0.2 path)" begin
+@testset "Ensemble dyad TorusEnvironment oracle parity (retired v0.2 path)" begin
     @test_skip "retired: v0.2 numpy reference shares the vision-wrap bug; correctness covered by the seam tests"
 end
 
@@ -200,7 +200,7 @@ function _dyad_stale_oracle_parity()
     n_agents = _dyad_int(data, "n_agents")
 
     @test length(collective.agents) == n_agents
-    @test collective.medium isa TorusMedium
+    @test collective.environment isa TorusEnvironment
     @test size(sensors) == (ticks, n_agents, _dyad_int(data, "n_receptors"))
     @test size(spikes_t) == (ticks, n_agents, _dyad_int(data, "N"))
     @test size(effectors_t) == (ticks, n_agents, _dyad_int(data, "n_effectors"))

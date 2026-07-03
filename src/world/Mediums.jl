@@ -1,36 +1,36 @@
 using Random
 
-abstract type AbstractTorusMedium <: Medium end
+abstract type AbstractTorusEnvironment <: Environment end
 
 """
-    TaskMedium(env)
+    TaskEnvironment(world)
 
-Single-agent medium wrapper around one task `Environment`.
+Single-agent environment adapter around one `TaskWorld`.
 """
-struct TaskMedium{E<:Environment} <: Medium
-    env::E
+struct TaskEnvironment{W<:TaskWorld} <: Environment
+    world::W
 end
 
 function _require_single_body(bodies)
     length(bodies) == 1 ||
-        throw(ArgumentError("TaskMedium wraps one Environment and requires exactly one body"))
+        throw(ArgumentError("TaskEnvironment wraps one TaskWorld and requires exactly one body"))
     return nothing
 end
 
-function observe(m::TaskMedium, bodies)
+function observe(m::TaskEnvironment, bodies)
     _require_single_body(bodies)
-    return [sense(m.env)]
+    return [sense(m.world)]
 end
 
-function actuate!(m::TaskMedium, bodies, Es)
+function actuate!(m::TaskEnvironment, bodies, Es)
     _require_single_body(bodies)
     length(Es) == 1 ||
-        throw(ArgumentError("TaskMedium requires exactly one effector command"))
-    return step!(m.env, Es[1])
+        throw(ArgumentError("TaskEnvironment requires exactly one effector command"))
+    return step!(m.world, Es[1])
 end
 
-medium_metrics(m::TaskMedium, window::Integer=default_window(m.env)) =
-    metrics(m.env, Int(window))
+environment_metrics(m::TaskEnvironment, window::Integer=default_window(m.world)) =
+    metrics(m.world, Int(window))
 
 Base.@kwdef struct SwarmConfig
     n_agents::Int
@@ -59,7 +59,7 @@ Base.@kwdef struct SwarmConfig
     dend_drive::Float64 = 0.0
 end
 
-mutable struct TorusMedium{R<:AbstractRNG} <: AbstractTorusMedium
+mutable struct TorusEnvironment{R<:AbstractRNG} <: AbstractTorusEnvironment
     torus::Torus
     config::SwarmConfig
     bodies::Vector{VENBody}
@@ -73,7 +73,7 @@ mutable struct TorusMedium{R<:AbstractRNG} <: AbstractTorusMedium
     last_inputs::Union{Nothing,Vector{Vector{Float64}}}
 end
 
-mutable struct ForageMedium{R<:AbstractRNG} <: AbstractTorusMedium
+mutable struct ForageEnvironment{R<:AbstractRNG} <: AbstractTorusEnvironment
     torus::Torus
     config::SwarmConfig
     source_position::NTuple{2,Float64}
@@ -92,13 +92,13 @@ function _as_ven_body_vector(bodies::AbstractVector)
     out = Vector{VENBody}(undef, length(bodies))
     @inbounds for i in eachindex(bodies)
         bodies[i] isa VENBody ||
-            throw(ArgumentError("TorusMedium requires VENBody bodies"))
+            throw(ArgumentError("TorusEnvironment requires VENBody bodies"))
         out[i] = bodies[i]
     end
     return out
 end
 
-function _medium_named_tuple(dict::Dict{Symbol,Any})
+function _environment_named_tuple(dict::Dict{Symbol,Any})
     isempty(dict) && return NamedTuple()
     keys_ = Tuple(keys(dict))
     values_ = Tuple(dict[key] for key in keys_)
@@ -113,7 +113,7 @@ function _swarm_config_with(config::SwarmConfig; kwargs...)
     for (key, value) in pairs(kwargs)
         values[Symbol(key)] = value
     end
-    return SwarmConfig(; _medium_named_tuple(values)...)
+    return SwarmConfig(; _environment_named_tuple(values)...)
 end
 
 function _configure_ven_bodies!(bodies::Vector{VENBody}, config::SwarmConfig; source_bank::Bool=false)
@@ -182,7 +182,7 @@ function _construct_sampled_ven_body(body_ctor, pos, heading, config::SwarmConfi
         source_gain=config.source_gain,
     )
     body isa VENBody ||
-        throw(ArgumentError("Torus/forage media currently require body constructors that return VENBody, got $(typeof(body))"))
+        throw(ArgumentError("Torus/forage environments currently require body constructors that return VENBody, got $(typeof(body))"))
     return body
 end
 
@@ -210,7 +210,7 @@ function _sample_bodies(config::SwarmConfig, torus::Torus, rng::AbstractRNG; sou
     return bodies
 end
 
-function TorusMedium(
+function TorusEnvironment(
     torus::Torus,
     bodies::AbstractVector;
     visual_coupling::Bool=true,
@@ -224,7 +224,7 @@ function TorusMedium(
     config=nothing,
 )
     body_vec = _as_ven_body_vector(bodies)
-    !isempty(body_vec) || throw(ArgumentError("TorusMedium requires at least one body"))
+    !isempty(body_vec) || throw(ArgumentError("TorusEnvironment requires at least one body"))
 
     config_ =
         config === nothing ?
@@ -249,7 +249,7 @@ function TorusMedium(
     _configure_ven_bodies!(body_vec, config_; source_bank=false)
     history, input_history = _empty_torus_histories(length(body_vec))
 
-    return TorusMedium(
+    return TorusEnvironment(
         torus,
         config_,
         body_vec,
@@ -264,15 +264,15 @@ function TorusMedium(
     )
 end
 
-function TorusMedium(config::SwarmConfig; bodies=nothing, rng::AbstractRNG=MersenneTwister(config.seed), body=:ven)
+function TorusEnvironment(config::SwarmConfig; bodies=nothing, rng::AbstractRNG=MersenneTwister(config.seed), body=:ven)
     torus = Torus(config.space_size)
     body_vec = bodies === nothing ?
         _sample_bodies(config, torus, rng; source_bank=false, body=body) :
         _as_ven_body_vector(bodies)
-    return TorusMedium(torus, body_vec; config=config, rng=rng)
+    return TorusEnvironment(torus, body_vec; config=config, rng=rng)
 end
 
-function ForageMedium(
+function ForageEnvironment(
     torus::Torus,
     bodies::AbstractVector;
     visual_coupling::Bool=true,
@@ -290,7 +290,7 @@ function ForageMedium(
     config=nothing,
 )
     body_vec = _as_ven_body_vector(bodies)
-    !isempty(body_vec) || throw(ArgumentError("ForageMedium requires at least one body"))
+    !isempty(body_vec) || throw(ArgumentError("ForageEnvironment requires at least one body"))
 
     config_ =
         config === nothing ?
@@ -322,7 +322,7 @@ function ForageMedium(
     _configure_ven_bodies!(body_vec, config_; source_bank=true)
     history, input_history = _empty_torus_histories(length(body_vec))
 
-    return ForageMedium(
+    return ForageEnvironment(
         torus,
         config_,
         source_pos,
@@ -338,23 +338,23 @@ function ForageMedium(
     )
 end
 
-function ForageMedium(config::SwarmConfig; bodies=nothing, rng::AbstractRNG=MersenneTwister(config.seed), body=:ven)
+function ForageEnvironment(config::SwarmConfig; bodies=nothing, rng::AbstractRNG=MersenneTwister(config.seed), body=:ven)
     torus = Torus(config.space_size)
     body_vec = bodies === nothing ?
         _sample_bodies(config, torus, rng; source_bank=true, body=body) :
         _as_ven_body_vector(bodies)
-    return ForageMedium(torus, body_vec; config=config, rng=rng)
+    return ForageEnvironment(torus, body_vec; config=config, rng=rng)
 end
 
-function _require_torus_width(m::AbstractTorusMedium, bodies)
+function _require_torus_width(m::AbstractTorusEnvironment, bodies)
     length(bodies) == length(m.bodies) ||
-        throw(DimensionMismatch("TorusMedium has $(length(m.bodies)) bodies, got $(length(bodies))"))
+        throw(DimensionMismatch("TorusEnvironment has $(length(m.bodies)) bodies, got $(length(bodies))"))
     length(m.history) == length(bodies) ||
-        throw(DimensionMismatch("TorusMedium history has width $(length(m.history)), got $(length(bodies))"))
+        throw(DimensionMismatch("TorusEnvironment history has width $(length(m.history)), got $(length(bodies))"))
     return nothing
 end
 
-function _conspecific_sensors(m::AbstractTorusMedium, body_vec::Vector{VENBody}, i::Integer)
+function _conspecific_sensors(m::AbstractTorusEnvironment, body_vec::Vector{VENBody}, i::Integer)
     if m.visual_coupling && m.config.conspecific_vision
         others = VENBody[body_vec[j] for j in eachindex(body_vec) if j != i]
         return sense_agents(
@@ -373,7 +373,7 @@ function _conspecific_sensors(m::AbstractTorusMedium, body_vec::Vector{VENBody},
     return zeros(Float64, length(m.sens_angles_rad))
 end
 
-function observe(m::TorusMedium, bodies)
+function observe(m::TorusEnvironment, bodies)
     body_vec = _as_ven_body_vector(bodies)
     _require_torus_width(m, body_vec)
 
@@ -390,7 +390,7 @@ function observe(m::TorusMedium, bodies)
     return percepts
 end
 
-function observe(m::ForageMedium, bodies)
+function observe(m::ForageEnvironment, bodies)
     body_vec = _as_ven_body_vector(bodies)
     _require_torus_width(m, body_vec)
 
@@ -432,7 +432,7 @@ function _apply_velocity!(body::VENBody, velocity::NTuple{2,Float64})
     return body
 end
 
-function _resolve_collisions!(m::AbstractTorusMedium, bodies::Vector{VENBody})
+function _resolve_collisions!(m::AbstractTorusEnvironment, bodies::Vector{VENBody})
     m.physical_coupling || return nothing
     m.config.conspecific_vision || return nothing
 
@@ -486,7 +486,7 @@ function _resolve_collisions!(m::AbstractTorusMedium, bodies::Vector{VENBody})
     return nothing
 end
 
-function actuate!(m::AbstractTorusMedium, bodies, Es)
+function actuate!(m::AbstractTorusEnvironment, bodies, Es)
     body_vec = _as_ven_body_vector(bodies)
     _require_torus_width(m, body_vec)
     length(Es) == length(body_vec) ||
@@ -513,13 +513,13 @@ function actuate!(m::AbstractTorusMedium, bodies, Es)
     return nothing
 end
 
-function _default_torus_window(m::AbstractTorusMedium)
+function _default_torus_window(m::AbstractTorusEnvironment)
     isempty(m.history) && return 0
     return minimum(length, m.history)
 end
 
-medium_metrics(m::TorusMedium, window::Integer=_default_torus_window(m)) =
+environment_metrics(m::TorusEnvironment, window::Integer=_default_torus_window(m)) =
     swarm_metrics(m, Int(window))
 
-medium_metrics(m::ForageMedium, window::Integer=_default_torus_window(m)) =
+environment_metrics(m::ForageEnvironment, window::Integer=_default_torus_window(m)) =
     forage_metrics(m, Int(window))

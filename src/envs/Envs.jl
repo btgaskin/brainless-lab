@@ -1,11 +1,11 @@
 using Random
 
-abstract type Environment <: Medium end
+abstract type TaskWorld end
 
 function default_ticks end
 function default_window end
-bounds(::Environment) = nothing
-pose(::Environment) = nothing
+bounds(::TaskWorld) = nothing
+pose(::TaskWorld) = nothing
 
 _wrap_rad(theta::Real) = mod(Float64(theta) + pi, 2.0 * pi) - pi
 _wrap_deg(angle::Real) = mod(Float64(angle) + 180.0, 360.0) - 180.0
@@ -44,7 +44,7 @@ function _xy_path(box::WallBox)
     return out
 end
 
-mutable struct WallEnv{R} <: Environment
+mutable struct WallEnv{R} <: TaskWorld
     rng::R
     lam::Float64
     box::WallBox{R}
@@ -93,7 +93,7 @@ function metrics(env::WallEnv, window::Integer=default_window(env))
     )
 end
 
-mutable struct TrackingEnv{R} <: Environment
+mutable struct TrackingEnv{R} <: TaskWorld
     rng::R
     theta::Float64
     phi::Float64
@@ -212,7 +212,7 @@ function metrics(env::TrackingEnv, window::Integer=default_window(env))
     )
 end
 
-mutable struct PongEnv{R} <: Environment
+mutable struct PongEnv{R} <: TaskWorld
     rng::R
     width::Float64
     height::Float64
@@ -376,7 +376,7 @@ function metrics(env::PongEnv, window::Integer=default_window(env))
     )
 end
 
-mutable struct CartPoleEnv{R} <: Environment
+mutable struct CartPoleEnv{R} <: TaskWorld
     rng::R
     tau::Float64
     gravity::Float64
@@ -498,7 +498,7 @@ end
 
 # --- Visualizable scene state (consumed by `animate`) ---
 # Default: no scene (the agent is shown via :poses instead, e.g. wall/torus).
-scene(::Environment) = nothing
+scene(::TaskWorld) = nothing
 
 scene(env::TrackingEnv) = (kind=:tracking, theta=env.theta, phi=env.phi)
 

@@ -101,7 +101,7 @@ function _fallback_config(provenance)
         window=nothing,
         n_agents=nothing,
         n_nodes=nothing,
-        medium=(kind=:unknown, bounds=nothing, size=nothing),
+        environment=(kind=:unknown, bounds=nothing, size=nothing),
         network=nothing,
         provenance=provenance,
     )

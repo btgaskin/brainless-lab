@@ -17,9 +17,9 @@ platform around that baseline.
 
 ## The pieces
 
-- **`Ensemble{Medium}`** -- a population of `Agent{Reservoir, Body}`, run by the tick protocol
+- **`Ensemble{Environment}`** -- a population of `Agent{Reservoir, Body}`, run by the tick protocol
   `observe -> step! -> actuate -> commit`.
-- **`TorusMedium`** -- a periodic 2-D world. Knobs: `sensory_noise` (default 0.1, added to each bearing
+- **`TorusEnvironment`** -- a periodic 2-D world. Knobs: `sensory_noise` (default 0.1, added to each bearing
   sensor), `vision_range` (neighbours beyond it are invisible, so coupling drops out as agents disperse),
   torus size, optional visual/physical coupling flags.
 - **`VENBody`** -- the embodied swarm agent. Vision-in / kinematics-out:

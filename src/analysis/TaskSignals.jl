@@ -1,14 +1,14 @@
 _wrap_to_pi(a) = atan(sin(a), cos(a))
 
-function _task_signal_medium_size(sim::SimResult, name::Symbol)
-    if !hasproperty(sim.config, :medium)
-        throw(ArgumentError("$(name) needs sim.config.medium.size to be available"))
+function _task_signal_environment_size(sim::SimResult, name::Symbol)
+    if !hasproperty(sim.config, :environment)
+        throw(ArgumentError("$(name) needs sim.config.environment.size to be available"))
     end
-    medium = getproperty(sim.config, :medium)
-    if !hasproperty(medium, :size) || getproperty(medium, :size) === nothing
-        throw(ArgumentError("$(name) needs sim.config.medium.size to be available"))
+    environment = getproperty(sim.config, :environment)
+    if !hasproperty(environment, :size) || getproperty(environment, :size) === nothing
+        throw(ArgumentError("$(name) needs sim.config.environment.size to be available"))
     end
-    return Float64(getproperty(medium, :size))
+    return Float64(getproperty(environment, :size))
 end
 
 function _task_signal_first_pose(entry, name::Symbol)
@@ -47,7 +47,7 @@ function wall_distance(sim::SimResult)
     poses = getchannel(sim.recorder, :poses)
     isempty(poses) && throw(ArgumentError("wall_distance needs :poses recorded; run simulate(...; record=(:rate, :poses))"))
 
-    size = _task_signal_medium_size(sim, :wall_distance)
+    size = _task_signal_environment_size(sim, :wall_distance)
     out = Vector{Float64}(undef, length(poses))
     @inbounds for t in eachindex(poses)
         pose = _task_signal_first_pose(poses[t], :wall_distance)

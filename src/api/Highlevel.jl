@@ -437,7 +437,7 @@ function _make_task_collective(
     )
     agent = _make_agent(reservoir, _resolve_task_body(body), morphology)
     recorder = Recorder(enabled=record, every=every)
-    collective = Ensemble([agent], TaskMedium(env); recorder=recorder)
+    collective = Ensemble([agent], TaskEnvironment(env); recorder=recorder)
     return collective, recorder
 end
 
@@ -459,11 +459,11 @@ function _make_swarm_collective(
     swarm_options[:n_nodes] = Int(n_nodes)
     swarm_options[:seed] = seed === nothing ? 0 : Int(seed)
     config = SwarmConfig(; _kwargs_tuple(swarm_options)...)
-    medium = forage ? ForageMedium(config; rng=_sim_rng(seed), body=body) : TorusMedium(config; rng=_sim_rng(seed), body=body)
+    environment = forage ? ForageEnvironment(config; rng=_sim_rng(seed), body=body) : TorusEnvironment(config; rng=_sim_rng(seed), body=body)
 
     agents = Vector{Agent}(undef, config.n_agents)
     @inbounds for i in 1:config.n_agents
-        body = medium.bodies[i]
+        body = environment.bodies[i]
         morphology = default_morphology(body)
         spec = portspec(morphology)
         reservoir = _build_reservoir(
@@ -479,24 +479,24 @@ function _make_swarm_collective(
     end
 
     recorder = Recorder(enabled=record, every=every)
-    collective = Ensemble(agents, medium; recorder=recorder)
+    collective = Ensemble(agents, environment; recorder=recorder)
     return collective, recorder
 end
 
-_medium_size(::Environment) = nothing
-_medium_size(env::WallEnv) = Float64(env.box.size)
+_environment_size(::TaskWorld) = nothing
+_environment_size(env::WallEnv) = Float64(env.box.size)
 
-function _medium_config(m::TaskMedium)
-    env = m.env
+function _environment_config(m::TaskEnvironment)
+    world = m.world
     return (
         kind=:task,
-        env=Symbol(lowercase(string(nameof(typeof(env))))),
-        bounds=bounds(env),
-        size=_medium_size(env),
+        world=Symbol(lowercase(string(nameof(typeof(world))))),
+        bounds=bounds(world),
+        size=_environment_size(world),
     )
 end
 
-function _medium_config(m::TorusMedium)
+function _environment_config(m::TorusEnvironment)
     size = Float64(m.torus.size)
     return (
         kind=:torus,
@@ -506,7 +506,7 @@ function _medium_config(m::TorusMedium)
     )
 end
 
-function _medium_config(m::ForageMedium)
+function _environment_config(m::ForageEnvironment)
     size = Float64(m.torus.size)
     return (
         kind=:forage,
@@ -520,7 +520,7 @@ function _medium_config(m::ForageMedium)
     )
 end
 
-_medium_config(m::Medium) = (kind=Symbol(lowercase(string(nameof(typeof(m))))), bounds=nothing, size=nothing)
+_environment_config(m::Environment) = (kind=Symbol(lowercase(string(nameof(typeof(m))))), bounds=nothing, size=nothing)
 
 function _network_snapshot(r::FalandaysReservoir)
     return (
@@ -549,7 +549,7 @@ end
 
 _network_snapshot(::Reservoir) = nothing
 
-const _SWARM_MEDIUM_KWARGS = Set{Symbol}((
+const _SWARM_ENVIRONMENT_KWARGS = Set{Symbol}((
     :space_size,
     :sens_agent_dist,
     :vision_range,
@@ -565,9 +565,9 @@ const _SWARM_MEDIUM_KWARGS = Set{Symbol}((
     :record_inputs,
 ))
 
-function _extract_swarm_medium_kwargs!(options::Dict{Symbol,Any}, swarm_kwargs)
+function _extract_swarm_environment_kwargs!(options::Dict{Symbol,Any}, swarm_kwargs)
     out = _merge_kwdicts(swarm_kwargs)
-    for key in _SWARM_MEDIUM_KWARGS
+    for key in _SWARM_ENVIRONMENT_KWARGS
         if haskey(options, key)
             out[key] = pop!(options, key)
         end
@@ -584,7 +584,7 @@ function _simulation_config(c::Ensemble; ticks::Integer, seed, record, every::In
         window=Int(window),
         n_agents=length(c.agents),
         n_nodes=Int(n_nodes),
-        medium=_medium_config(c.medium),
+        environment=_environment_config(c.environment),
         network=_network_snapshot(c.agents[1].reservoir),
     )
 end
@@ -602,12 +602,12 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
 
     swarm_kwargs =
         haskey(options, :swarm_kwargs) ? pop!(options, :swarm_kwargs) :
-        haskey(options, :medium_kwargs) ? pop!(options, :medium_kwargs) :
+        haskey(options, :environment_kwargs) ? pop!(options, :environment_kwargs) :
         NamedTuple()
 
     is_swarm = task in (:torus, :swarm, :forage) || n_agents !== nothing
     if is_swarm
-        swarm_kwargs = _extract_swarm_medium_kwargs!(options, swarm_kwargs)
+        swarm_kwargs = _extract_swarm_environment_kwargs!(options, swarm_kwargs)
     end
 
     node_kwargs = _merge_kwdicts(node_kwargs, options)

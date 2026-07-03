@@ -14,7 +14,7 @@ what is stable, and how they connect.
   collective metrics, and extension methods.
 - **[receptors-effectors.md](receptors-effectors.md)** -- how the sensorimotor interface works today (fixed
   per task/body) and the **planned tunable + evolvable** design.
-- **[collective.md](collective.md)** -- the n-agent / dyad (swarm) setup: bodies, the torus medium, coupling.
+- **[collective.md](collective.md)** -- the n-agent / dyad (swarm) setup: bodies, the torus environment, coupling.
 - **[evolution.md](evolution.md)** -- evolved versions: training, the genotype store + provenance, fitness,
   and a worked 20-generation readiness run.
 
@@ -38,7 +38,7 @@ does not make the experimental pieces paper-faithful; v0.2 itself includes docum
 Everything is *neurons as nodes within a collective* -- the same node contract at every scale:
 
 ```
-NodeModel -> Reservoir -> Body -> Agent -> Ensemble{Medium} -> Task -> Runner(evolve|fixed) -> Run
+NodeModel -> Reservoir -> Body -> Agent -> Ensemble{Environment} -> Task -> Runner(evolve|fixed) -> Run
                                                        \-> Recorder ->  (viz reads this, off the hot path)
 ```
 
@@ -50,7 +50,7 @@ The same `step!(collective)` runs both.
 Each tick, for every agent:
 
 ```
-percept --receptors(body,.)--> R --step!(reservoir,R)--> spikes --effectors(reservoir,.)--> E --decode_effectors(body,.)--> command --actuate!(medium,.)--> world
+percept --receptors(body,.)--> R --step!(reservoir,R)--> spikes --effectors(reservoir,.)--> E --decode_effectors(body,.)--> command --actuate!(environment,.)--> world
 ```
 
 - **Receptors (R)** = the reservoir's sensory input vector; **Effectors (E)** = its motor output vector.

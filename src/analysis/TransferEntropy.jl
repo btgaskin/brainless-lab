@@ -315,11 +315,11 @@ function _te_median(values::AbstractVector{<:Real})
     return isodd(n) ? xs[mid] : 0.5 * (xs[mid] + xs[mid + 1])
 end
 
-function _te_medium_size(sim::SimResult)
-    hasproperty(sim.config, :medium) || return nothing
-    medium = getproperty(sim.config, :medium)
-    if hasproperty(medium, :size)
-        size = getproperty(medium, :size)
+function _te_environment_size(sim::SimResult)
+    hasproperty(sim.config, :environment) || return nothing
+    environment = getproperty(sim.config, :environment)
+    if hasproperty(environment, :size)
+        size = getproperty(environment, :size)
         size === nothing || return Float64(size)
     end
     return nothing
@@ -336,7 +336,7 @@ function _te_speed_signal(xs::AbstractMatrix{<:Real}, ys::AbstractMatrix{<:Real}
     n_ticks, n_agents = size(xs)
     n_ticks >= 2 || return zeros(Float64, 0, n_agents)
 
-    torus_size = _te_medium_size(sim)
+    torus_size = _te_environment_size(sim)
     speeds = Matrix{Float64}(undef, n_ticks - 1, n_agents)
     @inbounds for t in 1:(n_ticks - 1), i in 1:n_agents
         dx = _te_axis_delta(xs[t, i], xs[t + 1, i], torus_size)

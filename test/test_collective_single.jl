@@ -71,7 +71,7 @@ function _single_collective(data)
     draws = RecordedDraws(_single_vector(data, "env_draws"))
     env = WallEnv(; rng=draws)
     agent = Agent(_single_reservoir(data), PassthroughBody())
-    collective = Ensemble([agent], TaskMedium(env))
+    collective = Ensemble([agent], TaskEnvironment(env))
     return collective, env, agent
 end
 
@@ -91,7 +91,7 @@ end
 function _single_assert_metric(data, got, key::Symbol)
     fixture_key = "metric_$(key)"
     haskey(data, fixture_key) || error("fixture missing $fixture_key")
-    haskey(got, key) || error("medium metrics missing $key")
+    haskey(got, key) || error("environment metrics missing $key")
     dev = abs(Float64(getproperty(got, key)) - _single_scalar(data, fixture_key))
     @test dev <= COLLECTIVE_SINGLE_ATOL
 end
@@ -108,7 +108,7 @@ end
     pose_t = _single_matrix(data, "pose")
 
     @test length(collective.agents) == 1
-    @test collective.medium isa TaskMedium
+    @test collective.environment isa TaskEnvironment
     @test size(sensors, 1) == _single_int(data, "ticks")
     @test size(spikes_t, 2) == _single_int(data, "N")
 

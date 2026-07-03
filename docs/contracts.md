@@ -50,7 +50,7 @@ torus runs through collective metrics.
 
 ## Ensemble metrics
 
-`rollout!(collective, ticks; window)` returns the medium/task metrics plus liveness diagnostics.
+`rollout!(collective, ticks; window)` returns the environment/task metrics plus liveness diagnostics.
 
 - **`score`** -- task-specific raw scalar from single-agent envs. Its meaning depends on the task table
   above; normalize through `normalized_score` before cross-task fitness comparisons.

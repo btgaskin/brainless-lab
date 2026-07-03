@@ -305,11 +305,11 @@ function _analysis_pose_matrices(raw, name::Symbol)
     return xs, ys, headings
 end
 
-function _analysis_medium_size(sim::SimResult)
-    hasproperty(sim.config, :medium) || return nothing
-    medium = getproperty(sim.config, :medium)
-    if hasproperty(medium, :size)
-        size = getproperty(medium, :size)
+function _analysis_environment_size(sim::SimResult)
+    hasproperty(sim.config, :environment) || return nothing
+    environment = getproperty(sim.config, :environment)
+    if hasproperty(environment, :size)
+        size = getproperty(environment, :size)
         size === nothing || return Float64(size)
     end
     return nothing
@@ -334,7 +334,7 @@ function _analysis_velocity_matrices(sim::SimResult, name::Symbol)
     n_ticks, n_agents = size(xs)
     n_ticks >= 2 || return zeros(Float64, 0, n_agents), zeros(Float64, 0, n_agents), xs, ys, headings
 
-    torus_size = _analysis_medium_size(sim)
+    torus_size = _analysis_environment_size(sim)
     stride = _analysis_sample_stride(sim)
     vx = Matrix{Float64}(undef, n_ticks - 1, n_agents)
     vy = Matrix{Float64}(undef, n_ticks - 1, n_agents)

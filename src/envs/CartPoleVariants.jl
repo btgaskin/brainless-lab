@@ -1,7 +1,7 @@
 const CARTPOLE_DEFAULT_TICKS = 1000
 const CARTPOLE_DEFAULT_WINDOW = 1000
 
-mutable struct CartPoleVariantEnv{R} <: Environment
+mutable struct CartPoleVariantEnv{R} <: TaskWorld
     rng::R
     name::Symbol
     tau::Float64

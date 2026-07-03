@@ -5,7 +5,7 @@ This directory is a copy-and-edit scaffold for a group project that uses Brainle
 ## Files
 
 - `my_node.jl` defines `MyNode <: Reservoir`, a leaky homeostatic reservoir with online recurrent-weight and target adaptation, then registers it as `:my_node`.
-- `my_task.jl` defines `MyTrackingEnv <: Environment`, wraps it in a `TaskSpec`, then registers it as `:my_task`.
+- `my_task.jl` defines `MyTrackingEnv <: TaskWorld`, wraps it in a `TaskSpec`, then registers it as `:my_task`.
 - `my_metric.jl` registers a small metric function as `:final_error_abs`, requested by symbol in `run.jl`.
 - `run.jl` includes those three files, runs `simulate(:my_task; node=:my_node)`, prints metrics, and saves a Makie figure.
 - `config.toml` is a benchmark config snippet that follows `bench/configs/core.toml`.
@@ -68,7 +68,7 @@ Do not rely on `using BrainlessLab` for method extension. Without `import`, Juli
 
 ## Task Contract
 
-A single-agent task is a `TaskSpec` around an `Environment`. The environment must implement:
+A single-agent task is a `TaskSpec` around a `TaskWorld`. The task world must implement:
 
 ```julia
 sense(env)                  # returns the receptor vector

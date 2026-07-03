@@ -25,18 +25,18 @@ abstract type Reservoir end
 """
     Body
 
-Abstract supertype for embodied structures that connect reservoirs to a medium
+Abstract supertype for embodied structures that connect reservoirs to an environment
 or task.
 """
 abstract type Body end
 
 """
-    Medium
+    Environment
 
-Abstract supertype for the environment or substrate in which bodies and
-reservoirs operate.
+Abstract supertype for the substrate/world that an `Ensemble` observes and
+actuates.
 """
-abstract type Medium end
+abstract type Environment end
 
 """
     AbstractTask
@@ -51,7 +51,7 @@ abstract type AbstractTask end
     Runner
 
 Abstract supertype for simulation runners that coordinate reservoirs, bodies,
-media, tasks, drives, and interventions.
+environments, tasks, drives, and interventions.
 """
 abstract type Runner end
 
@@ -172,7 +172,7 @@ function load_state! end
 """
     observe(object, args...)
 
-Return task, medium, body, or reservoir observations.
+Return task, environment, body, or reservoir observations.
 """
 function observe end
 

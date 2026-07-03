@@ -3,21 +3,21 @@ struct Agent{R<:Reservoir,B<:Body}
     body::B
 end
 
-mutable struct Ensemble{M<:Medium}
+mutable struct Ensemble{E<:Environment}
     agents::Vector{<:Agent}
-    medium::M
+    environment::E
     t::Int
     recorder
 end
 
 function Ensemble(
     agents::AbstractVector{<:Agent},
-    medium::M;
+    environment::E;
     t::Integer=0,
     recorder=nothing,
-) where {M<:Medium}
+) where {E<:Environment}
     isempty(agents) && throw(ArgumentError("Ensemble requires at least one agent"))
-    return Ensemble{M}(collect(agents), medium, Int(t), recorder)
+    return Ensemble{E}(collect(agents), environment, Int(t), recorder)
 end
 
 _agent_bodies(c::Ensemble) = [agent.body for agent in c.agents]
@@ -59,16 +59,16 @@ _record_sample(rec::Recorder) = rem(rec.tick, rec.every) == 0
 _record_wants(rec::Recorder, channel::Symbol) = channel in rec.enabled
 _record_wants_any(rec::Recorder, channels) = any(channel -> channel in rec.enabled, channels)
 
-function _pose_payload(m::TaskMedium, bodies)
-    p = pose(m.env)
+function _pose_payload(m::TaskEnvironment, bodies)
+    p = pose(m.world)
     return p === nothing ? nothing : [p]
 end
 
 # Per-task visualizable scene (tracking/pong/cartpole expose one; swarm/wall use poses).
-_scene_payload(m::TaskMedium) = scene(m.env)
-_scene_payload(::Medium) = nothing
+_scene_payload(m::TaskEnvironment) = scene(m.world)
+_scene_payload(::Environment) = nothing
 
-function _pose_payload(::Medium, bodies)
+function _pose_payload(::Environment, bodies)
     poses = NTuple{3,Float64}[]
     for body in bodies
         if body isa VENBody
@@ -81,7 +81,7 @@ function _pose_payload(::Medium, bodies)
     return isempty(poses) ? nothing : poses
 end
 
-function _record_swarm_metrics!(rec::Recorder, m::AbstractTorusMedium, poses)
+function _record_swarm_metrics!(rec::Recorder, m::AbstractTorusEnvironment, poses)
     if poses === nothing || isempty(poses)
         return rec
     end
@@ -170,17 +170,17 @@ function _record_collective!(rec::Recorder, c::Ensemble, bodies, percepts, spike
     end
 
     poses = _record_wants_any(rec, (:poses, :polarization, :milling)) ?
-        _pose_payload(c.medium, bodies) :
+        _pose_payload(c.environment, bodies) :
         nothing
     if poses !== nothing && _record_wants(rec, :poses)
         record!(rec, :poses, _record_payload(poses))
     end
     if _record_wants(rec, :scene)
-        sc = _scene_payload(c.medium)
+        sc = _scene_payload(c.environment)
         sc === nothing || record!(rec, :scene, sc)
     end
-    if c.medium isa AbstractTorusMedium
-        _record_swarm_metrics!(rec, c.medium, poses)
+    if c.environment isa AbstractTorusEnvironment
+        _record_swarm_metrics!(rec, c.environment, poses)
     end
 
     _record_state_channels!(rec, c.agents)
@@ -190,9 +190,9 @@ end
 
 function step!(c::Ensemble)
     bodies = _agent_bodies(c)
-    percepts = observe(c.medium, bodies)
+    percepts = observe(c.environment, bodies)
     length(percepts) == length(c.agents) ||
-        throw(DimensionMismatch("medium returned $(length(percepts)) percepts for $(length(c.agents)) agents"))
+        throw(DimensionMismatch("environment returned $(length(percepts)) percepts for $(length(c.agents)) agents"))
 
     spikes = Vector{Any}(undef, length(c.agents))
     rates = Vector{Float64}(undef, length(c.agents))
@@ -208,7 +208,7 @@ function step!(c::Ensemble)
         Es[i] = decode_effectors(agent.body, E)
     end
 
-    actuate!(c.medium, bodies, Es)
+    actuate!(c.environment, bodies, Es)
     c.t += 1
 
     if c.recorder isa Recorder
@@ -262,17 +262,17 @@ function _registered_metric_value(c::Ensemble, base_metrics, sym::Symbol, window
     f = resolve_metric(sym)
     if applicable(f, c, Int(window))
         return f(c, Int(window))
-    elseif applicable(f, c.medium, Int(window))
-        return f(c.medium, Int(window))
+    elseif applicable(f, c.environment, Int(window))
+        return f(c.environment, Int(window))
     elseif applicable(f, base_metrics)
         return f(base_metrics)
     end
 
-    throw(ArgumentError("registered metric :$(sym) is not applicable to Ensemble, Medium, or current metric tuple"))
+    throw(ArgumentError("registered metric :$(sym) is not applicable to Ensemble, Environment, or current metric tuple"))
 end
 
-function _selected_medium_metrics(c::Ensemble, window::Integer, selection)
-    base = medium_metrics(c.medium, Int(window))
+function _selected_environment_metrics(c::Ensemble, window::Integer, selection)
+    base = environment_metrics(c.environment, Int(window))
     selection === nothing && return base
 
     names = Symbol[]
@@ -303,7 +303,7 @@ function rollout!(c::Ensemble, ticks::Integer; window::Integer=ticks, metrics=no
     end
 
     return (;
-        _selected_medium_metrics(c, window, metrics)...,
+        _selected_environment_metrics(c, window, metrics)...,
         liveness(rates, node_count, window)...,
     )
 end

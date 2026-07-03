@@ -48,6 +48,6 @@ and the reservoir's effector vector is passed straight to `step!(env, E)`.
 ## Adding a task
 
 `register_task!(:myname, TaskSpec(:myname, MyEnv; default_ticks=..., default_window=...))`. `MyEnv <:
-Environment` must implement `sense(env) -> Vector` (length = its `n_receptors`), `step!(env, E)`,
+TaskWorld` must implement `sense(env) -> Vector` (length = its `n_receptors`), `step!(env, E)`,
 `metrics(env, window)`, and `n_receptors`/`n_effectors`. It then auto-joins `tasks()`, the demo, and the
 benchmark grid.

@@ -2,7 +2,7 @@
 
 An extensible Julia lab for **"brainless" cognition** -- behaviour that emerges from
 collectives of simple neuron-like nodes with no homunculus and no hand-wired control.
-Reservoirs, bodies, tasks, swarm media, recorders, metrics, and Makie visualisations are
+Reservoirs, bodies, tasks, swarm environments, recorders, metrics, and Makie visualisations are
 all wired through lightweight **registries**, so participants can swap node families or add
 their own parts without forking the framework. The core concept is *neurons as nodes within
 a collective* -- the same abstraction at every scale.
