@@ -100,11 +100,8 @@ function _record_swarm_metrics!(rec::Recorder, m::TorusMedium, poses)
 
     if wants_milling
         positions = [(pose[1], pose[2]) for pose in poses]
-        centroid = (
-            sum(p[1] for p in positions) / length(positions),
-            sum(p[2] for p in positions) / length(positions),
-        )
-        record!(rec, :milling, milling(positions, headings, centroid))
+        centroid = circular_centroid(positions, m.torus)
+        record!(rec, :milling, milling(positions, headings, centroid, m.torus))
     end
 
     return rec

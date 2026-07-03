@@ -134,10 +134,12 @@ function sense_agents(
         edge_b = (other.pos[1] - offset[1], other.pos[2] - offset[2])
 
         edge_angle_a = bearing(torus, body.pos, edge_a)
-        ref_dist = abs(edge_angle_a - neighbor_angle)
+        ref_d = mod(edge_angle_a - neighbor_angle + pi, _TWO_PI) - pi
+        ref_dist = abs(ref_d)
 
         @inbounds for i in eachindex(sensor_angles)
-            dist = mod(abs(sensor_angles[i] - neighbor_angle), _TWO_PI)
+            d = mod(sensor_angles[i] - neighbor_angle + pi, _TWO_PI) - pi
+            dist = abs(d)
             candidate = dist <= ref_dist ? neighbor_dist : max_d
             if candidate < intersections[i]
                 intersections[i] = candidate

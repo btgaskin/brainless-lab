@@ -61,6 +61,36 @@ function polarization(headings)
     return Float64(hypot(x, y))
 end
 
+function _circular_axis_mean(values, torus::Torus)
+    n = length(values)
+    n == 0 && return 0.0
+
+    scale = _TWO_PI / torus.size
+    mean_sin = 0.0
+    mean_cos = 0.0
+    @inbounds for value in values
+        theta = Float64(value) * scale
+        mean_sin += sin(theta)
+        mean_cos += cos(theta)
+    end
+    mean_sin /= n
+    mean_cos /= n
+
+    theta = atan(mean_sin, mean_cos)
+    return Float64(mod(torus.size * theta / _TWO_PI, torus.size))
+end
+
+function circular_centroid(positions, torus::Torus)
+    pos = _positions_matrix(positions)
+    n = size(pos, 1)
+    n == 0 && return (0.0, 0.0)
+
+    return (
+        _circular_axis_mean(@view(pos[:, 1]), torus),
+        _circular_axis_mean(@view(pos[:, 2]), torus),
+    )
+end
+
 function milling(positions, headings, centroid)
     pos = _positions_matrix(positions)
     hs = Float64.(vec(collect(headings)))
@@ -77,6 +107,32 @@ function milling(positions, headings, centroid)
     @inbounds for i in 1:n
         relx = pos[i, 1] - cent[1]
         rely = pos[i, 2] - cent[2]
+        norm = hypot(relx, rely)
+        rx = norm > 0.0 ? relx / norm : 0.0
+        ry = norm > 0.0 ? rely / norm : 0.0
+        vx = cos(hs[i])
+        vy = sin(hs[i])
+        total += rx * vy - ry * vx
+    end
+
+    return Float64(abs(total / n))
+end
+
+function milling(positions, headings, centroid, torus::Torus)
+    pos = _positions_matrix(positions)
+    hs = Float64.(vec(collect(headings)))
+    cent = Float64.(vec(collect(centroid)))
+
+    length(hs) == size(pos, 1) ||
+        throw(DimensionMismatch("heading count $(length(hs)) does not match position count $(size(pos, 1))"))
+    length(cent) == 2 || throw(DimensionMismatch("centroid must have length 2"))
+
+    n = size(pos, 1)
+    n == 0 && return 0.0
+
+    total = 0.0
+    @inbounds for i in 1:n
+        relx, rely = tdelta(torus, (cent[1], cent[2]), (pos[i, 1], pos[i, 2]))
         norm = hypot(relx, rely)
         rx = norm > 0.0 ? relx / norm : 0.0
         ry = norm > 0.0 ? rely / norm : 0.0
@@ -210,13 +266,10 @@ function swarm_metrics(m::TorusMedium, window::Integer)
             headings[i] = pose[3]
         end
 
-        centroid = [
-            _mean(@view positions[:, 1]),
-            _mean(@view positions[:, 2]),
-        ]
+        centroid = circular_centroid(positions, m.torus)
 
         push!(polarizations, polarization(headings))
-        push!(millings, milling(positions, headings, centroid))
+        push!(millings, milling(positions, headings, centroid, m.torus))
         push!(nearest, mean_nearest_neighbor_distance(positions, m.torus))
         push!(pairwise, mean_pairwise_distance(positions, m.torus))
     end
@@ -277,7 +330,7 @@ function liveness(rates::AbstractVector, N, window)
     rate_var = sq / last_n
 
     total_spikes_window = total * n
-    min_spikes = max(5.0, 0.01 * window * n)
+    min_spikes = max(5.0, 0.01 * last_n * n)
     alive = 0.01 < rate_mean < 0.99 &&
         rate_var > 1e-9 &&
         total_spikes_window >= min_spikes
