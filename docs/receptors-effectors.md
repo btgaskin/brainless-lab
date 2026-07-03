@@ -28,10 +28,15 @@ Today the counts and placements are **hardcoded constants**:
 | `PongEnv` / `:pong`, `:pong_hitrate` | 46 | 2 | `-90:4:90 deg` ball-bearing bins; paddle vote/differential command |
 | `CartPoleEnv` and variants | 8 | 2 | 4 state dims x 2 polarities; binary force vote |
 | `VENBody` / `:torus` | **64** | **3** | 62 bearing-vision sensors padded to 64 receptor inputs; 3-effector kinematic decode |
+| `VENBody` / `:forage` | **128** | **3** | two 64-wide visual banks: conspecific bearing vision plus source bearing vision; same VEN kinematic decode |
 
 Important TORUS detail: `sense_agents` computes **62** bearing-vision sensor values, but `VENBody.receptors`
 passes a **64**-channel vector to the reservoir by copying those values into `inputs[3:64]`. The swarm
 reservoirs are therefore built as `(n_receptors=64, n_effectors=3)` in the high-level API.
+
+For `:forage`, `VENBody` keeps that first 64-channel conspecific convention intact and appends a second
+64-channel source bank with the same bearing geometry. Reservoirs are therefore built as
+`(n_receptors=128, n_effectors=3)`. `source_gain` weights the source bank; effector semantics are unchanged.
 
 Sensor *placements* are baked into the env/body: e.g. `TrackingEnv` has `eye_offsets_deg = (30, -30)` and
 `sensor_offsets_deg = -60:4:60`; `VENBody` uses `SENS_ANGLES_DEG` (two eyes x 31 angles = 62 before

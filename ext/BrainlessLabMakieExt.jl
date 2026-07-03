@@ -169,6 +169,23 @@ function _plot_bounds(sim)
     return medium.bounds
 end
 
+function _source_position(sim)
+    sim isa BL.SimResult || return nothing
+    hasproperty(sim.config, :medium) || return nothing
+    medium = sim.config.medium
+    hasproperty(medium, :source_position) || return nothing
+    source = medium.source_position
+    source === nothing && return nothing
+    return (Float64(source[1]), Float64(source[2]))
+end
+
+function _draw_source!(ax, sim)
+    source = _source_position(sim)
+    source === nothing && return ax
+    Makie.scatter!(ax, [source[1]], [source[2]]; marker=:star5, markersize=20, color=:orange)
+    return ax
+end
+
 function _draw_bounds!(ax, sim)
     bounds = _plot_bounds(sim)
     bounds === nothing && return ax
@@ -230,6 +247,7 @@ end
 
 function _draw_swarm!(ax, sim)
     _draw_bounds!(ax, sim)
+    _draw_source!(ax, sim)
     poses = _latest_pose_rows(sim)
     xs = [pose[1] for pose in poses]
     ys = [pose[2] for pose in poses]
@@ -572,6 +590,7 @@ function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
                 Makie.xlims!(axw, x0, x1)
                 Makie.ylims!(axw, y0, y1)
             end
+            _draw_source!(axw, sim)
             for tr in tracks
                 isempty(tr) && continue
                 ff = min(f, length(tr))

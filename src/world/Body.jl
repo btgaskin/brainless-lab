@@ -9,6 +9,9 @@ const SENS_ANGLES_DEG = Float64.(
     ),
 )
 const SENS_ANGLES_RAD = SENS_ANGLES_DEG .* (pi / 180.0)
+const VEN_BEARING_SENSOR_COUNT = length(SENS_ANGLES_RAD)
+const VEN_BANK_RECEPTORS = 64
+const VEN_FORAGE_RECEPTORS = 2 * VEN_BANK_RECEPTORS
 
 """
     PassthroughBody()
@@ -33,20 +36,53 @@ mutable struct VENBody <: Body
     speed::Float64
     heading_rate::Float64
     params::VENParams
+    sensory_scaling::Bool
+    source_bank::Bool
+    source_gain::Float64
 end
 
-function VENBody(pos, heading; params::VENParams=VENParams(), speed::Real=0.0, heading_rate::Real=0.0)
+function VENBody(
+    pos,
+    heading;
+    params::VENParams=VENParams(),
+    speed::Real=0.0,
+    heading_rate::Real=0.0,
+    sensory_scaling::Bool=true,
+    source_bank::Bool=false,
+    source_gain::Real=1.0,
+)
     return VENBody(
         (Float64(pos[1]), Float64(pos[2])),
         mod(Float64(heading), _TWO_PI),
         Float64(speed),
         Float64(heading_rate),
         params,
+        Bool(sensory_scaling),
+        Bool(source_bank),
+        Float64(source_gain),
     )
 end
 
-function VENBody(pos, heading, params::VENParams; speed::Real=0.0, heading_rate::Real=0.0)
-    return VENBody(pos, heading; params=params, speed=speed, heading_rate=heading_rate)
+function VENBody(
+    pos,
+    heading,
+    params::VENParams;
+    speed::Real=0.0,
+    heading_rate::Real=0.0,
+    sensory_scaling::Bool=true,
+    source_bank::Bool=false,
+    source_gain::Real=1.0,
+)
+    return VENBody(
+        pos,
+        heading;
+        params=params,
+        speed=speed,
+        heading_rate=heading_rate,
+        sensory_scaling=sensory_scaling,
+        source_bank=source_bank,
+        source_gain=source_gain,
+    )
 end
 
 velocity_hat(b::VENBody) = (Float64(cos(b.heading)), Float64(sin(b.heading)))
@@ -83,11 +119,11 @@ end
 
 function assemble_inputs(sens_agents_vec, sensory_scaling::Bool=true)
     sens = Float64.(vec(collect(sens_agents_vec)))
-    length(sens) == 62 ||
-        throw(DimensionMismatch("bearing vision requires 62 sensors, got $(length(sens))"))
+    length(sens) == VEN_BEARING_SENSOR_COUNT ||
+        throw(DimensionMismatch("bearing vision requires $(VEN_BEARING_SENSOR_COUNT) sensors, got $(length(sens))"))
 
-    inputs = zeros(Float64, 64)
-    copyto!(@view(inputs[3:64]), sens)
+    inputs = zeros(Float64, VEN_BANK_RECEPTORS)
+    copyto!(@view(inputs[3:VEN_BANK_RECEPTORS]), sens)
 
     if sensory_scaling
         total = sum(inputs)
@@ -99,39 +135,64 @@ function assemble_inputs(sens_agents_vec, sensory_scaling::Bool=true)
     return inputs
 end
 
-function sense_agents(
+function assemble_forage_inputs(
+    conspecific_sens_vec,
+    source_sens_vec,
+    sensory_scaling::Bool=true;
+    source_gain::Real=1.0,
+)
+    source_sens = Float64.(vec(collect(source_sens_vec)))
+    length(source_sens) == VEN_BEARING_SENSOR_COUNT ||
+        throw(DimensionMismatch("source vision requires $(VEN_BEARING_SENSOR_COUNT) sensors, got $(length(source_sens))"))
+
+    inputs = zeros(Float64, VEN_FORAGE_RECEPTORS)
+    conspecific_bank = assemble_inputs(conspecific_sens_vec, sensory_scaling)
+    copyto!(@view(inputs[1:VEN_BANK_RECEPTORS]), conspecific_bank)
+    @views inputs[(VEN_BANK_RECEPTORS + 3):VEN_FORAGE_RECEPTORS] .= Float64(source_gain) .* source_sens
+    return inputs
+end
+
+function _sense_circular_targets(
     body::VENBody,
-    others,
+    target_positions,
+    target_radii,
     torus::Torus,
-    params::VENParams=body.params,
-    sens_angles_rad=SENS_ANGLES_RAD,
-    sens_agent_dist::Real=0,
-    sensory_noise::Real=0,
-    rng=nothing;
+    sens_angles_rad,
+    sens_agent_dist::Real,
+    sensory_noise::Real,
+    rng;
     vision_range=nothing,
 )
+    length(target_positions) == length(target_radii) ||
+        throw(DimensionMismatch("target position/radius counts differ"))
+
     sensor_angles = Float64.(vec(collect(sens_angles_rad))) .+ body.heading
     max_d = max_dist(torus)
     intersections = fill(max_d, length(sensor_angles))
 
-    for other in others
-        other === body && continue
-        other isa VENBody || throw(ArgumentError("sense_agents expects VENBody neighbours"))
+    for idx in eachindex(target_positions, target_radii)
+        target = target_positions[idx]
+        radius = max(0.0, Float64(target_radii[idx]))
+        target_pos = (Float64(target[1]), Float64(target[2]))
 
-        neighbor_dist = tdistance(torus, body.pos, other.pos)
-        if vision_range !== nothing && neighbor_dist > Float64(vision_range)
+        target_dist = tdistance(torus, body.pos, target_pos)
+        if vision_range !== nothing && target_dist > Float64(vision_range)
             continue
         end
 
-        neighbor_angle = bearing(torus, body.pos, other.pos)
+        if radius > 0.0 && target_dist <= radius
+            fill!(intersections, 0.0)
+            break
+        end
+
+        neighbor_angle = bearing(torus, body.pos, target_pos)
         perpendicular_angle =
             neighbor_angle > 0.0 ? neighbor_angle - pi / 2.0 : neighbor_angle + pi / 2.0
         offset = (
-            params.agent_radius * cos(perpendicular_angle),
-            params.agent_radius * sin(perpendicular_angle),
+            radius * cos(perpendicular_angle),
+            radius * sin(perpendicular_angle),
         )
-        edge_a = (other.pos[1] + offset[1], other.pos[2] + offset[2])
-        edge_b = (other.pos[1] - offset[1], other.pos[2] - offset[2])
+        edge_a = (target_pos[1] + offset[1], target_pos[2] + offset[2])
 
         edge_angle_a = bearing(torus, body.pos, edge_a)
         ref_d = mod(edge_angle_a - neighbor_angle + pi, _TWO_PI) - pi
@@ -140,7 +201,7 @@ function sense_agents(
         @inbounds for i in eachindex(sensor_angles)
             d = mod(sensor_angles[i] - neighbor_angle + pi, _TWO_PI) - pi
             dist = abs(d)
-            candidate = dist <= ref_dist ? neighbor_dist : max_d
+            candidate = dist <= ref_dist ? target_dist : max_d
             if candidate < intersections[i]
                 intersections[i] = candidate
             end
@@ -170,4 +231,63 @@ function sense_agents(
     end
 
     return sens_acts
+end
+
+function sense_agents(
+    body::VENBody,
+    others,
+    torus::Torus,
+    params::VENParams=body.params,
+    sens_angles_rad=SENS_ANGLES_RAD,
+    sens_agent_dist::Real=0,
+    sensory_noise::Real=0,
+    rng=nothing;
+    vision_range=nothing,
+)
+    target_positions = NTuple{2,Float64}[]
+    target_radii = Float64[]
+    for other in others
+        other === body && continue
+        other isa VENBody || throw(ArgumentError("sense_agents expects VENBody neighbours"))
+        push!(target_positions, other.pos)
+        push!(target_radii, Float64(params.agent_radius))
+    end
+
+    return _sense_circular_targets(
+        body,
+        target_positions,
+        target_radii,
+        torus,
+        sens_angles_rad,
+        sens_agent_dist,
+        sensory_noise,
+        rng;
+        vision_range=vision_range,
+    )
+end
+
+function sense_source(
+    body::VENBody,
+    source_position,
+    torus::Torus,
+    params::VENParams=body.params,
+    sens_angles_rad=SENS_ANGLES_RAD,
+    sens_agent_dist::Real=0,
+    sensory_noise::Real=0,
+    rng=nothing;
+    vision_range=nothing,
+    source_radius::Real=params.agent_radius,
+)
+    source_pos = (Float64(source_position[1]), Float64(source_position[2]))
+    return _sense_circular_targets(
+        body,
+        (source_pos,),
+        (Float64(source_radius),),
+        torus,
+        sens_angles_rad,
+        sens_agent_dist,
+        sensory_noise,
+        rng;
+        vision_range=vision_range,
+    )
 end

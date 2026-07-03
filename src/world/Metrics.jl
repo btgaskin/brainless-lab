@@ -239,7 +239,7 @@ _empty_swarm_metrics() = (
     input_stability=0.0,
 )
 
-function swarm_metrics(m::TorusMedium, window::Integer)
+function swarm_metrics(m::AbstractTorusMedium, window::Integer)
     window = Int(window)
     if window <= 0 || isempty(m.history) || any(isempty, m.history)
         return _empty_swarm_metrics()
@@ -298,6 +298,71 @@ swarm_metrics(c::Collective, window::Integer) = swarm_metrics(c.medium, Int(wind
 
 metrics(m::TorusMedium, window::Integer=_default_torus_window(m)) =
     swarm_metrics(m, Int(window))
+
+_empty_forage_only_metrics(window::Integer=0) = (
+    mean_distance_to_source=0.0,
+    frac_within_capture=0.0,
+    time_to_first_arrival=Float64(max(Int(window), 0)),
+    forage_score=0.0,
+)
+
+function _forage_only_metrics(m::ForageMedium, window::Integer)
+    window = Int(window)
+    if window <= 0 || isempty(m.history) || any(isempty, m.history)
+        return _empty_forage_only_metrics(window)
+    end
+
+    steps = min(window, minimum(length, m.history))
+    steps <= 0 && return _empty_forage_only_metrics(window)
+
+    total_distance = 0.0
+    within_count = 0
+    total_count = 0
+    first_arrival = steps
+    found_arrival = false
+    capture_radius = Float64(m.config.capture_radius)
+
+    @inbounds for k in 1:steps
+        any_arrived = false
+        for hist in m.history
+            pose = hist[length(hist) - steps + k]
+            d = tdistance(m.torus, (pose[1], pose[2]), m.source_position)
+            total_distance += d
+            total_count += 1
+            if d <= capture_radius
+                within_count += 1
+                any_arrived = true
+            end
+        end
+        if any_arrived && !found_arrival
+            first_arrival = k
+            found_arrival = true
+        end
+    end
+
+    mean_distance = total_count == 0 ? 0.0 : total_distance / total_count
+    max_d = max_dist(m.torus)
+    forage_score = max_d <= 0.0 ? 0.0 : clamp(1.0 - mean_distance / max_d, 0.0, 1.0)
+
+    return (
+        mean_distance_to_source=Float64(mean_distance),
+        frac_within_capture=total_count == 0 ? 0.0 : Float64(within_count / total_count),
+        time_to_first_arrival=Float64(first_arrival),
+        forage_score=Float64(forage_score),
+    )
+end
+
+function forage_metrics(m::ForageMedium, window::Integer)
+    return (;
+        swarm_metrics(m, Int(window))...,
+        _forage_only_metrics(m, Int(window))...,
+    )
+end
+
+forage_metrics(c::Collective, window::Integer) = forage_metrics(c.medium, Int(window))
+
+metrics(m::ForageMedium, window::Integer=_default_torus_window(m)) =
+    forage_metrics(m, Int(window))
 
 function liveness(rates::AbstractVector, N, window)
     n = Int(N)

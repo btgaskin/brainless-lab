@@ -68,6 +68,8 @@ PassthroughMorphology(n_receptors::Integer, n_effectors::Integer) =
 
 Base.@kwdef struct VENMorphology <: Morphology
     sensory_scaling::Bool = true
+    source_bank::Bool = false
+    source_gain::Float64 = 1.0
 end
 
 const VEN_MORPHOLOGY = VENMorphology()
@@ -76,19 +78,34 @@ const _VEN_RECEPTOR_PLACEMENT = Union{NoPlacement,Float64}
 
 n_receptors(m::PassthroughMorphology) = m.n_receptors
 n_effectors(m::PassthroughMorphology) = m.n_effectors
-n_receptors(::VENMorphology) = 64
+n_receptors(m::VENMorphology) = m.source_bank ? VEN_FORAGE_RECEPTORS : VEN_BANK_RECEPTORS
 n_effectors(::VENMorphology) = 3
 
 function portspec(m::PassthroughMorphology)::PortSpec
     return PortSpec(n_receptors(m), n_effectors(m))
 end
 
-function _ven_receptor_ports()
-    out = Vector{Port{_VEN_RECEPTOR_PLACEMENT}}(undef, 64)
+function _ven_base_receptor_ports()
+    out = Vector{Port{_VEN_RECEPTOR_PLACEMENT}}(undef, VEN_BANK_RECEPTORS)
     out[1] = Port{_VEN_RECEPTOR_PLACEMENT}(:reserved_1, NO_PLACEMENT)
     out[2] = Port{_VEN_RECEPTOR_PLACEMENT}(:reserved_2, NO_PLACEMENT)
     @inbounds for i in eachindex(SENS_ANGLES_DEG)
         out[i + 2] = Port{_VEN_RECEPTOR_PLACEMENT}(Symbol("bearing_", i), Float64(SENS_ANGLES_DEG[i]))
+    end
+    return out
+end
+
+function _ven_receptor_ports(source_bank::Bool=false)
+    base = _ven_base_receptor_ports()
+    source_bank || return base
+
+    out = Vector{Port{_VEN_RECEPTOR_PLACEMENT}}(undef, VEN_FORAGE_RECEPTORS)
+    copyto!(out, 1, base, 1, VEN_BANK_RECEPTORS)
+    out[VEN_BANK_RECEPTORS + 1] = Port{_VEN_RECEPTOR_PLACEMENT}(:source_reserved_1, NO_PLACEMENT)
+    out[VEN_BANK_RECEPTORS + 2] = Port{_VEN_RECEPTOR_PLACEMENT}(:source_reserved_2, NO_PLACEMENT)
+    @inbounds for i in eachindex(SENS_ANGLES_DEG)
+        out[VEN_BANK_RECEPTORS + i + 2] =
+            Port{_VEN_RECEPTOR_PLACEMENT}(Symbol("source_bearing_", i), Float64(SENS_ANGLES_DEG[i]))
     end
     return out
 end
@@ -102,7 +119,7 @@ function _ven_effector_ports()
 end
 
 function portspec(m::VENMorphology)::PortSpec
-    return PortSpec(n_receptors(m), n_effectors(m), _ven_receptor_ports(), _ven_effector_ports())
+    return PortSpec(n_receptors(m), n_effectors(m), _ven_receptor_ports(m.source_bank), _ven_effector_ports())
 end
 
 ports(m::Morphology) = ports(portspec(m))
@@ -112,18 +129,36 @@ decode_effectors(::PassthroughMorphology, e) = e
 
 function encode_receptors(m::VENMorphology, percept)
     vals = Float64.(vec(collect(percept)))
-    if length(vals) == 64
-        return copy(vals)
-    elseif length(vals) == 62
-        return assemble_inputs(vals, m.sensory_scaling)
+    if m.source_bank
+        if length(vals) == VEN_FORAGE_RECEPTORS
+            return copy(vals)
+        elseif length(vals) == 2 * VEN_BEARING_SENSOR_COUNT
+            return assemble_forage_inputs(
+                @view(vals[1:VEN_BEARING_SENSOR_COUNT]),
+                @view(vals[(VEN_BEARING_SENSOR_COUNT + 1):(2 * VEN_BEARING_SENSOR_COUNT)]),
+                m.sensory_scaling;
+                source_gain=m.source_gain,
+            )
+        end
+        throw(DimensionMismatch("forage VENBody percept must have length $(2 * VEN_BEARING_SENSOR_COUNT) or $(VEN_FORAGE_RECEPTORS), got $(length(vals))"))
+    else
+        if length(vals) == VEN_BANK_RECEPTORS
+            return copy(vals)
+        elseif length(vals) == VEN_BEARING_SENSOR_COUNT
+            return assemble_inputs(vals, m.sensory_scaling)
+        end
     end
-    throw(DimensionMismatch("VENBody percept must have length 62 or 64, got $(length(vals))"))
+    throw(DimensionMismatch("VENBody percept must have length $(VEN_BEARING_SENSOR_COUNT) or $(VEN_BANK_RECEPTORS), got $(length(vals))"))
 end
 
 decode_effectors(::VENMorphology, e) = _ven_output_acts(e)
 
 default_morphology(env) = PassthroughMorphology(n_receptors(env), n_effectors(env))
-default_morphology(::VENBody) = VEN_MORPHOLOGY
+default_morphology(b::VENBody) = VENMorphology(
+    sensory_scaling=b.sensory_scaling,
+    source_bank=b.source_bank,
+    source_gain=b.source_gain,
+)
 default_morphology(::Type{VENBody}) = VEN_MORPHOLOGY
 
 receptors(::PassthroughBody, percept) =
@@ -132,8 +167,8 @@ receptors(::PassthroughBody, percept) =
 motor(::PassthroughBody, e) =
     decode_effectors(_PASSTHROUGH_BODY_MORPHOLOGY, e)
 
-receptors(::VENBody, percept) =
-    encode_receptors(default_morphology(VENBody), percept)
+receptors(b::VENBody, percept) =
+    encode_receptors(default_morphology(b), percept)
 
 motor(::VENBody, e) =
     decode_effectors(default_morphology(VENBody), e)

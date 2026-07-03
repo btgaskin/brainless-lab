@@ -422,13 +422,14 @@ function _make_swarm_collective(
     n_nodes::Integer=100,
     node_kwargs=NamedTuple(),
     swarm_kwargs=NamedTuple(),
+    forage::Bool=false,
 )
     swarm_options = _merge_kwdicts(swarm_kwargs)
     swarm_options[:n_agents] = Int(n_agents)
     swarm_options[:n_nodes] = Int(n_nodes)
     swarm_options[:seed] = seed === nothing ? 0 : Int(seed)
     config = SwarmConfig(; _kwargs_tuple(swarm_options)...)
-    medium = TorusMedium(config; rng=_sim_rng(seed))
+    medium = forage ? ForageMedium(config; rng=_sim_rng(seed)) : TorusMedium(config; rng=_sim_rng(seed))
 
     agents = Vector{Agent}(undef, config.n_agents)
     @inbounds for i in 1:config.n_agents
@@ -489,6 +490,20 @@ function _medium_config(m::TorusMedium)
     )
 end
 
+function _medium_config(m::ForageMedium)
+    size = Float64(m.torus.size)
+    return (
+        kind=:forage,
+        bounds=(0.0, size, 0.0, size),
+        size=size,
+        n_agents=length(m.bodies),
+        source_position=m.source_position,
+        source_gain=Float64(m.config.source_gain),
+        capture_radius=Float64(m.config.capture_radius),
+        conspecific_vision=Bool(m.config.conspecific_vision),
+    )
+end
+
 _medium_config(m::Medium) = (kind=Symbol(lowercase(string(nameof(typeof(m))))), bounds=nothing, size=nothing)
 
 function _network_snapshot(r::FalandaysReservoir)
@@ -517,6 +532,32 @@ function _network_snapshot(r::CompartmentalReservoir)
 end
 
 _network_snapshot(::Reservoir) = nothing
+
+const _SWARM_MEDIUM_KWARGS = Set{Symbol}((
+    :space_size,
+    :sens_agent_dist,
+    :vision_range,
+    :sensory_noise,
+    :sensory_scaling,
+    :visual_coupling,
+    :physical_coupling,
+    :conspecific_vision,
+    :source_position,
+    :source_gain,
+    :capture_radius,
+    :ven,
+    :record_inputs,
+))
+
+function _extract_swarm_medium_kwargs!(options::Dict{Symbol,Any}, swarm_kwargs)
+    out = _merge_kwdicts(swarm_kwargs)
+    for key in _SWARM_MEDIUM_KWARGS
+        if haskey(options, key)
+            out[key] = pop!(options, key)
+        end
+    end
+    return out
+end
 
 function _simulation_config(c::Collective; ticks::Integer, seed, record, every::Integer, window::Integer, n_nodes::Integer)
     return (
@@ -547,14 +588,19 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
         haskey(options, :medium_kwargs) ? pop!(options, :medium_kwargs) :
         NamedTuple()
 
+    is_swarm = task in (:torus, :swarm, :forage) || n_agents !== nothing
+    if is_swarm
+        swarm_kwargs = _extract_swarm_medium_kwargs!(options, swarm_kwargs)
+    end
+
     node_kwargs = _merge_kwdicts(node_kwargs, options)
     n_nodes = _resolve_n_nodes!(node, explicit_n_nodes, node_kwargs)
 
     node_ctor = resolve_node(node)
-    is_swarm = task in (:torus, :swarm) || n_agents !== nothing
 
     if is_swarm
         n_agents_ = n_agents === nothing ? 8 : Int(n_agents)
+        forage = task == :forage
         collective, recorder = _make_swarm_collective(
             node,
             node_ctor;
@@ -565,13 +611,15 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
             n_nodes=n_nodes,
             node_kwargs=node_kwargs,
             swarm_kwargs=swarm_kwargs,
+            forage=forage,
         )
         tick_count = ticks === nothing ? 1000 : Int(ticks)
         window = window_arg === nothing ? tick_count : Int(window_arg)
+        result_task = forage ? :forage : :torus
         return (
             collective=collective,
             recorder=recorder,
-            task=:torus,
+            task=result_task,
             node=node,
             ticks=tick_count,
             window=window,
