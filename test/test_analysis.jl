@@ -58,6 +58,80 @@ end
     @test abs(mr.m_mr - true_m) < abs(legacy.sigma - true_m)
 end
 
+@testset "Avalanche statistics analysis" begin
+    sim = simulate(:wall; node=:falandays_base, ticks=80, seed=2, n_nodes=24, record=(:spikes,))
+    av = avalanches(sim)
+    @test isfinite(Float64(av.n_avalanches))
+    @test length(av.sizes) == av.n_avalanches
+    @test length(av.durations) == av.n_avalanches
+    @test all(x -> x > 0.0, av.sizes)
+    @test all(x -> x > 0, av.durations)
+    @test isfinite(av.threshold)
+
+    rec = Recorder(enabled=(:spikes,))
+    for sample in ([0, 0, 0, 0], [1, 1, 1, 0], [1, 1, 1, 1], [0, 0, 0, 0])
+        record!(rec, :spikes, sample)
+        tick!(rec)
+    end
+    synthetic = SimResult(rec, (;), :synthetic, :synthetic, (;))
+    got = avalanches(synthetic; threshold=0.5)
+    @test got.sizes == [7.0]
+    @test got.durations == [2]
+    @test got.n_avalanches == 1
+    @test isnan(got.tau)
+    @test resolve_analysis(:avalanches) === avalanches
+    @test analysis_meta(:avalanches).label == "neuronal avalanche size/duration exponents"
+end
+
+@testset "Transfer entropy analysis" begin
+    rng = MersenneTwister(11)
+    n = 500
+    driver = rand(rng, 0:1, n)
+    response = zeros(Int, n)
+    response[1] = rand(rng, 0:1)
+    @inbounds for t in 1:(n - 1)
+        response[t + 1] = rand(rng) < 0.9 ? driver[t] : rand(rng, 0:1)
+    end
+
+    driver_to_response = transfer_entropy(driver, response; bins=2, lag=1)
+    response_to_driver = transfer_entropy(response, driver; bins=2, lag=1)
+    @test isfinite(driver_to_response)
+    @test isfinite(response_to_driver)
+    @test driver_to_response > response_to_driver
+
+    sim = simulate(
+        :torus;
+        node=:falandays_base,
+        ticks=50,
+        seed=3,
+        n_agents=3,
+        n_nodes=10,
+        sensory_noise=0.0,
+        record=(:spikes, :poses),
+    )
+    node_te = node_transfer_entropy(sim; max_pairs=24, seed=5)
+    @test node_te.level == :node
+    @test node_te.signal == :spikes
+    @test node_te.sampled
+    @test node_te.pairs_evaluated == 24
+    @test node_te.valid_pairs == node_te.pairs_evaluated
+    @test isfinite(node_te.mean_pairwise_te)
+    @test isfinite(node_te.net_directional_asymmetry)
+
+    agent_te = agent_transfer_entropy(sim)
+    @test agent_te.level == :agent
+    @test agent_te.signal == :heading_change
+    @test agent_te.pairs_evaluated == 3
+    @test agent_te.valid_pairs == agent_te.pairs_evaluated
+    @test isfinite(agent_te.mean_pairwise_te)
+    @test isfinite(agent_te.net_directional_asymmetry)
+
+    @test resolve_analysis(:node_transfer_entropy) === node_transfer_entropy
+    @test resolve_analysis(:agent_transfer_entropy) === agent_transfer_entropy
+    @test analysis_meta(:node_transfer_entropy).label == "node-level transfer entropy (experimental)"
+    @test analysis_meta(:agent_transfer_entropy).label == "agent-level transfer entropy (experimental)"
+end
+
 @testset "Node target error analysis" begin
     sim = simulate(:wall; node=:falandays_base, ticks=12, seed=1, n_nodes=16, record=(:acts, :targets))
     target_error = node_target_error(sim)

@@ -42,9 +42,11 @@ include("world/Collective.jl")
 include("world/Metrics.jl")
 include("api/Highlevel.jl")
 include("analysis/Branching.jl")
+include("analysis/Avalanches.jl")
 include("analysis/TargetError.jl")
 include("analysis/Spectral.jl")
 include("analysis/TaskSignals.jl")
+include("analysis/TransferEntropy.jl")
 include("drivers/Driver.jl")
 include("drivers/Parallel.jl")
 include("drivers/Evolve.jl")
@@ -281,6 +283,10 @@ export SimResult,
     tasks,
     branching_ratio,
     branching_ratio_mr,
+    avalanches,
+    transfer_entropy,
+    node_transfer_entropy,
+    agent_transfer_entropy,
     node_target_error,
     spectral_radius,
     wall_distance,
@@ -356,6 +362,9 @@ register_metric!(:forage_metrics, forage_metrics)
 
 register_analysis!(:branching_ratio, branching_ratio)
 register_analysis!(:branching_ratio_mr, branching_ratio_mr; label="branching ratio m (MR estimator, subsampling-robust)")
+register_analysis!(:avalanches, avalanches; label="neuronal avalanche size/duration exponents")
+register_analysis!(:node_transfer_entropy, node_transfer_entropy; label="node-level transfer entropy (experimental)")
+register_analysis!(:agent_transfer_entropy, agent_transfer_entropy; label="agent-level transfer entropy (experimental)")
 register_analysis!(:node_target_error, node_target_error; label="per-node distance to target |act−T|")
 register_analysis!(:spectral_radius, spectral_radius; label="spectral radius ρ(W)")
 register_analysis!(:wall_distance, wall_distance; task=:wall, label="distance to nearest wall")
