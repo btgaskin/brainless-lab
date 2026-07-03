@@ -5,6 +5,30 @@ Base.@kwdef struct OosawaDrive <: Drive
     noise_gain::Float64 = 0.0
 end
 
+function _resolve_drive_instance(drive; kwargs...)
+    drive === nothing && return NoDrive()
+    drive isa Drive && return drive
+
+    sym =
+        drive isa Symbol ? drive :
+        drive isa AbstractString ? Symbol(drive) :
+        throw(ArgumentError("drive must be a Drive instance or registered drive symbol"))
+
+    sym === :none && return NoDrive()
+    ctor = resolve_drive(sym)
+
+    if isempty(kwargs)
+        return ctor()
+    end
+
+    try
+        return ctor(; kwargs...)
+    catch err
+        err isa MethodError || rethrow()
+        return ctor()
+    end
+end
+
 function apply_drive!(::NoDrive, acts, targets, p, noise)
     return acts
 end

@@ -292,7 +292,7 @@ end
 
 function FalandaysReservoir(;
     params=FalandaysParams(),
-    drive::Drive=NoDrive(),
+    drive=NoDrive(),
     sign=Unsigned(),
     recurrent_mask,
     input_wmat,
@@ -321,7 +321,7 @@ function FalandaysReservoir(;
     prev_spikes = zeros(Float64, n_nodes)
 
     return ReservoirInstance(
-        FalandaysModel(params, drive, axis, rectify),
+        FalandaysModel(params, _resolve_drive_instance(drive), axis, rectify),
         DenseConnectome(recurrent_mask, input_wmat, output_mask, wmat0_copy),
         FalandaysConnState(wmat),
         FalandaysNodeState(acts, targets, spikes, errors, prev_spikes, source),
@@ -372,7 +372,7 @@ function FalandaysReservoir(
     seed=nothing,
     input_weight=nothing,
     link_p::Real=0.1,
-    drive::Drive=NoDrive(),
+    drive=NoDrive(),
     sign=Unsigned(),
     rectify=nothing,
     noise_source=nothing,

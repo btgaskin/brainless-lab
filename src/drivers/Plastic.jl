@@ -32,7 +32,7 @@ function _plastic_rollout(
     lam::Real=1.0,
 )
     node_sym = _canonical_model_sym(model_sym)
-    node_sym in _FALANDAYS_MODEL_SYMS ||
+    _model_param_type(node_sym) === FalandaysParams ||
         throw(ArgumentError("PlasticRunner currently records Falandays online-plastic diagnostics only"))
 
     out = rollout(

@@ -280,7 +280,7 @@ function _falandays_delayed_native(
     dims::Integer=2,
     dt::Real=1.0,
     params=FalandaysParams(),
-    drive::Drive=NoDrive(),
+    drive=NoDrive(),
     sign=Unsigned(),
     rectify=true,
     noise_source=nothing,
@@ -321,7 +321,7 @@ function _falandays_delayed_native(
         FalandaysConnState(wmat, SpikeHistory(n_nodes, connectome.maxdelay))
 
     return ReservoirInstance(
-        FalandaysModel(params, drive, axis, Bool(rectify)),
+        FalandaysModel(params, _resolve_drive_instance(drive), axis, Bool(rectify)),
         connectome,
         conn,
         FalandaysNodeState(acts, targets, spikes, errors, prev_spikes, source),

@@ -6,7 +6,7 @@ This directory is a copy-and-edit scaffold for a group project that uses Brainle
 
 - `my_node.jl` defines `MyNode <: Reservoir`, a leaky homeostatic reservoir with online recurrent-weight and target adaptation, then registers it as `:my_node`.
 - `my_task.jl` defines `MyTrackingEnv <: Environment`, wraps it in a `TaskSpec`, then registers it as `:my_task`.
-- `my_metric.jl` registers a small metric function as `:final_error_abs`.
+- `my_metric.jl` registers a small metric function as `:final_error_abs`, requested by symbol in `run.jl`.
 - `run.jl` includes those three files, runs `simulate(:my_task; node=:my_node)`, prints metrics, and saves a Makie figure.
 - `config.toml` is a benchmark config snippet that follows `bench/configs/core.toml`.
 
@@ -56,7 +56,7 @@ n_receptors(node)
 n_effectors(node)
 ```
 
-`my_node.jl` also implements `snapshot_state` and `load_state!` to show the parameter/state split. `MyNodeParams` is static configuration; `acts`, `targets`, `spikes`, `errors`, and `wmat` are rollout state.
+`my_node.jl` also implements `snapshot_state` and `load_state!` to show the parameter/state split. `MyNodeParams` is static configuration; `acts`, `targets`, `spikes`, `errors`, and `wmat` are rollout state. The registration declares `genome_type=MyNodeParams`, so `rollout` and `evolve` can derive the genome dimension through `paramdim`, `pack_params`, and `unpack_params`.
 
 Important Julia gotcha: when extending BrainlessLab generics from outside the package, import the names you extend:
 
@@ -91,7 +91,7 @@ default_window(env or Type)
 register_metric!(:final_error_abs, final_error_abs)
 ```
 
-The high-level runner does not automatically call arbitrary registered metrics. In `run.jl`, the metric is resolved explicitly with `BrainlessLab.resolve_metric(:final_error_abs)` and applied to `sim.metrics`.
+In `run.jl`, the simulation requests the metric with `metrics=[:final_error_abs]`; the high-level runner resolves the symbol and appends the derived value to `sim.metrics`.
 
 ## Benchmark
 
@@ -109,7 +109,7 @@ baseline = "falandays_base"
 my_node = "untrained"
 ```
 
-The current benchmark runner loads registered BrainlessLab symbols, then uses `rollout` to stamp known model-family parameters. `my_node.jl` includes a guarded compatibility bridge so `:my_node` is treated as an untrained online-plastic Falandays-style node by that runner.
+The benchmark runner loads registered BrainlessLab symbols, then uses the node's declared `genome_type` to stamp parameters through the public `NodeModel` contract. No framework fork or private-symbol bridge is needed.
 
 From the repo root, after setting up `bench/` as described in `../../../bench/README.md`, run:
 

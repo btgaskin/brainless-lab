@@ -12,6 +12,8 @@ Makie-free.
 """
 module BrainlessLab
 
+import Base: view
+
 include("core/Interfaces.jl")
 include("core/Traits.jl")
 include("core/Params.jl")
@@ -84,6 +86,7 @@ export step!,
     pack_params,
     unpack_params,
     paramdim,
+    genome_type,
     snapshot_state,
     load_state!,
     observe,
@@ -327,6 +330,7 @@ export rasterplot,
     networkplot,
     driftplot,
     fitnessplot,
+    view,
     visualize,
     explore,
     replay,
@@ -335,17 +339,17 @@ export rasterplot,
 register_drive!(:none, NoDrive)
 register_drive!(:oosawa, OosawaDrive)
 
-register_node!(:falandays, _falandays_native)        # alias of :falandays_base
-register_node!(:falandays_base, _falandays_native)
-register_node!(:falandays_noisy, _falandays_noisy_native)
-register_node!(:falandays_ablated, _falandays_ablated_native)
-register_node!(:falandays_hemispheric, _falandays_hemispheric_native)
-register_node!(:falandays_oosawa, _falandays_oosawa_native)
-register_node!(:falandays_spatial, _falandays_spatial_native)
-register_node!(:falandays_delayed, _falandays_delayed_native)
+register_node!(:falandays, _falandays_native; genome_type=FalandaysParams)        # alias of :falandays_base
+register_node!(:falandays_base, _falandays_native; genome_type=FalandaysParams)
+register_node!(:falandays_noisy, _falandays_noisy_native; genome_type=FalandaysParams)
+register_node!(:falandays_ablated, _falandays_ablated_native; genome_type=FalandaysParams)
+register_node!(:falandays_hemispheric, _falandays_hemispheric_native; genome_type=FalandaysParams)
+register_node!(:falandays_oosawa, _falandays_oosawa_native; genome_type=FalandaysParams)
+register_node!(:falandays_spatial, _falandays_spatial_native; genome_type=FalandaysParams)
+register_node!(:falandays_delayed, _falandays_delayed_native; genome_type=FalandaysParams)
 register_node!(:sorn, _sorn_native)
-register_node!(:compartmental_dense, _compartmental_dense_native)
-register_node!(:compartmental_structured, _compartmental_structured_native)
+register_node!(:compartmental_dense, _compartmental_dense_native; genome_type=DenseCompartmental)
+register_node!(:compartmental_structured, _compartmental_structured_native; genome_type=StructuredCompartmental)
 
 register_task!(:wall, WALL_TASK)
 register_task!(:tracking, TRACKING_TASK)

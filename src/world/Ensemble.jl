@@ -229,7 +229,67 @@ function _rollout_rate_and_width(spikes)
     return width == 0 ? 0.0 : total / width, width
 end
 
-function rollout!(c::Ensemble, ticks::Integer; window::Integer=ticks)
+function _metric_symbols(selection)
+    selection === nothing && return Symbol[]
+    selection isa Symbol && return [selection]
+    selection isa AbstractString && return [Symbol(selection)]
+    return Symbol.(collect(selection))
+end
+
+function _push_metric!(names::Vector{Symbol}, values::Vector{Any}, name::Symbol, value)
+    name in names && return names, values
+    push!(names, name)
+    push!(values, value)
+    return names, values
+end
+
+function _append_metric_result!(names::Vector{Symbol}, values::Vector{Any}, default_name::Symbol, value)
+    if value isa NamedTuple
+        for (key, item) in pairs(value)
+            _push_metric!(names, values, Symbol(key), item)
+        end
+    elseif value isa Pair
+        _push_metric!(names, values, Symbol(value.first), value.second)
+    else
+        _push_metric!(names, values, default_name, value)
+    end
+    return names, values
+end
+
+function _registered_metric_value(c::Ensemble, base_metrics, sym::Symbol, window::Integer)
+    sym in propertynames(base_metrics) && return getproperty(base_metrics, sym)
+
+    f = resolve_metric(sym)
+    if applicable(f, c, Int(window))
+        return f(c, Int(window))
+    elseif applicable(f, c.medium, Int(window))
+        return f(c.medium, Int(window))
+    elseif applicable(f, base_metrics)
+        return f(base_metrics)
+    end
+
+    throw(ArgumentError("registered metric :$(sym) is not applicable to Ensemble, Medium, or current metric tuple"))
+end
+
+function _selected_medium_metrics(c::Ensemble, window::Integer, selection)
+    base = medium_metrics(c.medium, Int(window))
+    selection === nothing && return base
+
+    names = Symbol[]
+    values = Any[]
+    for (key, value) in pairs(base)
+        _push_metric!(names, values, Symbol(key), value)
+    end
+
+    for sym in _metric_symbols(selection)
+        value = _registered_metric_value(c, base, sym, Int(window))
+        _append_metric_result!(names, values, sym, value)
+    end
+
+    return NamedTuple{Tuple(names)}(Tuple(values))
+end
+
+function rollout!(c::Ensemble, ticks::Integer; window::Integer=ticks, metrics=nothing)
     ticks = Int(ticks)
     ticks >= 0 || throw(ArgumentError("ticks must be non-negative"))
     window = Int(window)
@@ -243,7 +303,7 @@ function rollout!(c::Ensemble, ticks::Integer; window::Integer=ticks)
     end
 
     return (;
-        medium_metrics(c.medium, window)...,
+        _selected_medium_metrics(c, window, metrics)...,
         liveness(rates, node_count, window)...,
     )
 end

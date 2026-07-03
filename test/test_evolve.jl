@@ -1,6 +1,46 @@
 using BrainlessLab
 using Random
 using Test
+import BrainlessLab: ask, tell!, result
+
+mutable struct TestOptimizer <: AbstractEvolutionStrategy
+    x0::Vector{Float64}
+    popsize::Int
+    best_x::Vector{Float64}
+    best_value::Float64
+    countiter::Int
+    countevals::Int
+end
+
+function TestOptimizer(x0::AbstractVector{<:Real}, sigma0::Real; popsize=nothing, seed::Integer=0)
+    x = Vector{Float64}(Float64.(x0))
+    n = popsize === nothing ? 2 : Int(popsize)
+    return TestOptimizer(x, n, copy(x), Inf, 0, 0)
+end
+
+ask(es::TestOptimizer) = [copy(es.x0) for _ in 1:es.popsize]
+
+function tell!(es::TestOptimizer, solutions, losses)
+    for i in eachindex(solutions, losses)
+        loss = Float64(losses[i])
+        if loss < es.best_value
+            es.best_value = loss
+            es.best_x = Vector{Float64}(Float64.(solutions[i]))
+        end
+    end
+    es.countiter += 1
+    es.countevals += length(solutions)
+    return es
+end
+
+result(es::TestOptimizer) = (
+    x=copy(es.best_x),
+    value=Float64(es.best_value),
+    xbest=copy(es.best_x),
+    fbest=Float64(es.best_value),
+    countiter=es.countiter,
+    countevals=es.countevals,
+)
 
 @testset "Evolve runner smoke" begin
     result = evolve(
@@ -101,4 +141,21 @@ end
     )
     @test isfinite(result.best_fitness)
     @test 0.0 <= result.best_fitness <= 1.0
+end
+
+@testset "Registered optimizer smoke" begin
+    register_optimizer!(:test_optimizer, TestOptimizer)
+    out = evolve(
+        model_sym=:falandays,
+        train_tasks=(:wall,),
+        optimizer=:test_optimizer,
+        generations=1,
+        popsize=2,
+        k_trials=1,
+        N=8,
+        ticks=20,
+        seed=3,
+    )
+    @test out.optimizer isa TestOptimizer
+    @test isfinite(out.best_fitness)
 end

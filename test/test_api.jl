@@ -2,6 +2,19 @@ using BrainlessLab
 using Test
 # Extending a user node means adding METHODS to the package generics, so import them:
 import BrainlessLab: step!, effectors, reset!, n_receptors, n_effectors, snapshot_state, load_state!
+import BrainlessLab: pack_params, unpack_params, paramdim, receptors, decode_effectors, apply_drive!
+
+struct MyNodeParams <: NodeModel
+    gain::Float64
+end
+
+MyNodeParams() = MyNodeParams(1.0)
+
+paramdim(::Type{MyNodeParams}) = 1
+paramdim(::MyNodeParams) = 1
+pack_params(p::MyNodeParams) = [p.gain]
+pack_params(::Type{MyNodeParams}) = pack_params(MyNodeParams())
+unpack_params(::Type{MyNodeParams}, raw::AbstractVector{<:Real}) = MyNodeParams(Float64(raw[1]))
 
 mutable struct MyNode <: Reservoir
     n_receptors_::Int
@@ -46,6 +59,17 @@ end
 
 _myview(x; kwargs...) = x
 
+struct MyBody <: Body end
+
+receptors(::MyBody, percept) = percept
+decode_effectors(::MyBody, e) = e
+
+struct MyDrive <: Drive end
+
+apply_drive!(::MyDrive, acts, targets, p, noise) = acts
+
+_custom_metric(metrics) = (:score in propertynames(metrics)) ? Float64(metrics.score) + 1.0 : 1.0
+
 @testset "High-level API variants and tasks" begin
     required_variants = (
         :falandays,
@@ -82,8 +106,9 @@ _myview(x; kwargs...) = x
 end
 
 @testset "Tinkering smoke" begin
-    register_node!(:mynode, MyNode)
+    register_node!(:mynode, MyNode; genome_type=MyNodeParams)
     @test resolve_node(:mynode) === MyNode
+    @test genome_type(:mynode) === MyNodeParams
     @test :mynode in variants()
 
     mytask = TaskSpec(:mytoy, WallEnv; default_ticks=20, default_window=10)
@@ -93,6 +118,15 @@ end
 
     register_view!(:myview, _myview)
     @test resolve_view(:myview) === _myview
+
+    register_body!(:mybody, MyBody)
+    @test resolve_body(:mybody) === MyBody
+
+    register_drive!(:mydrive, MyDrive)
+    @test resolve_drive(:mydrive) === MyDrive
+
+    register_metric!(:custom_metric, _custom_metric)
+    @test resolve_metric(:custom_metric) === _custom_metric
 
     wall = simulate(:wall; node=:mynode, ticks=20, n_nodes=8)
     @test wall isa SimResult
@@ -106,4 +140,19 @@ end
     @test custom.task == :mytoy
     @test !isempty(getchannel(custom.recorder, :spikes))
     @test resolve_view(:myview)(custom) === custom
+    @test view(custom, :myview) === custom
+
+    body_sim = simulate(:wall; node=:mynode, body=:mybody, ticks=12, n_nodes=8)
+    @test body_sim isa SimResult
+
+    drive_sim = simulate(:wall; node=:falandays, drive=:mydrive, ticks=12, n_nodes=8)
+    @test drive_sim isa SimResult
+
+    metric_sim = simulate(:wall; node=:mynode, ticks=12, n_nodes=8, metrics=[:custom_metric])
+    @test hasproperty(metric_sim.metrics, :score)
+    @test hasproperty(metric_sim.metrics, :custom_metric)
+
+    stamped = rollout(:wall, pack_params(MyNodeParams()), 2; model_sym=:mynode, N=8, ticks=12)
+    @test stamped.model_sym == :mynode
+    @test isfinite(stamped.norm_score)
 end

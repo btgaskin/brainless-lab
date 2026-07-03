@@ -307,6 +307,7 @@ end
 Base.@kwdef mutable struct EvolveRunner <: Runner
     model_sym::Symbol = :falandays
     train_tasks::Tuple = (:wall,)
+    optimizer::Any = :sepcma
     generations::Int = 30
     popsize::Int = 16
     k_trials::Int = 8
@@ -354,17 +355,42 @@ function _aggregate_task_scores(values, aggregator::Symbol)
     throw(ArgumentError("aggregator must be :min or :mean"))
 end
 
+function _default_param_vector(T::Type{<:NodeModel})
+    if applicable(pack_params, T)
+        return Vector{Float64}(Float64.(pack_params(T)))
+    elseif applicable(T)
+        return Vector{Float64}(Float64.(pack_params(T())))
+    end
+    throw(ArgumentError("genome type $(T) must define pack_params(::Type{$(T)}) or have a zero-argument constructor plus pack_params(instance)"))
+end
+
 function _default_x0(model_sym::Symbol, N; ticks=nothing, link_p=0.1, rho=0.2, window=nothing, kwargs...)
     node_sym = _canonical_model_sym(model_sym)
-    if node_sym in _FALANDAYS_MODEL_SYMS
-        return pack_params(FalandaysParams())
+    T = _model_param_type(node_sym)
+    if T === FalandaysParams
+        return Vector{Float64}(Float64.(pack_params(FalandaysParams())))
+    elseif T <: AbstractCompartmental
+        return find_alive_centroid(node_sym, N; ticks=ticks === nothing ? 300 : min(Int(ticks), 300), link_p=link_p, rho=rho, window=window, kwargs...)
     end
-    return find_alive_centroid(node_sym, N; ticks=ticks === nothing ? 300 : min(Int(ticks), 300), link_p=link_p, rho=rho, window=window, kwargs...)
+    return _default_param_vector(T)
+end
+
+function _resolve_optimizer_instance(optimizer, x0::AbstractVector{<:Real}, sigma0::Real; popsize::Integer, seed::Integer)
+    optimizer isa AbstractEvolutionStrategy && return optimizer
+    ctor =
+        optimizer isa Symbol ? resolve_optimizer(optimizer) :
+        optimizer isa AbstractString ? resolve_optimizer(Symbol(optimizer)) :
+        optimizer
+    es = ctor(x0, Float64(sigma0); popsize=Int(popsize), seed=Int(seed))
+    es isa AbstractEvolutionStrategy ||
+        throw(ArgumentError("optimizer constructor returned $(typeof(es)), not an AbstractEvolutionStrategy"))
+    return es
 end
 
 function evolve(;
     model_sym=:falandays,
     train_tasks=(:wall,),
+    optimizer=:sepcma,
     generations::Integer=30,
     popsize::Integer=16,
     k_trials::Integer=8,
@@ -397,7 +423,7 @@ function evolve(;
     x0_vec = x0 === nothing ?
         _default_x0(node_sym, n_nodes; ticks=ticks, link_p=link_p, rho=rho, window=window, kwargs...) :
         Vector{Float64}(Float64.(x0))
-    es = SepCMA(x0_vec, Float64(sigma0); popsize=popsize, seed=Int(seed))
+    es = _resolve_optimizer_instance(optimizer, x0_vec, Float64(sigma0); popsize=popsize, seed=Int(seed))
 
     generations_seen = Int[]
     fitness_best = Float64[]
@@ -492,6 +518,7 @@ function evolve(runner::EvolveRunner)
     out = evolve(
         model_sym=runner.model_sym,
         train_tasks=runner.train_tasks,
+        optimizer=runner.optimizer,
         generations=runner.generations,
         popsize=runner.popsize,
         k_trials=runner.k_trials,
@@ -522,10 +549,9 @@ function _dense_thr_base_offset()
     return nothing
 end
 
-function _shift_thr_base(vector::Vector{Float64}, model_sym::Symbol, thr_bias::Real)
+function _shift_thr_base(vector::Vector{Float64}, genome_T::Type{<:NodeModel}, thr_bias::Real)
     shifted = copy(vector)
-    node_sym = _canonical_model_sym(model_sym)
-    if node_sym == :compartmental_dense && thr_bias != 0
+    if genome_T === DenseCompartmental && thr_bias != 0
         offset = _dense_thr_base_offset()
         offset === nothing || (shifted[offset] += Float64(thr_bias))
     end
@@ -535,7 +561,7 @@ end
 function _sample_init_vector(model_sym::Symbol, sigma0::Real, thr_bias::Real, rng::AbstractRNG)
     T = _model_param_type(model_sym)
     raw = Float64(sigma0) .* randn(rng, paramdim(T))
-    return _shift_thr_base(raw, model_sym, thr_bias)
+    return _shift_thr_base(raw, T, thr_bias)
 end
 
 function _alive_fraction_for_config(
@@ -597,7 +623,8 @@ function find_alive_centroid(
     search_seed::Integer=0,
 )
     node_sym = _canonical_model_sym(model_sym)
-    node_sym in _FALANDAYS_MODEL_SYMS && return pack_params(FalandaysParams())
+    T = _model_param_type(node_sym)
+    T === FalandaysParams && return Vector{Float64}(Float64.(pack_params(FalandaysParams())))
 
     seed_tuple = Tuple(Int.(collect(seeds)))
     isempty(seed_tuple) && throw(ArgumentError("seeds must contain at least one seed"))
