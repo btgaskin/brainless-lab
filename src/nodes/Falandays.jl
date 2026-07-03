@@ -127,21 +127,6 @@ mutable struct ReservoirInstance{M<:NodeModel,C<:Connectome,K<:ConnState,S} <: R
     io::PortSpec
 end
 
-function Base.getproperty(r::ReservoirInstance, s::Symbol)
-    if s === :model
-        return getfield(r, :model)
-    elseif s === :connectome
-        return getfield(r, :connectome)
-    elseif s === :conn
-        return getfield(r, :conn)
-    elseif s === :state
-        return getfield(r, :state)
-    elseif s === :io
-        return getfield(r, :io)
-    end
-    return getfield(r, s)
-end
-
 step!(r::ReservoirInstance, R) = step!(r.model, r.connectome, r.conn, r.state, R)
 effectors(r::ReservoirInstance, spikes) = effectors(r.model, r.connectome, spikes, n_effectors(r.io))
 effectors(r::ReservoirInstance) = effectors(r, r.state.spikes)
