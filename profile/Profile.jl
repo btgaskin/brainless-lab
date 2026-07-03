@@ -172,22 +172,42 @@ end
 # Figure rendering -> in-memory PNG -> base64 data URI (fully self-contained)
 # ---------------------------------------------------------------------------
 
-const _TEAL  = CairoMakie.RGBf(47/255, 111/255, 94/255)
-const _AMBER = CairoMakie.RGBf(156/255, 107/255, 31/255)
-const _INK   = CairoMakie.RGBf(36/255, 40/255, 43/255)
+const _PAPER = CairoMakie.RGBf(BrainlessLab.BL_PAPER...)
+const _INK = CairoMakie.RGBf(BrainlessLab.BL_INK...)
+const _INKSOFT = CairoMakie.RGBf(BrainlessLab.BL_INKSOFT...)
+const _GRID = CairoMakie.RGBf(BrainlessLab.BL_GRID...)
+const _TEAL = CairoMakie.RGBf(BrainlessLab.BL_TEAL...)
+const _AMBER = CairoMakie.RGBf(BrainlessLab.BL_AMBER...)
+
+function _style_axis!(ax)
+    ax.backgroundcolor = _PAPER
+    ax.xgridcolor = (_GRID, 0.9);  ax.ygridcolor = (_GRID, 0.9)
+    ax.xgridwidth = 0.8;           ax.ygridwidth = 0.8
+    ax.topspinevisible = false;    ax.rightspinevisible = false
+    ax.leftspinevisible = true;    ax.bottomspinevisible = true
+    ax.leftspinecolor = _GRID;     ax.bottomspinecolor = _GRID
+    ax.xtickcolor = _GRID;         ax.ytickcolor = _GRID
+    ax.xticklabelcolor = _INKSOFT; ax.yticklabelcolor = _INKSOFT
+    ax.xlabelcolor = _INKSOFT;     ax.ylabelcolor = _INKSOFT
+    ax.xticklabelsize = 11;        ax.yticklabelsize = 11
+    ax.xlabelsize = 12;            ax.ylabelsize = 12
+    ax.titlecolor = _INK;          ax.titlesize = 14
+    ax.titlealign = :left;         ax.titlegap = 8
+    return ax
+end
+
+_profile_figure(sz) = CairoMakie.Figure(size=sz, backgroundcolor=_PAPER)
 
 function _branching_figure(seed_mean, seed_lo, seed_hi; title::String="")
     n = length(seed_mean)
     xs = collect(1:n)
-    fig = CairoMakie.Figure(size=(820, 300), backgroundcolor=:white)
+    fig = _profile_figure((820, 300))
     ax = CairoMakie.Axis(
         fig[1, 1];
         xlabel="tick", ylabel="branching ratio  σ(t)",
-        title=title, titlesize=14, xlabelsize=12, ylabelsize=12,
-        backgroundcolor=:white,
-        xgridcolor=CairoMakie.RGBf(0.93, 0.92, 0.89), ygridcolor=CairoMakie.RGBf(0.93, 0.92, 0.89),
-        leftspinevisible=true, rightspinevisible=false, topspinevisible=false,
+        title=title,
     )
+    _style_axis!(ax)
     finite = isfinite.(seed_mean)
     if any(finite)
         fx = xs[finite]
@@ -219,22 +239,19 @@ function _situated_figure(sigma::Vector{Float64}, factor::Vector{Float64}, facto
     fac = factor[1:min(length(factor), n)]  # align to σ's ticks (1:T-1)
     fts = collect(1:length(fac))
 
-    fig = CairoMakie.Figure(size=(820, 460), backgroundcolor=:white)
-    grid = CairoMakie.RGBf(0.93, 0.92, 0.89)
+    fig = _profile_figure((820, 460))
 
     ax_top = CairoMakie.Axis(
         fig[1, 1];
-        ylabel="branching ratio  σ", title=title, titlesize=14, ylabelsize=12,
-        backgroundcolor=:white, xgridcolor=grid, ygridcolor=grid,
-        leftspinevisible=true, rightspinevisible=false, topspinevisible=false,
+        ylabel="branching ratio  σ", title=title,
         xticklabelsvisible=false, xticksvisible=false,
     )
     ax_bot = CairoMakie.Axis(
         fig[2, 1];
-        xlabel="tick", ylabel=factor_label, xlabelsize=12, ylabelsize=12,
-        backgroundcolor=:white, xgridcolor=grid, ygridcolor=grid,
-        leftspinevisible=true, rightspinevisible=false, topspinevisible=false,
+        xlabel="tick", ylabel=factor_label,
     )
+    _style_axis!(ax_top)
+    _style_axis!(ax_bot)
 
     # Top: σ(t), auto-fit y over finite values, with σ=1 reference in view.
     finite = isfinite.(sigma)
@@ -265,15 +282,13 @@ Y-axis auto-fits the data (no σ=1 reference — this is a weight-scale plot, no
 a branching plot).
 """
 function _spectral_figure(xs::Vector{<:Integer}, smean, slo, shi; title::String="")
-    fig = CairoMakie.Figure(size=(820, 300), backgroundcolor=:white)
+    fig = _profile_figure((820, 300))
     ax = CairoMakie.Axis(
         fig[1, 1];
         xlabel="tick", ylabel="spectral radius  ρ(W)",
-        title=title, titlesize=14, xlabelsize=12, ylabelsize=12,
-        backgroundcolor=:white,
-        xgridcolor=CairoMakie.RGBf(0.93, 0.92, 0.89), ygridcolor=CairoMakie.RGBf(0.93, 0.92, 0.89),
-        leftspinevisible=true, rightspinevisible=false, topspinevisible=false,
+        title=title,
     )
+    _style_axis!(ax)
     fx = Float64.(xs)
     finite = isfinite.(smean)
     if any(finite)
@@ -304,15 +319,13 @@ function _target_error_figure(target_error; title::String="")
         q75[t] = _percentile(col, 75.0)
     end
 
-    grid = CairoMakie.RGBf(0.93, 0.92, 0.89)
-    fig = CairoMakie.Figure(size=(820, 340), backgroundcolor=:white)
+    fig = _profile_figure((820, 340))
     ax_time = CairoMakie.Axis(
         fig[1, 1];
         xlabel="tick", ylabel="|act - T|",
-        title=title, titlesize=14, xlabelsize=12, ylabelsize=12,
-        backgroundcolor=:white, xgridcolor=grid, ygridcolor=grid,
-        leftspinevisible=true, rightspinevisible=false, topspinevisible=false,
+        title=title,
     )
+    _style_axis!(ax_time)
     CairoMakie.band!(ax_time, xs, q25, q75; color=(_TEAL, 0.18), label="node IQR")
     CairoMakie.lines!(ax_time, xs, mean_series; color=_TEAL, linewidth=2.0, label="node mean")
     CairoMakie.xlims!(ax_time, 1, max(n_ticks, 2))
@@ -321,9 +334,8 @@ function _target_error_figure(target_error; title::String="")
     ax_hist = CairoMakie.Axis(
         fig[1, 2];
         xlabel="final |act - T|", ylabel="nodes",
-        backgroundcolor=:white, xgridcolor=grid, ygridcolor=grid,
-        leftspinevisible=true, rightspinevisible=false, topspinevisible=false,
     )
+    _style_axis!(ax_hist)
     bins = max(8, min(40, ceil(Int, sqrt(max(n_nodes, 1)))))
     CairoMakie.hist!(ax_hist, target_error.final_distribution; bins=bins, color=(_AMBER, 0.45),
                      strokecolor=_AMBER, strokewidth=0.5)

@@ -19,6 +19,7 @@ include("core/Traits.jl")
 include("core/Params.jl")
 include("core/Registry.jl")
 include("core/Recorder.jl")
+include("viz/Style.jl")
 include("viz/Views.jl")
 include("nodes/Drives.jl")
 include("nodes/Axes.jl")
@@ -335,6 +336,19 @@ export rasterplot,
     explore,
     replay,
     animate
+
+export BL_PAPER,
+    BL_INK,
+    BL_INKSOFT,
+    BL_GRID,
+    BL_TEAL,
+    BL_TEALSOFT,
+    BL_AMBER,
+    BL_AMBERSOFT,
+    BL_INKMUTED,
+    BL_STYLE_SEMANTICS,
+    BL_CATEGORICAL,
+    BL_SEQUENTIAL
 
 register_drive!(:none, NoDrive)
 register_drive!(:oosawa, OosawaDrive)
