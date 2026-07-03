@@ -180,6 +180,10 @@ end
 
 const FalandaysReservoir = ReservoirInstance{<:FalandaysModel, <:FalandaysConnectome, <:FalandaysConnState}
 
+# The Falandays family learns online (homeostatic weight + target updates each
+# tick), so it declares OnlinePlasticity — the base default is NoPlasticity.
+plasticity(::FalandaysReservoir) = OnlinePlasticity()
+
 function Base.getproperty(r::FalandaysReservoir, s::Symbol)
     if s === :model
         return getfield(r, :model)
