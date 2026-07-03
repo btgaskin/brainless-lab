@@ -239,7 +239,7 @@ artifacts, and Makie extension loading against Float64 numpy fixtures where appl
 ```
 src/core/    interfaces, traits, registries, params, Recorder
 src/nodes/   Falandays baseline/variants + compartmental (cell, reservoir, wiring, interventions)
-src/world/   Body, Torus, Mediums, Collective, Metrics  (single-agent task = collective of one)
+src/world/   Body, Torus, Mediums, Ensemble, Metrics  (single-agent task = collective of one)
 src/envs/    WallBox + the four environments + cartpole variants
 src/drivers/ rollout, SepCMA + EvolveRunner, Fixed/Plastic, threaded harness
 src/run/     TOML config, profiles, manifest, artifacts, sweeps

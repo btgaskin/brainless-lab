@@ -48,7 +48,7 @@ raw score meanings are not identical.
 `:torus` is a registered swarm task symbol, not a `TaskSpec` with a `normalized_score` floor/ceiling. Read
 torus runs through collective metrics.
 
-## Collective metrics
+## Ensemble metrics
 
 `rollout!(collective, ticks; window)` returns the medium/task metrics plus liveness diagnostics.
 

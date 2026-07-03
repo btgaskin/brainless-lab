@@ -408,7 +408,7 @@ function _make_task_collective(
     )
     agent = _make_agent(reservoir, PassthroughBody(), morphology)
     recorder = Recorder(enabled=record, every=every)
-    collective = Collective([agent], TaskMedium(env); recorder=recorder)
+    collective = Ensemble([agent], TaskMedium(env); recorder=recorder)
     return collective, recorder
 end
 
@@ -449,34 +449,20 @@ function _make_swarm_collective(
     end
 
     recorder = Recorder(enabled=record, every=every)
-    collective = Collective(agents, medium; recorder=recorder)
+    collective = Ensemble(agents, medium; recorder=recorder)
     return collective, recorder
 end
 
+_medium_size(::Environment) = nothing
+_medium_size(env::WallEnv) = Float64(env.box.size)
+
 function _medium_config(m::TaskMedium)
     env = m.env
-    if hasproperty(env, :box)
-        box = getproperty(env, :box)
-        return (
-            kind=:task,
-            env=Symbol(lowercase(string(nameof(typeof(env))))),
-            bounds=(0.0, Float64(box.size), 0.0, Float64(box.size)),
-            size=Float64(box.size),
-        )
-    elseif hasproperty(env, :width) && hasproperty(env, :height)
-        return (
-            kind=:task,
-            env=Symbol(lowercase(string(nameof(typeof(env))))),
-            bounds=(0.0, Float64(getproperty(env, :width)), 0.0, Float64(getproperty(env, :height))),
-            size=nothing,
-        )
-    end
-
     return (
         kind=:task,
         env=Symbol(lowercase(string(nameof(typeof(env))))),
-        bounds=nothing,
-        size=nothing,
+        bounds=bounds(env),
+        size=_medium_size(env),
     )
 end
 
@@ -559,7 +545,7 @@ function _extract_swarm_medium_kwargs!(options::Dict{Symbol,Any}, swarm_kwargs)
     return out
 end
 
-function _simulation_config(c::Collective; ticks::Integer, seed, record, every::Integer, window::Integer, n_nodes::Integer)
+function _simulation_config(c::Ensemble; ticks::Integer, seed, record, every::Integer, window::Integer, n_nodes::Integer)
     return (
         ticks=Int(ticks),
         seed=seed,

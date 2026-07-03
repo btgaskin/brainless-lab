@@ -168,6 +168,20 @@ Return task, medium, body, or reservoir observations.
 function observe end
 
 """
+    bounds(object, args...)
+
+Return visual or task bounds as `(xlo, xhi, ylo, yhi)`, or `nothing`.
+"""
+function bounds end
+
+"""
+    pose(object, args...)
+
+Return a visualizable pose tuple, or `nothing`.
+"""
+function pose end
+
+"""
     actuate!(object, command, args...)
 
 Apply an actuation command to an object.
@@ -182,18 +196,25 @@ Return receptor values available to a reservoir or body.
 function receptors end
 
 """
-    motor(object, args...)
+    encode_receptors(object, args...)
 
-Return or compute motor commands from an object.
+Encode a raw percept into receptor values for a reservoir or body.
 """
-function motor end
+function encode_receptors end
 
 """
-    score(task, args...)
+    decode_effectors(object, args...)
 
-Return the scalar objective score for a task or rollout.
+Decode reservoir effectors into an actuation command for a body or morphology.
 """
-function score end
+function decode_effectors end
+
+"""
+    integrate_motion!(object, args...)
+
+Integrate a body's kinematic state from decoded actuation commands.
+"""
+function integrate_motion! end
 
 """
     metrics(object, args...)

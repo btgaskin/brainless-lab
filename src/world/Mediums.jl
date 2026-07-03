@@ -473,7 +473,7 @@ function actuate!(m::AbstractTorusMedium, bodies, Es)
         throw(DimensionMismatch("expected one effector vector per body"))
 
     @inbounds for i in eachindex(body_vec)
-        motor(body_vec[i], Es[i], m.torus)
+        integrate_motion!(body_vec[i], Es[i], m.torus)
     end
 
     _resolve_collisions!(m, body_vec)

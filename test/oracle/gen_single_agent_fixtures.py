@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the single-agent Collective parity fixture."""
+"""Generate the single-agent Ensemble parity fixture."""
 
 from __future__ import annotations
 

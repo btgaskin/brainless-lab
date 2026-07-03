@@ -71,7 +71,7 @@ function _single_collective(data)
     draws = RecordedDraws(_single_vector(data, "env_draws"))
     env = WallEnv(; rng=draws)
     agent = Agent(_single_reservoir(data), PassthroughBody())
-    collective = Collective([agent], TaskMedium(env))
+    collective = Ensemble([agent], TaskMedium(env))
     return collective, env, agent
 end
 
@@ -96,7 +96,7 @@ function _single_assert_metric(data, got, key::Symbol)
     @test dev <= COLLECTIVE_SINGLE_ATOL
 end
 
-@testset "Collective single-agent WallEnv oracle parity" begin
+@testset "Ensemble single-agent WallEnv oracle parity" begin
     path = _single_fixture_path()
     isfile(path) || error("missing fixture $path; run test/oracle/gen_single_agent_fixtures.py from the v0.2 directory")
     data = npzread(path)

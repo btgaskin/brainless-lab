@@ -38,11 +38,11 @@ does not make the experimental pieces paper-faithful; v0.2 itself includes docum
 Everything is *neurons as nodes within a collective* -- the same node contract at every scale:
 
 ```
-NodeModel -> Reservoir -> Body -> Agent -> Collective{Medium} -> Task -> Runner(evolve|fixed) -> Run
+NodeModel -> Reservoir -> Body -> Agent -> Ensemble{Medium} -> Task -> Runner(evolve|fixed) -> Run
                                                        \-> Recorder ->  (viz reads this, off the hot path)
 ```
 
-A single-agent task is a `Collective` of **one** agent; a dyad is `n_agents=2`; a swarm is `n_agents=N`.
+A single-agent task is an `Ensemble` of **one** agent; a dyad is `n_agents=2`; a swarm is `n_agents=N`.
 The same `step!(collective)` runs both.
 
 ## The sensorimotor contract (read this first)
@@ -50,7 +50,7 @@ The same `step!(collective)` runs both.
 Each tick, for every agent:
 
 ```
-percept --receptors(body,.)--> R --step!(reservoir,R)--> spikes --effectors(reservoir,.)--> E --motor(body,.)--> actuation
+percept --receptors(body,.)--> R --step!(reservoir,R)--> spikes --effectors(reservoir,.)--> E --decode_effectors(body,.)--> command --actuate!(medium,.)--> world
 ```
 
 - **Receptors (R)** = the reservoir's sensory input vector; **Effectors (E)** = its motor output vector.

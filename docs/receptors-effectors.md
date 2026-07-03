@@ -8,7 +8,7 @@ and evolvable.
 ## The contract (recap)
 
 ```
-percept --receptors(body,.)--> R --step!(reservoir,R)--> spikes --effectors(reservoir,.)--> E --motor(body,.)--> actuation
+percept --receptors(body,.)--> R --step!(reservoir,R)--> spikes --effectors(reservoir,.)--> E --decode_effectors(body,.)--> command --actuate!(medium,.)--> world
 ```
 
 - **R** (length `n_receptors`) and **E** (length `n_effectors`) are the reservoir's I/O vectors.

@@ -94,7 +94,7 @@ function _ven_output_acts(output_acts)
     return clamp.(vals, 0.0, 1.0)
 end
 
-function motor(b::VENBody, e, torus::Torus)
+function integrate_motion!(b::VENBody, e, torus::Torus)
     output_acts = _ven_output_acts(e)
     params = b.params
     dt = Float64(params.dt)

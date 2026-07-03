@@ -294,7 +294,7 @@ function swarm_metrics(m::AbstractTorusMedium, window::Integer)
     )
 end
 
-swarm_metrics(c::Collective, window::Integer) = swarm_metrics(c.medium, Int(window))
+swarm_metrics(c::Ensemble, window::Integer) = swarm_metrics(c.medium, Int(window))
 
 metrics(m::TorusMedium, window::Integer=_default_torus_window(m)) =
     swarm_metrics(m, Int(window))
@@ -359,7 +359,7 @@ function forage_metrics(m::ForageMedium, window::Integer)
     )
 end
 
-forage_metrics(c::Collective, window::Integer) = forage_metrics(c.medium, Int(window))
+forage_metrics(c::Ensemble, window::Integer) = forage_metrics(c.medium, Int(window))
 
 metrics(m::ForageMedium, window::Integer=_default_torus_window(m)) =
     forage_metrics(m, Int(window))

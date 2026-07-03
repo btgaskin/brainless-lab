@@ -4,6 +4,8 @@ abstract type Environment <: Medium end
 
 function default_ticks end
 function default_window end
+bounds(::Environment) = nothing
+pose(::Environment) = nothing
 
 _wrap_rad(theta::Real) = mod(Float64(theta) + pi, 2.0 * pi) - pi
 _wrap_deg(angle::Real) = mod(Float64(angle) + 180.0, 360.0) - 180.0
@@ -63,6 +65,8 @@ default_ticks(::Type{<:WallEnv}) = 1000
 default_ticks(::WallEnv) = default_ticks(WallEnv)
 default_window(::Type{<:WallEnv}) = 200
 default_window(::WallEnv) = default_window(WallEnv)
+bounds(env::WallEnv) = (0.0, Float64(env.box.size), 0.0, Float64(env.box.size))
+pose(env::WallEnv) = (Float64(env.box.x), Float64(env.box.y), Float64(env.box.theta))
 
 sense(env::WallEnv) = sense(env.box)
 
@@ -267,6 +271,7 @@ default_ticks(::Type{<:PongEnv}) = 2000
 default_ticks(::PongEnv) = default_ticks(PongEnv)
 default_window(::Type{<:PongEnv}) = 1000
 default_window(::PongEnv) = default_window(PongEnv)
+bounds(env::PongEnv) = (0.0, Float64(env.width), 0.0, Float64(env.height))
 
 function _reset_ball!(env::PongEnv)
     env.ball_x = env.width - env.ball_r

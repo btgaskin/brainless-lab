@@ -124,14 +124,14 @@ function _dyad_collective(data)
     )
     agents = [Agent(_dyad_reservoir(data, i), bodies[i]) for i in eachindex(bodies)]
 
-    return Collective(agents, medium)
+    return Ensemble(agents, medium)
 end
 
-function _dyad_bodies(c::Collective)
+function _dyad_bodies(c::Ensemble)
     return [agent.body for agent in c.agents]
 end
 
-function _dyad_observed_inputs(c::Collective)
+function _dyad_observed_inputs(c::Ensemble)
     bodies = _dyad_bodies(c)
     percepts = observe(c.medium, bodies)
     return [receptors(bodies[i], percepts[i]) for i in eachindex(bodies)]
@@ -175,7 +175,7 @@ end
     @test milling(positions, headings, centroid, torus) ≈ 1.0 atol=1e-12
 end
 
-@testset "Collective dyad TorusMedium oracle parity" begin
+@testset "Ensemble dyad TorusMedium oracle parity" begin
     # fixture predates vision-wrap / circular-centroid fix; regenerate oracle
     @test_skip "dyad_torus fixture predates vision-wrap / circular-centroid fix; regenerate oracle"
 end

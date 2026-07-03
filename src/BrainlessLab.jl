@@ -38,7 +38,7 @@ include("envs/Envs.jl")
 include("envs/CartPoleVariants.jl")
 include("tasks/Tasks.jl")
 include("world/Mediums.jl")
-include("world/Collective.jl")
+include("world/Ensemble.jl")
 include("world/Metrics.jl")
 include("api/Highlevel.jl")
 include("analysis/Branching.jl")
@@ -84,13 +84,14 @@ export step!,
     snapshot_state,
     load_state!,
     observe,
+    bounds,
+    pose,
     actuate!,
     receptors,
     encode_receptors,
     sense,
-    motor,
     decode_effectors,
-    score,
+    integrate_motion!,
     metrics,
     default_ticks,
     default_window,
@@ -219,7 +220,7 @@ export TaskSpec,
     normalized_score
 
 export Agent,
-    Collective,
+    Ensemble,
     PassthroughBody,
     PassthroughMorphology,
     TaskMedium,

@@ -164,11 +164,11 @@ default_morphology(::Type{VENBody}) = VEN_MORPHOLOGY
 receptors(::PassthroughBody, percept) =
     encode_receptors(_PASSTHROUGH_BODY_MORPHOLOGY, percept)
 
-motor(::PassthroughBody, e) =
+decode_effectors(::PassthroughBody, e) =
     decode_effectors(_PASSTHROUGH_BODY_MORPHOLOGY, e)
 
 receptors(b::VENBody, percept) =
     encode_receptors(default_morphology(b), percept)
 
-motor(::VENBody, e) =
-    decode_effectors(default_morphology(VENBody), e)
+decode_effectors(b::VENBody, e) =
+    decode_effectors(default_morphology(b), e)

@@ -3,24 +3,24 @@ struct Agent{R<:Reservoir,B<:Body}
     body::B
 end
 
-mutable struct Collective{M<:Medium}
+mutable struct Ensemble{M<:Medium}
     agents::Vector{<:Agent}
     medium::M
     t::Int
     recorder
 end
 
-function Collective(
+function Ensemble(
     agents::AbstractVector{<:Agent},
     medium::M;
     t::Integer=0,
     recorder=nothing,
 ) where {M<:Medium}
-    isempty(agents) && throw(ArgumentError("Collective requires at least one agent"))
-    return Collective{M}(collect(agents), medium, Int(t), recorder)
+    isempty(agents) && throw(ArgumentError("Ensemble requires at least one agent"))
+    return Ensemble{M}(collect(agents), medium, Int(t), recorder)
 end
 
-_agent_bodies(c::Collective) = [agent.body for agent in c.agents]
+_agent_bodies(c::Ensemble) = [agent.body for agent in c.agents]
 
 function _spike_rate(spikes)
     values = Float64.(vec(collect(spikes)))
@@ -60,12 +60,8 @@ _record_wants(rec::Recorder, channel::Symbol) = channel in rec.enabled
 _record_wants_any(rec::Recorder, channels) = any(channel -> channel in rec.enabled, channels)
 
 function _pose_payload(m::TaskMedium, bodies)
-    env = m.env
-    if hasproperty(env, :box)
-        box = getproperty(env, :box)
-        return [(Float64(box.x), Float64(box.y), Float64(box.theta))]
-    end
-    return nothing
+    p = pose(m.env)
+    return p === nothing ? nothing : [p]
 end
 
 # Per-task visualizable scene (tracking/pong/cartpole expose one; swarm/wall use poses).
@@ -132,7 +128,7 @@ function _record_spectral!(rec::Recorder, r::FalandaysReservoir)
     return rec
 end
 
-function _record_collective!(rec::Recorder, c::Collective, bodies, percepts, spikes, rates, Es)
+function _record_collective!(rec::Recorder, c::Ensemble, bodies, percepts, spikes, rates, Es)
     if !_record_active(rec)
         tick!(rec)
         return rec
@@ -184,7 +180,7 @@ function _record_collective!(rec::Recorder, c::Collective, bodies, percepts, spi
     return rec
 end
 
-function step!(c::Collective)
+function step!(c::Ensemble)
     bodies = _agent_bodies(c)
     percepts = observe(c.medium, bodies)
     length(percepts) == length(c.agents) ||
@@ -201,7 +197,7 @@ function step!(c::Collective)
         E = effectors(agent.reservoir, s)
         spikes[i] = s
         rates[i] = _spike_rate(s)
-        Es[i] = motor(agent.body, E)
+        Es[i] = decode_effectors(agent.body, E)
     end
 
     actuate!(c.medium, bodies, Es)
@@ -225,7 +221,7 @@ function _rollout_rate_and_width(spikes)
     return width == 0 ? 0.0 : total / width, width
 end
 
-function rollout!(c::Collective, ticks::Integer; window::Integer=ticks)
+function rollout!(c::Ensemble, ticks::Integer; window::Integer=ticks)
     ticks = Int(ticks)
     ticks >= 0 || throw(ArgumentError("ticks must be non-negative"))
     window = Int(window)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the two-agent torus Collective parity fixture."""
+"""Generate the two-agent torus Ensemble parity fixture."""
 
 from __future__ import annotations
 

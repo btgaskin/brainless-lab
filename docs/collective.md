@@ -1,6 +1,6 @@
 # The collective: n-agent and dyad
 
-A single-agent task is a `Collective` of one. The **same machinery** scales to dyads (`n_agents=2`) and
+A single-agent task is an `Ensemble` of one. The **same machinery** scales to dyads (`n_agents=2`) and
 swarms (`n_agents=N`) -- one `step!(collective)` drives all of them. This is the "neurons as nodes within a
 collective" idea applied at the agent scale: each agent *is* a reservoir-in-a-body, and the collective is
 the population.
@@ -17,7 +17,7 @@ platform around that baseline.
 
 ## The pieces
 
-- **`Collective{Medium}`** -- a population of `Agent{Reservoir, Body}`, run by the tick protocol
+- **`Ensemble{Medium}`** -- a population of `Agent{Reservoir, Body}`, run by the tick protocol
   `observe -> step! -> actuate -> commit`.
 - **`TorusMedium`** -- a periodic 2-D world. Knobs: `sensory_noise` (default 0.1, added to each bearing
   sensor), `vision_range` (neighbours beyond it are invisible, so coupling drops out as agents disperse),
@@ -57,7 +57,7 @@ source bank.
 
 ## Metrics
 
-Collective behaviour is read through swarm metrics rather than a single normalized task score:
+Swarm behaviour is read through swarm metrics rather than a single normalized task score:
 
 - **Polarization (P)** -- alignment of headings (0 = disordered, 1 = all aligned).
 - **Milling (M)** -- rotational/circling order about the centroid.
@@ -72,7 +72,7 @@ The behaviour GIF for `:torus` animates all agents moving with heading arrows an
 
 ## Validation
 
-The single-agent-as-`Collective{N=1}` path and the dyad/torus path are Float64 oracle-validated against the
+The single-agent-as-`Ensemble{N=1}` path and the dyad/torus path are Float64 oracle-validated against the
 numpy v0.2 `multi_agent_episode` fixtures. That is implementation bit-fidelity to the v0.2 reference path;
 it does not make the torus/VEN extension part of the 2021 Falandays paper baseline.
 

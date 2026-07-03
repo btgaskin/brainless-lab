@@ -584,7 +584,7 @@ function _task_card(res, task_note::String, mp4_name::AbstractString="")
     io = IOBuffer()
     println(io, "<div class=\"card\">")
     println(io, "<h3 id=\"task-$(res.task)\"><code>:$(res.task)</code> $live</h3>")
-    println(io, "<table><thead><tr><th>N</th><th>R</th><th>E</th><th>ticks</th><th>sensory encoding</th><th>motor decode</th></tr></thead><tbody>")
+    println(io, "<table><thead><tr><th>N</th><th>R</th><th>E</th><th>ticks</th><th>sensory encoding</th><th>effector decode</th></tr></thead><tbody>")
     println(io, "<tr><td class=\"mono\">$(res.n_nodes)<br><span style=\"color:var(--ink-faint);font-size:0.78em\">$task_note</span></td>",
                  "<td class=\"mono\">$(res.n_receptors)</td><td class=\"mono\">$(res.n_effectors)</td>",
                  "<td class=\"mono\">$(res.ticks)</td><td>$(prose.encoding)</td><td>$(prose.decode)</td></tr>")

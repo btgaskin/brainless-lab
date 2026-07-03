@@ -14,7 +14,7 @@ tunable/evolvable).
 Single-agent tasks use `PassthroughBody`: the env's `sense(env)` vector is passed straight to the reservoir,
 and the reservoir's effector vector is passed straight to `step!(env, E)`.
 
-| task | R | sensory encoding | E | motor decode | scoring |
+| task | R | sensory encoding | E | effector decode | scoring |
 |---|---:|---|---:|---|---|
 | `:wall` | **2** | two ray-cast distance sensors at **+/-45 deg** to the nearest wall; `c = 1 - d/d_max`, `d_max = sqrt(2 * 15^2)`, clamped to `(eps, 1]` | **2** | differential wheel-like speeds: `v = (eL + eR)/2`, heading change `dtheta = eR - eL`; wall hit -> random +/-45 deg turn | distance travelled minus collision penalty over the scoring window |
 | `:tracking` | **62** | **two eyes** offset **+/-30 deg**, each with **31** Gaussian-tuned sensors over `-60:4:60 deg`; sensor value `exp(-(delta^2)/10)` where `delta` is the angle to the rotating stimulus | **2** | eye-rotation command `dtheta = 10 * (e1 - e2) deg` per tick | mean `cos` alignment of gaze to the stimulus |
@@ -34,9 +34,9 @@ and the reservoir's effector vector is passed straight to `step!(env, E)`.
 - The reservoir is constructed with exactly these `(R, E)` dims; spikes -> E via the node's output map, then
   the env turns E into world change.
 
-## Collective tasks (n-agent / dyad)
+## Ensemble tasks (n-agent / dyad)
 
-| task | per-agent R | sensory encoding | per-agent E | motor decode | coupling |
+| task | per-agent R | sensory encoding | per-agent E | effector decode | coupling |
 |---|---:|---|---:|---|---|
 | `:torus` | **64** | `VENBody` bearing vision over neighbours: two eyes (+/-30 deg) x 31 angles = **62 bearing sensors**, then padded into a **64-channel receptor vector** (`inputs[3:64]`); values are binary by default (`sens_agent_dist=0`) or `1 - d/d_max` when distance coding is enabled, plus additive `sensory_noise` (default 0.1), clipped >= 0 and optionally sum-normalized | **3** | **VEN kinematics**: `e1`/`e2` set heading acceleration by their difference, `e3` sets forward acceleration; speed and heading rate are capped by `VENParams` | agents see each other on a periodic torus; mutual vision is the default coupling |
 
