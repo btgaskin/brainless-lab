@@ -25,6 +25,7 @@ include("world/Body.jl")
 include("world/Morphology.jl")
 include("nodes/SpikeHistory.jl")
 include("nodes/Falandays.jl")
+include("nodes/SORN.jl")
 include("nodes/Spatial.jl")
 include("nodes/Delays.jl")
 include("nodes/NoisyInput.jl")
@@ -149,6 +150,7 @@ export FalandaysParams,
     FalandaysConnState,
     FalandaysNodeState,
     FalandaysReservoir,
+    SORNReservoir,
     activations,
     weights,
     RngNoise,
@@ -319,6 +321,7 @@ register_node!(:falandays_hemispheric, _falandays_hemispheric_native)
 register_node!(:falandays_oosawa, _falandays_oosawa_native)
 register_node!(:falandays_spatial, _falandays_spatial_native)
 register_node!(:falandays_delayed, _falandays_delayed_native)
+register_node!(:sorn, _sorn_native)
 register_node!(:compartmental_dense, _compartmental_dense_native)
 register_node!(:compartmental_structured, _compartmental_structured_native)
 
