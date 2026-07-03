@@ -1,8 +1,8 @@
 const CARTPOLE_DEFAULT_TICKS = 1000
 const CARTPOLE_DEFAULT_WINDOW = 1000
 
-mutable struct CartPoleVariantEnv <: Environment
-    rng::Any
+mutable struct CartPoleVariantEnv{R} <: Environment
+    rng::R
     name::Symbol
     tau::Float64
     gravity::Float64
@@ -130,13 +130,13 @@ end
 CartPoleVariantEnv(seed::Integer; kwargs...) = CartPoleVariantEnv(; rng=MersenneTwister(seed), kwargs...)
 CartPoleVariantEnv(rng; kwargs...) = CartPoleVariantEnv(; rng=rng, kwargs...)
 
-n_receptors(::Type{CartPoleVariantEnv}) = 8
+n_receptors(::Type{<:CartPoleVariantEnv}) = 8
 n_receptors(::CartPoleVariantEnv) = n_receptors(CartPoleVariantEnv)
-n_effectors(::Type{CartPoleVariantEnv}) = 2
+n_effectors(::Type{<:CartPoleVariantEnv}) = 2
 n_effectors(::CartPoleVariantEnv) = n_effectors(CartPoleVariantEnv)
-default_ticks(::Type{CartPoleVariantEnv}) = CARTPOLE_DEFAULT_TICKS
+default_ticks(::Type{<:CartPoleVariantEnv}) = CARTPOLE_DEFAULT_TICKS
 default_ticks(::CartPoleVariantEnv) = CARTPOLE_DEFAULT_TICKS
-default_window(::Type{CartPoleVariantEnv}) = CARTPOLE_DEFAULT_WINDOW
+default_window(::Type{<:CartPoleVariantEnv}) = CARTPOLE_DEFAULT_WINDOW
 default_window(::CartPoleVariantEnv) = CARTPOLE_DEFAULT_WINDOW
 
 function sense(env::CartPoleVariantEnv)

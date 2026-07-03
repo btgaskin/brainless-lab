@@ -35,50 +35,40 @@ function _plastic_rollout(
     node_sym in _FALANDAYS_MODEL_SYMS ||
         throw(ArgumentError("PlasticRunner currently records Falandays online-plastic diagnostics only"))
 
-    task_spec = resolve_task(task)
-    n_nodes = N === nothing ? _default_node_count(node_sym) : Int(N)
-    tick_count = ticks === nothing ? task_spec.default_ticks : Int(ticks)
-    win = window === nothing ? min(tick_count, task_spec.default_window) : Int(window)
-
-    node_options = _node_kwargs_for_model(node_sym, model; learn_on=true)
-    node_options[:link_p] = Float64(link_p)
-
-    env_options = Dict{Symbol,Any}()
-    task_spec.name == :wall && (env_options[:lam] = Float64(lam))
-
-    collective, _ = _make_task_collective(
-        task_spec,
-        node_sym,
-        resolve_node(node_sym);
-        seed=Int(seed),
+    out = rollout(
+        task,
+        model,
+        seed;
+        model_sym=node_sym,
+        N=N,
+        ticks=ticks,
+        link_p=link_p,
+        window=window,
+        lam=lam,
+        learn_on=true,
         record=Symbol[],
-        every=1,
-        n_nodes=n_nodes,
-        node_kwargs=node_options,
-        env_kwargs=env_options,
+        return_collective=true,
     )
 
-    metrics_nt = rollout!(collective, tick_count; window=win)
-    reservoir = collective.agents[1].reservoir
-    raw_score = _metric_value(metrics_nt, task_spec.score_key)
+    reservoir = out.collective.agents[1].reservoir
 
     return (
-        task=task_spec.name,
-        model_sym=node_sym,
-        seed=Int(seed),
-        ticks=tick_count,
-        N=n_nodes,
-        score=Float64(raw_score),
-        norm_score=Float64(normalized_score(task_spec, raw_score)),
-        alive=Bool(_metric_default(metrics_nt, :alive, false)),
-        rate_mean=Float64(_metric_default(metrics_nt, :rate_mean, NaN)),
-        rate_var=Float64(_metric_default(metrics_nt, :rate_var, NaN)),
-        total_spikes_window=Float64(_metric_default(metrics_nt, :total_spikes_window, NaN)),
+        task=out.task,
+        model_sym=out.model_sym,
+        seed=out.seed,
+        ticks=out.ticks,
+        N=out.N,
+        score=out.score,
+        norm_score=out.norm_score,
+        alive=out.alive,
+        rate_mean=out.rate_mean,
+        rate_var=out.rate_var,
+        total_spikes_window=out.total_spikes_window,
         target_mean=_mean_float(reservoir.targets),
         target_var=_variance_float(reservoir.targets),
         weight_delta_norm=sqrt(sum(abs2, reservoir.wmat .- reservoir.wmat0)),
         weight_delta_mean_abs=_mean_float(abs.(vec(reservoir.wmat .- reservoir.wmat0))),
-        metrics=metrics_nt,
+        metrics=out.metrics,
     )
 end
 

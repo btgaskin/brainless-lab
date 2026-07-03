@@ -43,8 +43,8 @@ function _wrap_angle(theta::Real)
     return wrapped
 end
 
-mutable struct WallBox
-    rng::Any
+mutable struct WallBox{R}
+    rng::R
     size::Float64
     r::Float64
     dt::Float64

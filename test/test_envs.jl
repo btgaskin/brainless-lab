@@ -132,3 +132,16 @@ end
         end
     end
 end
+
+@testset "Environment RNG fields are concrete" begin
+    wall = WallEnv(; rng=RecordedDraws([1.0, 1.0, 0.0]))
+    tracking = TrackingEnv(; rng=RecordedDraws(Float64[]))
+    pong = PongEnv(; rng=RecordedDraws([250.0, 1.0]))
+    cartpole = CartPoleEnv(; rng=RecordedDraws([0.0, 0.0, 0.0, 0.0]))
+    variant = CartPoleVariantEnv(; rng=RecordedDraws([0.0, 0.0, 0.0, 0.0]))
+
+    for env in (wall, tracking, pong, cartpole, variant)
+        @test fieldtype(typeof(env), :rng) === RecordedDraws
+    end
+    @test fieldtype(typeof(wall.box), :rng) === RecordedDraws
+end

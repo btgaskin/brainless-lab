@@ -51,6 +51,40 @@ end
     @test serial == threaded
 end
 
+@testset "Plastic rollout diagnostics wrap rollout" begin
+    x0 = pack_params(FalandaysParams())
+    plastic = BrainlessLab._plastic_rollout(:wall, x0, 7; N=16, ticks=30, window=30)
+    shared = rollout(:wall, x0, 7; N=16, ticks=30, window=30, learn_on=true, return_collective=true)
+
+    @test propertynames(plastic) == (
+        :task,
+        :model_sym,
+        :seed,
+        :ticks,
+        :N,
+        :score,
+        :norm_score,
+        :alive,
+        :rate_mean,
+        :rate_var,
+        :total_spikes_window,
+        :target_mean,
+        :target_var,
+        :weight_delta_norm,
+        :weight_delta_mean_abs,
+        :metrics,
+    )
+    @test hasproperty(shared, :collective)
+    @test !hasproperty(plastic, :collective)
+    @test plastic.score == shared.score
+    @test plastic.norm_score == shared.norm_score
+    @test plastic.metrics == shared.metrics
+    @test isfinite(plastic.target_mean)
+    @test isfinite(plastic.target_var)
+    @test isfinite(plastic.weight_delta_norm)
+    @test isfinite(plastic.weight_delta_mean_abs)
+end
+
 @testset "Compartmental evolve smoke" begin
     x0 = zeros(Float64, paramdim(StructuredCompartmental))
     result = evolve(

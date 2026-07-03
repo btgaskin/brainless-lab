@@ -42,10 +42,10 @@ function _xy_path(box::WallBox)
     return out
 end
 
-mutable struct WallEnv <: Environment
-    rng::Any
+mutable struct WallEnv{R} <: Environment
+    rng::R
     lam::Float64
-    box::WallBox
+    box::WallBox{R}
 end
 
 function WallEnv(; rng=Random.default_rng(), x=nothing, y=nothing, theta=nothing, lam::Real=1.0)
@@ -55,13 +55,13 @@ end
 WallEnv(seed::Integer; kwargs...) = WallEnv(; rng=MersenneTwister(seed), kwargs...)
 WallEnv(rng; kwargs...) = WallEnv(; rng=rng, kwargs...)
 
-n_receptors(::Type{WallEnv}) = 2
+n_receptors(::Type{<:WallEnv}) = 2
 n_receptors(::WallEnv) = n_receptors(WallEnv)
-n_effectors(::Type{WallEnv}) = 2
+n_effectors(::Type{<:WallEnv}) = 2
 n_effectors(::WallEnv) = n_effectors(WallEnv)
-default_ticks(::Type{WallEnv}) = 1000
+default_ticks(::Type{<:WallEnv}) = 1000
 default_ticks(::WallEnv) = default_ticks(WallEnv)
-default_window(::Type{WallEnv}) = 200
+default_window(::Type{<:WallEnv}) = 200
 default_window(::WallEnv) = default_window(WallEnv)
 
 sense(env::WallEnv) = sense(env.box)
@@ -89,8 +89,8 @@ function metrics(env::WallEnv, window::Integer=default_window(env))
     )
 end
 
-mutable struct TrackingEnv <: Environment
-    rng::Any
+mutable struct TrackingEnv{R} <: Environment
+    rng::R
     theta::Float64
     phi::Float64
     direction::Float64
@@ -122,13 +122,13 @@ end
 TrackingEnv(seed::Integer; kwargs...) = TrackingEnv(; rng=MersenneTwister(seed), kwargs...)
 TrackingEnv(rng; kwargs...) = TrackingEnv(; rng=rng, kwargs...)
 
-n_receptors(::Type{TrackingEnv}) = 62
+n_receptors(::Type{<:TrackingEnv}) = 62
 n_receptors(::TrackingEnv) = n_receptors(TrackingEnv)
-n_effectors(::Type{TrackingEnv}) = 2
+n_effectors(::Type{<:TrackingEnv}) = 2
 n_effectors(::TrackingEnv) = n_effectors(TrackingEnv)
-default_ticks(::Type{TrackingEnv}) = 1000
+default_ticks(::Type{<:TrackingEnv}) = 1000
 default_ticks(::TrackingEnv) = default_ticks(TrackingEnv)
-default_window(::Type{TrackingEnv}) = 200
+default_window(::Type{<:TrackingEnv}) = 200
 default_window(::TrackingEnv) = default_window(TrackingEnv)
 
 function sense(env::TrackingEnv)
@@ -208,8 +208,8 @@ function metrics(env::TrackingEnv, window::Integer=default_window(env))
     )
 end
 
-mutable struct PongEnv <: Environment
-    rng::Any
+mutable struct PongEnv{R} <: Environment
+    rng::R
     width::Float64
     height::Float64
     ball_r::Float64
@@ -259,13 +259,13 @@ end
 PongEnv(seed::Integer; kwargs...) = PongEnv(; rng=MersenneTwister(seed), kwargs...)
 PongEnv(rng; kwargs...) = PongEnv(; rng=rng, kwargs...)
 
-n_receptors(::Type{PongEnv}) = 46
+n_receptors(::Type{<:PongEnv}) = 46
 n_receptors(::PongEnv) = n_receptors(PongEnv)
-n_effectors(::Type{PongEnv}) = 2
+n_effectors(::Type{<:PongEnv}) = 2
 n_effectors(::PongEnv) = n_effectors(PongEnv)
-default_ticks(::Type{PongEnv}) = 2000
+default_ticks(::Type{<:PongEnv}) = 2000
 default_ticks(::PongEnv) = default_ticks(PongEnv)
-default_window(::Type{PongEnv}) = 1000
+default_window(::Type{<:PongEnv}) = 1000
 default_window(::PongEnv) = default_window(PongEnv)
 
 function _reset_ball!(env::PongEnv)
@@ -371,8 +371,8 @@ function metrics(env::PongEnv, window::Integer=default_window(env))
     )
 end
 
-mutable struct CartPoleEnv <: Environment
-    rng::Any
+mutable struct CartPoleEnv{R} <: Environment
+    rng::R
     tau::Float64
     gravity::Float64
     force_mag::Float64
@@ -416,13 +416,13 @@ end
 CartPoleEnv(seed::Integer; kwargs...) = CartPoleEnv(; rng=MersenneTwister(seed), kwargs...)
 CartPoleEnv(rng; kwargs...) = CartPoleEnv(; rng=rng, kwargs...)
 
-n_receptors(::Type{CartPoleEnv}) = 8
+n_receptors(::Type{<:CartPoleEnv}) = 8
 n_receptors(::CartPoleEnv) = n_receptors(CartPoleEnv)
-n_effectors(::Type{CartPoleEnv}) = 2
+n_effectors(::Type{<:CartPoleEnv}) = 2
 n_effectors(::CartPoleEnv) = n_effectors(CartPoleEnv)
-default_ticks(::Type{CartPoleEnv}) = 1000
+default_ticks(::Type{<:CartPoleEnv}) = 1000
 default_ticks(::CartPoleEnv) = default_ticks(CartPoleEnv)
-default_window(::Type{CartPoleEnv}) = 1000
+default_window(::Type{<:CartPoleEnv}) = 1000
 default_window(::CartPoleEnv) = default_window(CartPoleEnv)
 
 function sense(env::CartPoleEnv)

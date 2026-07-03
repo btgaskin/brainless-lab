@@ -96,6 +96,7 @@ function rollout(
     record=Symbol[],
     every::Integer=1,
     learn_on=nothing,
+    return_collective::Bool=false,
     node_kwargs=NamedTuple(),
     env_kwargs=NamedTuple(),
     kwargs...,
@@ -142,7 +143,7 @@ function rollout(
     raw_score = _metric_value(metrics_nt, task_spec.score_key)
     norm = normalized_score(task_spec, raw_score)
 
-    return (
+    result = (
         task=task_spec.name,
         model_sym=node_sym,
         seed=Int(seed),
@@ -156,4 +157,6 @@ function rollout(
         total_spikes_window=Float64(_metric_default(metrics_nt, :total_spikes_window, NaN)),
         metrics=metrics_nt,
     )
+
+    return return_collective ? (result..., collective=collective) : result
 end

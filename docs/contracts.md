@@ -41,6 +41,10 @@ and saturation at 0 or 1 means the raw score is outside the chosen floor/ceiling
 | `:cartpole_swingup` | `:mean_uprightness` | 0.02 | 1.0 | mean `(cos(theta)+1)/2` |
 | `:cartpole_long` | `:score` | 0.0 | 1.0 | fraction balanced with the long pole |
 
+Base `:cartpole` reports survival as `step_count / default_ticks`; cartpole variants report the selected
+variant window score (`balanced_fraction` or `mean_uprightness`). Both are normalized onto `[0, 1]`, but the
+raw score meanings are not identical.
+
 `:torus` is a registered swarm task symbol, not a `TaskSpec` with a `normalized_score` floor/ceiling. Read
 torus runs through collective metrics.
 
