@@ -5,6 +5,45 @@ import Makie
 
 const BL = BrainlessLab
 
+# ─── Visual identity ──────────────────────────────────────────────────────────
+# One warm editorial palette across every figure and GIF, shared with the docs
+# site (index.html). Each entity has a canonical glyph: agents are teal boids
+# that point where they head; the source is an amber target with its capture
+# ring; spikes are ink, population rate is teal.
+const _PAPER     = Makie.RGBf(0.984, 0.980, 0.969)  # #fbfaf7 warm paper
+const _INK       = Makie.RGBf(0.141, 0.157, 0.169)  # #24282b
+const _INKSOFT   = Makie.RGBf(0.322, 0.345, 0.365)  # #52585d
+const _GRID      = Makie.RGBf(0.871, 0.855, 0.816)  # #dedad0
+const _TEAL      = Makie.RGBf(0.184, 0.435, 0.369)  # #2f6f5e accent
+const _TEALSOFT  = Makie.RGBf(0.396, 0.612, 0.545)
+const _AMBER     = Makie.RGBf(0.612, 0.420, 0.122)  # #9c6b1f
+
+function _style_axis!(ax)
+    ax.backgroundcolor = _PAPER
+    ax.xgridcolor = (_GRID, 0.9);  ax.ygridcolor = (_GRID, 0.9)
+    ax.xgridwidth = 0.8;           ax.ygridwidth = 0.8
+    ax.topspinevisible = false;    ax.rightspinevisible = false
+    ax.leftspinecolor = _GRID;     ax.bottomspinecolor = _GRID
+    ax.xtickcolor = _GRID;         ax.ytickcolor = _GRID
+    ax.xticklabelcolor = _INKSOFT; ax.yticklabelcolor = _INKSOFT
+    ax.xlabelcolor = _INKSOFT;     ax.ylabelcolor = _INKSOFT
+    ax.xticklabelsize = 11;        ax.yticklabelsize = 11
+    ax.titlecolor = _INK;          ax.titlesize = 15
+    ax.titlealign = :left;         ax.titlegap = 8
+    return ax
+end
+
+_bl_figure(sz) = Makie.Figure(size=sz, backgroundcolor=_PAPER)
+
+function _capture_radius(sim)
+    sim isa BL.SimResult || return nothing
+    hasproperty(sim.config, :medium) || return nothing
+    medium = sim.config.medium
+    hasproperty(medium, :capture_radius) || return nothing
+    r = medium.capture_radius
+    return r === nothing ? nothing : Float64(r)
+end
+
 _recorder(sim::BL.SimResult) = sim.recorder
 _recorder(rec::BL.Recorder) = rec
 _channel(x, channel::Symbol) = BL.getchannel(_recorder(x), channel)
@@ -182,7 +221,16 @@ end
 function _draw_source!(ax, sim)
     source = _source_position(sim)
     source === nothing && return ax
-    Makie.scatter!(ax, [source[1]], [source[2]]; marker=:star5, markersize=20, color=:orange)
+    r = _capture_radius(sim)
+    if r !== nothing && r > 0.0
+        ts = range(0.0, 2pi; length=72)
+        ring = [Makie.Point2f(source[1] + r * cos(t), source[2] + r * sin(t)) for t in ts]
+        Makie.poly!(ax, ring; color=(_AMBER, 0.08), strokecolor=(_AMBER, 0.45), strokewidth=1.0)
+    end
+    # amber target: filled disc with a paper center reads as a soft ring
+    Makie.scatter!(ax, [source[1]], [source[2]]; marker=:circle, markersize=18,
+                   color=_AMBER, strokecolor=_PAPER, strokewidth=1.5)
+    Makie.scatter!(ax, [source[1]], [source[2]]; marker=:circle, markersize=7, color=_PAPER)
     return ax
 end
 
@@ -191,9 +239,10 @@ function _draw_bounds!(ax, sim)
     bounds === nothing && return ax
 
     x0, x1, y0, y1 = bounds
-    Makie.lines!(ax, [x0, x1, x1, x0, x0], [y0, y0, y1, y1, y0]; color=:gray55, linewidth=1)
+    Makie.lines!(ax, [x0, x1, x1, x0, x0], [y0, y0, y1, y1, y0]; color=(_INKSOFT, 0.30), linewidth=1.0)
     Makie.xlims!(ax, x0, x1)
     Makie.ylims!(ax, y0, y1)
+    ax.aspect = Makie.DataAspect()  # spatial worlds are square; keeps rings circular
     return ax
 end
 
@@ -207,7 +256,7 @@ function _draw_raster!(ax, sim)
             push!(ys, Float64(n))
         end
     end
-    Makie.scatter!(ax, xs, ys; markersize=2, color=:black)
+    Makie.scatter!(ax, xs, ys; markersize=1.6, color=(_INK, 0.85))
     ax.xlabel = "tick"
     ax.ylabel = "node"
     ax.title = "Spike raster"
@@ -216,7 +265,9 @@ end
 
 function _draw_rate!(ax, sim)
     trace = _rate_trace(sim)
-    Makie.lines!(ax, 1:length(trace), trace; color=:dodgerblue4, linewidth=2)
+    xs = collect(1:length(trace))
+    isempty(trace) || Makie.band!(ax, xs, fill(0.0, length(trace)), trace; color=(_TEAL, 0.12))
+    Makie.lines!(ax, xs, trace; color=_TEAL, linewidth=2)
     ax.xlabel = "tick"
     ax.ylabel = "rate"
     ax.title = "Population firing rate"
@@ -251,15 +302,10 @@ function _draw_swarm!(ax, sim)
     poses = _latest_pose_rows(sim)
     xs = [pose[1] for pose in poses]
     ys = [pose[2] for pose in poses]
-    Makie.scatter!(ax, xs, ys; markersize=10, color=:seagreen4)
-
-    segments = Makie.Point2f[]
-    for pose in poses
-        len = 0.35
-        push!(segments, Makie.Point2f(pose[1], pose[2]))
-        push!(segments, Makie.Point2f(pose[1] + len * cos(pose[3]), pose[2] + len * sin(pose[3])))
-    end
-    isempty(segments) || Makie.linesegments!(ax, segments; color=:black, linewidth=1)
+    hd = [pose[3] for pose in poses]
+    # agents are teal boids: the glyph points along its heading (no separate tail)
+    Makie.scatter!(ax, xs, ys; marker=:utriangle, rotation=(hd .- (pi / 2)),
+                   markersize=16, color=_TEAL, strokecolor=_PAPER, strokewidth=0.8)
 
     pol = _channel(sim, :polarization)
     mill = _channel(sim, :milling)
@@ -393,8 +439,9 @@ function _draw_fitness!(ax, curve)
 end
 
 function _figure_axis(; size=(900, 320))
-    fig = Makie.Figure(size=size)
+    fig = _bl_figure(size)
     ax = Makie.Axis(fig[1, 1])
+    _style_axis!(ax)
     return fig, ax
 end
 
@@ -460,9 +507,10 @@ end
 function BL.visualize(sim::BL.SimResult; panels=[:raster, :rate, :trajectory], size=nothing)
     panel_syms = Symbol.(collect(panels))
     fig_size = size === nothing ? (900, max(260, 260 * length(panel_syms))) : size
-    fig = Makie.Figure(size=fig_size)
+    fig = _bl_figure(fig_size)
     for (row, panel) in enumerate(panel_syms)
         ax = Makie.Axis(fig[row, 1])
+        _style_axis!(ax)
         _draw_panel!(ax, sim, panel)
     end
     return fig
