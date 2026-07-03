@@ -231,15 +231,19 @@ export Agent,
     default_morphology,
     SwarmConfig,
     TorusMedium,
+    ForageMedium,
     assemble_inputs,
+    assemble_forage_inputs,
     sense_agents,
+    sense_source,
     liveness,
     polarization,
     milling,
     mean_pairwise_distance,
     mean_nearest_neighbor_distance,
     input_stability,
-    swarm_metrics
+    swarm_metrics,
+    forage_metrics
 
 export register_node!,
     resolve_node,
@@ -331,6 +335,7 @@ register_task!(:cartpole_hard, CARTPOLE_HARD_TASK)
 register_task!(:cartpole_swingup, CARTPOLE_SWINGUP_TASK)
 register_task!(:cartpole_long, CARTPOLE_LONG_TASK)
 register_task!(:torus, :torus)
+register_task!(:forage, :forage)
 
 register_body!(:passthrough, PassthroughBody)
 register_body!(:ven, VENBody)
@@ -341,6 +346,7 @@ register_metric!(:mean_pairwise_distance, mean_pairwise_distance)
 register_metric!(:mean_nearest_neighbor_distance, mean_nearest_neighbor_distance)
 register_metric!(:input_stability, input_stability)
 register_metric!(:swarm_metrics, swarm_metrics)
+register_metric!(:forage_metrics, forage_metrics)
 
 register_analysis!(:branching_ratio, branching_ratio)
 register_analysis!(:spectral_radius, spectral_radius; label="spectral radius ρ(W)")

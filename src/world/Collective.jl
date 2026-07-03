@@ -84,7 +84,7 @@ function _pose_payload(::Medium, bodies)
     return isempty(poses) ? nothing : poses
 end
 
-function _record_swarm_metrics!(rec::Recorder, m::TorusMedium, poses)
+function _record_swarm_metrics!(rec::Recorder, m::AbstractTorusMedium, poses)
     if poses === nothing || isempty(poses)
         return rec
     end
@@ -174,7 +174,7 @@ function _record_collective!(rec::Recorder, c::Collective, bodies, percepts, spi
         sc = _scene_payload(c.medium)
         sc === nothing || record!(rec, :scene, sc)
     end
-    if c.medium isa TorusMedium
+    if c.medium isa AbstractTorusMedium
         _record_swarm_metrics!(rec, c.medium, poses)
     end
 

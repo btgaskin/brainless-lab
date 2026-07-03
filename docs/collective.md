@@ -8,6 +8,7 @@ the population.
 ```julia
 simulate(:torus; node=:falandays_base, n_agents=2)    # dyad
 simulate(:torus; node=:falandays_base, n_agents=12)   # swarm
+simulate(:forage; node=:falandays_base, n_agents=12)  # social/blind source foraging
 explore(:torus; node=:falandays_base, n_agents=6)     # interactive (needs GLMakie)
 ```
 
@@ -25,6 +26,8 @@ platform around that baseline.
   - **receptors (R = 64):** bearing vision starts as 62 sensors -- two eyes (+/-30 deg) x 31 angles. The
     body pads those values into a 64-channel receptor vector (`inputs[3:64]`) and, by default, normalizes
     the vector by its sum when activity is nonzero.
+  - **forage receptors (R = 128):** `:forage` keeps that 64-wide conspecific bank and appends a second
+    64-wide source-vision bank with the same bearing geometry. `source_gain` weights the source bank.
   - **effectors (E = 3):** VEN kinematics require exactly three values. `e3` drives forward acceleration;
     `e2 - e1` drives heading acceleration. Speed and heading rate are damped/capped by `VENParams`.
 
@@ -44,6 +47,14 @@ drives A's motion, which changes what B sees. So:
 `physical_coupling` exists as a config flag for collision resolution, but the default swarm coupling path is
 visual.
 
+## Foraging
+
+`simulate(:forage; node=:falandays_base, n_agents=N, seed=0, conspecific_vision=true)` runs the torus swarm
+with one stationary source sampled from the same rollout RNG as the initial agent poses. Agents receive two
+visual banks: conspecific bearing vision and source bearing vision. Setting `conspecific_vision=false` zeros
+the conspecific bank and disables inter-agent collision resolution, while preserving population size and the
+source bank.
+
 ## Metrics
 
 Collective behaviour is read through swarm metrics rather than a single normalized task score:
@@ -53,6 +64,8 @@ Collective behaviour is read through swarm metrics rather than a single normaliz
 - **Mean nearest-neighbour / pairwise distance** -- spatial spread on the torus.
 - **Input stability** -- cosine similarity of recent sensory input histories.
 - **Liveness** -- firing-rate sanity check from the population activity window.
+- **Forage metrics (`:forage`)** -- `mean_distance_to_source`, `frac_within_capture`,
+  `time_to_first_arrival`, and bounded `forage_score`, alongside polarization/milling.
 
 The behaviour GIF for `:torus` animates all agents moving with heading arrows and live P/M. See
 [contracts.md](contracts.md) for the metric definitions participants should use when comparing runs.
