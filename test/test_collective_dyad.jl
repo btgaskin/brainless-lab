@@ -175,9 +175,14 @@ end
     @test milling(positions, headings, centroid, torus) ≈ 1.0 atol=1e-12
 end
 
-@testset "Ensemble dyad TorusMedium oracle parity" begin
-    # fixture predates vision-wrap / circular-centroid fix; regenerate oracle
-    @test_skip "dyad_torus fixture predates vision-wrap / circular-centroid fix; regenerate oracle"
+# The v0.2 numpy dyad-parity fixture is intentionally retired. The numpy reference
+# (v0.2 crho/bodies.py) carries the same angular-wrap bug our vision fix corrected,
+# so byte-parity to it would only re-lock the corrected behaviour. Multi-agent
+# vision/metric correctness is covered by the "Torus vision and metric seam
+# corrections" tests above; paper-faithful fidelity is validated by the single-agent
+# Falandays fixtures, which remain the core reference.
+@testset "Ensemble dyad TorusMedium oracle parity (retired v0.2 path)" begin
+    @test_skip "retired: v0.2 numpy reference shares the vision-wrap bug; correctness covered by the seam tests"
 end
 
 function _dyad_stale_oracle_parity()
