@@ -185,6 +185,10 @@ export AbstractCompartmental,
     ResetDendrites,
     NoSomaBack,
     NoHillockBack,
+    FreezePlasticity,
+    ZeroRecurrent,
+    ClampTarget,
+    DisableVision,
     COMPARTMENTAL_D,
     COMPARTMENTAL_S,
     IN_UNIT,
@@ -278,7 +282,8 @@ export register_node!,
     register_optimizer!,
     resolve_optimizer,
     register_ablation!,
-    resolve_ablation
+    resolve_ablation,
+    ablations
 
 export Recorder,
     record!,
@@ -322,6 +327,8 @@ export RunConfig,
     run_experiment,
     run_from_config,
     run_sweep,
+    ablate,
+    sweepable_axes,
     capture_manifest
 
 export rasterplot,
@@ -418,6 +425,10 @@ register_view!(:animate, animate)
 register_ablation!(:reset_dendrites, ResetDendrites)
 register_ablation!(:no_soma_back, NoSomaBack)
 register_ablation!(:no_hillock_back, NoHillockBack)
+register_ablation!(:freeze_plasticity, FreezePlasticity)
+register_ablation!(:zero_recurrent, ZeroRecurrent)
+register_ablation!(:clamp_target, ClampTarget)
+register_ablation!(:disable_vision, DisableVision)
 
 register_optimizer!(:sepcma, SepCMA)
 

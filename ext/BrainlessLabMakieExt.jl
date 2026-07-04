@@ -821,6 +821,62 @@ function BL.explore(task::Symbol; node::Symbol=:falandays, kwargs...)
     return fig
 end
 
+function _sweep_row_float(row, key::AbstractString)
+    value = get(row, key, NaN)
+    value isa Number && return Float64(value)
+    try
+        return parse(Float64, string(value))
+    catch
+        return NaN
+    end
+end
+
+function BL._save_sweep_axis_figure(path::AbstractString, rows, axis)
+    selected = [row for row in rows if string(get(row, "axis", "")) == string(axis)]
+    isempty(selected) && return BL._write_axis_figure_placeholder(path, rows, axis)
+
+    fig = _bl_figure((920, 680))
+    ax_score = Makie.Axis(fig[1, 1]; title="Score and liveness", xlabel=string(axis), ylabel="score / alive fraction")
+    ax_mech = Makie.Axis(fig[2, 1]; title="Mechanism readouts", xlabel=string(axis), ylabel="sigma_mr / rho(W)")
+    _style_axis!(ax_score)
+    _style_axis!(ax_mech)
+
+    xs = collect(1:length(selected))
+    labels = [string(get(row, "value", "")) for row in selected]
+    scores = [_sweep_row_float(row, "score_mean") for row in selected]
+    liveness = [_sweep_row_float(row, "liveness_mean") for row in selected]
+    sigma = [_sweep_row_float(row, "sigma_mr_mean") for row in selected]
+    rho = [_sweep_row_float(row, "spectral_radius_mean") for row in selected]
+
+    Makie.lines!(ax_score, xs, scores; color=_TEAL, linewidth=2.4, label="score")
+    Makie.scatter!(ax_score, xs, scores; color=_TEAL, markersize=9)
+    Makie.lines!(ax_score, xs, liveness; color=_AMBER, linewidth=2.0, linestyle=:dash, label="liveness")
+    Makie.scatter!(ax_score, xs, liveness; color=_AMBER, markersize=8)
+    ax_score.xticks = (xs, labels)
+    Makie.axislegend(ax_score; position=:rb, framevisible=false)
+
+    if any(isfinite, sigma)
+        Makie.lines!(ax_mech, xs, sigma; color=_TEAL, linewidth=2.2, label="sigma_mr")
+        Makie.scatter!(ax_mech, xs, sigma; color=_TEAL, markersize=8)
+    end
+    if any(isfinite, rho)
+        Makie.lines!(ax_mech, xs, rho; color=_INKSOFT, linewidth=2.2, linestyle=:dash, label="rho(W)")
+        Makie.scatter!(ax_mech, xs, rho; color=_INKSOFT, markersize=8)
+    end
+    ax_mech.xticks = (xs, labels)
+    Makie.axislegend(ax_mech; position=:rb, framevisible=false)
+
+    Makie.Label(
+        fig[3, 1],
+        "Falandays sigma can be partly homeostatically rate-pinned; rho(W) is the complementary recurrent-weight read.";
+        color=_INKSOFT,
+        fontsize=12,
+        tellwidth=false,
+    )
+    Makie.save(path, fig)
+    return path
+end
+
 for (name, fn) in (
     :raster => BL.rasterplot,
     :rate => BL.rateplot,

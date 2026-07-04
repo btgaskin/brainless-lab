@@ -85,6 +85,156 @@ _sim_rng(seed) = seed === nothing ? MersenneTwister() : MersenneTwister(Int(seed
 
 _default_node_count(node::Symbol) = get(_NODE_DEFAULT_N, node, 100)
 
+const _FALANDAYS_PARAM_KEYS = Set(fieldnames(FalandaysParams))
+const _DRIVE_PARAM_KEYS = Set{Symbol}((:membrane_noise, :noise_gain))
+
+function _is_falandays_node(node::Symbol)
+    try
+        return genome_type(node) === FalandaysParams
+    catch
+        return false
+    end
+end
+
+function _is_compartmental_node(node::Symbol)
+    try
+        T = genome_type(node)
+        return T isa Type && T <: AbstractCompartmental
+    catch
+        return false
+    end
+end
+
+function _take_falandays_params!(options::Dict{Symbol,Any})
+    has_updates = false
+    params = haskey(options, :params) ? _as_falandays_params(pop!(options, :params)) : FalandaysParams()
+    updates = Dict{Symbol,Any}()
+    for key in fieldnames(FalandaysParams)
+        if haskey(options, key)
+            updates[key] = pop!(options, key)
+            has_updates = true
+        end
+    end
+    return has_updates ? _falandays_params_with(params; updates...) : params
+end
+
+function _normalize_drive_options!(options::Dict{Symbol,Any})
+    has_drive_params = any(key -> haskey(options, key), _DRIVE_PARAM_KEYS)
+    has_drive = haskey(options, :drive)
+    (has_drive || has_drive_params) || return options
+
+    membrane_noise = haskey(options, :membrane_noise) ? Float64(pop!(options, :membrane_noise)) : 0.0
+    noise_gain = haskey(options, :noise_gain) ? Float64(pop!(options, :noise_gain)) : 0.0
+    drive = has_drive ? pop!(options, :drive) : :oosawa
+    options[:drive] = _resolve_drive_instance(drive; membrane_noise=membrane_noise, noise_gain=noise_gain)
+    return options
+end
+
+function _normalize_node_options!(node::Symbol, options::Dict{Symbol,Any})
+    if _is_falandays_node(node)
+        options[:params] = _take_falandays_params!(options)
+        _normalize_drive_options!(options)
+    elseif node == :sorn
+        # SORN accepts learn_on directly; leave it in place for freeze_plasticity.
+        _normalize_drive_options!(options)
+    end
+    return options
+end
+
+_ablation_symbol(::Nothing) = :none
+_ablation_symbol(name::Symbol) = name
+_ablation_symbol(name::AbstractString) = Symbol(name)
+_ablation_symbol(::Type{T}) where {T<:Intervention} = Symbol(nameof(T))
+_ablation_symbol(i::Intervention) = Symbol(nameof(typeof(i)))
+
+function _ablation_instance(ablation)
+    sym = _ablation_symbol(ablation)
+    sym === :none && return nothing
+    return _compartmental_intervention(resolve_ablation(sym))
+end
+
+function _is_swarm_task(task::Symbol, n_agents)
+    return task in (:torus, :swarm, :forage) || n_agents !== nothing
+end
+
+function _ablation_notes(sym::Symbol, node::Symbol, task::Symbol, is_swarm::Bool)
+    sym === :none && return String[]
+    notes = String[]
+    if sym === :freeze_plasticity
+        if _is_falandays_node(node) || node === :sorn
+            push!(notes, "freeze_plasticity applied: learn_on=false")
+        elseif _is_compartmental_node(node)
+            push!(notes, "freeze_plasticity no-op: compartmental nodes have no online plasticity")
+        else
+            push!(notes, "freeze_plasticity no-op for node :$(node)")
+        end
+    elseif sym === :zero_recurrent
+        if _is_falandays_node(node) || _is_compartmental_node(node)
+            push!(notes, "zero_recurrent applied: recurrent weights removed at build")
+        else
+            push!(notes, "zero_recurrent no-op for node :$(node)")
+        end
+    elseif sym === :clamp_target
+        if _is_falandays_node(node)
+            push!(notes, "clamp_target applied: lrate_targ=0")
+        else
+            push!(notes, "clamp_target no-op: target homeostasis is Falandays-specific")
+        end
+    elseif sym === :disable_vision
+        if is_swarm
+            push!(notes, "disable_vision applied: conspecific_vision=false")
+        else
+            push!(notes, "disable_vision no-op: task :$(task) is not a swarm task")
+        end
+    elseif sym in (:reset_dendrites, :no_soma_back, :no_hillock_back)
+        if _is_compartmental_node(node)
+            push!(notes, "$(sym) applied: compartmental intervention")
+        else
+            push!(notes, "$(sym) no-op: compartmental-specific ablation")
+        end
+    else
+        push!(notes, "ablation :$(sym) passed through registered intervention hooks")
+    end
+    return notes
+end
+
+function _prepare_ablation_options!(node::Symbol, task::Symbol, is_swarm::Bool, node_options::Dict{Symbol,Any}, swarm_options::Dict{Symbol,Any}, ablation)
+    sym = _ablation_symbol(ablation)
+    sym === :none && return sym
+    resolve_ablation(sym)
+
+    if sym === :freeze_plasticity
+        if _is_falandays_node(node)
+            node_options[:learn_on] = false
+        elseif node === :sorn
+            node_options[:learn_on] = false
+        end
+    elseif sym === :clamp_target
+        _is_falandays_node(node) && (node_options[:lrate_targ] = 0.0)
+    elseif sym === :disable_vision
+        is_swarm && (swarm_options[:conspecific_vision] = false)
+    elseif sym in (:zero_recurrent, :reset_dendrites, :no_soma_back, :no_hillock_back)
+        if _is_compartmental_node(node)
+            node_options[:ablation] = sym
+        end
+    end
+
+    return sym
+end
+
+function _apply_postbuild_ablation!(reservoir::Reservoir, sym::Symbol)
+    sym === :none && return reservoir
+    if sym === :zero_recurrent
+        (reservoir isa FalandaysReservoir || reservoir isa CompartmentalReservoir) &&
+            apply!(ZeroRecurrent(), reservoir)
+    elseif sym === :freeze_plasticity
+        reservoir isa FalandaysReservoir && apply!(FreezePlasticity(), reservoir)
+    elseif sym === :clamp_target
+        reservoir isa FalandaysReservoir && apply!(ClampTarget(), reservoir)
+    end
+    return reservoir
+end
+
 function _resolve_n_nodes!(node::Symbol, explicit_n_nodes, node_kwargs::Dict{Symbol,Any})
     node_kw_n = haskey(node_kwargs, :n_nodes) ? pop!(node_kwargs, :n_nodes) : nothing
     explicit_n_nodes !== nothing && return Int(explicit_n_nodes)
@@ -359,13 +509,16 @@ function _build_reservoir(
     n_effectors_::Integer;
     seed=0,
     node_kwargs=NamedTuple(),
+    ablation=:none,
 )
     options = _merge_kwdicts(node_kwargs)
+    _normalize_node_options!(node, options)
     options[:seed] = _sim_seed(seed)
     kwargs = _kwargs_tuple(options)
 
     try
-        return node_ctor(Int(n_nodes), Int(n_receptors_), Int(n_effectors_); kwargs...)
+        reservoir = node_ctor(Int(n_nodes), Int(n_receptors_), Int(n_effectors_); kwargs...)
+        return _apply_postbuild_ablation!(reservoir, Symbol(ablation))
     catch err
         msg = "Registered node :$(node) must accept (n_nodes, n_receptors, n_effectors; seed, kwargs...). Original error: $(sprint(showerror, err))"
         throw(ArgumentError(msg))
@@ -421,6 +574,7 @@ function _make_task_collective(
     node_kwargs=NamedTuple(),
     env_kwargs=NamedTuple(),
     body=:passthrough,
+    ablation=:none,
 )
     env_options = _kwargs_tuple(_merge_kwdicts(env_kwargs))
     env = make_env(task_spec; rng=_sim_rng(seed), env_options...)
@@ -434,6 +588,7 @@ function _make_task_collective(
         n_effectors(spec);
         seed=seed,
         node_kwargs=node_kwargs,
+        ablation=ablation,
     )
     agent = _make_agent(reservoir, _resolve_task_body(body), morphology)
     recorder = Recorder(enabled=record, every=every)
@@ -453,6 +608,7 @@ function _make_swarm_collective(
     swarm_kwargs=NamedTuple(),
     forage::Bool=false,
     body=:ven,
+    ablation=:none,
 )
     swarm_options = _merge_kwdicts(swarm_kwargs)
     swarm_options[:n_agents] = Int(n_agents)
@@ -474,6 +630,7 @@ function _make_swarm_collective(
             n_effectors(spec);
             seed=_sim_seed(seed, i - 1),
             node_kwargs=node_kwargs,
+            ablation=ablation,
         )
         agents[i] = _make_agent(reservoir, body, morphology)
     end
@@ -575,7 +732,17 @@ function _extract_swarm_environment_kwargs!(options::Dict{Symbol,Any}, swarm_kwa
     return out
 end
 
-function _simulation_config(c::Ensemble; ticks::Integer, seed, record, every::Integer, window::Integer, n_nodes::Integer)
+function _simulation_config(
+    c::Ensemble;
+    ticks::Integer,
+    seed,
+    record,
+    every::Integer,
+    window::Integer,
+    n_nodes::Integer,
+    ablation::Symbol=:none,
+    ablation_notes=(),
+)
     return (
         ticks=Int(ticks),
         seed=seed,
@@ -586,6 +753,8 @@ function _simulation_config(c::Ensemble; ticks::Integer, seed, record, every::In
         n_nodes=Int(n_nodes),
         environment=_environment_config(c.environment),
         network=_network_snapshot(c.agents[1].reservoir),
+        ablation=ablation,
+        ablation_notes=Tuple(ablation_notes),
     )
 end
 
@@ -594,23 +763,30 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
     record_channels = _record_symbols(record)
 
     n_agents = haskey(options, :n_agents) ? pop!(options, :n_agents) : nothing
-    explicit_n_nodes = haskey(options, :n_nodes) ? pop!(options, :n_nodes) : nothing
+    explicit_n_nodes =
+        haskey(options, :n_nodes) ? pop!(options, :n_nodes) :
+        haskey(options, :N) ? pop!(options, :N) :
+        nothing
     window_arg = haskey(options, :window) ? pop!(options, :window) : nothing
     env_kwargs = haskey(options, :env_kwargs) ? pop!(options, :env_kwargs) : NamedTuple()
     node_kwargs = haskey(options, :node_kwargs) ? pop!(options, :node_kwargs) : NamedTuple()
     body = haskey(options, :body) ? pop!(options, :body) : nothing
+    ablation_arg = haskey(options, :ablation) ? pop!(options, :ablation) : nothing
 
     swarm_kwargs =
         haskey(options, :swarm_kwargs) ? pop!(options, :swarm_kwargs) :
         haskey(options, :environment_kwargs) ? pop!(options, :environment_kwargs) :
         NamedTuple()
 
-    is_swarm = task in (:torus, :swarm, :forage) || n_agents !== nothing
+    is_swarm = _is_swarm_task(task, n_agents)
     if is_swarm
         swarm_kwargs = _extract_swarm_environment_kwargs!(options, swarm_kwargs)
     end
 
     node_kwargs = _merge_kwdicts(node_kwargs, options)
+    swarm_options = _merge_kwdicts(swarm_kwargs)
+    ablation_sym = _prepare_ablation_options!(node, task, is_swarm, node_kwargs, swarm_options, ablation_arg)
+    ablation_notes = _ablation_notes(ablation_sym, node, task, is_swarm)
     n_nodes = _resolve_n_nodes!(node, explicit_n_nodes, node_kwargs)
 
     node_ctor = resolve_node(node)
@@ -627,9 +803,10 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
             n_agents=n_agents_,
             n_nodes=n_nodes,
             node_kwargs=node_kwargs,
-            swarm_kwargs=swarm_kwargs,
+            swarm_kwargs=swarm_options,
             forage=forage,
             body=body === nothing ? :ven : body,
+            ablation=ablation_sym,
         )
         tick_count = ticks === nothing ? 1000 : Int(ticks)
         window = window_arg === nothing ? tick_count : Int(window_arg)
@@ -645,6 +822,8 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
             every=Int(every),
             seed=seed,
             n_nodes=n_nodes,
+            ablation=ablation_sym,
+            ablation_notes=Tuple(ablation_notes),
         )
     end
 
@@ -662,6 +841,7 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
         node_kwargs=node_kwargs,
         env_kwargs=env_kwargs,
         body=body === nothing ? :passthrough : body,
+        ablation=ablation_sym,
     )
     tick_count = ticks === nothing ? task_spec.default_ticks : Int(ticks)
     window = window_arg === nothing ? min(tick_count, task_spec.default_window) : Int(window_arg)
@@ -677,6 +857,8 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
         every=Int(every),
         seed=seed,
         n_nodes=n_nodes,
+        ablation=ablation_sym,
+        ablation_notes=Tuple(ablation_notes),
     )
 end
 
@@ -698,6 +880,8 @@ function simulate(task::Symbol; node=:falandays, ticks=nothing, seed=0, record=_
         every=setup.every,
         window=setup.window,
         n_nodes=setup.n_nodes,
+        ablation=setup.ablation,
+        ablation_notes=setup.ablation_notes,
     )
     return SimResult(setup.recorder, result_metrics, setup.task, setup.node, config)
 end

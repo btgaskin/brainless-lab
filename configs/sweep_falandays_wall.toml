@@ -1,0 +1,37 @@
+# Copyable perturbation sweep for the Falandays wall task.
+# Run with:
+#   julia --project=. sweep/run.jl configs/sweep_falandays_wall.toml
+
+[sweep]
+id = "falandays_wall_perturb"
+# one_at_a_time varies one axis at a time with all other axes held at baseline.
+# This costs sum(axis lengths), not the cartesian product. Use "factorial" only
+# when you explicitly want every combination.
+mode = "one_at_a_time"
+# Explicit seed offsets. Each cell runs seed_base + every value listed here.
+seeds = [0, 1, 2, 3]
+max_cells = 200
+
+[baseline]
+node = "falandays_base"
+task = "wall"
+N = 100
+ticks = 2000
+window = 2000
+
+[axes]
+# Falandays node parameters route through node_kwargs -> FalandaysParams.
+"node.threshold_mult" = [1.5, 1.75, 2.0, 2.25, 2.5]
+"node.lrate_targ"     = [0.0, 0.005, 0.01, 0.02]
+
+# Environment and drive namespaces route to simulate/rollout kwargs.
+"env.lam"             = [0.5, 1.0, 2.0]
+"drive.noise_gain"    = [0.0, 0.4, 0.8]
+
+# "none" is the unablated baseline. Other values must be registered ablations.
+"ablation"            = ["none", "freeze_plasticity", "zero_recurrent", "clamp_target"]
+
+[analytics]
+# sigma_mr and spectral_radius are reported together because homeostatic rate
+# control can partly pin sigma while rho(W) still moves.
+measures = ["sigma_mr", "spectral_radius", "liveness"]

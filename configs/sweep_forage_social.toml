@@ -1,0 +1,28 @@
+# Copyable social-vision perturbation sweep for the forage swarm task.
+# Run with:
+#   julia --project=. sweep/run.jl configs/sweep_forage_social.toml
+
+[sweep]
+id = "forage_social_vision"
+mode = "one_at_a_time"
+seeds = [0, 1, 2, 3]
+max_cells = 200
+
+[baseline]
+node = "falandays_base"
+task = "forage"
+N = 80
+n_agents = 6
+ticks = 1000
+window = 1000
+
+[axes]
+# Swarm/environment parameters use the env.* namespace.
+"env.vision_range" = [2.0, 4.0, 8.0]
+"env.source_gain"  = [0.5, 1.0, 2.0]
+
+# disable_vision sets conspecific_vision=false, leaving the source bank intact.
+"ablation" = ["none", "disable_vision"]
+
+[analytics]
+measures = ["sigma_mr", "spectral_radius", "liveness", "regime"]

@@ -213,3 +213,10 @@ Resolve a registered ablation symbol to its constructor, function, or concrete
 type.
 """
 resolve_ablation(sym::Symbol)::Any = _resolve(ABLATIONS, "ablation", sym)
+
+"""
+    ablations()
+
+Return registered ablation symbols.
+"""
+ablations() = sort!(collect(keys(ABLATIONS)))
