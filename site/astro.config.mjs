@@ -90,6 +90,7 @@ export default defineConfig({
         {
           label: 'Papers',
           items: [
+            { label: 'Overview', slug: 'notes/papers-overview' },
             { label: 'Dynamical criticality: overview (Roli et al. 2016)', slug: 'notes/dynamical-criticality-overview' },
             { label: '25 years of self-organized criticality (Watkins et al. 2016)', slug: 'notes/soc-concepts-controversies' },
             { label: 'Criticality in living systems — review (Muñoz 2018)', slug: 'notes/criticality-living-systems-review' },
