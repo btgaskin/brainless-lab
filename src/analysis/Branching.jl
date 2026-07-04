@@ -122,6 +122,31 @@ function _branching_mr_from_rates(pop::AbstractVector{<:Real}; kmax::Integer, tr
     return (m_mr=isfinite(slope) ? exp(slope) : NaN, r_k=r_k, kmax=kmax)
 end
 
+function _branching_mr_fit_quality(r_k::AbstractVector{<:Real})
+    fit_lags = [k for k in eachindex(r_k) if isfinite(Float64(r_k[k])) && Float64(r_k[k]) > 0.0]
+    n_used = length(fit_lags)
+    n_used >= 2 || return (m_mr=NaN, r2=NaN, n_used=n_used)
+
+    xs = Float64.(fit_lags)
+    ys = log.(@view r_k[fit_lags])
+    slope = _intercept_corrected_slope(xs, ys)
+    isfinite(slope) || return (m_mr=NaN, r2=NaN, n_used=n_used)
+
+    mx = _series_mean(xs)
+    my = _series_mean(ys)
+    intercept = my - slope * mx
+    ss_res = 0.0
+    ss_tot = 0.0
+    @inbounds for i in eachindex(xs, ys)
+        yhat = intercept + slope * xs[i]
+        dy = ys[i] - my
+        ss_res += (ys[i] - yhat) * (ys[i] - yhat)
+        ss_tot += dy * dy
+    end
+    r2 = ss_tot > 0.0 ? 1.0 - ss_res / ss_tot : 1.0
+    return (m_mr=exp(slope), r2=r2, n_used=n_used)
+end
+
 function _branching_mr_level_summary(level::Symbol, rates::AbstractMatrix{<:Real}, per_agent, kmax::Integer, transient::Integer)
     m_values = [res.m_mr for res in per_agent]
     return (;
@@ -159,7 +184,7 @@ through-origin least-squares `sigma`, the intercept-corrected single-lag
 compatibility and existing visualizations; under subsampling it is biased.
 Prefer `branching_ratio_mr` for a subsampling-robust estimate of m.
 """
-function branching_ratio(sim::SimResult; level::Symbol=:pooled, turn_threshold::Real=DEFAULT_TURN_THRESHOLD)
+function branching_ratio(sim::SimResult; level::Symbol=:pooled, turn_threshold=DEFAULT_TURN_THRESHOLD, observable=nothing, event_kind::Symbol=:turn, threshold=nothing, neighbor_radius=nothing)
     level = _analysis_level(level, :branching_ratio)
     if level == :pooled
         pop = _analysis_population_rate_series(sim, :branching_ratio)
@@ -171,8 +196,16 @@ function branching_ratio(sim::SimResult; level::Symbol=:pooled, turn_threshold::
         return _branching_level_summary(:node, rates, per_agent)
     end
 
-    events = _analysis_agent_activity_matrix(sim, :branching_ratio; turn_threshold=turn_threshold)
-    pop = _analysis_row_sums(events)
+    activity = _analysis_agent_activity(
+        sim,
+        :branching_ratio;
+        turn_threshold=turn_threshold,
+        observable=observable,
+        event_kind=event_kind,
+        threshold=threshold,
+        neighbor_radius=neighbor_radius,
+    )
+    pop = _analysis_row_sums(activity.events)
     res = _branching_from_rates(pop)
     return (;
         level=:agent,
@@ -181,9 +214,13 @@ function branching_ratio(sim::SimResult; level::Symbol=:pooled, turn_threshold::
         sigma_ols=res.sigma_ols,
         population_rate=pop,
         agent_activity=pop,
-        agent_events=events,
-        n_agents=size(events, 2),
-        turn_threshold=Float64(turn_threshold),
+        agent_events=activity.events,
+        agent_magnitudes=activity.magnitudes,
+        n_agents=size(activity.events, 2),
+        turn_threshold=activity.threshold,
+        observable_kind=activity.spec.kind,
+        observable_id=activity.spec.id,
+        neighbor_radius=activity.spec.neighbor_radius,
     )
 end
 
@@ -199,7 +236,7 @@ the intercept-corrected lag slopes `r_k` for `k = 1:kmax` and fits
 per-agent MR estimates across reservoirs. `level=:agent` uses the same
 turn-event count as `branching_ratio`.
 """
-function branching_ratio_mr(sim::SimResult; kmax::Integer=20, transient::Integer=0, level::Symbol=:pooled, turn_threshold::Real=DEFAULT_TURN_THRESHOLD)
+function branching_ratio_mr(sim::SimResult; kmax::Integer=20, transient::Integer=0, level::Symbol=:pooled, turn_threshold=DEFAULT_TURN_THRESHOLD, observable=nothing, event_kind::Symbol=:turn, threshold=nothing, neighbor_radius=nothing)
     kmax = Int(kmax)
     transient = Int(transient)
     level = _analysis_level(level, :branching_ratio_mr)
@@ -218,8 +255,191 @@ function branching_ratio_mr(sim::SimResult; kmax::Integer=20, transient::Integer
         return _branching_mr_level_summary(:node, rates, per_agent, kmax, transient)
     end
 
-    events = _analysis_agent_activity_matrix(sim, :branching_ratio_mr; turn_threshold=turn_threshold)
-    pop = _analysis_row_sums(events)
+    activity = _analysis_agent_activity(
+        sim,
+        :branching_ratio_mr;
+        turn_threshold=turn_threshold,
+        observable=observable,
+        event_kind=event_kind,
+        threshold=threshold,
+        neighbor_radius=neighbor_radius,
+    )
+    pop = _analysis_row_sums(activity.events)
     res = _branching_mr_from_rates(pop; kmax=kmax, transient=transient)
-    return (; level=:agent, res..., population_rate=pop, agent_activity=pop, agent_events=events, n_agents=size(events, 2), transient=transient, turn_threshold=Float64(turn_threshold))
+    return (;
+        level=:agent,
+        res...,
+        population_rate=pop,
+        agent_activity=pop,
+        agent_events=activity.events,
+        agent_magnitudes=activity.magnitudes,
+        n_agents=size(activity.events, 2),
+        transient=transient,
+        turn_threshold=activity.threshold,
+        observable_kind=activity.spec.kind,
+        observable_id=activity.spec.id,
+        neighbor_radius=activity.spec.neighbor_radius,
+    )
+end
+
+function _branching_validate_window(level::Symbol, window::Integer, stride::Integer, kmax::Integer)
+    kmax >= 2 || throw(ArgumentError("branching_ratio_mr_windowed needs kmax >= 2"))
+    stride >= 1 || throw(ArgumentError("branching_ratio_mr_windowed needs stride >= 1"))
+    window > kmax + 2 || throw(ArgumentError("branching_ratio_mr_windowed needs window > kmax + 2"))
+    min_window = level === :agent ? 6 * kmax : 5 * kmax
+    window >= min_window ||
+        throw(ArgumentError("branching_ratio_mr_windowed needs window >= $(min_window) for level=:$(level) and kmax=$(kmax)"))
+    return nothing
+end
+
+function _branching_window_starts(n::Integer, window::Integer, stride::Integer)
+    n >= window || return Int[]
+    return collect(1:stride:(n - window + 1))
+end
+
+function _analysis_residualize_series(values::AbstractVector{<:Real}, drive::AbstractVector{<:Real})
+    n = min(length(values), length(drive))
+    n >= 2 || return Float64.(values)
+
+    y = Float64.(values)
+    x = Float64.(drive[1:n])
+    mx = _series_mean(x)
+    my = _series_mean(@view y[1:n])
+    cov_xy = 0.0
+    var_x = 0.0
+    @inbounds for i in 1:n
+        dx = x[i] - mx
+        cov_xy += dx * (y[i] - my)
+        var_x += dx * dx
+    end
+    var_x > 0.0 || return y
+
+    slope = cov_xy / var_x
+    intercept = my - slope * mx
+    @inbounds for i in 1:n
+        y[i] = y[i] - (intercept + slope * x[i]) + my
+    end
+    return y
+end
+
+function _branching_drive_series(sim::SimResult, drive)
+    drive === nothing && return nothing
+    if drive === :distance_to_source || drive === :distance || drive == "distance_to_source" || drive == "distance"
+        return distance_to_source(sim)
+    end
+    drive isa AbstractVector{<:Real} && return drive
+    throw(ArgumentError("branching_ratio_mr_windowed drive must be nothing, :distance_to_source, or a numeric vector"))
+end
+
+function _branching_windowed_vector(pop::AbstractVector{<:Real}; window::Integer, stride::Integer, kmax::Integer, min_r2::Real)
+    starts = _branching_window_starts(length(pop), window, stride)
+    n_windows = length(starts)
+    centers = Vector{Float64}(undef, n_windows)
+    m_series = Vector{Float64}(undef, n_windows)
+    r2_series = Vector{Float64}(undef, n_windows)
+    n_used_series = Vector{Int}(undef, n_windows)
+
+    @inbounds for idx in eachindex(starts)
+        start = starts[idx]
+        stop = start + window - 1
+        centers[idx] = start + 0.5 * (window - 1)
+        res = _branching_mr_from_rates(@view(pop[start:stop]); kmax=kmax, transient=0)
+        fit = _branching_mr_fit_quality(res.r_k)
+        n_used_series[idx] = fit.n_used
+        r2_series[idx] = fit.r2
+        m_series[idx] = fit.n_used >= 2 && isfinite(fit.r2) && fit.r2 >= Float64(min_r2) ? fit.m_mr : NaN
+    end
+    return centers, m_series, r2_series, n_used_series
+end
+
+function _branching_windowed_matrix(rates::AbstractMatrix{<:Real}; window::Integer, stride::Integer, kmax::Integer, min_r2::Real)
+    starts = _branching_window_starts(size(rates, 1), window, stride)
+    n_windows = length(starts)
+    centers = Vector{Float64}(undef, n_windows)
+    m_series = Vector{Float64}(undef, n_windows)
+    r2_series = Vector{Float64}(undef, n_windows)
+    n_used_series = Vector{Int}(undef, n_windows)
+
+    @inbounds for idx in eachindex(starts)
+        start = starts[idx]
+        stop = start + window - 1
+        centers[idx] = start + 0.5 * (window - 1)
+        ms = Float64[]
+        r2s = Float64[]
+        n_total = 0
+        for agent in axes(rates, 2)
+            res = _branching_mr_from_rates(@view(rates[start:stop, agent]); kmax=kmax, transient=0)
+            fit = _branching_mr_fit_quality(res.r_k)
+            n_total += fit.n_used
+            if fit.n_used >= 2 && isfinite(fit.r2) && fit.r2 >= Float64(min_r2) && isfinite(fit.m_mr)
+                push!(ms, fit.m_mr)
+                push!(r2s, fit.r2)
+            end
+        end
+        n_used_series[idx] = n_total
+        r2_series[idx] = _analysis_finite_mean(r2s)
+        m_series[idx] = _analysis_finite_mean(ms)
+    end
+    return centers, m_series, r2_series, n_used_series
+end
+
+"""
+    branching_ratio_mr_windowed(sim; level=:pooled, window, stride=window, kmax=20,
+        observable=nothing, drive=nothing, min_r2=0.0)
+
+Compute sliding-window Wilting-Priesemann MR branching estimates. Returns
+`(t_centers, m_series, r2_series, n_used_series)`. At `level=:agent`,
+`observable` may specify `kind=:turn|:speed|:align|:graded`, `threshold`, and
+`neighbor_radius`; the threshold is resolved once over the full run and reused
+inside every window.
+"""
+function branching_ratio_mr_windowed(
+    sim::SimResult;
+    level::Symbol=:pooled,
+    window::Integer,
+    stride::Integer=window,
+    kmax::Integer=20,
+    observable=nothing,
+    turn_threshold=DEFAULT_TURN_THRESHOLD,
+    event_kind::Symbol=:turn,
+    threshold=nothing,
+    neighbor_radius=nothing,
+    drive=nothing,
+    min_r2::Real=0.0,
+)
+    level = _analysis_level(level, :branching_ratio_mr_windowed)
+    window = Int(window)
+    stride = Int(stride)
+    kmax = Int(kmax)
+    _branching_validate_window(level, window, stride, kmax)
+    driver = _branching_drive_series(sim, drive)
+
+    if level === :pooled
+        pop = _analysis_population_rate_series(sim, :branching_ratio_mr_windowed)
+        driver === nothing || (pop = _analysis_residualize_series(pop, driver))
+        return _branching_windowed_vector(pop; window=window, stride=stride, kmax=kmax, min_r2=min_r2)
+    elseif level === :node
+        rates = _analysis_node_rate_matrix(sim, :branching_ratio_mr_windowed)
+        if driver !== nothing
+            adjusted = Matrix{Float64}(undef, size(rates)...)
+            @inbounds for i in axes(rates, 2)
+                adjusted[:, i] .= _analysis_residualize_series(@view(rates[:, i]), driver)
+            end
+            rates = adjusted
+        end
+        return _branching_windowed_matrix(rates; window=window, stride=stride, kmax=kmax, min_r2=min_r2)
+    end
+
+    activity = _analysis_agent_activity(
+        sim,
+        :branching_ratio_mr_windowed;
+        turn_threshold=turn_threshold,
+        observable=observable,
+        event_kind=event_kind,
+        threshold=threshold,
+        neighbor_radius=neighbor_radius,
+    )
+    pop = _analysis_row_sums(activity.events)
+    driver === nothing || (pop = _analysis_residualize_series(pop, driver))
+    return _branching_windowed_vector(pop; window=window, stride=stride, kmax=kmax, min_r2=min_r2)
 end

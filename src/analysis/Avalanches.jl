@@ -19,6 +19,24 @@ function _median_positive(values::AbstractVector{<:Real})
     return isodd(n) ? positives[mid] : 0.5 * (positives[mid] + positives[mid + 1])
 end
 
+function _quantile_positive(values::AbstractVector{<:Real}, q::Real)
+    q_ = Float64(q)
+    0.0 <= q_ <= 1.0 || throw(ArgumentError("positive quantile q must be in [0, 1]"))
+
+    positives = Float64[x for x in values if isfinite(Float64(x)) && Float64(x) > 0.0]
+    isempty(positives) && return 0.0
+
+    sort!(positives)
+    n = length(positives)
+    n == 1 && return positives[1]
+
+    pos = 1.0 + (n - 1) * q_
+    lo = floor(Int, pos)
+    hi = ceil(Int, pos)
+    lo == hi && return positives[lo]
+    return positives[lo] + (pos - lo) * (positives[hi] - positives[lo])
+end
+
 function _avalanche_runs(activity::AbstractVector{<:Real}, threshold::Real)
     sizes = Float64[]
     durations = Int[]
@@ -187,7 +205,7 @@ xmin = the smallest positive observed size/duration. `gamma_fit` is the slope of
 crackling-noise scaling prediction. These fits need long runs and adequate
 avalanche counts; tiny samples return `NaN` exponents.
 """
-function avalanches(sim::SimResult; threshold=nothing, level::Symbol=:pooled, turn_threshold::Real=DEFAULT_TURN_THRESHOLD)
+function avalanches(sim::SimResult; threshold=nothing, level::Symbol=:pooled, turn_threshold=DEFAULT_TURN_THRESHOLD, observable=nothing, event_kind::Symbol=:turn, neighbor_radius=nothing)
     level = _analysis_level(level, :avalanches)
     if level == :pooled
         return _avalanches_from_activity(_analysis_population_count_series(sim, :avalanches), threshold)
@@ -197,8 +215,26 @@ function avalanches(sim::SimResult; threshold=nothing, level::Symbol=:pooled, tu
         return _avalanches_level_summary(counts, per_agent)
     end
 
-    events = _analysis_agent_activity_matrix(sim, :avalanches; turn_threshold=turn_threshold)
-    activity = _analysis_row_sums(events)
+    observable_activity = _analysis_agent_activity(
+        sim,
+        :avalanches;
+        turn_threshold=turn_threshold,
+        observable=observable,
+        event_kind=event_kind,
+        neighbor_radius=neighbor_radius,
+    )
+    activity = _analysis_row_sums(observable_activity.events)
     res = _avalanches_from_activity(activity, threshold)
-    return (; level=:agent, res..., activity=activity, agent_events=events, n_agents=size(events, 2), turn_threshold=Float64(turn_threshold))
+    return (;
+        level=:agent,
+        res...,
+        activity=activity,
+        agent_events=observable_activity.events,
+        agent_magnitudes=observable_activity.magnitudes,
+        n_agents=size(observable_activity.events, 2),
+        turn_threshold=observable_activity.threshold,
+        observable_kind=observable_activity.spec.kind,
+        observable_id=observable_activity.spec.id,
+        neighbor_radius=observable_activity.spec.neighbor_radius,
+    )
 end
