@@ -43,7 +43,7 @@ export default defineConfig({
       ],
       customCss: ['./src/styles/tailwind.css', 'katex/dist/katex.min.css', './src/styles/theme.css'],
       social: {
-        github: 'https://github.com/OWNER/brainless-lab',
+        github: 'https://github.com/btgaskin/brainless-lab',
       },
       sidebar: [
         { label: 'Introduction', slug: 'introduction' },

@@ -1,0 +1,93 @@
+---
+title: Cognition all the way down 2.0
+description: Chis-Ciure & Levin (2025) — a summary of biological intelligence formalized as search efficiency in multi-scale problem spaces, and the scalar metric K.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Cognition all the way down 2.0: neuroscience beyond
+neurons in the diverse intelligence era* — Robert Chis-Ciure & Michael Levin,
+*Synthese* (2025) **206**:257. [doi:10.1007/s11229-025-05319-6](https://doi.org/10.1007/s11229-025-05319-6).
+:::
+
+## The problem it addresses
+
+The **basal cognition** debate (a strand of the Diverse Intelligence program) is stuck on a
+definitional deadlock: proponents ascribe "learning", "memory", and "decision-making" to cells,
+tissues, and molecular networks; skeptics charge that these are metaphorical dilutions of concepts
+whose semantics were fixed for brains. Chis-Ciure & Levin try to dissolve the deadlock by replacing
+the umbrella concept "cognition" with a single, substrate-agnostic, **measurable** quantity:
+**how efficiently a system searches its problem space** relative to blind chance.
+
+## A lexicon for problem spaces
+
+They extend Newell & Simon's (1972) symbolic problem-solving into a scale-agnostic quintuple:
+
+$$
+P = \langle S, O, C, E, H\rangle
+$$
+
+- **$S$** — physically realisable **states** (incl. initial $S_{\text{init}}$ and goal $S_{\text{goal}}$).
+- **$O$** — **operators**, elementary transitions $o : S \to S$, each costed by a weight $w : O \to \mathbb{R}_{\ge 0}$ (in physical units — Joules, ATP).
+- **$C$** — **constraints**, forbidden state–operator pairs (the nomologically possible paths).
+- **$E$** — an **evaluation** functional $S \to \mathbb{R}$ (a fitness proxy; in a variational reading, free energy).
+- **$H$** — the **horizon**, the forward look-ahead depth (set by intrinsic timescales / delay lines).
+
+Constraints, evaluation, and horizon are promoted to first-class elements because biological agents
+**modulate them directly** — relaxing a constraint or re-tiling the landscape is itself a fingerprint
+of intelligence, not just navigation within a fixed space.
+
+## Intelligence as search efficiency
+
+Intelligence (in William James's sense — a fixed goal reached by variable means) is operationalised as
+a scalar. Let $\tau_{\text{blind}}$ be the expected cost of a **maximal-entropy random walk** on the
+admissible graph to reach a goal, and $\tau_{\text{agent}}$ the cost under the agent's policy. Then:
+
+$$
+K = \log_{10}\!\left(\frac{\tau_{\text{blind}}}{\tau_{\text{agent}}}\right)
+$$
+
+$K$ counts **orders of magnitude of dissipative work saved** relative to chance. $K=0$ is chance;
+$K=n$ is $10^{n}$-fold more efficient. Because both numerator and denominator scale with the
+combinatorial size of $P$, $K$ is **scale-invariant** and **normalised for task difficulty**; it is
+in **physical work units**, and it is **additive** across conditionally independent sub-problems
+($K_{\text{total}} = \sum_j K_j$), hence compositional across nested scales. Crucially, $K$ is only as
+good as its null model — an unfairly handicapped $\tau_{\text{blind}}$ inflates it — so the random walk
+must run in the *exact same* $P$.
+
+## Two worked estimates
+
+| System | Problem space | $K$ | Reading |
+| --- | --- | --- | --- |
+| *Dictyostelium* chemotaxis | cortical-patch occupancy under a cAMP gradient | $\approx 2.2$ | ~150–200× faster than a random walk (≈7 bits of path-information) |
+| Planarian head regeneration (BaCl₂) | ~2,700-gene expression manifold | $\approx 21$ | finds a ~10-gene resistance solution in 37 days vs an astronomical blind search ($10^{21}$×) |
+
+Both are computed against **deliberately conservative** (intelligence-underestimating) null models, so
+they are lower bounds. Even "simple" organisms prune combinatorial explosions by hundreds- to
+sextillion-fold.
+
+## The claim
+
+The "mark of the cognitive" is best sought not in neurons but in the **measurable efficiency** with
+which living systems traverse energy and information gradients to tame combinatorial explosions —
+"one problem space at a time." The additive decomposition of $K$ across nested scales pinpoints
+*where* and *by how much* intelligence condenses, rendering the "obvious" superiority over chance
+measurable and therefore refutable. The account connects downstream to the Free Energy Principle
+(with $E$ as variational free energy and optimal trajectories as least-action flows) and to
+algorithmic-complexity / minimum-description-length notions of efficient computation.
+
+:::tip[Why it's collected here]
+Two ideas resonate with this lab's design at the conceptual level (not the specifics of any one task):
+the **multi-scale competency** picture — nested agents each searching their own space — is the same
+"reservoir within an ensemble" nesting the harness is built around; and the insistence that an
+efficiency claim is **only as good as its explicit null model** is exactly the discipline the
+circular-shift and surrogate null tests enforce on the empirical side.
+:::
+
+---
+
+### References
+
+Chis-Ciure & Levin (2025), *Synthese* **206**:257 · Newell & Simon (1972), *Human Problem Solving* ·
+Fields & Levin (2022), *Entropy* **24**, 819 · Lyon (2020), *Adaptive Behavior* **28**, 407 ·
+Friston (2010), *Nat. Rev. Neurosci.* **11**, 127 · Emmons-Bell et al. (2019), *iScience* **22**, 147 ·
+Levin (2022), *Front. Syst. Neurosci.* **16**, 768201.

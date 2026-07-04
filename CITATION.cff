@@ -20,6 +20,8 @@ authors:
 version: 0.0.1
 date-released: "2026-07-04"
 license: MIT
+repository-code: "https://github.com/btgaskin/brainless-lab"
+url: "https://brainless-lab.pages.dev"
 keywords:
   - reservoir computing
   - homeostatic plasticity
