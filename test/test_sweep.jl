@@ -88,7 +88,7 @@ end
     @test all(row -> isfinite(parse(Float64, row["score_mean"])), rows)
     @test all(row -> isfinite(parse(Float64, row["liveness_mean"])), rows)
     @test all(row -> isfile(joinpath(row["result_path"], "metrics.csv")), rows)
-    @test all(row -> isfile(joinpath(row["result_path"], "representative.gif")), rows)
+    @test all(row -> !isfile(joinpath(row["result_path"], "representative.gif")), rows)
 
     blocked = _sweep_test_config(joinpath(dir, "blocked.toml"); max_cells=1)
     err_blocked = try
@@ -184,6 +184,111 @@ end
     forage_out = run_sweep(forage_sweep; root=joinpath(dir, "forage-out"), force=true)
     @test length(forage_out.cells) == 1
     @test isfile(forage_out.results)
+end
+
+function _write_criticality_sweep(path; id=splitext(basename(path))[1], group="sample", timeseries=true, n_shifts=2, gif=false, source_values="[1.0, 2.0]")
+    open(path, "w") do io
+        println(io, "[sweep]")
+        println(io, "id = \"", id, "\"")
+        println(io, "mode = \"one_at_a_time\"")
+        println(io, "seeds = [0]")
+        println(io, "max_cells = 20")
+        println(io)
+        println(io, "[baseline]")
+        println(io, "node = \"falandays_base\"")
+        println(io, "task = \"forage\"")
+        println(io, "N = 10")
+        println(io, "n_agents = 4")
+        println(io, "ticks = 72")
+        println(io, "window = 72")
+        println(io, "\"env.vision_range\" = 15.0")
+        println(io, "\"env.sensory_noise\" = 0.0")
+        println(io)
+        println(io, "[axes]")
+        println(io, "\"env.source_gain\" = ", source_values)
+        println(io, "\"env.conspecific_vision\" = [true, false]")
+        println(io)
+        println(io, "[analytics]")
+        println(io, "measures = [\"sigma_mr_node\", \"sigma_mr_agent\", \"dist_to_source\", \"susceptibility_node\", \"susceptibility_agent\", \"correlation_length\", \"contact_clusters\", \"spectral_radius\", \"liveness\"]")
+        println(io)
+        println(io, "[capture]")
+        println(io, "group = \"", group, "\"")
+        println(io, "timeseries = ", timeseries)
+        println(io, "gif = ", gif)
+        println(io, "window = 24")
+        println(io, "stride = 12")
+        println(io, "n_shifts = ", n_shifts)
+        println(io, "seed = 123")
+        println(io)
+        println(io, "[capture.groups.sample]")
+        println(io, "\"env.source_gain\" = 1.0")
+        println(io)
+        println(io, "[[ensemble]]")
+        println(io, "kind = \"turn\"")
+        println(io, "threshold = { quantile = 0.85 }")
+        println(io, "[[ensemble]]")
+        println(io, "kind = \"align\"")
+        println(io, "threshold = { quantile = 0.85 }")
+        println(io, "neighbor_radius = \"vision_range\"")
+        println(io, "[[ensemble]]")
+        println(io, "kind = \"speed\"")
+        println(io, "threshold = { quantile = 0.85 }")
+        println(io, "[[ensemble]]")
+        println(io, "kind = \"graded\"")
+    end
+    return path
+end
+
+@testset "Forage criticality sweep capture" begin
+    dir = mktempdir()
+    config = _write_criticality_sweep(joinpath(dir, "criticality.toml"))
+    out = run_sweep(config; root=joinpath(dir, "out"), force=true)
+    header = _csv_header(out.results)
+    for col in (
+        "sigma_mr_node_mean",
+        "dist_to_source_mean",
+        "sigma_mr_agent__turn_q85_mean",
+        "sigma_mr_agent__align_q85_mean",
+        "sigma_mr_agent__speed_q85_mean",
+        "sigma_mr_agent__graded_mean",
+        "susceptibility_node_mean",
+        "susceptibility_agent_mean",
+        "correlation_length_mean",
+        "cluster_largest_component_frac_mean",
+    )
+        @test col in header
+    end
+
+    captured = [cell for cell in out.cells if cell["captured"]]
+    uncaptured = [cell for cell in out.cells if !cell["captured"]]
+    @test length(captured) == 1
+    @test !isempty(uncaptured)
+    captured_dir = captured[1]["result_path"]
+    @test isfile(joinpath(captured_dir, "criticality_timeseries.csv"))
+    @test isfile(joinpath(captured_dir, "null_test.csv"))
+    ts_header = _csv_header(joinpath(captured_dir, "criticality_timeseries.csv"))
+    @test "m_agent__graded" in ts_header
+    @test "cluster_largest_component_frac" in ts_header
+    @test length(readlines(joinpath(captured_dir, "criticality_timeseries.csv"))) > 2
+    null_rows = _csv_rows(joinpath(captured_dir, "null_test.csv"))
+    @test any(row -> row["measure"] == "susceptibility_agent", null_rows)
+    @test any(row -> row["measure"] == "sigma_mr_agent__graded", null_rows)
+    @test all(cell -> isfile(joinpath(cell["result_path"], "metrics.csv")), uncaptured)
+    @test all(cell -> !isfile(joinpath(cell["result_path"], "criticality_timeseries.csv")), uncaptured)
+
+    resumed = run_sweep(config; root=joinpath(dir, "out"), force=true)
+    resumed_rows = _csv_rows(resumed.results)
+    @test all(row -> isfinite(parse(Float64, row["dist_to_source_mean"])), resumed_rows)
+    @test all(row -> isfinite(parse(Float64, row["susceptibility_agent_mean"])), resumed_rows)
+    @test all(row -> isfinite(parse(Float64, row["cluster_largest_component_frac_mean"])), resumed_rows)
+
+    all_config = _write_criticality_sweep(joinpath(dir, "criticality-all.toml"); id="criticality-all", group="all", n_shifts=0, source_values="[1.0]")
+    all_out = run_sweep(all_config; root=joinpath(dir, "all-out"), force=true)
+    @test all(cell -> isfile(joinpath(cell["result_path"], "criticality_timeseries.csv")), all_out.cells)
+
+    none_config = _write_criticality_sweep(joinpath(dir, "criticality-none.toml"); id="criticality-none", group="none", n_shifts=0, source_values="[1.0]")
+    none_out = run_sweep(none_config; root=joinpath(dir, "none-out"), force=true)
+    @test all(cell -> !isfile(joinpath(cell["result_path"], "criticality_timeseries.csv")), none_out.cells)
 end
 
 @testset "Ablate shortcut" begin
