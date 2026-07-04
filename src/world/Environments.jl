@@ -48,6 +48,9 @@ Base.@kwdef struct SwarmConfig
     conspecific_vision::Bool = true
     source_position::Union{Nothing,NTuple{2,Float64}} = nothing
     source_gain::Float64 = 1.0
+    signalling::Bool = false
+    signal_range::Float64 = 3.0
+    signal_gain::Float64 = 1.0
     capture_radius::Float64 = 1.0
     ven::VENParams = VENParams()
     node_params::Any = nothing
@@ -78,6 +81,7 @@ mutable struct ForageEnvironment{R<:AbstractRNG} <: AbstractTorusEnvironment
     config::SwarmConfig
     source_position::NTuple{2,Float64}
     bodies::Vector{VENBody}
+    last_signal::Vector{Float64}
     visual_coupling::Bool
     physical_coupling::Bool
     sensory_noise::Float64
@@ -123,6 +127,7 @@ function _configure_ven_bodies!(bodies::Vector{VENBody}, config::SwarmConfig; so
         body.sensory_scaling = Bool(config.sensory_scaling)
         body.source_bank = Bool(source_bank)
         body.source_gain = Float64(config.source_gain)
+        body.signalling = Bool(source_bank) && Bool(config.signalling)
     end
     return bodies
 end
@@ -143,6 +148,12 @@ function _validate_forage_config(config::SwarmConfig)
         throw(ArgumentError("source_gain must be finite and non-negative"))
     isfinite(config.capture_radius) && config.capture_radius >= 0.0 ||
         throw(ArgumentError("capture_radius must be finite and non-negative"))
+    if config.signalling
+        isfinite(config.signal_range) && config.signal_range > 0.0 ||
+            throw(ArgumentError("signal_range must be finite and positive when signalling is enabled"))
+        isfinite(config.signal_gain) && config.signal_gain >= 0.0 ||
+            throw(ArgumentError("signal_gain must be finite and non-negative when signalling is enabled"))
+    end
     return nothing
 end
 
@@ -182,6 +193,7 @@ function _construct_sampled_ven_body(body_ctor, pos, heading, config::SwarmConfi
         sensory_scaling=config.sensory_scaling,
         source_bank=source_bank,
         source_gain=config.source_gain,
+        signalling=Bool(source_bank) && Bool(config.signalling),
     )
     body isa VENBody ||
         throw(ArgumentError("Torus/forage environments currently require body constructors that return VENBody, got $(typeof(body))"))
@@ -285,6 +297,9 @@ function ForageEnvironment(
     vision_range=nothing,
     source_position=nothing,
     source_gain::Real=1.0,
+    signalling::Bool=false,
+    signal_range::Real=3.0,
+    signal_gain::Real=1.0,
     conspecific_vision::Bool=true,
     capture_radius::Real=1.0,
     record_inputs::Bool=true,
@@ -308,6 +323,9 @@ function ForageEnvironment(
             conspecific_vision=Bool(conspecific_vision),
             source_position=_source_position_tuple(source_position),
             source_gain=Float64(source_gain),
+            signalling=Bool(signalling),
+            signal_range=Float64(signal_range),
+            signal_gain=Float64(signal_gain),
             capture_radius=Float64(capture_radius),
             ven=body_vec[1].params,
             record_inputs=Bool(record_inputs),
@@ -329,6 +347,7 @@ function ForageEnvironment(
         config_,
         source_pos,
         body_vec,
+        zeros(Float64, length(body_vec)),
         Bool(config_.visual_coupling),
         Bool(config_.physical_coupling),
         Float64(config_.sensory_noise),
@@ -421,8 +440,23 @@ function observe(m::ForageEnvironment, bodies)
         inputs[i] = receptors(body_vec[i], percept)
     end
 
+    if m.config.signalling
+        signal_range = Float64(m.config.signal_range)
+        signal_gain = Float64(m.config.signal_gain)
+        @inbounds for i in eachindex(body_vec)
+            intensity = 0.0
+            pos_i = body_vec[i].pos
+            for j in eachindex(body_vec)
+                i == j && continue
+                d = tdistance(m.torus, pos_i, body_vec[j].pos)
+                intensity += m.last_signal[j] * exp(-d / signal_range)
+            end
+            inputs[i][VEN_ACOUSTIC_RECEPTOR_INDEX] = signal_gain * clamp(intensity, 0.0, 1.0)
+        end
+    end
+
     m.last_inputs = inputs
-    return percepts
+    return m.config.signalling ? inputs : percepts
 end
 
 function _apply_velocity!(body::VENBody, velocity::NTuple{2,Float64})
@@ -487,6 +521,16 @@ function _resolve_collisions!(m::AbstractTorusEnvironment, bodies::Vector{VENBod
     return nothing
 end
 
+_capture_signals!(::AbstractTorusEnvironment, Es) = nothing
+
+function _capture_signals!(m::ForageEnvironment, Es)
+    m.config.signalling || return nothing
+    @inbounds for i in eachindex(Es)
+        m.last_signal[i] = ven_emitted_signal(Es[i])
+    end
+    return nothing
+end
+
 function actuate!(m::AbstractTorusEnvironment, bodies, Es)
     body_vec = _as_ven_body_vector(bodies)
     _require_torus_width(m, body_vec)
@@ -496,6 +540,8 @@ function actuate!(m::AbstractTorusEnvironment, bodies, Es)
     @inbounds for i in eachindex(body_vec)
         integrate_motion!(body_vec[i], Es[i], m.torus)
     end
+
+    _capture_signals!(m, Es)
 
     _resolve_collisions!(m, body_vec)
 

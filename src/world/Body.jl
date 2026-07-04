@@ -12,6 +12,7 @@ const SENS_ANGLES_RAD = SENS_ANGLES_DEG .* (pi / 180.0)
 const VEN_BEARING_SENSOR_COUNT = length(SENS_ANGLES_RAD)
 const VEN_BANK_RECEPTORS = 64
 const VEN_FORAGE_RECEPTORS = 2 * VEN_BANK_RECEPTORS
+const VEN_ACOUSTIC_RECEPTOR_INDEX = VEN_BANK_RECEPTORS + 1
 
 """
     PassthroughBody()
@@ -39,6 +40,7 @@ mutable struct VENBody <: Body
     sensory_scaling::Bool
     source_bank::Bool
     source_gain::Float64
+    signalling::Bool
 end
 
 function VENBody(
@@ -50,6 +52,7 @@ function VENBody(
     sensory_scaling::Bool=true,
     source_bank::Bool=false,
     source_gain::Real=1.0,
+    signalling::Bool=false,
 )
     return VENBody(
         (Float64(pos[1]), Float64(pos[2])),
@@ -60,6 +63,7 @@ function VENBody(
         Bool(sensory_scaling),
         Bool(source_bank),
         Float64(source_gain),
+        Bool(signalling),
     )
 end
 
@@ -72,6 +76,7 @@ function VENBody(
     sensory_scaling::Bool=true,
     source_bank::Bool=false,
     source_gain::Real=1.0,
+    signalling::Bool=false,
 )
     return VENBody(
         pos,
@@ -82,6 +87,7 @@ function VENBody(
         sensory_scaling=sensory_scaling,
         source_bank=source_bank,
         source_gain=source_gain,
+        signalling=signalling,
     )
 end
 
@@ -92,10 +98,12 @@ _ven_float_vector(x::Vector{Float64}) = x
 
 function _ven_output_acts(output_acts)
     vals = _ven_float_vector(output_acts)
-    length(vals) == 3 ||
-        throw(DimensionMismatch("VENBody requires exactly 3 effector values, got $(length(vals))"))
+    length(vals) in (3, 4) ||
+        throw(DimensionMismatch("VENBody requires 3 or 4 effector values, got $(length(vals))"))
     return clamp.(vals, 0.0, 1.0)
 end
+
+ven_emitted_signal(e) = length(e) >= 4 ? clamp(Float64(e[4]), 0.0, 1.0) : 0.0
 
 function integrate_motion!(b::VENBody, e, torus::Torus)
     output_acts = _ven_output_acts(e)

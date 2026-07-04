@@ -70,6 +70,7 @@ Base.@kwdef struct VENMorphology <: Morphology
     sensory_scaling::Bool = true
     source_bank::Bool = false
     source_gain::Float64 = 1.0
+    signalling::Bool = false
 end
 
 const VEN_MORPHOLOGY = VENMorphology()
@@ -79,7 +80,7 @@ const _VEN_RECEPTOR_PLACEMENT = Union{NoPlacement,Float64}
 n_receptors(m::PassthroughMorphology) = m.n_receptors
 n_effectors(m::PassthroughMorphology) = m.n_effectors
 n_receptors(m::VENMorphology) = m.source_bank ? VEN_FORAGE_RECEPTORS : VEN_BANK_RECEPTORS
-n_effectors(::VENMorphology) = 3
+n_effectors(m::VENMorphology) = m.signalling ? 4 : 3
 
 function portspec(m::PassthroughMorphology)::PortSpec
     return PortSpec(n_receptors(m), n_effectors(m))
@@ -95,13 +96,16 @@ function _ven_base_receptor_ports()
     return out
 end
 
-function _ven_receptor_ports(source_bank::Bool=false)
+function _ven_receptor_ports(source_bank::Bool=false, signalling::Bool=false)
     base = _ven_base_receptor_ports()
     source_bank || return base
 
     out = Vector{Port{_VEN_RECEPTOR_PLACEMENT}}(undef, VEN_FORAGE_RECEPTORS)
     copyto!(out, 1, base, 1, VEN_BANK_RECEPTORS)
-    out[VEN_BANK_RECEPTORS + 1] = Port{_VEN_RECEPTOR_PLACEMENT}(:source_reserved_1, NO_PLACEMENT)
+    out[VEN_ACOUSTIC_RECEPTOR_INDEX] = Port{_VEN_RECEPTOR_PLACEMENT}(
+        signalling ? :acoustic : :source_reserved_1,
+        NO_PLACEMENT,
+    )
     out[VEN_BANK_RECEPTORS + 2] = Port{_VEN_RECEPTOR_PLACEMENT}(:source_reserved_2, NO_PLACEMENT)
     @inbounds for i in eachindex(SENS_ANGLES_DEG)
         out[VEN_BANK_RECEPTORS + i + 2] =
@@ -110,16 +114,23 @@ function _ven_receptor_ports(source_bank::Bool=false)
     return out
 end
 
-function _ven_effector_ports()
-    return Port{NoPlacement}[
+function _ven_effector_ports(signalling::Bool=false)
+    out = Port{NoPlacement}[
         Port(:turn_left),
         Port(:turn_right),
         Port(:forward),
     ]
+    signalling && push!(out, Port(:signal))
+    return out
 end
 
 function portspec(m::VENMorphology)::PortSpec
-    return PortSpec(n_receptors(m), n_effectors(m), _ven_receptor_ports(m.source_bank), _ven_effector_ports())
+    return PortSpec(
+        n_receptors(m),
+        n_effectors(m),
+        _ven_receptor_ports(m.source_bank, m.signalling),
+        _ven_effector_ports(m.signalling),
+    )
 end
 
 ports(m::Morphology) = ports(portspec(m))
@@ -158,6 +169,7 @@ default_morphology(b::VENBody) = VENMorphology(
     sensory_scaling=b.sensory_scaling,
     source_bank=b.source_bank,
     source_gain=b.source_gain,
+    signalling=b.signalling,
 )
 default_morphology(::Type{VENBody}) = VEN_MORPHOLOGY
 
