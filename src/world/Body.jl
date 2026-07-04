@@ -87,8 +87,11 @@ end
 
 velocity_hat(b::VENBody) = (Float64(cos(b.heading)), Float64(sin(b.heading)))
 
+_ven_float_vector(x) = Vector{Float64}(vec(Float64.(x)))
+_ven_float_vector(x::Vector{Float64}) = x
+
 function _ven_output_acts(output_acts)
-    vals = Float64.(vec(collect(output_acts)))
+    vals = _ven_float_vector(output_acts)
     length(vals) == 3 ||
         throw(DimensionMismatch("VENBody requires exactly 3 effector values, got $(length(vals))"))
     return clamp.(vals, 0.0, 1.0)
@@ -118,7 +121,7 @@ function integrate_motion!(b::VENBody, e, torus::Torus)
 end
 
 function assemble_inputs(sens_agents_vec, sensory_scaling::Bool=true)
-    sens = Float64.(vec(collect(sens_agents_vec)))
+    sens = _ven_float_vector(sens_agents_vec)
     length(sens) == VEN_BEARING_SENSOR_COUNT ||
         throw(DimensionMismatch("bearing vision requires $(VEN_BEARING_SENSOR_COUNT) sensors, got $(length(sens))"))
 
@@ -141,7 +144,7 @@ function assemble_forage_inputs(
     sensory_scaling::Bool=true;
     source_gain::Real=1.0,
 )
-    source_sens = Float64.(vec(collect(source_sens_vec)))
+    source_sens = _ven_float_vector(source_sens_vec)
     length(source_sens) == VEN_BEARING_SENSOR_COUNT ||
         throw(DimensionMismatch("source vision requires $(VEN_BEARING_SENSOR_COUNT) sensors, got $(length(source_sens))"))
 
@@ -152,62 +155,61 @@ function assemble_forage_inputs(
     return inputs
 end
 
-function _sense_circular_targets(
+function _accumulate_circular_target!(
+    intersections::Vector{Float64},
+    sensor_angles::Vector{Float64},
     body::VENBody,
-    target_positions,
-    target_radii,
+    target_position,
+    target_radius::Real,
     torus::Torus,
-    sens_angles_rad,
-    sens_agent_dist::Real,
-    sensory_noise::Real,
-    rng;
+    max_d::Float64;
     vision_range=nothing,
 )
-    length(target_positions) == length(target_radii) ||
-        throw(DimensionMismatch("target position/radius counts differ"))
+    radius = max(0.0, Float64(target_radius))
+    target_pos = (Float64(target_position[1]), Float64(target_position[2]))
 
-    sensor_angles = Float64.(vec(collect(sens_angles_rad))) .+ body.heading
-    max_d = max_dist(torus)
-    intersections = fill(max_d, length(sensor_angles))
+    target_dist = tdistance(torus, body.pos, target_pos)
+    if vision_range !== nothing && target_dist > Float64(vision_range)
+        return false
+    end
 
-    for idx in eachindex(target_positions, target_radii)
-        target = target_positions[idx]
-        radius = max(0.0, Float64(target_radii[idx]))
-        target_pos = (Float64(target[1]), Float64(target[2]))
+    if radius > 0.0 && target_dist <= radius
+        fill!(intersections, 0.0)
+        return true
+    end
 
-        target_dist = tdistance(torus, body.pos, target_pos)
-        if vision_range !== nothing && target_dist > Float64(vision_range)
-            continue
-        end
+    neighbor_angle = bearing(torus, body.pos, target_pos)
+    perpendicular_angle =
+        neighbor_angle > 0.0 ? neighbor_angle - pi / 2.0 : neighbor_angle + pi / 2.0
+    offset = (
+        radius * cos(perpendicular_angle),
+        radius * sin(perpendicular_angle),
+    )
+    edge_a = (target_pos[1] + offset[1], target_pos[2] + offset[2])
 
-        if radius > 0.0 && target_dist <= radius
-            fill!(intersections, 0.0)
-            break
-        end
+    edge_angle_a = bearing(torus, body.pos, edge_a)
+    ref_d = mod(edge_angle_a - neighbor_angle + pi, _TWO_PI) - pi
+    ref_dist = abs(ref_d)
 
-        neighbor_angle = bearing(torus, body.pos, target_pos)
-        perpendicular_angle =
-            neighbor_angle > 0.0 ? neighbor_angle - pi / 2.0 : neighbor_angle + pi / 2.0
-        offset = (
-            radius * cos(perpendicular_angle),
-            radius * sin(perpendicular_angle),
-        )
-        edge_a = (target_pos[1] + offset[1], target_pos[2] + offset[2])
-
-        edge_angle_a = bearing(torus, body.pos, edge_a)
-        ref_d = mod(edge_angle_a - neighbor_angle + pi, _TWO_PI) - pi
-        ref_dist = abs(ref_d)
-
-        @inbounds for i in eachindex(sensor_angles)
-            d = mod(sensor_angles[i] - neighbor_angle + pi, _TWO_PI) - pi
-            dist = abs(d)
-            candidate = dist <= ref_dist ? target_dist : max_d
-            if candidate < intersections[i]
-                intersections[i] = candidate
-            end
+    @inbounds for i in eachindex(sensor_angles)
+        d = mod(sensor_angles[i] - neighbor_angle + pi, _TWO_PI) - pi
+        dist = abs(d)
+        candidate = dist <= ref_dist ? target_dist : max_d
+        if candidate < intersections[i]
+            intersections[i] = candidate
         end
     end
 
+    return false
+end
+
+function _sense_acts_from_intersections(
+    intersections::Vector{Float64},
+    max_d::Float64,
+    sens_agent_dist::Real,
+    sensory_noise::Real,
+    rng,
+)
     sens_acts = zeros(Float64, length(intersections))
     if Float64(sens_agent_dist) == 0.0
         @inbounds for i in eachindex(intersections)
@@ -231,6 +233,41 @@ function _sense_circular_targets(
     end
 
     return sens_acts
+end
+
+function _sense_circular_targets(
+    body::VENBody,
+    target_positions,
+    target_radii,
+    torus::Torus,
+    sens_angles_rad,
+    sens_agent_dist::Real,
+    sensory_noise::Real,
+    rng;
+    vision_range=nothing,
+)
+    length(target_positions) == length(target_radii) ||
+        throw(DimensionMismatch("target position/radius counts differ"))
+
+    sensor_angles = Float64.(vec(collect(sens_angles_rad))) .+ body.heading
+    max_d = max_dist(torus)
+    intersections = fill(max_d, length(sensor_angles))
+
+    for idx in eachindex(target_positions, target_radii)
+        done = _accumulate_circular_target!(
+            intersections,
+            sensor_angles,
+            body,
+            target_positions[idx],
+            target_radii[idx],
+            torus,
+            max_d;
+            vision_range=vision_range,
+        )
+        done && break
+    end
+
+    return _sense_acts_from_intersections(intersections, max_d, sens_agent_dist, sensory_noise, rng)
 end
 
 function sense_agents(
@@ -264,6 +301,43 @@ function sense_agents(
         rng;
         vision_range=vision_range,
     )
+end
+
+function sense_agents(
+    body::VENBody,
+    others::Vector{VENBody},
+    skip::Integer,
+    torus::Torus,
+    params::VENParams=body.params,
+    sens_angles_rad=SENS_ANGLES_RAD,
+    sens_agent_dist::Real=0,
+    sensory_noise::Real=0,
+    rng=nothing;
+    vision_range=nothing,
+)
+    sensor_angles = Float64.(vec(collect(sens_angles_rad))) .+ body.heading
+    max_d = max_dist(torus)
+    intersections = fill(max_d, length(sensor_angles))
+    skip_i = Int(skip)
+
+    @inbounds for j in eachindex(others)
+        j == skip_i && continue
+        other = others[j]
+        other === body && continue
+        done = _accumulate_circular_target!(
+            intersections,
+            sensor_angles,
+            body,
+            other.pos,
+            params.agent_radius,
+            torus,
+            max_d;
+            vision_range=vision_range,
+        )
+        done && break
+    end
+
+    return _sense_acts_from_intersections(intersections, max_d, sens_agent_dist, sensory_noise, rng)
 end
 
 function sense_source(

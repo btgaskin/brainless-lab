@@ -98,6 +98,8 @@ function _as_ven_body_vector(bodies::AbstractVector)
     return out
 end
 
+_as_ven_body_vector(bodies::Vector{VENBody}) = bodies
+
 function _environment_named_tuple(dict::Dict{Symbol,Any})
     isempty(dict) && return NamedTuple()
     keys_ = Tuple(keys(dict))
@@ -356,10 +358,10 @@ end
 
 function _conspecific_sensors(m::AbstractTorusEnvironment, body_vec::Vector{VENBody}, i::Integer)
     if m.visual_coupling && m.config.conspecific_vision
-        others = VENBody[body_vec[j] for j in eachindex(body_vec) if j != i]
         return sense_agents(
             body_vec[i],
-            others,
+            body_vec,
+            Int(i),
             m.torus,
             body_vec[i].params,
             m.sens_angles_rad,

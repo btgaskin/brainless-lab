@@ -62,12 +62,12 @@ end
 
 pack_params(::Type{FalandaysParams}) = pack_params(FalandaysParams())
 
-mutable struct RngNoise
-    rng::AbstractRNG
+mutable struct RngNoise{R<:AbstractRNG}
+    rng::R
     seed::Union{Nothing,Int}
 end
 
-RngNoise(rng::AbstractRNG) = RngNoise(rng, nothing)
+RngNoise(rng::R) where {R<:AbstractRNG} = RngNoise{R}(rng, nothing)
 RngNoise(seed::Integer) = RngNoise(MersenneTwister(Int(seed)), Int(seed))
 RngNoise(; seed::Integer=0) = RngNoise(seed)
 
@@ -97,7 +97,7 @@ end
 
 function reset_noise!(source::RngNoise)
     if source.seed !== nothing
-        source.rng = MersenneTwister(source.seed)
+        Random.seed!(source.rng, source.seed)
     end
     return source
 end
@@ -225,6 +225,8 @@ function _float_vector(x, name::AbstractString)
     v = vec(Float64.(x))
     return Vector{Float64}(v)
 end
+
+_float_vector(x::Vector{Float64}, name::AbstractString) = x
 
 function _bitmatrix(x, name::AbstractString)
     ndims(x) == 2 || throw(ArgumentError("$name must be a matrix"))
@@ -475,12 +477,11 @@ function step!(
         end
     end
 
-    thresholds = ns.targets .* params.threshold_mult
-
     @inbounds for i in 1:n
-        ns.spikes[i] = ns.acts[i] >= thresholds[i] ? 1.0 : 0.0
+        threshold = ns.targets[i] * params.threshold_mult
+        ns.spikes[i] = ns.acts[i] >= threshold ? 1.0 : 0.0
         if ns.spikes[i] == 1.0
-            ns.acts[i] -= thresholds[i]
+            ns.acts[i] -= threshold
         end
         ns.errors[i] = ns.acts[i] - ns.targets[i]
     end

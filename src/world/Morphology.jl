@@ -128,7 +128,7 @@ encode_receptors(::PassthroughMorphology, percept) = percept
 decode_effectors(::PassthroughMorphology, e) = e
 
 function encode_receptors(m::VENMorphology, percept)
-    vals = Float64.(vec(collect(percept)))
+    vals = _ven_float_vector(percept)
     if m.source_bank
         if length(vals) == VEN_FORAGE_RECEPTORS
             return copy(vals)

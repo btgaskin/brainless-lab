@@ -3,24 +3,54 @@ struct Agent{R<:Reservoir,B<:Body}
     body::B
 end
 
-mutable struct Ensemble{E<:Environment}
-    agents::Vector{<:Agent}
+mutable struct Ensemble{E<:Environment,A<:Agent,B<:Body}
+    agents::Vector{A}
+    bodies::Vector{B}
     environment::E
     t::Int
-    recorder
+    recorder::Union{Nothing,Recorder}
+end
+
+function _typed_agents(agents::AbstractVector{<:Agent})
+    isempty(agents) && throw(ArgumentError("Ensemble requires at least one agent"))
+
+    A = typeof(first(agents))
+    out = Vector{A}(undef, length(agents))
+    @inbounds for i in eachindex(agents)
+        agent = agents[i]
+        agent isa A ||
+            throw(ArgumentError("Ensemble requires homogeneous agents; agent $i has $(typeof(agent)), expected $A"))
+        out[i] = agent
+    end
+    return out
+end
+
+function _typed_agent_bodies(agents::AbstractVector{<:Agent})
+    B = typeof(first(agents).body)
+    out = Vector{B}(undef, length(agents))
+    @inbounds for i in eachindex(agents)
+        out[i] = agents[i].body
+    end
+    return out
 end
 
 function Ensemble(
     agents::AbstractVector{<:Agent},
     environment::E;
     t::Integer=0,
-    recorder=nothing,
+    recorder::Union{Nothing,Recorder}=nothing,
 ) where {E<:Environment}
-    isempty(agents) && throw(ArgumentError("Ensemble requires at least one agent"))
-    return Ensemble{E}(collect(agents), environment, Int(t), recorder)
+    agent_vec = _typed_agents(agents)
+    body_vec = _typed_agent_bodies(agent_vec)
+    return Ensemble{E,eltype(agent_vec),eltype(body_vec)}(agent_vec, body_vec, environment, Int(t), recorder)
 end
 
-_agent_bodies(c::Ensemble) = [agent.body for agent in c.agents]
+_agent_bodies(c::Ensemble) = c.bodies
+
+function _spike_rate(spikes::Vector{Float64})
+    isempty(spikes) && return 0.0
+    return sum(spikes) / length(spikes)
+end
 
 function _spike_rate(spikes)
     values = Float64.(vec(collect(spikes)))
@@ -194,9 +224,9 @@ function step!(c::Ensemble)
     length(percepts) == length(c.agents) ||
         throw(DimensionMismatch("environment returned $(length(percepts)) percepts for $(length(c.agents)) agents"))
 
-    spikes = Vector{Any}(undef, length(c.agents))
+    spikes = Vector{Vector{Float64}}(undef, length(c.agents))
     rates = Vector{Float64}(undef, length(c.agents))
-    Es = Vector{Any}(undef, length(c.agents))
+    Es = Vector{Vector{Float64}}(undef, length(c.agents))
 
     @inbounds for i in eachindex(c.agents)
         agent = c.agents[i]
@@ -216,6 +246,16 @@ function step!(c::Ensemble)
     end
 
     return spikes
+end
+
+function _rollout_rate_and_width(spikes::Vector{Vector{Float64}})
+    total = 0.0
+    width = 0
+    for s in spikes
+        total += sum(s)
+        width += length(s)
+    end
+    return width == 0 ? 0.0 : total / width, width
 end
 
 function _rollout_rate_and_width(spikes)
