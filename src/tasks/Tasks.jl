@@ -7,9 +7,10 @@ struct TaskSpec <: AbstractTask
     n_effectors::Int
     default_ticks::Int
     default_window::Int
-    score_floor::Float64
-    score_ceiling::Float64
+    floor::ScoreAnchor
+    ceiling::ScoreAnchor
     score_key::Symbol
+    descriptor_keys::Vector{Symbol}
 end
 
 function TaskSpec(
@@ -19,81 +20,129 @@ function TaskSpec(
     n_effectors::Integer=n_effectors(env_type),
     default_ticks::Integer=default_ticks(env_type),
     default_window::Integer=default_window(env_type),
-    score_floor::Real=0.0,
-    score_ceiling::Real=1.0,
+    floor=nothing,
+    ceiling=nothing,
+    score_floor=nothing,
+    score_ceiling=nothing,
     score_key::Symbol=:score,
+    descriptor_keys=Symbol[],
 )
+    task_name = Symbol(name)
+    floor_anchor = _task_anchor(
+        task_name,
+        :floor,
+        floor,
+        score_floor,
+        analytic(0.0; note="default analytic floor"),
+    )
+    ceiling_anchor = _task_anchor(
+        task_name,
+        :ceiling,
+        ceiling,
+        score_ceiling,
+        analytic(1.0; note="default analytic ceiling"),
+    )
     return TaskSpec(
-        name,
+        task_name,
         env_type,
         Int(n_receptors),
         Int(n_effectors),
         Int(default_ticks),
         Int(default_window),
-        Float64(score_floor),
-        Float64(score_ceiling),
+        floor_anchor,
+        ceiling_anchor,
         score_key,
+        Symbol.(collect(descriptor_keys)),
     )
 end
+
+function Base.getproperty(task::TaskSpec, key::Symbol)
+    if key === :score_floor
+        return getfield(task, :floor).value
+    elseif key === :score_ceiling
+        return getfield(task, :ceiling).value
+    end
+    return getfield(task, key)
+end
+
+score_floor(task::TaskSpec) = task.floor.value
+score_ceiling(task::TaskSpec) = task.ceiling.value
 
 const WALL_TASK = TaskSpec(
     :wall,
     WallEnv;
-    score_floor=0.0,
-    score_ceiling=77.3,
+    floor=null_anchor(80.82604304102207, "null=null_random, score_key=distance_window, seeds 0:7, git 4ec6f65, 2026-07-04"),
+    ceiling=reference_anchor(97.54838564213563, "reference=falandays_oosawa, score_key=distance_window, seeds 0:7, git 4ec6f65, 2026-07-04"),
+    score_key=:distance_window,
+    descriptor_keys=[:collisions_window],
 )
 
 const TRACKING_TASK = TaskSpec(
     :tracking,
     TrackingEnv;
-    score_floor=0.0,
-    score_ceiling=1.0,
+    floor=analytic(0.0; note="E[cos]=0 chance"),
+    ceiling=analytic(1.0; note="perfect heading alignment"),
+    score_key=:track_score,
 )
 
 const PONG_TASK = TaskSpec(
     :pong,
     PongEnv;
-    score_floor=0.33,
-    score_ceiling=0.972,
+    floor=null_anchor(0.4551692294285557, "null=null_random, score_key=mean_align, seeds 0:7, git 4ec6f65, 2026-07-04"),
+    ceiling=reference_anchor(0.972, "legacy observed best, pending reference-genome calibration"), # TODO(reference-genome)
     score_key=:mean_align,
 )
 
 const PONG_HITRATE_TASK = TaskSpec(
     :pong_hitrate,
     PongEnv;
-    score_floor=0.30,
-    score_ceiling=0.52,
+    floor=null_anchor(0.35416666666666663, "null=null_random, score_key=hit_rate, seeds 0:7, git 4ec6f65, 2026-07-04"),
+    ceiling=reference_anchor(0.52, "legacy observed best, pending reference-genome calibration"), # TODO(reference-genome)
     score_key=:hit_rate,
 )
 
 const CARTPOLE_TASK = TaskSpec(
     :cartpole,
     CartPoleEnv;
-    score_floor=0.0,
-    score_ceiling=1.0,
+    floor=analytic(0.0; note="minimum balanced fraction"),
+    ceiling=analytic(1.0; note="full episode balanced"),
 )
 
 const CARTPOLE_HARD_TASK = TaskSpec(
     :cartpole_hard,
     CartPoleHardEnv;
-    score_floor=0.0,
-    score_ceiling=1.0,
+    floor=analytic(0.0; note="minimum balanced fraction"),
+    ceiling=analytic(1.0; note="full window balanced"),
 )
 
 const CARTPOLE_SWINGUP_TASK = TaskSpec(
     :cartpole_swingup,
     CartPoleSwingupEnv;
-    score_floor=0.02,
-    score_ceiling=1.0,
+    floor=null_anchor(0.1569039231621101, "null=null_random, score_key=mean_uprightness, seeds 0:7, git 4ec6f65, 2026-07-04"),
+    ceiling=analytic(1.0; note="perfect uprightness"),
     score_key=:mean_uprightness,
 )
 
 const CARTPOLE_LONG_TASK = TaskSpec(
     :cartpole_long,
     CartPoleLongEnv;
-    score_floor=0.0,
-    score_ceiling=1.0,
+    floor=analytic(0.0; note="minimum balanced fraction"),
+    ceiling=analytic(1.0; note="full window balanced"),
 )
+
+const FORAGE_FLOOR_ANCHOR =
+    null_anchor(0.4556865216303779, "null=null_random, score_key=forage_score, seeds 0:7, git 4ec6f65, 2026-07-04")
+const FORAGE_CEILING_ANCHOR =
+    analytic(1.0; note="agents on source")
+
+function normalized_forage_score(raw_score::Real)
+    return _normalized_anchor_score(
+        raw_score,
+        FORAGE_FLOOR_ANCHOR,
+        FORAGE_CEILING_ANCHOR,
+        "forage",
+    )
+end
 
 resolve_task(task::TaskSpec) = task
 resolve_task(name::AbstractString) = resolve_task(Symbol(name))
@@ -106,12 +155,7 @@ make_env(task::TaskSpec, rng; kwargs...) = make_env(task; rng=rng, kwargs...)
 make_env(task_name::Union{Symbol,AbstractString}; kwargs...) = make_env(resolve_task(task_name); kwargs...)
 
 function normalized_score(task::TaskSpec, raw_score::Real)
-    floor = task.score_floor
-    ceiling = task.score_ceiling
-    ceiling <= floor &&
-        throw(ArgumentError("score_ceiling must exceed score_floor for task $(task.name)"))
-    scaled = (Float64(raw_score) - floor) / (ceiling - floor)
-    return clamp(scaled, 0.0, 1.0)
+    return _normalized_anchor_score(raw_score, task.floor, task.ceiling, "task $(task.name)")
 end
 
 normalized_score(task_name::Union{Symbol,AbstractString}, raw_score::Real) =

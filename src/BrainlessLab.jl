@@ -37,9 +37,11 @@ include("nodes/Compartmental.jl")
 include("nodes/Wiring.jl")
 include("nodes/CompartmentalReservoir.jl")
 include("nodes/Interventions.jl")
+include("nodes/NullRandom.jl")
 include("envs/WallBox.jl")
 include("envs/Envs.jl")
 include("envs/CartPoleVariants.jl")
+include("tasks/Scoring.jl")
 include("tasks/Tasks.jl")
 include("world/Environments.jl")
 include("world/Ensemble.jl")
@@ -55,6 +57,7 @@ include("analysis/SwarmAnalysis.jl")
 include("analysis/TaskSignals.jl")
 include("analysis/TransferEntropy.jl")
 include("drivers/Driver.jl")
+include("tasks/Calibration.jl")
 include("drivers/Parallel.jl")
 include("drivers/Evolve.jl")
 include("drivers/Fixed.jl")
@@ -207,6 +210,8 @@ export AbstractCompartmental,
     HILL_TAU,
     HILL_RESET
 
+export NullRandomReservoir
+
 export TaskWorld,
     RecordedDraws,
     recorded_draw!,
@@ -226,6 +231,14 @@ export TaskWorld,
     collisions_last
 
 export TaskSpec,
+    AnchorKind,
+    ScoreAnchor,
+    ANALYTIC,
+    NULL_MEASURED,
+    REFERENCE_MEASURED,
+    analytic,
+    null_anchor,
+    reference_anchor,
     WALL_TASK,
     TRACKING_TASK,
     PONG_TASK,
@@ -234,8 +247,15 @@ export TaskSpec,
     CARTPOLE_HARD_TASK,
     CARTPOLE_SWINGUP_TASK,
     CARTPOLE_LONG_TASK,
+    FORAGE_FLOOR_ANCHOR,
+    FORAGE_CEILING_ANCHOR,
     make_env,
-    normalized_score
+    score_floor,
+    score_ceiling,
+    normalized_score,
+    normalized_forage_score,
+    calibrate_task,
+    write_calibration_report
 
 export Agent,
     Ensemble,
@@ -381,6 +401,7 @@ register_node!(:falandays_delayed, _falandays_delayed_native; genome_type=Faland
 register_node!(:sorn, _sorn_native; genome_type=SORNParams)
 register_node!(:compartmental_dense, _compartmental_dense_native; genome_type=DenseCompartmental)
 register_node!(:compartmental_structured, _compartmental_structured_native; genome_type=StructuredCompartmental)
+register_node!(:null_random, NullRandomReservoir)
 
 register_task!(:wall, WALL_TASK)
 register_task!(:tracking, TRACKING_TASK)

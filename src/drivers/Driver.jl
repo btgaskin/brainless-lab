@@ -34,6 +34,7 @@ end
 
 function _node_kwargs_for_model(model_sym::Symbol, model; learn_on=nothing)
     node_sym = _canonical_model_sym(model_sym)
+    node_sym == :null_random && return Dict{Symbol,Any}()
     options = Dict{Symbol,Any}()
     genome_T = _model_param_type(node_sym)
 

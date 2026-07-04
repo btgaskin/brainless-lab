@@ -683,6 +683,14 @@ function _finite_or_nan(value)
     return isfinite(x) ? x : NaN
 end
 
+_has_metric(metrics_nt, key::Symbol) = key in propertynames(metrics_nt)
+
+function _swarm_objective_key(metrics_nt)
+    _has_metric(metrics_nt, :score) && return :score
+    _has_metric(metrics_nt, :forage_score) && return :forage_score
+    return nothing
+end
+
 function _sim_score(sim::SimResult)
     task_obj = resolve_task(sim.task)
     if task_obj isa TaskSpec
@@ -690,12 +698,30 @@ function _sim_score(sim::SimResult)
         return normalized_score(task_obj, raw), Float64(raw), string(task_obj.score_key)
     end
 
-    if hasproperty(sim.metrics, :forage_score)
-        return Float64(sim.metrics.forage_score), Float64(sim.metrics.forage_score), "forage_score"
-    elseif hasproperty(sim.metrics, :polarization)
-        return Float64(sim.metrics.polarization), Float64(sim.metrics.polarization), "polarization"
+    objective_key = _swarm_objective_key(sim.metrics)
+    if objective_key !== nothing
+        raw = Float64(getproperty(sim.metrics, objective_key))
+        return normalized_forage_score(raw), raw, string(objective_key)
+    elseif _has_metric(sim.metrics, :polarization) || _has_metric(sim.metrics, :milling)
+        @warn "swarm polarization and milling are descriptors, not competence scores; request the regime measure or descriptor columns instead" task = sim.task maxlog = 1
+        return NaN, NaN, "none"
     end
-    throw(ArgumentError("task :$(sim.task) has no normalized_score; use a swarm metric such as forage_score or polarization"))
+    throw(ArgumentError("task :$(sim.task) has no normalized_score or forage objective metric"))
+end
+
+function _copy_descriptor_metrics!(row::Dict{String,Any}, sim::SimResult, warnings::Vector{String})
+    task_obj = resolve_task(sim.task)
+    task_obj isa TaskSpec || return row
+    for key in task_obj.descriptor_keys
+        name = string(key)
+        if _has_metric(sim.metrics, key)
+            row[name] = _finite_or_nan(getproperty(sim.metrics, key))
+        else
+            row[name] = NaN
+            push!(warnings, "descriptor :$(key) unavailable")
+        end
+    end
+    return row
 end
 
 function _measure_sigma_mr(sim::SimResult)
@@ -773,6 +799,7 @@ function _run_seed_metrics(base::SweepBaseline, seed::Integer, measures)
         "notes" => join(notes, " | "),
         "regime" => "",
     )
+    _copy_descriptor_metrics!(row, sim, warnings)
 
     for measure in measures
         if measure == "sigma_mr"
