@@ -2,16 +2,11 @@ using BrainlessLab
 using Test
 
 @testset "Scoring calibration" begin
-    wall = calibrate_task(
-        :wall;
-        reference=FalandaysParams(),
-        reference_model=:falandays_base,
-        seeds=0:7,
-    )
+    wall = calibrate_task(:wall; seeds=0:7)
     @test wall.floor.value ≈ WALL_TASK.floor.value atol=1e-12
     @test wall.ceiling.value ≈ WALL_TASK.ceiling.value atol=1e-12
     @test wall.floor.kind == NULL_MEASURED
-    @test wall.ceiling.kind == REFERENCE_MEASURED
+    @test wall.ceiling.kind == ANALYTIC
     @test wall.ceiling.value > wall.floor.value
 
     pong = calibrate_task(:pong; reference=FalandaysParams(), reference_model=:falandays_base, seeds=0:7)
