@@ -1,0 +1,36 @@
+# Falandays tracking ablation sweep.
+# Run with:
+#   julia --project=. sweep/run.jl configs/sweep_tracking_ablation.toml
+#
+# freeze_plasticity maps to learn_on=false, freezing both the recurrent-weight
+# update and the target-homeostasis update. clamp_target maps lrate_targ to 0,
+# isolating the target update. Thus none vs freeze_plasticity estimates the
+# total contribution of online learning, while clamp_target asks whether
+# removing only the target update matters.
+
+[sweep]
+id = "tracking_ablation"
+mode = "one_at_a_time"
+seeds = [0, 1, 2, 3]
+max_cells = 20
+max_rollouts = 20
+
+[baseline]
+node = "falandays_base"
+task = "tracking"
+N = 200
+ticks = 2000
+# Settled-tail score window (see sweep_tracking.toml): a full-run window folds in
+# the switch-on transient and the periodic stimulus reversals and understates the
+# tracking score for both the learning and the frozen (ablated) conditions.
+window = 300
+"node.input_weight" = 0.75
+"node.lrate_wmat" = 1.0
+"node.lrate_targ" = 0.01
+
+[axes]
+"ablation" = ["none", "freeze_plasticity", "zero_recurrent", "clamp_target"]
+
+[analytics]
+measures = ["sigma_mr", "spectral_radius", "liveness"]
+viable_threshold = 0.5

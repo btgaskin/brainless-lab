@@ -137,7 +137,7 @@ mutable struct TrackingEnv{R} <: TaskWorld
     stim_speed_rad::Float64
 end
 
-function TrackingEnv(; rng=Random.default_rng())
+function TrackingEnv(; rng=Random.default_rng(), stim_speed_rad::Real=deg2rad(1.0))
     return TrackingEnv(
         rng,
         pi / 2.0,
@@ -149,7 +149,7 @@ function TrackingEnv(; rng=Random.default_rng())
         Float64[],
         (30.0, -30.0),
         collect(-60.0:4.0:60.0),
-        deg2rad(1.0),
+        Float64(stim_speed_rad),
     )
 end
 
