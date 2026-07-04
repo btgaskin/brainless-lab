@@ -190,6 +190,17 @@ Per-rollout it is ~2.5x faster compiled, and it keeps scaling with cores (run wi
 `julia -t auto` or `-t <n>`; Julia's `auto` uses the performance cores). The structured
 reservoir is the fast path; the dense all-to-all kernel is a known optimisation target.
 
+All run harnesses (sweep, bench, profile, evolve) parallelise their independent rollouts
+across Julia threads via the central `parallel_map`/`init_parallelism!` helpers
+(`src/core/Parallel.jl`): results stay in seed order, so threaded and serial runs produce
+identical CSVs, and BLAS is pinned to one thread under multi-threaded runs to avoid
+oversubscription. The entry scripts re-launch themselves with `-t auto` when started
+single-threaded; opt out with `BRAINLESSLAB_AUTOTHREADS=0` or an explicit
+`JULIA_NUM_THREADS`/`-t` setting (sweeps also accept `sweep.threaded = false` in the TOML).
+Expensive per-tick diagnostics are strided: recording `:spectral_radius` recomputes the
+eigendecomposition every K ticks (`simulate(...; spectral_every=K)`; sweeps use K=10) and
+holds the last value in between, keeping the recorded series tick-aligned.
+
 ---
 
 ## Extending it

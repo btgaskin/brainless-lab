@@ -19,6 +19,7 @@ include("core/Traits.jl")
 include("core/Params.jl")
 include("core/Registry.jl")
 include("core/Recorder.jl")
+include("core/Parallel.jl")
 include("viz/Style.jl")
 include("viz/Views.jl")
 include("nodes/Drives.jl")
@@ -322,6 +323,9 @@ export Recorder,
     record!,
     tick!,
     getchannel
+
+export parallel_map,
+    init_parallelism!
 
 export SimResult,
     simulate,

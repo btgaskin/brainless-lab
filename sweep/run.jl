@@ -1,5 +1,18 @@
 #!/usr/bin/env julia
 
+# Re-exec with `-t auto` so independent rollouts can use all performance cores
+# when Julia was launched single-threaded and the user did not pin a count.
+if Threads.nthreads() == 1 &&
+   !haskey(ENV, "JULIA_NUM_THREADS") &&
+   get(ENV, "BRAINLESSLAB_AUTOTHREADS", "1") != "0"
+    _cmd = addenv(
+        `$(Base.julia_cmd()) --threads=auto --project=$(Base.active_project()) $(abspath(PROGRAM_FILE)) $(ARGS)`,
+        "BRAINLESSLAB_AUTOTHREADS" => "0",
+    )
+    _proc = run(ignorestatus(_cmd))
+    exit(_proc.exitcode)
+end
+
 using BrainlessLab
 
 const _DEBUG_FLAGS = ("--debug", "--verbose")
@@ -18,6 +31,11 @@ function _usage(io=stdout)
       julia --project=. sweep/run.jl CONFIG.toml [--force] [--debug]
       julia --project=. sweep/run.jl --list-axes --node falandays_base --task wall
       julia --project=. sweep/run.jl ablate NODE TASK [--force] [--debug]
+
+    Rollouts run in parallel across Julia threads; the script re-launches
+    itself with `-t auto` when started single-threaded. Opt out with
+    BRAINLESSLAB_AUTOTHREADS=0 or JULIA_NUM_THREADS=1, or set
+    `sweep.threaded = false` in the TOML.
     """)
 end
 
@@ -52,6 +70,8 @@ function main(args=ARGS)
         _print_axes(node, task)
         return 0
     end
+
+    init_parallelism!(verbose=true)
 
     force = "--force" in args
     if first(args) == "ablate"

@@ -2,6 +2,12 @@ import TOML
 
 const _SWEEP_MODES = Set{String}(("one_at_a_time", "factorial"))
 const _SWEEP_DEFAULT_MEASURES = ("sigma_mr", "spectral_radius", "liveness")
+# Recording :spectral_radius costs a dense eigendecomposition per agent per
+# tick; sweeps only consume windowed means (window >= 60) and end-of-run
+# values, so recompute rho(W) every K ticks and hold the last value between
+# (see Recorder compute_every). Weights drift on learning-rate timescales,
+# so a stride of 10 is far inside every window sweeps aggregate over.
+const _SWEEP_SPECTRAL_EVERY = 10
 const _SWEEP_SWARM_TASKS = Set{Symbol}((:torus, :swarm, :forage))
 const _SWEEP_GIF_1X1 = UInt8[
     0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00,
@@ -259,6 +265,8 @@ function _sweep_force(data, force)
     value = get(_sweep_section(data), "force", false)
     return Bool(value)
 end
+
+_sweep_threaded(data) = Bool(get(_sweep_section(data), "threaded", true))
 
 function _sweep_seeds(data)
     raw = get(_sweep_section(data), "seeds", [0])
@@ -921,6 +929,7 @@ function _simulation_kwargs(base::SweepBaseline, seed::Integer, measures; captur
         :N => base.N,
         :record => _record_channels_for_measures(measures; capture=capture),
         :every => 1,
+        :spectral_every => _SWEEP_SPECTRAL_EVERY,
         :node_kwargs => _kwargs_tuple(node_kwargs),
         :ablation => base.ablation,
     )
@@ -1557,16 +1566,26 @@ function _write_cell_manifest(path::AbstractString, cell_id, cell, base::SweepBa
     return path
 end
 
-function _run_cell(cell_id, cell, seeds, measures, schema::SweepColumnSchema, cell_dir; captured::Bool=false, capture::SweepCaptureOptions=SweepCaptureOptions(), cell_index::Integer=1)
+function _run_cell(cell_id, cell, seeds, measures, schema::SweepColumnSchema, cell_dir; captured::Bool=false, capture::SweepCaptureOptions=SweepCaptureOptions(), cell_index::Integer=1, threaded::Bool=true)
     mkpath(cell_dir)
     base = cell["baseline"]
     seed_values = [base.seed_base + seed for seed in seeds]
-    representative = nothing
-    rows = Dict{String,Any}[]
-    for seed in seed_values
+    # Seeds are independent rollouts: fan out across threads, keeping row order
+    # by seed. Only captured cells need a live SimResult afterwards (for the
+    # timeseries/null/GIF artifacts); every other rollout is dropped as soon as
+    # its metric row exists so peak memory stays one row per seed, not one
+    # full recorder per cell.
+    results = parallel_map(seed_values; threaded=threaded) do seed
         row, sim = _run_seed_metrics(base, seed, measures, schema; captured=captured)
-        push!(rows, row)
-        representative === nothing && sim !== nothing && (representative = sim)
+        (row=row, sim=captured ? sim : nothing)
+    end
+    rows = [result.row for result in results]
+    representative = nothing
+    for result in results
+        if result.sim !== nothing
+            representative = result.sim
+            break
+        end
     end
     _write_rows_csv(joinpath(cell_dir, "metrics.csv"), rows; header=schema.metric_header)
     _write_cell_manifest(joinpath(cell_dir, "manifest.toml"), cell_id, cell, base, seed_values; captured=captured)
@@ -1771,25 +1790,53 @@ function _run_sweep_data(data, source_path::AbstractString; root=nothing, force=
     _write_manifest(joinpath(sweep_root, "manifest.toml"), id, base, seeds, measures, preview, ensemble_specs, capture)
     _write_resolved_config(joinpath(sweep_root, resolved_config_filename()), id, mode, base, axes, seeds, measures, max_cells, max_rollouts, ensemble_specs, capture)
 
+    threaded = _sweep_threaded(data)
+    infos = [
+        begin
+            cell_id = "cell_" * lpad(string(idx), 3, "0")
+            (
+                idx=idx,
+                cell=cell,
+                cell_id=cell_id,
+                cell_dir=joinpath(sweep_root, "cells", cell_id),
+                captured=_cell_captured(cell, capture),
+            )
+        end for (idx, cell) in enumerate(cells)
+    ]
+
+    _cell_metric_rows(info) =
+        _sweep_cell_complete(info.cell_dir, info.captured, capture) ?
+        _read_simple_csv(joinpath(info.cell_dir, "metrics.csv"), schema) :
+        _run_cell(info.cell_id, info.cell, seeds, measures, schema, info.cell_dir;
+            captured=info.captured, capture=capture, cell_index=info.idx, threaded=threaded)
+
+    # Two phases: non-captured cells are pure numeric work and fan out across
+    # threads (their seeds fan out too, composing with the outer level).
+    # Captured cells render Makie GIFs, which must stay off worker threads, so
+    # they run on this task afterwards -- their seed rollouts and null-test
+    # surrogates still parallelise internally.
+    rows_by_cell = Vector{Vector{Dict{String,Any}}}(undef, length(infos))
+    plain_infos = [info for info in infos if !info.captured]
+    for (info, rows) in zip(plain_infos, parallel_map(_cell_metric_rows, plain_infos; threaded=threaded))
+        rows_by_cell[info.idx] = rows
+    end
+    for info in infos
+        info.captured || continue
+        rows_by_cell[info.idx] = _cell_metric_rows(info)
+    end
+
     aggregate_rows = Dict{String,Any}[]
     cell_rows = Dict{String,Any}[]
-    for (idx, cell) in enumerate(cells)
-        cell_id = "cell_" * lpad(string(idx), 3, "0")
-        cell_dir = joinpath(sweep_root, "cells", cell_id)
-        captured = _cell_captured(cell, capture)
-        rows =
-            _sweep_cell_complete(cell_dir, captured, capture) ?
-            _read_simple_csv(joinpath(cell_dir, "metrics.csv"), schema) :
-            _run_cell(cell_id, cell, seeds, measures, schema, cell_dir; captured=captured, capture=capture, cell_index=idx)
-        aggregate = _aggregate_cell(cell_id, cell, rows, schema)
-        aggregate["result_path"] = cell_dir
+    for info in infos
+        aggregate = _aggregate_cell(info.cell_id, info.cell, rows_by_cell[info.idx], schema)
+        aggregate["result_path"] = info.cell_dir
         push!(aggregate_rows, aggregate)
         push!(cell_rows, Dict{String,Any}(
-            "cell" => cell_id,
-            "params" => cell["params"],
-            "result_path" => cell_dir,
+            "cell" => info.cell_id,
+            "params" => info.cell["params"],
+            "result_path" => info.cell_dir,
             "best_fitness" => aggregate["score_mean"],
-            "captured" => captured,
+            "captured" => info.captured,
         ))
     end
 

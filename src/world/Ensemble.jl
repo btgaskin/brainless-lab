@@ -155,13 +155,29 @@ _spectral_radius_payload(::Reservoir) = nothing
 _spectral_radius_payload(r::FalandaysReservoir) = _spectral_radius(r)
 
 function _record_spectral!(rec::Recorder, agents)
+    # The eigendecomposition behind each payload is the single most expensive
+    # per-tick record. Honour the recorder's compute stride: recompute every K
+    # ticks and re-record the cached value in between, so the stored series
+    # keeps one sample per tick while paying eigvals only 1/K of the time.
+    stride = compute_stride(rec, :spectral_radius)
+    if stride > 1 && rem(rec.tick, stride) != 0 && haskey(rec.cache, :spectral_radius)
+        payload = rec.cache[:spectral_radius]
+        payload === nothing && return rec
+        record!(rec, :spectral_radius, payload)
+        return rec
+    end
+
     values = Float64[]
     for agent in agents
         rho = _spectral_radius_payload(agent.reservoir)
-        rho === nothing && return rec
+        if rho === nothing
+            rec.cache[:spectral_radius] = nothing
+            return rec
+        end
         push!(values, Float64(rho))
     end
     payload = length(values) == 1 ? values[1] : values
+    rec.cache[:spectral_radius] = payload
     record!(rec, :spectral_radius, payload)
     return rec
 end

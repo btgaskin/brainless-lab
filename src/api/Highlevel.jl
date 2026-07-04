@@ -698,6 +698,7 @@ function _make_task_ensemble(
     seed=0,
     record=Symbol[],
     every::Integer=1,
+    spectral_every::Integer=1,
     n_nodes::Integer=100,
     node_kwargs=NamedTuple(),
     env_kwargs=NamedTuple(),
@@ -719,7 +720,7 @@ function _make_task_ensemble(
         ablation=ablation,
     )
     agent = _make_agent(reservoir, _resolve_task_body(body), morphology)
-    recorder = Recorder(enabled=record, every=every)
+    recorder = Recorder(enabled=record, every=every, compute_every=_spectral_compute_every(spectral_every))
     ensemble = Ensemble([agent], TaskEnvironment(env); recorder=recorder)
     return ensemble, recorder
 end
@@ -730,6 +731,7 @@ function _make_swarm_ensemble(
     seed=0,
     record=Symbol[],
     every::Integer=1,
+    spectral_every::Integer=1,
     n_agents::Integer=8,
     n_nodes::Integer=100,
     node_kwargs=NamedTuple(),
@@ -763,10 +765,13 @@ function _make_swarm_ensemble(
         agents[i] = _make_agent(reservoir, body, morphology)
     end
 
-    recorder = Recorder(enabled=record, every=every)
+    recorder = Recorder(enabled=record, every=every, compute_every=_spectral_compute_every(spectral_every))
     ensemble = Ensemble(agents, environment; recorder=recorder)
     return ensemble, recorder
 end
+
+_spectral_compute_every(spectral_every::Integer) =
+    spectral_every > 1 ? Dict{Symbol,Int}(:spectral_radius => Int(spectral_every)) : Dict{Symbol,Int}()
 
 _environment_size(::TaskWorld) = nothing
 _environment_size(env::WallEnv) = Float64(env.box.size)
@@ -904,6 +909,7 @@ function _build_ensemble(task::Symbol, node::Symbol; ticks=nothing, seed=0, reco
         haskey(options, :N) ? pop!(options, :N) :
         nothing
     window_arg = haskey(options, :window) ? pop!(options, :window) : nothing
+    spectral_every = haskey(options, :spectral_every) ? Int(pop!(options, :spectral_every)) : 1
     env_kwargs = _merge_kwdicts(haskey(options, :env_kwargs) ? pop!(options, :env_kwargs) : NamedTuple())
     node_kwargs = haskey(options, :node_kwargs) ? pop!(options, :node_kwargs) : NamedTuple()
     body = haskey(options, :body) ? pop!(options, :body) : nothing
@@ -938,6 +944,7 @@ function _build_ensemble(task::Symbol, node::Symbol; ticks=nothing, seed=0, reco
             seed=seed,
             record=record_channels,
             every=every,
+            spectral_every=spectral_every,
             n_agents=n_agents_,
             n_nodes=n_nodes,
             node_kwargs=node_kwargs,
@@ -975,6 +982,7 @@ function _build_ensemble(task::Symbol, node::Symbol; ticks=nothing, seed=0, reco
         seed=seed,
         record=record_channels,
         every=every,
+        spectral_every=spectral_every,
         n_nodes=n_nodes,
         node_kwargs=node_kwargs,
         env_kwargs=env_kwargs,

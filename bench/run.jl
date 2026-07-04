@@ -1,5 +1,18 @@
 #!/usr/bin/env julia
 
+# Re-exec with `-t auto` so independent rollouts can use all performance cores
+# when Julia was launched single-threaded and the user did not pin a count.
+if Threads.nthreads() == 1 &&
+   !haskey(ENV, "JULIA_NUM_THREADS") &&
+   get(ENV, "BRAINLESSLAB_AUTOTHREADS", "1") != "0"
+    _cmd = addenv(
+        `$(Base.julia_cmd()) --threads=auto --project=$(Base.active_project()) $(abspath(PROGRAM_FILE)) $(ARGS)`,
+        "BRAINLESSLAB_AUTOTHREADS" => "0",
+    )
+    _proc = run(ignorestatus(_cmd))
+    exit(_proc.exitcode)
+end
+
 using CairoMakie
 
 include("Benchmark.jl")

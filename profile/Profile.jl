@@ -560,43 +560,71 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
     seed1_sim = nothing
     seed1_target_error = nothing
 
-    for s in 1:n_seeds
+    seed_results = BrainlessLab.parallel_map(1:Int(n_seeds)) do s
         record_channels = s == 1 ? (:spikes, :rate, :scene, :poses, :acts, :targets) : (:spikes, :rate, :scene, :poses)
         sim = simulate(task; node=node_sym, n_nodes=N, seed=s, record=record_channels)
         br = branching_ratio(sim)
-        per_tick_series[s] = br.per_tick
-        sigmas[s] = br.sigma
-        sigma_mr[s] = try
+        sigma_mr_value = try
             kmax = max(2, min(20, Int(floor(ticks / 3))))
             _finite_or_nan(branching_ratio_mr(sim; kmax=kmax, transient=0).m_mr)
         catch
             NaN
         end
-        scores[s] = Float64(sim.metrics.score)
-        liveness_values[s] = hasproperty(sim.metrics, :alive) && Bool(sim.metrics.alive) ? 1.0 : 0.0
-        rate_means[s] = hasproperty(sim.metrics, :rate_mean) ? _finite_or_nan(sim.metrics.rate_mean) : NaN
-        rate_vars[s] = hasproperty(sim.metrics, :rate_var) ? _finite_or_nan(sim.metrics.rate_var) : NaN
         aval = try
             avalanches(sim)
         catch
             nothing
         end
-        avalanche_tau[s] = aval === nothing ? NaN : _finite_or_nan(aval.tau)
-        avalanche_alpha[s] = aval === nothing ? NaN : _finite_or_nan(aval.alpha)
-        avalanche_gamma_fit[s] = aval === nothing ? NaN : _finite_or_nan(aval.gamma_fit)
-        avalanche_gamma_pred[s] = aval === nothing ? NaN : _finite_or_nan(aval.gamma_pred)
-        avalanche_counts[s] = aval === nothing ? NaN : _finite_or_nan(aval.n_avalanches)
+        factor_values = Dict{Symbol,Vector{Float64}}()
+        target_error = nothing
 
         if s == 1
-            seed1_sim = sim
-            seed1_target_error = try
+            target_error = try
                 node_target_error(sim)
             catch err
                 err isa ArgumentError ? nothing : rethrow()
             end
             for f in factors
-                seed1_factor[f] = Float64.(resolve_analysis(f)(sim))   # length T
+                factor_values[f] = Float64.(resolve_analysis(f)(sim))   # length T
             end
+        end
+
+        return (
+            sim=s == 1 ? sim : nothing,
+            per_tick=br.per_tick,
+            sigma=br.sigma,
+            sigma_mr=sigma_mr_value,
+            score=Float64(sim.metrics.score),
+            liveness=hasproperty(sim.metrics, :alive) && Bool(sim.metrics.alive) ? 1.0 : 0.0,
+            rate_mean=hasproperty(sim.metrics, :rate_mean) ? _finite_or_nan(sim.metrics.rate_mean) : NaN,
+            rate_var=hasproperty(sim.metrics, :rate_var) ? _finite_or_nan(sim.metrics.rate_var) : NaN,
+            avalanche_tau=aval === nothing ? NaN : _finite_or_nan(aval.tau),
+            avalanche_alpha=aval === nothing ? NaN : _finite_or_nan(aval.alpha),
+            avalanche_gamma_fit=aval === nothing ? NaN : _finite_or_nan(aval.gamma_fit),
+            avalanche_gamma_pred=aval === nothing ? NaN : _finite_or_nan(aval.gamma_pred),
+            avalanche_count=aval === nothing ? NaN : _finite_or_nan(aval.n_avalanches),
+            factor_values=factor_values,
+            target_error=target_error,
+        )
+    end
+
+    for (s, res) in enumerate(seed_results)
+        per_tick_series[s] = res.per_tick
+        sigmas[s] = res.sigma
+        sigma_mr[s] = res.sigma_mr
+        scores[s] = res.score
+        liveness_values[s] = res.liveness
+        rate_means[s] = res.rate_mean
+        rate_vars[s] = res.rate_var
+        avalanche_tau[s] = res.avalanche_tau
+        avalanche_alpha[s] = res.avalanche_alpha
+        avalanche_gamma_fit[s] = res.avalanche_gamma_fit
+        avalanche_gamma_pred[s] = res.avalanche_gamma_pred
+        avalanche_counts[s] = res.avalanche_count
+        if s == 1
+            seed1_sim = res.sim
+            seed1_target_error = res.target_error
+            seed1_factor = res.factor_values
         end
     end
 
@@ -607,17 +635,15 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
     # the every-tick branching run. Empty for nodes without a learned recurrent
     # matrix (e.g. compartmental) -> no spectral panel is rendered.
     K = max(1, cld(ticks, 60))
-    spectral_series = Vector{Vector{Float64}}()
-    for s in 1:n_seeds
-        rho = try
+    spectral_results = BrainlessLab.parallel_map(1:Int(n_seeds)) do s
+        return try
             ssim = simulate(task; node=node_sym, n_nodes=N, seed=s, record=(:spectral_radius,), every=K)
             spectral_radius(ssim).series
         catch
             Float64[]
         end
-        isempty(rho) && continue
-        push!(spectral_series, rho)
     end
+    spectral_series = [rho for rho in spectral_results if !isempty(rho)]
     if isempty(spectral_series)
         spectral_x = Int[]
         spectral_mean = Float64[]
@@ -686,9 +712,14 @@ end
 
 _fmt(x; digits=3) = isnan(x) ? "n/a" : @sprintf("%.*f", digits, x)
 
+function _stable_spectral_csv(value::Real)
+    x = Float64(value)
+    return isfinite(x) ? round(x; sigdigits=14) : x
+end
+
 function _metric_row(res)
-    spectral_start = isempty(res.spectral_mean) ? NaN : first(res.spectral_mean)
-    spectral_end = isempty(res.spectral_mean) ? NaN : last(res.spectral_mean)
+    spectral_start = isempty(res.spectral_mean) ? NaN : _stable_spectral_csv(first(res.spectral_mean))
+    spectral_end = isempty(res.spectral_mean) ? NaN : _stable_spectral_csv(last(res.spectral_mean))
     return Dict{String,Any}(
         "task" => String(res.task),
         "n_nodes" => res.n_nodes,
@@ -918,9 +949,11 @@ function node_profile(
     gif_fps::Integer=20,
 )
     render_gifs = Bool(gifs)
+    BrainlessLab.init_parallelism!(verbose=true)
+
     run_info = _make_run_dir(node_sym, tasks, n_seeds; out_root=out_root, out_dir=out_dir)
     run_dir = run_info.dir
-    results = [task_profile(node_sym, t; n_seeds=n_seeds, canonical_N=canonical_N) for t in tasks]
+    results = BrainlessLab.parallel_map(t -> task_profile(node_sym, t; n_seeds=n_seeds, canonical_N=canonical_N), tasks)
 
     metrics_path = _write_metrics_csv(joinpath(run_dir, "metrics.csv"), results)
     figures = _write_profile_figures(joinpath(run_dir, "figures"), results)

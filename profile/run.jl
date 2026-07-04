@@ -15,7 +15,24 @@
 #   julia --project=. run.jl falandays_oosawa --out runs
 #   julia --project=. run.jl falandays_base --report
 #
+# Threading: run.jl self-launches with `-t auto` when Julia starts
+# single-threaded and no count was pinned. Set BRAINLESSLAB_AUTOTHREADS=0 or
+# JULIA_NUM_THREADS=1 to opt out.
+#
 # Flags: --seeds <n> --out <runs-root> --no-gifs --report
+
+# Re-exec with `-t auto` so independent rollouts can use all performance cores
+# when Julia was launched single-threaded and the user did not pin a count.
+if Threads.nthreads() == 1 &&
+   !haskey(ENV, "JULIA_NUM_THREADS") &&
+   get(ENV, "BRAINLESSLAB_AUTOTHREADS", "1") != "0"
+    _cmd = addenv(
+        `$(Base.julia_cmd()) --threads=auto --project=$(Base.active_project()) $(abspath(PROGRAM_FILE)) $(ARGS)`,
+        "BRAINLESSLAB_AUTOTHREADS" => "0",
+    )
+    _proc = run(ignorestatus(_cmd))
+    exit(_proc.exitcode)
+end
 
 include("Profile.jl")
 using .NodeProfile

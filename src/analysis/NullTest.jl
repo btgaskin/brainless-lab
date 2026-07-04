@@ -102,7 +102,7 @@ independently circular-shifts every agent's recorded time series, preserving
 single-agent dynamics while destroying inter-agent timing. Returns
 `(real, null_mean, null_std, ratio)`.
 """
-function crossshift_null(sim::SimResult, measure_fn; n_shifts::Integer, rng::AbstractRNG)
+function crossshift_null(sim::SimResult, measure_fn; n_shifts::Integer, rng::AbstractRNG, threaded::Bool=true)
     n = Int(n_shifts)
     n >= 1 || throw(ArgumentError("crossshift_null needs n_shifts >= 1"))
     n_agents = _crossshift_n_agents(sim)
@@ -110,15 +110,25 @@ function crossshift_null(sim::SimResult, measure_fn; n_shifts::Integer, rng::Abs
     n_ticks >= 1 || throw(ArgumentError("crossshift_null needs at least one recorded tick"))
 
     real_value = _crossshift_measure_value(measure_fn(sim))
-    null_values = Vector{Float64}(undef, n)
-    shifts = Vector{Int}(undef, n_agents)
-    @inbounds for draw in 1:n
+
+    # Draw every surrogate's shifts up front from the caller's rng (same draw
+    # order as the historical serial loop), so the null is deterministic in the
+    # seed while the expensive measure recomputations fan out across threads.
+    # Surrogates only read `sim`, so concurrent draws are safe.
+    shift_draws = Vector{Vector{Int}}(undef, n)
+    for draw in 1:n
+        shifts = Vector{Int}(undef, n_agents)
         for agent in 1:n_agents
             shifts[agent] = rand(rng, 0:(n_ticks - 1))
         end
-        surrogate = _crossshift_surrogate(sim, shifts, n_agents)
-        null_values[draw] = _crossshift_measure_value(measure_fn(surrogate))
+        shift_draws[draw] = shifts
     end
+    null_values = Float64[
+        Float64(v) for v in parallel_map(shift_draws; threaded=threaded) do shifts
+            surrogate = _crossshift_surrogate(sim, shifts, n_agents)
+            _crossshift_measure_value(measure_fn(surrogate))
+        end
+    ]
 
     null_mean = _analysis_finite_mean(null_values)
     null_std = _analysis_finite_std(null_values)

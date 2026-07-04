@@ -236,11 +236,10 @@ function _cell_meta(cfg::BenchConfig, neuron::Symbol, task::Symbol)
 end
 
 function _run_cell(cfg::BenchConfig, meta::CellMeta)
-    rows = TrialRow[]
     task_spec = BrainlessLab.resolve_task(meta.task)
     model = meta.prep == :trained ? meta.genome : _default_model(meta.neuron)
 
-    for trial in 1:cfg.n_trials
+    rows = BrainlessLab.parallel_map(1:cfg.n_trials) do trial
         seed = cfg.seed_base + trial
         out = BrainlessLab.rollout(
             task_spec,
@@ -250,7 +249,7 @@ function _run_cell(cfg::BenchConfig, meta::CellMeta)
             N=cfg.n_nodes,
             ticks=cfg.ticks,
         )
-        push!(rows, TrialRow(
+        return TrialRow(
             meta.neuron,
             meta.task,
             trial,
@@ -261,7 +260,7 @@ function _run_cell(cfg::BenchConfig, meta::CellMeta)
             Float64(out.norm_score),
             Bool(out.alive),
             Float64(out.rate_mean),
-        ))
+        )
     end
 
     return rows
@@ -427,13 +426,15 @@ function _write_cell_artifacts(run_dir::AbstractString, cfg::BenchConfig, meta::
     representative_sim = nothing
 
     if cfg.gifs
-        for label in (:best, :representative, :worst)
-            sim = _simulate_trial(meta, cfg, picks[label])
-            label == :representative && (representative_sim = sim)
+        sims = BrainlessLab.parallel_map((:best, :representative, :worst)) do label
+            return (label=label, sim=_simulate_trial(meta, cfg, picks[label]))
+        end
+        for item in sims
+            item.label == :representative && (representative_sim = item.sim)
             Base.invokelatest(
                 BrainlessLab.animate,
-                sim;
-                path=joinpath(cell_dir, "$(String(label)).gif"),
+                item.sim;
+                path=joinpath(cell_dir, "$(String(item.label)).gif"),
                 framerate=20,
             )
         end
@@ -910,6 +911,8 @@ function _write_readme(path::AbstractString, cfg::BenchConfig, summaries, stats_
 end
 
 function run_benchmark(cfg::BenchConfig; out_root::AbstractString=joinpath(Store.bench_dir(), "runs"))
+    BrainlessLab.init_parallelism!(verbose=true)
+
     run_info = _make_run_dir(cfg, out_root)
     run_dir = run_info.dir
 
@@ -917,15 +920,21 @@ function run_benchmark(cfg::BenchConfig; out_root::AbstractString=joinpath(Store
     Store.write_toml(joinpath(run_dir, "manifest.toml"), _manifest_dict(cfg, run_info))
 
     metas = Dict{Tuple{Symbol,Symbol},CellMeta}()
-    rows = TrialRow[]
+    ordered_metas = CellMeta[]
 
     for task in cfg.tasks
         BrainlessLab.resolve_task(task)
         for neuron in cfg.neurons
             meta = _cell_meta(cfg, neuron, task)
             metas[(neuron, task)] = meta
-            append!(rows, _run_cell(cfg, meta))
+            push!(ordered_metas, meta)
         end
+    end
+
+    cell_rows = BrainlessLab.parallel_map(meta -> _run_cell(cfg, meta), ordered_metas)
+    rows = TrialRow[]
+    for chunk in cell_rows
+        append!(rows, chunk)
     end
 
     _write_results_raw(joinpath(run_dir, "results_raw.csv"), rows)

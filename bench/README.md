@@ -17,6 +17,10 @@ Run a smaller grid:
 
     julia --project=. run.jl --neurons falandays_base,compartmental_structured --tasks wall,pong --no-gifs
 
+Benchmark rollouts run on Julia threads. `run.jl` self-launches with `-t auto`
+when Julia starts single-threaded and no thread count was pinned; set
+`BRAINLESSLAB_AUTOTHREADS=0` or `JULIA_NUM_THREADS=1` to opt out.
+
 Train a stored genome for one cell:
 
     julia --project=. train.jl compartmental_structured wall --generations 30 --popsize 16 --seed 1 --N 120 --ticks 300
