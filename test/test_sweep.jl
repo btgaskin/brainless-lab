@@ -1,4 +1,5 @@
 using BrainlessLab
+using TOML
 using Test
 
 function _sweep_test_config(path; max_cells=10)
@@ -40,7 +41,7 @@ function _csv_rows(path)
     ]
 end
 
-function _write_tiny_sweep(path; node="falandays_base", task="wall", axes=Dict("\"node.threshold_mult\"" => "[1.8]"), seeds="[0]", measures="[\"liveness\"]", max_cells=10)
+function _write_tiny_sweep(path; node="falandays_base", task="wall", axes=Dict("\"node.threshold_mult\"" => "[1.8]"), seeds="[0]", measures="[\"liveness\"]", max_cells=10, analytics_extra="")
     open(path, "w") do io
         println(io, "[sweep]")
         println(io, "id = \"", splitext(basename(path))[1], "\"")
@@ -63,6 +64,7 @@ function _write_tiny_sweep(path; node="falandays_base", task="wall", axes=Dict("
         println(io)
         println(io, "[analytics]")
         println(io, "measures = ", measures)
+        isempty(analytics_extra) || println(io, analytics_extra)
     end
     return path
 end
@@ -79,7 +81,7 @@ end
     @test isfile(joinpath(sweep.dir, "results.csv"))
 
     header = _csv_header(joinpath(sweep.dir, "results.csv"))
-    for col in ("cell", "axis", "value", "score_mean", "score_std", "spectral_radius_mean", "liveness_mean")
+    for col in ("cell", "axis", "value", "score_mean", "score_std", "raw_score_mean", "raw_score_std", "frac_viable", "frac_alive", "spectral_radius_mean", "liveness_mean")
         @test col in header
     end
 
@@ -87,8 +89,11 @@ end
     @test length(rows) == 4
     @test all(row -> isfinite(parse(Float64, row["score_mean"])), rows)
     @test all(row -> isfinite(parse(Float64, row["liveness_mean"])), rows)
+    @test all(row -> isfinite(parse(Float64, row["frac_viable"])), rows)
+    @test all(row -> isfinite(parse(Float64, row["frac_alive"])), rows)
     @test all(row -> isfile(joinpath(row["result_path"], "metrics.csv")), rows)
     @test all(row -> !isfile(joinpath(row["result_path"], "representative.gif")), rows)
+    @test occursin("Viable cells:", read(joinpath(sweep.dir, "README.md"), String))
 
     blocked = _sweep_test_config(joinpath(dir, "blocked.toml"); max_cells=1)
     err_blocked = try
@@ -102,7 +107,19 @@ end
 
     axis_paths = [axis.path for axis in sweepable_axes(:falandays_base, :wall)]
     @test "node.threshold_mult" in axis_paths
+    @test "env.lam" in axis_paths
     @test "ablation" in axis_paths
+
+    tracking_axes = [axis.path for axis in sweepable_axes(:falandays_base, :tracking)]
+    @test "env.stim_speed_rad" in tracking_axes
+    @test !("env.lam" in tracking_axes)
+    @test only(sweep_env_axes(TrackingEnv)).path == "env.stim_speed_rad"
+    @test isempty(sweep_env_axes(PongEnv))
+
+    tracking_env = TrackingEnv(; stim_speed_rad=0.03)
+    @test tracking_env.stim_speed_rad == 0.03
+    step!(tracking_env, [0.5, 0.5])
+    @test tracking_env.phi ≈ 0.03
 
     bad = joinpath(dir, "bad-axis.toml")
     _sweep_test_config(bad)
@@ -130,6 +147,20 @@ end
     end
     @test err_env isa ArgumentError
     @test occursin("unknown axis 'env.lam'", sprint(showerror, err_env))
+
+    tracking_sweep = _write_tiny_sweep(
+        joinpath(dir, "tracking-speed.toml");
+        task="tracking",
+        axes=Dict("\"env.stim_speed_rad\"" => "[0.008726646259971648, 0.017453292519943295]"),
+        analytics_extra="viable_threshold = 0.9",
+    )
+    tracking_out = run_sweep(tracking_sweep; root=joinpath(dir, "tracking-out"), force=true)
+    tracking_rows = _csv_rows(tracking_out.results)
+    @test length(tracking_rows) == 2
+    @test all(row -> row["axis"] == "env.stim_speed_rad", tracking_rows)
+    @test all(row -> isfinite(parse(Float64, row["frac_viable"])), tracking_rows)
+    @test TOML.parsefile(joinpath(tracking_out.dir, "config.resolved.toml"))["analytics"]["viable_threshold"] == 0.9
+    @test occursin("threshold=0.9", read(joinpath(tracking_out.dir, "README.md"), String))
 
     bad_drive_axis = _write_tiny_sweep(
         joinpath(dir, "bad-drive-axis.toml");
@@ -184,6 +215,25 @@ end
     forage_out = run_sweep(forage_sweep; root=joinpath(dir, "forage-out"), force=true)
     @test length(forage_out.cells) == 1
     @test isfile(forage_out.results)
+
+    schema = BrainlessLab.SweepColumnSchema(
+        metric_header=String[],
+        float_columns=Set{String}(),
+        int_columns=Set{String}(),
+        bool_columns=Set{String}(),
+        aggregate_columns=["score", "liveness"],
+        viable_threshold=0.5,
+        measure_columns=Dict{String,Vector{String}}(),
+        ensemble_specs=NamedTuple[],
+    )
+    aggregate = BrainlessLab._aggregate_cell(
+        "cell_nan",
+        Dict{String,Any}("axis" => "env.source_gain", "value" => 1.0, "params" => Dict{String,Any}()),
+        [Dict{String,Any}("score" => NaN, "liveness" => 1.0, "alive" => true, "warnings" => "", "error" => "", "regime" => "")],
+        schema,
+    )
+    @test isnan(aggregate["frac_viable"])
+    @test aggregate["frac_alive"] == 1.0
 end
 
 function _write_criticality_sweep(path; id=splitext(basename(path))[1], group="sample", timeseries=true, n_shifts=2, gif=false, source_values="[1.0, 2.0]")

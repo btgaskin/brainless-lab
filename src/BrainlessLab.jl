@@ -372,6 +372,8 @@ export RunConfig,
     run_from_config,
     run_sweep,
     ablate,
+    SweepAxisInfo,
+    sweep_env_axes,
     sweepable_axes,
     capture_manifest
 

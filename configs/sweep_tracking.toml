@@ -1,0 +1,44 @@
+# Viability scan for the Falandays tracking task.
+# Answers: what percent of the sampled node/env parameter space tracks viably?
+# Run with:
+#   julia --project=. sweep/run.jl configs/sweep_tracking.toml
+#
+# The sweep emits frac_viable in results.csv: the fraction of seeds in each cell
+# whose normalized tracking score is at least analytics.viable_threshold.
+
+[sweep]
+id = "tracking_viability"
+mode = "one_at_a_time"
+seeds = [0, 1, 2, 3]
+max_cells = 200
+max_rollouts = 200
+
+[baseline]
+node = "falandays_base"
+task = "tracking"
+N = 200
+ticks = 2000
+# Score over a settled tail, not the whole run: the tracking score is mean gaze-
+# cosine, which is depressed by the switch-on transient and the periodic stimulus
+# reversals (every 720 ticks). A full-run window understates viability; the paper
+# baseline reads the settled tail (default_window = 200).
+window = 300
+"node.input_weight" = 0.75
+"node.lrate_wmat" = 1.0
+"node.lrate_targ" = 0.01
+
+[axes]
+# Node/architecture parameters are anchored around the tracking paper baseline.
+"task.N" = [100, 200, 300]
+"node.input_weight" = [0.5, 0.75, 1.0, 1.25]
+"node.lrate_wmat" = [0.25, 0.5, 1.0, 1.5]
+"node.lrate_targ" = [0.0, 0.005, 0.01, 0.02]
+"node.threshold_mult" = [1.5, 2.0, 2.5]
+
+# Dimension-preserving task difficulty: stimulus angular speed in radians/tick.
+# Values are 0.5, 1.0, 2.0, and 3.0 degrees/tick.
+"env.stim_speed_rad" = [0.008726646259971648, 0.017453292519943295, 0.03490658503988659, 0.05235987755982989]
+
+[analytics]
+measures = ["sigma_mr", "spectral_radius", "liveness"]
+viable_threshold = 0.5

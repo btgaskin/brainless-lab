@@ -66,9 +66,25 @@ Base.@kwdef struct SweepColumnSchema
     int_columns::Set{String}
     bool_columns::Set{String}
     aggregate_columns::Vector{String}
+    viable_threshold::Float64 = 0.5
     measure_columns::Dict{String,Vector{String}}
     ensemble_specs::Vector{NamedTuple}
 end
+
+struct SweepMeasureList <: AbstractVector{String}
+    values::Vector{String}
+    viable_threshold::Float64
+end
+
+Base.IndexStyle(::Type{<:SweepMeasureList}) = IndexLinear()
+Base.eltype(::Type{<:SweepMeasureList}) = String
+Base.size(measures::SweepMeasureList) = size(measures.values)
+Base.length(measures::SweepMeasureList) = length(measures.values)
+Base.getindex(measures::SweepMeasureList, i::Int) = measures.values[i]
+Base.iterate(measures::SweepMeasureList, state...) = iterate(measures.values, state...)
+
+_viable_threshold_from_measures(measures) = 0.5
+_viable_threshold_from_measures(measures::SweepMeasureList) = measures.viable_threshold
 
 function _axis_table(data)
     if haskey(data, "axes")
@@ -82,6 +98,10 @@ end
 
 function _sweep_section(data)
     return haskey(data, "sweep") && data["sweep"] isa AbstractDict ? data["sweep"] : Dict{String,Any}()
+end
+
+function _analytics_section(data)
+    return haskey(data, "analytics") && data["analytics"] isa AbstractDict ? data["analytics"] : Dict{String,Any}()
 end
 
 function _sweep_id(path::AbstractString, data)
@@ -274,14 +294,23 @@ function _sweep_seeds(data)
 end
 
 function _analytics_measures(data)
-    analytics = haskey(data, "analytics") && data["analytics"] isa AbstractDict ? data["analytics"] : Dict{String,Any}()
+    analytics = _analytics_section(data)
     raw = get(analytics, "measures", collect(_SWEEP_DEFAULT_MEASURES))
     out = String[]
     for measure in string.(collect(raw))
         canonical = _canonical_measure_name(measure)
         canonical in out || push!(out, canonical)
     end
-    return out
+    return SweepMeasureList(out, _viable_threshold(data))
+end
+
+function _viable_threshold(data)
+    analytics = _analytics_section(data)
+    sweep = _sweep_section(data)
+    threshold = get(analytics, "viable_threshold", get(sweep, "viable_threshold", 0.5))
+    value = Float64(threshold)
+    isfinite(value) || throw(ArgumentError("viable_threshold must be finite, got $(repr(threshold))"))
+    return value
 end
 
 function _canonical_measure_name(measure::AbstractString)
@@ -391,7 +420,7 @@ function _descriptor_columns(base::SweepBaseline)
     return string.(task.descriptor_keys)
 end
 
-function _build_column_schema(measures, ensemble_specs, baseline::SweepBaseline)
+function _build_column_schema(measures, ensemble_specs, baseline::SweepBaseline; viable_threshold::Real=_viable_threshold_from_measures(measures))
     base_columns = ["seed", "score", "raw_score", "score_key", "alive", "liveness", "rate_mean", "rate_var"]
     descriptor_columns = _descriptor_columns(baseline)
     measure_columns = Dict{String,Vector{String}}()
@@ -430,6 +459,7 @@ function _build_column_schema(measures, ensemble_specs, baseline::SweepBaseline)
         int_columns=int_columns,
         bool_columns=bool_columns,
         aggregate_columns=aggregate_columns,
+        viable_threshold=Float64(viable_threshold),
         measure_columns=measure_columns,
         ensemble_specs=ensemble_specs,
     )
@@ -460,6 +490,20 @@ function _validate_sweep_task(task)
     task_sym === :swarm && return :torus
     haskey(TASKS, task_sym) || throw(_registry_name_error("task", task_sym, keys(TASKS)))
     return task_sym
+end
+
+sweep_env_axes(::Type)::Vector{SweepAxisInfo} = SweepAxisInfo[]
+
+function sweep_env_axes(::Type{<:WallEnv})::Vector{SweepAxisInfo}
+    return [
+        SweepAxisInfo(path="env.lam", default=1.0, range="> 0", description="wall-task collision penalty"),
+    ]
+end
+
+function sweep_env_axes(::Type{<:TrackingEnv})::Vector{SweepAxisInfo}
+    return [
+        SweepAxisInfo(path="env.stim_speed_rad", default=deg2rad(1.0), range="> 0", description="tracking stimulus angular speed in radians per tick"),
+    ]
 end
 
 function sweepable_axes(node=:falandays_base, task=:wall)
@@ -510,8 +554,8 @@ function sweepable_axes(node=:falandays_base, task=:wall)
         push!(out, SweepAxisInfo(path="env.conspecific_vision", default=cfg.conspecific_vision, range="true|false", description="whether agents see each other"))
     else
         task_obj = resolve_task(task_sym)
-        if task_obj isa TaskSpec && task_obj.env_type === WallEnv
-            push!(out, SweepAxisInfo(path="env.lam", default=1.0, range="> 0", description="wall-task collision penalty"))
+        if task_obj isa TaskSpec
+            append!(out, sweep_env_axes(task_obj.env_type))
         end
     end
 
@@ -859,6 +903,13 @@ function _capture_toml(capture::SweepCaptureOptions)
     )
 end
 
+function _analytics_toml(measures)
+    return Dict{String,Any}(
+        "measures" => collect(measures),
+        "viable_threshold" => _viable_threshold_from_measures(measures),
+    )
+end
+
 function _write_manifest(path::AbstractString, id::AbstractString, base::SweepBaseline, seeds, measures, preview, ensemble_specs, capture::SweepCaptureOptions)
     manifest = _manifest_header(:sweep)
     merge!(
@@ -870,7 +921,7 @@ function _write_manifest(path::AbstractString, id::AbstractString, base::SweepBa
                 "offsets" => collect(seeds),
                 "resolved" => [base.seed_base + seed for seed in seeds],
             ),
-            "analytics" => Dict{String,Any}("measures" => collect(measures)),
+            "analytics" => _analytics_toml(measures),
             "ensemble" => _ensemble_toml(ensemble_specs),
             "capture" => _capture_toml(capture),
             "cost_preview" => preview,
@@ -894,7 +945,7 @@ function _write_resolved_config(path::AbstractString, id::AbstractString, mode::
         ),
         "baseline" => _baseline_toml(base),
         "axes" => Dict{String,Any}(string(k) => v for (k, v) in axes),
-        "analytics" => Dict{String,Any}("measures" => collect(measures)),
+        "analytics" => _analytics_toml(measures),
         "ensemble" => _ensemble_toml(ensemble_specs),
         "capture" => _capture_toml(capture),
     )
@@ -1327,12 +1378,43 @@ function _mode_string(vals)
     return first(sort!(collect(counts), by=x -> (-x[2], x[1])))[1]
 end
 
+function _frac_alive(rows)
+    isempty(rows) && return NaN
+    alive = 0
+    for row in rows
+        value = get(row, "alive", missing)
+        if value isa Bool
+            alive += value ? 1 : 0
+        else
+            alive += _finite_or_nan(get(row, "liveness", NaN)) >= 0.5 ? 1 : 0
+        end
+    end
+    return alive / length(rows)
+end
+
+function _frac_viable(rows, threshold::Real)
+    isempty(rows) && return NaN
+    saw_finite_score = false
+    viable = 0
+    for row in rows
+        score = _finite_or_nan(get(row, "score", NaN))
+        if isfinite(score)
+            saw_finite_score = true
+            viable += score >= Float64(threshold) ? 1 : 0
+        end
+    end
+    saw_finite_score || return NaN
+    return viable / length(rows)
+end
+
 function _aggregate_cell(cell_id, cell, rows, schema::SweepColumnSchema)
     out = Dict{String,Any}(
         "cell" => cell_id,
         "axis" => cell["axis"],
         "value" => cell["value"],
         "n_seeds" => length(rows),
+        "frac_viable" => _frac_viable(rows, schema.viable_threshold),
+        "frac_alive" => _frac_alive(rows),
         "warnings" => join(unique(filter(!isempty, string.(get.(rows, "warnings", "")))), " | "),
         "errors" => join(unique(filter(!isempty, string.(get.(rows, "error", "")))), " | "),
     )
@@ -1620,7 +1702,7 @@ function _run_cell(cell_id, cell, seeds, measures, schema::SweepColumnSchema, ce
 end
 
 function _results_header(schema::SweepColumnSchema)
-    header = ["cell", "axis", "value", "params", "n_seeds", "score_mean", "score_std", "raw_score_mean", "raw_score_std"]
+    header = ["cell", "axis", "value", "params", "n_seeds", "score_mean", "score_std", "raw_score_mean", "raw_score_std", "frac_viable", "frac_alive"]
     reported = [col for col in schema.aggregate_columns if !(col in ("score", "raw_score"))]
     for measure in reported
         push!(header, "$(measure)_mean")
@@ -1712,7 +1794,13 @@ function _regime_flip_for_axis(rows, axis)
     return "regime flip: " * join(regimes, " -> ")
 end
 
+function _percent_string(count::Integer, total::Integer)
+    total <= 0 && return "NaN%"
+    return string(round(100.0 * count / total; digits=1), "%")
+end
+
 function _write_readme(path::AbstractString, id, base::SweepBaseline, rows, axis_names, preview, measures)
+    viable_threshold = _viable_threshold_from_measures(measures)
     best = _best_rows_by_axis(rows)
     open(path, "w") do io
         println(io, "# Sweep `$(id)`")
@@ -1741,9 +1829,13 @@ function _write_readme(path::AbstractString, id, base::SweepBaseline, rows, axis
             end
         end
         dead = count(row -> _finite_or_nan(row["liveness_mean"]) < 0.5, rows)
+        viable = count(row -> (x = _finite_or_nan(get(row, "frac_viable", NaN)); isfinite(x) && x > 0.0), rows)
+        unscored = count(row -> !isfinite(_finite_or_nan(get(row, "frac_viable", NaN))), rows)
         failed = count(row -> !isempty(string(get(row, "errors", ""))), rows)
         println(io)
         println(io, "Dead/liveness-failed cells flagged: $(dead) / $(length(rows)).")
+        println(io, "Viable cells: $(viable) / $(length(rows)) ($(_percent_string(viable, length(rows))); threshold=$(Float64(viable_threshold)), frac_viable > 0).")
+        unscored > 0 && println(io, "Cells without finite normalized scores: $(unscored) / $(length(rows)).")
         println(io, "Cells with recorded errors: $(failed) / $(length(rows)).")
         if failed > 0
             println(io)
