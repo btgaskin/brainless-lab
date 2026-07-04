@@ -57,6 +57,7 @@ export default defineConfig({
           ],
         },
         { label: 'Environments & Tasks', slug: 'environments-tasks' },
+        { label: 'Scoring', slug: 'scoring' },
         { label: 'The collective', slug: 'collective' },
         { label: 'Receptors & Effectors', slug: 'receptors-effectors' },
         { label: 'Analysis', slug: 'analysis' },

@@ -39,6 +39,30 @@ agents within an ensemble" made literal.
 
 <p class="bl-source">Source: <code>src/world/Ensemble.jl</code> — <code>Ensemble&#123;E,A,B&#125;</code> and <code>step!(::Ensemble)</code>.</p>
 
+## Capacities & qualities — what we characterise
+
+The ladder says *what* the objects are; this says *what we ask of them*. Every rung is the
+same **class of entity**, so one class-level question holds at any scale: which
+**capacities for behavioural complexity** does a collective have, and which **qualities**
+produce them?
+
+- **Capacities** — responsiveness, adaptation, coordination, entrainment, individuation,
+  memory. An **open, evolving set**, not a fixed taxonomy: a capacity is a general way of
+  dealing with behavioural complexity, never a specific task won. Here a task is a *test of
+  a capacity*, and capacities are carved by the tasks that probe them — we design tasks and
+  refine capacity definitions together, closer to construct-validation than to a
+  leaderboard. (Speculative and programmatic — a frame, not a settled catalogue.)
+- **Qualities** — the dynamical and structural properties that make a capacity work:
+  criticality, timescale separation, coupling, oscillation. These are the descriptors of
+  [Analysis](/analysis/), and they are the real object of study.
+
+Roughly, today's tasks cluster on **responsiveness** (wall = avoidance, tracking/pong =
+pursuit, cartpole = stabilising an unstable equilibrium) and touch **coordination** (the
+swarm); **adaptation** and **memory** — the capacities this framing is most about — are the
+frontier no current task yet demands. A task **elicits** a capacity; a calibrated
+[score](/scoring/) **indicates** it; the sweep, ablation, and diversity search **map**
+capacity to quality across the class. We characterise the class; we do not optimise-to-solve.
+
 ## The sensorimotor contract
 
 Each tick, for every agent, the same pipeline runs — perceive first, then all move:

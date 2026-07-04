@@ -19,11 +19,16 @@ embodied body `VENBody` — bearing-vision in, movement kinematics out — in a
 | `:cartpole` (+ hard/swingup/long) | 8 | 2 | 4 state dims × 2 polarities; binary force vote |
 
 Effector semantics are **intentionally non-uniform**: channel 1 in Pong is not the same
-physical quantity as channel 1 in cartpole. `normalized_score(task, raw)` maps each
-task's raw score onto $[0,1]$ via a per-task floor/ceiling — for optimizer bookkeeping,
-not a universal unit. Don't compare raw scores across tasks.
+physical quantity as channel 1 in cartpole. And a task here is a **test of a capacity**, not
+a problem to be won (which capacity — wall = avoidance, tracking/pong = pursuit, cartpole =
+stabilising an unstable equilibrium — is set out in [Concepts](/concepts/)).
+`normalized_score(task, raw)` maps each task's raw metric onto $[0,1]$ against calibrated
+**anchors** — a null floor and an analytic (or reference) ceiling, each carrying its
+provenance. The *normalised* value is a capacity-indicator ("how far past chance toward the
+reference"), so it **is** comparable across tasks within a ceiling kind; only the *raw*
+scores are not. See [Scoring](/scoring/).
 
-<p class="bl-source">Source: <code>src/envs/</code> (the <code>TaskWorld</code>s), <code>src/tasks/Tasks.jl</code> (<code>TaskSpec</code>, <code>normalized_score</code>).</p>
+<p class="bl-source">Source: <code>src/envs/</code> (the <code>TaskWorld</code>s), <code>src/tasks/Tasks.jl</code> (<code>TaskSpec</code>), <code>src/tasks/Scoring.jl</code> / <code>Calibration.jl</code> (anchors, <code>calibrate_task</code>).</p>
 
 ## The swarm
 

@@ -4,9 +4,11 @@ description: The analytic suite — criticality, collective, cross-level, and in
 ---
 
 The analytic suite reads the *statistics of self-organised dynamics* at three scales.
-Every measure below carries its equation, a one-line reading, and a **Source** callout
-to its Julia implementation. All operate on channels recorded by the `Recorder` (off
-the compute hot path), so nothing here perturbs a run.
+These measures are the **qualities** — the dynamical signatures that underwrite a capacity;
+where a [score](/scoring/) *indicates* that a capacity is present, these help *explain* how.
+Every measure below carries its equation, a one-line reading, and a **Source** callout to its
+Julia implementation. All operate on channels recorded by the `Recorder` (off the compute hot
+path), so nothing here perturbs a run.
 
 For a concrete, runnable end-to-end example that collects these measures at both scales
 from a single forage rollout — per-agent branching, node/agent susceptibility,
@@ -85,14 +87,17 @@ Every criticality estimator takes a `level`:
 - `:pooled` — all nodes of all agents in one series (the legacy default; it mixes distinct reservoirs, so read it as a population summary, not "the reservoir's" dynamics).
 
 Not every measure is comparable across levels — this matters, because plotting an
-incomparable pair against each other is a real inferential error.
-**Susceptibility is the one clean pair**: node ($\chi = N\,\mathrm{Var}[\text{synchrony}]$) and
-agent ($\chi = n\,\mathrm{Var}[\text{polarization}]$) are the same quantity, and it passes the
-circular-shift null. Compare their *peak positions* as a control parameter is swept — not raw
-magnitudes, whose prefactors ($N\approx100$ vs $n\approx6$) differ by an order of magnitude.
-**Branching does not pair across levels**: agent-scale branching is dominated by *within-agent*
-maneuvers and **fails** the circular-shift null, so it is a labelled negative control, not a
-quantity to plot against node branching.
+incomparable pair against each other is a real inferential error. **Susceptibility** is the
+natural candidate pair: node ($\chi = N\,\mathrm{Var}[\text{synchrony}]$) and agent
+($\chi = n\,\mathrm{Var}[\text{polarization}]$) are formally the same quantity. But a powered
+re-test refuted the apparent agent-scale signal against the circular-shift null, and
+**branching** fails it outright (agent-scale branching is dominated by *within-agent*
+maneuvers). So, stated honestly: **no ensemble-scale criticality measure has yet survived the
+null as a validated cross-level quantity** — agent-branching is a labelled negative control,
+and agent-susceptibility is not (yet) trustworthy either. Node-scale measures stand on their
+own; cross-level pairing remains an open, actively-nulled question. When a pair does survive,
+compare its *peak positions* as a control parameter is swept, not raw magnitudes (the
+prefactors $N\approx100$ vs $n\approx6$ differ by an order of magnitude).
 
 <p class="bl-source">Source: <code>src/analysis/ActivityLevels.jl</code>; consumed by Branching / Avalanches / SecondOrder.</p>
 
@@ -127,6 +132,10 @@ difference, not the raw ratio.
 <p class="bl-source">Source: <code>src/analysis/NullTest.jl</code> — <code>crossshift_null</code>.</p>
 
 ## Collective (agent scale)
+
+These are **descriptors (qualities), not competence scores** — they measure *how* a swarm is
+organised, read alongside a task's capacity-indicator, never as a competence measure in their
+own right (see [Scoring](/scoring/)).
 
 - **Polarization** $\;P = \big|\frac{1}{N}\sum_i e^{i\theta_i}\big|$ — heading alignment, $0$ disordered → $1$ aligned.
 - **Milling** — rotational order about the torus-aware circular centroid.

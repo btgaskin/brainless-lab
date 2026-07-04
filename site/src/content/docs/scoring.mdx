@@ -1,0 +1,83 @@
+---
+title: Scoring
+description: What a score means for a self-organising system — calibrated anchors, honest nulls, and gates that keep an indicator from being gamed.
+---
+
+A score here is a **calibrated indicator that a capacity is present** — never the capacity
+itself, and never the thing being optimised. A self-organising collective maintains its own
+*viability*; it has no intrinsic reason to play Pong. That it *can be made* to is what we
+measure — and a bare number means nothing until you say what it is measured *against*. So
+each task's raw metric is mapped onto $[0,1]$ against two **anchors**, a floor and a
+ceiling:
+
+$$
+\text{normalised} = \operatorname{clamp}\!\left(\frac{\text{raw} - \text{floor}}{\text{ceiling} - \text{floor}},\; 0,\; 1\right)
+$$
+
+Read it as *the fraction of the gap from chance to the reference that this collective
+closed*. Zero is not "did nothing" — it is "no better than the null".
+
+## Anchors carry their provenance
+
+`ScoreAnchor` replaces the hand-typed magic numbers. Each anchor is a value, a **kind**, and
+a provenance string, so no floor or ceiling is a number someone once eyeballed:
+
+- **`ANALYTIC`** — a principled bound: tracking's chance level $\mathbb{E}[\cos\theta]=0$, or
+  a true maximum such as "intercept every ball" ($\text{hit\_rate}=1$).
+- **`NULL_MEASURED`** — a measured chance floor: the score of a null policy, *run*, not guessed.
+- **`REFERENCE_MEASURED`** — a measured ceiling from a named reference agent.
+
+<p class="bl-source">Source: <code>src/tasks/Scoring.jl</code> (<code>ScoreAnchor</code>, <code>normalized_score</code>), <code>src/tasks/Tasks.jl</code> (the per-task anchors).</p>
+
+## The null is model-agnostic
+
+The floor is the score of **`:null_random`** — a policy that ignores its input and emits
+uniform-random effectors. Model-agnostic on purpose: a sweep varies the node type, and a
+"dead reservoir" null would mean something different for each, whereas "no better than
+acting at random" is the *same* zero for every model. `calibrate_task` runs it over seeds and
+records the floor with provenance, e.g. `null=null_random, score_key=forage_score, seeds 0:7,
+git …`.
+
+This is why several floors sit well above zero: a random forager still drifts $\approx 0.46$
+of the way to the source just by wandering, so a forage score only *counts* once agents beat
+undirected search.
+
+<p class="bl-source">Source: <code>src/nodes/NullRandom.jl</code>, <code>src/tasks/Calibration.jl</code> (<code>calibrate_task</code>).</p>
+
+## Gates keep the indicator honest
+
+An indicator is only trustworthy if a degenerate solution can't game it. The wall task
+rewards **collision avoidance** — but "avoid every collision" is trivially won by *not
+moving*. So the wall score is collision-free navigation **gated by movement**: a frozen agent
+scores $\approx 0$ because the gate — not the score — zeroes it. The gate encodes the
+unstated half of the task ("*while behaving*"); it is never the competence signal. (The same
+pattern gates rhythm tasks on oscillation amplitude.)
+
+## Descriptors are read alongside a score, never as one
+
+Each task names one **`score_key`** (the capacity indicator) plus any **`descriptor_keys`** —
+channels reported next to it but never treated as competence. Collective order parameters
+such as **polarization** and **milling** are descriptors in exactly this sense: they measure
+*how* a swarm is organised, not whether it succeeded, and reporting one as a "score" would
+confuse a quality with a capacity.
+
+## Where the anchors stand today
+
+Every current task is a **null-measured floor + an analytic ceiling** — the honest
+configuration when no *good* trained agent yet exists to serve as a reference:
+
+| task | floor | ceiling |
+|---|---|---|
+| wall | `null` ≈ 0.76 (`nav_score`) | analytic `1.0` — collision-free navigation |
+| tracking | analytic `0.0` — chance | analytic `1.0` |
+| pong / pong_hitrate | `null` ≈ 0.36 (`hit_rate`) | analytic `1.0` — intercept every ball |
+| cartpole (+ swingup) | analytic `0.0` / `null` ≈ 0.16 | analytic `1.0` |
+| forage | `null` ≈ 0.46 | analytic `1.0` — agents on source |
+
+A `REFERENCE_MEASURED` ceiling — a genuinely good, *trained* agent as the "1" — is a
+`TODO(reference-genome)`: until such an agent exists, the analytic maximum is the honest
+ceiling. Scores are mutually comparable only *within* a ceiling kind — analytic-ceiling tasks
+share "1 = true optimum"; a future reference-ceiling task would be comparable only relative
+to its own reference.
+
+<p class="bl-source">Source: <code>src/run/Sweep.jl</code> (<code>_sim_score</code>, descriptor columns), <code>src/tasks/Tasks.jl</code>.</p>
