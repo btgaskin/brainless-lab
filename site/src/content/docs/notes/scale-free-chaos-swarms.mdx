@@ -1,0 +1,81 @@
+---
+title: An extended critical region in swarms
+description: González-Albaladejo & Bonilla (2024) — natural-swarm power laws explained as a mixture of data over an extended critical region of a scale-free-chaos transition in the confined Vicsek model, not an ordering transition.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Power laws of natural swarms are fingerprints of an extended
+critical region* — R. González-Albaladejo & L. L. Bonilla, arXiv:2309.05064 (2024).
+[arXiv:2309.05064](https://arxiv.org/abs/2309.05064).
+:::
+
+## The puzzle
+
+Natural midge swarms show power laws (correlation length ∝ flock size, susceptibility, correlation time)
+and strong scale-free correlations — signatures of near-criticality — yet three facts sit awkwardly with
+the usual explanation (an **ordering** transition, à la Cavagna): swarms live in the **disordered** phase
+(low polarization), they form around **markers** on the ground (so they are *not* translation-invariant),
+and their dynamic scaling is **imperfect** — the normalized dynamic correlation function (NDCCF) collapses
+onto one curve only for **short** rescaled times ($0 < t/\xi^z < 4$). The ordering-transition RG gets the
+dynamic exponent right ($z\approx1.35$) but the **static exponents wrong** ($\nu\approx0.75,\gamma\approx1.17$
+vs. observed $\nu\approx0.35,\gamma\approx0.9$), predicts a *full* NDCCF collapse, and can't produce the
+marker/shape phenomenology. This paper offers a different mechanism.
+
+## The model: a scale-free-chaos transition
+
+They use the **harmonically confined Vicsek model** (HCVM) — 3D Vicsek alignment plus a linear spring
+$\beta$ that binds the swarm (standing in for the marker) — with alignment noise $\eta$ and confinement
+$\beta$ as control parameters. The HCVM has a **scale-free-chaos phase transition**: chaotic dynamics
+(positive Lyapunov exponent) *with* scale-free correlations ($\xi \sim N^{1/3}$). Crucially, for **finite
+$N$** this is not a point but an **extended critical region** bounded by three scale-free lines on the
+$(\eta,\beta)$ plane — the onset-of-chaos line $\beta_0$ (zero largest Lyapunov exponent), the
+single-to-multicluster line $\beta_c$, and the maximal-Lyapunov line $\beta_i$ — all collapsing onto the
+$\beta=0$ axis at the same rate as $N\to\infty$.
+
+## Power laws, and a bridge to the observable
+
+As $\eta\to0$ the critical lines obey
+
+$$
+\beta_j(N;\eta) = C_j\, N^{-1/(3\nu)}\,\eta^{m_j}, \qquad j=0,c,
+$$
+
+with $\xi\sim\beta^{-\nu}$, $\chi\sim\beta^{-\gamma}$, $\tau\sim\xi^z$. Because the exponents drop out of
+the *noise* dependence, $\nu$ and $\gamma$ can be estimated at a **fixed $N$** (you cannot grow the insect
+count at will) — giving $\nu\approx0.43$, $\gamma\approx0.92$. And the unmeasurable confinement $\beta$ is
+found to be **proportional to the perception range** (the mean nearest-neighbour distance), the same
+observable control parameter used in the Attanasi–Cavagna finite-size analysis — so the laws can be
+written in measurable terms.
+
+## The key move: mixtures of data
+
+Real swarm data are pooled across different times, atmospheric conditions, species, and $N$ — so they do
+**not** sit at a single control-parameter value. The authors model this as a **mixture of simulation data
+over the extended critical region** (varying $N$, $\eta$, $\beta$ along $\beta_0$ and $\beta_c$). Applying
+the *same* fitting procedures used on real swarms, the mixture reproduces:
+
+- the static exponents ($\nu\approx0.43$, $\gamma\approx0.92$ vs. observed $0.35$, $0.9$);
+- the dynamic exponent (mixture: $z_{\text{LS}}\approx1.15$, $z_{\text{RMA}}\approx1.33$ vs. observed
+  $1.16$, $1.37$ — noting LS underestimates $z$; on a *single* line $z\approx1$);
+- the **imperfect NDCCF collapse** over only a finite time interval — a signature that **several
+  timescales** are in play near the scale-free-chaos transition (an ordering transition has one timescale
+  → full collapse);
+- the observed swarm **shape** (a condensed core in an "insect vapour").
+
+## The upshot
+
+The ordering transition between homogeneous, translation-invariant phases does **not** belong to the
+universality class of insect swarms; the scale-free-chaos transition — with confinement/markers, chaos, an
+extended critical region, and multiple timescales — matches both the exponents and the qualitative
+features. The broader twist for the criticality debate: when a system's control parameter is unmeasurable
+or varies across observations, apparent power laws may reflect a **mixture over an extended critical
+region** rather than fine-tuning to a single critical point (a cousin of Griffiths-phase / generic
+scale-invariance ideas).
+
+## References
+
+González-Albaladejo & Bonilla (2024), arXiv:2309.05064 · González-Albaladejo, Carpio & Bonilla (2023),
+*Phys. Rev. E* **107**, 014209 · González-Albaladejo & Bonilla (2023), *Phys. Rev. E* **107**, L062601 ·
+Attanasi et al. (2014), *Phys. Rev. Lett.* **113**, 238102 · Cavagna et al. (2017), *Nat. Phys.* **13**, 914 ·
+Cavagna et al. (2023), *Nat. Phys.* **19**, 1043 · Vicsek et al. (1995), *Phys. Rev. Lett.* **75**, 1226 ·
+Cavagna, Giardina & Grigera (2018), *Phys. Rep.* **728**, 1 · Mora & Bialek (2011), *J. Stat. Phys.* **144**, 268.

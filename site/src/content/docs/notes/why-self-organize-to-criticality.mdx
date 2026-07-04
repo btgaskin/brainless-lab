@@ -1,0 +1,81 @@
+---
+title: Why self-organize to criticality
+description: Chen & Prokopenko (2025) — a primer comparing information-theoretic and thermodynamic intrinsic utilities on a common Ising perception-action loop, arguing thermodynamic efficiency (which peaks at criticality) explains why collectives self-organize there.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Why collective behaviours self-organize to criticality: a primer on
+information-theoretic and thermodynamic utility measures* — Qianyang Chen & Mikhail Prokopenko,
+*R. Soc. Open Sci.* (2025) **12**, 241655.
+[doi:10.1098/rsos.241655](https://doi.org/10.1098/rsos.241655).
+:::
+
+## The question: *why*, not *how*
+
+Self-organized criticality (SOC) explains *how* a system can end up at a critical point (a slow driving
+force balanced by fast dissipation), but not *why* being there benefits the collective. This primer asks
+the complementary question: is there an **intrinsic utility** — a task-independent benefit a system gains
+from its own organization — that is optimized *at* criticality? It compares four candidate utilities on
+one common example.
+
+## The common example: an Ising perception–action loop
+
+The 2D Ising model is read as a **perception–action loop**: each site is an agent that **senses** its
+neighbourhood energy (S), **acts** by flipping or holding its spin (A), against a **world** = the lattice
+magnetization (W); the coupling strength $J$ is its "agency/embodiment," and the spin-flip rule (Glauber
+vs. Metropolis) is a variant of that embodiment. Computing each utility as a function of $J$ shows where
+each would drive the collective if $J$ evolved to optimize it.
+
+## Four utilities, four different optima
+
+- **Predictive information** $\mathcal I = I(S_{\text{past}}; S_{\text{future}}) = H(S_{\text{fut}}) -
+  H(S_{\text{fut}}\mid S_{\text{past}})$ (diversity minus unpredictability) — peaks at **weak/sub-critical**
+  coupling (Metropolis) or **near-critical** (Glauber); driven by sensory diversity (exploration).
+- **Empowerment** = the channel capacity from an agent's actions to its future sensations — peaks at
+  **strong/super-critical** coupling, where an aligned neighbourhood makes each action maximally
+  perceivable.
+- **Active inference / variational free energy** (intrinsic part) = minimize surprise between local model
+  and global state — also **super-critical** (alignment lets local sensing predict the global spin).
+- **Thermodynamic efficiency** $\eta = \dfrac{-\,d\mathbb S/d\theta}{d\langle\beta\mathbb W_{\text{gen}}\rangle/d\theta}$
+  — the entropy reduction (predictability gained) per unit generalized work (equivalently, per integrated
+  Fisher information) — peaks **at the critical regime** ($J_c\approx0.4407$), the same for both dynamics.
+
+The punchline: **only the measure that weighs informational benefit *against* energy cost — thermodynamic
+efficiency — is optimized at criticality**; the purely informational utilities are maximized to one side
+or the other. Analytically, $\eta$ **diverges** at the critical point, $\eta \propto |J - J_c|^{-1}$ (and
+$\propto|\theta-\theta_c|^{-1}$ for the Curie–Weiss model), with the finite-size peak approaching $J_c$ as
+the lattice grows.
+
+## The Principle of Super-efficiency
+
+They propose: *self-organizing collective systems maximize the thermodynamic efficiency of interactions —
+maximal predictability of collective behaviour per unit of expended work — and this efficiency is maximal
+at the critical regime.* Read either way: for a fixed energy budget, criticality maximizes the
+predictability gain; for a required predictability gain, it minimizes the energy cost. The authors marshal
+support from prior thermodynamic-efficiency studies (self-propelled particles, urban transformation,
+epidemic contagion — all peaking at their transitions) and empirical systems (starling flocks combining
+scale-free correlations with metabolic savings in formation; ant colonies with order transitions and
+sublinear energy scaling; energy-constrained brain-network formation).
+
+:::tip[Why it's collected here]
+Two hooks for this lab. First, the **Ising-as-perception-action-loop** framing (each unit an embodied
+sense→act agent) is the same move as treating a reservoir-in-a-body as an agent, and it makes "coupling
+strength = agency" explicit. Second, it puts **efficiency** — benefit per unit cost — at the centre of
+*why* criticality, complementing Chis-Ciure & Levin's search-efficiency view of intelligence and the
+free-energy thread, and offering a concrete, computable quantity ($\eta$, or the branching/Fisher-info
+machinery behind it) rather than another phenomenological signature.
+:::
+
+## Caveat
+
+The analysis is at **equilibrium**; real biological systems are driven far from it (where, e.g., entropic
+forces can tear a flock apart absent a cohesive counterforce). Extending super-efficiency to
+non-equilibrium settings is the flagged open direction.
+
+## References
+
+Chen & Prokopenko (2025), *R. Soc. Open Sci.* **12**, 241655 · Nigmatullin & Prokopenko (2021), *Entropy* **23**, 757 ·
+Crosato et al. (2018), *Phys. Rev. E* **97**, 012120 · Bak, Tang & Wiesenfeld (1987), *Phys. Rev. Lett.* **59**, 381 ·
+Friston (2010), *Nat. Rev. Neurosci.* **11**, 127 · Klyubin, Polani & Nehaniv (2005), *IEEE CEC* (empowerment) ·
+Ay et al. (2008), *Eur. Phys. J. B* **63**, 329 (predictive information) · Onsager (1944), *Phys. Rev.* **65**, 117 ·
+Mora & Bialek (2011), *J. Stat. Phys.* **144**, 268 · Cavagna et al. (2010), *PNAS* **107**, 11865.

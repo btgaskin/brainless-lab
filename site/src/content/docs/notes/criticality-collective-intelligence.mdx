@@ -1,0 +1,85 @@
+---
+title: Criticality → collective intelligence
+description: De Vincenzo, Giannoccaro, Carbone & Grigolini (2017) — a spin model of group decision-making where collective intelligence emerges at a critical front, as information leaks maximally from the fitness landscape to the group.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Criticality triggers the emergence of collective intelligence in
+groups* — Ilario De Vincenzo, Ilaria Giannoccaro, Giuseppe Carbone & Paolo Grigolini,
+*Phys. Rev. E* (2017) **96**, 022309.
+[doi:10.1103/PhysRevE.96.022309](https://doi.org/10.1103/PhysRevE.96.022309).
+:::
+
+## The claim
+
+A group solving a hard combinatorial problem develops **collective intelligence** — the ability to
+settle on high-fitness decisions — precisely at a **critical transition**, where a large amount of
+information "leaks" from the problem's fitness landscape into the group's shared state. The same
+Grigolini-lineage criticality idea as the swarm work, but on a **decision / optimisation** task rather
+than spatial flocking.
+
+## The model (a decision-making model, DMM)
+
+$M$ interacting agents each hold an opinion vector of $N$ binary spins $\sigma_k^j=\pm1$ (agent $k$'s
+stance on decision variable $j$), arranged as a **multiplex network**: within each "decision layer",
+spins interact by an Ising energy (social conflict); layers are coupled through each agent's **fitness**.
+The Hamiltonian splits social energy from fitness:
+
+$$
+H(s) = E(s) - \rho V(s) = -\tfrac{1}{2}J\, A\, s\cdot s - \rho V(s),
+$$
+
+with $E$ the Ising social-interaction (disagreement) energy, $V$ the configuration's fitness, and $\rho$
+weighting the two. A continuous-time Markov chain evolves opinions; each flip rate is a **product of two
+drives** — an Ising–Glauber term (consensus-seeking, minimising conflict) and a Weidlich exponential
+term (self-interest, favouring fitness-improving flips):
+
+$$
+w(s_l\to s_l') = \tfrac{1}{2}\!\left[1 - s_l\tanh\!\Big(\tfrac{\beta J}{\langle\kappa\rangle}\textstyle\sum_h A_{lh}s_h\Big)\right]\exp\{\beta'\,\Delta V\}.
+$$
+
+Three control parameters result: the **social interaction strength** $\beta J$ (in units of social
+temperature), the **self-confidence** $\beta'$ (trust in one's own expertise), and the **knowledge
+level** $p$ (probability an agent knows a given fitness contribution). The landscape is a **Kauffman NK
+model** whose complexity $C = K+1+\log_2 N$ is tuned by $K$; each agent perceives only the fraction $p$
+of it that it knows. Group decisions are read out by majority rule, with consensus $\chi$ the normalised
+spin–spin correlation.
+
+## The critical front, and the central result
+
+Phase diagrams over $(\beta J,\beta')$ show a **critical transition front** where the stationary group
+fitness $V_\infty$ and consensus $\chi_\infty$ jump **concurrently** from low to high (a disordered,
+low-consensus phase → an ordered, aligned phase). The paper's key quantity is the **mutual information
+between fitness and consensus**,
+
+$$
+\mathrm{MI}(\chi_\infty, V_\infty),
+$$
+
+read as a proxy for how much the group's shared state has come to "know" the landscape. It is **small
+everywhere except at the critical front, where it is maximal** — so at criticality information leaks from
+the fitness landscape into the group, improving its exploration and triggering the emergence of
+collective intelligence.
+
+## The knobs
+
+- **Self-confidence has an optimum $\beta'_{\min}$.** Too low ($\beta'=0$ is pure consensus-seeking, blind
+  to fitness) is inefficient; too high makes agents refuse to change their minds even when wrong,
+  suppressing exploration → **groupthink** (high consensus, low fitness, far from criticality). An
+  intermediate $\beta'_{\min}$ minimises the critical $(\beta J)_C$ and maximises performance.
+- **Group size $M$ cuts both ways** — larger $M$ *helps* on the low-confidence (thick) branch of the
+  front but *hurts* on the high-confidence (thin) branch, echoing the empirical "are big teams better?"
+  debate.
+- **Knowledge $p$:** critical dynamics survive cognitive limits ($p<1$) — poorly-informed agents ride
+  consensus to follow the better-informed — but very low $p$ needs agents to be *less* self-confident and
+  trust peers more.
+- **Leadership:** a very self-confident leader is not generally beneficial and can be detrimental; best
+  performance needs followers confident enough to keep exploring.
+
+## References
+
+De Vincenzo, Giannoccaro, Carbone & Grigolini (2017), *Phys. Rev. E* **96**, 022309 ·
+Carbone & Giannoccaro (2015), *Eur. Phys. J. B* **88**, 339 · Glauber (1963), *J. Math. Phys.* **4**, 294 ·
+Kauffman & Levin (1987), *J. Theor. Biol.* **128**, 11 · Weidlich (1991), *Phys. Rep.* **204**, 1 ·
+Vanni, Lukovic & Grigolini (2011), *Phys. Rev. Lett.* **107**, 078103 · Woolley et al. (2010),
+*Science* **330**, 686 · Mora & Bialek (2011), *J. Stat. Phys.* **144**, 268.

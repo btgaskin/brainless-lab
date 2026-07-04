@@ -1,0 +1,85 @@
+---
+title: Collective predator evasion
+description: Klamser & Romanczuk (2021) — a spatially-explicit test of the criticality hypothesis in predator-prey schooling; criticality is optimal but via spatial structure, not information transfer, and is evolutionarily unstable.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Collective predator evasion: Putting the criticality hypothesis
+to the test* — Pascal P. Klamser & Pawel Romanczuk, *PLoS Comput. Biol.* (2021) **17**(3), e1008832.
+[doi:10.1371/journal.pcbi.1008832](https://doi.org/10.1371/journal.pcbi.1008832).
+:::
+
+## The test
+
+The **criticality hypothesis** holds that animal collectives self-organise near a critical point where
+collective computation (e.g. responsiveness to stimuli) is optimal. This paper puts it to a
+**spatially-explicit** test — most prior support came from non-spatial lattice models — and asks two
+things: does operating at criticality actually optimise predator evasion, and *why*; and can
+**individual-level evolution** self-tune the group there?
+
+## The model
+
+Self-propelled **prey** (fixed speed $v_0$) with social forces — alignment (strength $\mu_{\text{alg}}$)
+and distance regulation (repulsion/attraction to a preferred spacing) over **Voronoi** (topological)
+neighbours — plus angular noise $D$ and a flee force $\mu_{\text{flee}}$ from a nearby predator. The
+**predator** is faster ($v_p = 2v_0$) and pursues the weighted centre of its frontal prey (catch
+probability decays with distance). The relevant transition is the **directional order–disorder**
+(symmetry-breaking) one, crossed by tuning $\mu_{\text{alg}}$ or $D$, with polarization the order
+parameter:
+
+$$
+\Phi = \Big|\tfrac{1}{N}\textstyle\sum_i \vec u_i\Big|.
+$$
+
+## Result 1 — criticality is optimal, but *not* for the hypothesised reason
+
+The two "criticality signatures" behave as predicted: the neighbour velocity-fluctuation correlation
+$C_{ij}=C(\delta\vec v_i,\delta\vec v_j)$ (directional information transfer) and the **susceptibility**
+
+$$
+\chi = \frac{\partial \Phi}{\partial h} = N\big(\langle\Phi^2\rangle - \langle\Phi\rangle^2\big)
+$$
+
+both **peak at the transition**, and the predator **capture rate is minimal at criticality**.
+
+But varying the prey parameters also changes the **spatial structure** (e.g. inter-individual distance,
+strongly anti-correlated with capture rate, $C(\gamma_c,\mathrm{IID})\approx-0.69$). To separate
+structure from information, they add a **non-fleeing control** ($\mu_{\text{flee}}=0$): identical
+structure, no predator response. The **escape ratio** $R_{\text{esc}} = 1 - \gamma_c/\gamma_{c,\text{NF}}$
+(and the raw capture-rate difference) shows **no peak at criticality** — it rises *monotonically* toward
+the ordered phase. So the minimal capture rate at criticality is due to the **dynamic spatial structure**
+(a passive effect), **not** the maximal responsiveness / information transfer; the active predator
+response actually improves deeper into the ordered phase.
+
+## Result 2 — criticality is evolutionarily *unstable*
+
+Letting the individual alignment strength $\mu_{\text{alg}}$ evolve (fitness = fewer deaths), runs
+started below, above, and far above the transition **all converge into the ordered phase**
+(ESS $\mu_{\text{alg}}\approx 4.4$, well above the critical $\approx 0.9$). The critical region is **not
+an attractor** — it carries the **steepest selection gradient**. The driver is **self-sorting**: at the
+symmetry-breaking transition, small phenotype differences map onto systematic spatial positions
+(front/side/density), producing maximal **assortative mixing**; strongly-aligning agents form denser
+regions with a smaller "domain of danger" (dilution) and are attacked less. The **ESS depends linearly
+on the flee strength** $\mu_{\text{flee}}$, explained by prey balancing **social vs. private** predator
+information — social cues help when only your neighbours sense the predator, but conflict with private
+cues when you sense it directly — driving evolution toward *over-weighting* social information
+("unresponsiveness").
+
+## Why it matters
+
+- **Spatial self-organisation is decisive** — fixed-lattice / rewiring models miss the structure↔dynamics
+  feedback that both makes criticality optimal *and* makes it unstable.
+- **Individual-level selection is not a general self-tuning mechanism** for criticality: unlike Hidalgo
+  et al. (where each agent tunes its *own* transition), here the transition is a **purely collective**
+  effect, so the group optimum and the individual ESS diverge (a social dilemma) — and multi-level
+  selection cannot generally rescue it either.
+- The result **does not reject** adaptive criticality in animal groups, but demands biologically
+  plausible *proximate* mechanisms that account for spatial self-organisation and ecology.
+
+## References
+
+Klamser & Romanczuk (2021), *PLoS Comput. Biol.* **17**, e1008832 · Vicsek et al. (1995),
+*Phys. Rev. Lett.* **75**, 1226 · Hidalgo et al. (2014), *PNAS* **111**, 10095 · Couzin et al. (2002),
+*J. Theor. Biol.* **218**, 1 · Calovi et al. (2015), *J. R. Soc. Interface* **12**, 20141362 ·
+Cavagna, Giardina & Grigera (2018), *Phys. Rep.* **728**, 1 · Vanni, Lukovic & Grigolini (2011),
+*Phys. Rev. Lett.* **107**, 078103 · Mora & Bialek (2011), *J. Stat. Phys.* **144**, 268.

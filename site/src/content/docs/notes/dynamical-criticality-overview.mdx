@@ -1,0 +1,100 @@
+---
+title: Dynamical criticality (overview)
+description: Roli, Villani, Filisetti & Serra (2016) — a review of the criticality / edge-of-chaos hypothesis, the information-processing evidence in CA/RBNs, critical living systems, and the open questions.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Dynamical criticality: overview and open questions* — Andrea Roli,
+Marco Villani, Alessandro Filisetti & Roberto Serra, arXiv:1512.05259 (2016); later *J. Systems Science
+& Complexity*. [arXiv:1512.05259](https://arxiv.org/abs/1512.05259).
+:::
+
+## The hypothesis
+
+The **criticality hypothesis** (a.k.a. "computation at the edge of chaos"): systems poised between an
+**ordered** regime (perturbations die out — robust but rigid) and a **disordered/chaotic** regime
+(perturbations spread unboundedly — flexible but unreliable) attain the **highest computational
+capability** and the best robustness↔flexibility trade-off. Proposed by Kauffman for living systems and
+by Packard/Langton/Crutchfield for computation. This is a review of the evidence and the open problems.
+The focus is **dynamical** criticality (order/chaos regimes separated by critical surfaces in parameter
+space), distinct from — though related to — **self-organized criticality** (SOC, spontaneous tuning to a
+critical state, e.g. the sandpile).
+
+## What the critical point buys (statistical-physics preliminaries)
+
+At a second-order transition: **universality** (order parameters follow power laws with critical
+exponents shared across whole classes of systems); a **correlation length that diverges**,
+$\Gamma\sim(T-T_c)^{-\xi}$, so distant elements become maximally coupled; **power-law** cluster/avalanche
+distributions and $1/f$ power spectra; a **scale-free response** to perturbations; and **critical slowing
+down**.
+
+## Computation at the edge of chaos
+
+- **Cellular automata (Langton's $\lambda$).** As the transition-function parameter $\lambda$ moves
+  toward $\approx 0.5$, CA cross from order to chaos with second-order signatures — critical slowing
+  down, power-law transients, **maximal mutual information between cells** — coinciding with Wolfram's
+  complex Class 4 (some of which are universal computers).
+- **Crutchfield $\epsilon$-machines.** The minimal statistical model reconstructed from a data stream
+  **diverges in size** at the transition (e.g. logistic map at the onset of chaos) — intrinsic
+  computational complexity peaks there.
+- **Random Boolean networks (RBNs).** The order/chaos transition sits on the critical line
+  $2p(1-p)K = 1$ (bias $p$, in-degree $K$). Information measures peak on it: perturbation-size entropy
+  (Rämö), pairwise mutual information between nodes (Ribeiro), basin-entropy scaling with system size
+  (Krawitz & Shmulevich), and set-based complexity (Galas). Lizier's decomposition is the sharp result:
+  **information storage** peaks approaching the edge, **information transfer** peaks just *inside* chaos,
+  and the **critical line optimally balances** the two. Fisher information is also maximal at criticality.
+- **Excitable / threshold networks.** Kinouchi & Copelli's excitable net has a transition in active-node
+  density vs. **average branching**, with critical networks showing maximal variance in extinction times
+  and **power-law avalanche sizes**; Bertschinger & Natschläger's threshold-gate (and spiking) networks
+  compute best on time series at the edge of chaos. Even combinatorial-optimization local search peaks in
+  performance at a phase transition (Macready).
+
+## Critical living systems
+
+The standard method: build an ensemble of network models, compare their statistics to real biological
+data across ordered/critical/chaotic parameters, and read criticality off the **best fit**.
+
+- **Cells.** Gene-expression avalanches after knock-out match RBNs best at (slightly sub-)critical
+  parameters — indexed by the **Derrida parameter** $\zeta$ ($\zeta<1$ ordered, $\zeta>1$ chaotic,
+  $\zeta=1$ critical); Serra/Villani find *S. cerevisiae* matches at $\zeta$ slightly below 1. Similar
+  best-fit-at-critical results via Lempel–Ziv complexity (HeLa), compression distance (macrophages), and
+  across four kingdoms (Balleza).
+- **Brain.** Neuronal avalanches follow power laws only at *normal* activity, breaking under
+  over-/under-activation — evidence the cortex is poised near criticality.
+- Also flocks (Mora & Bialek) and morphogenesis; Bailly & Longo's **"extended critical situations"** —
+  life inhabits a critical *region*, not a point.
+- **Two (non-contradictory) rationales:** (i) **evolvability** — critical systems best balance mutational
+  robustness against phenotypic innovation; (ii) **fitness** — they best balance information storage /
+  modification / transfer, and behavioural repertoire against reliability.
+
+## Does evolution reach criticality? — the crux
+
+Mixed. Artificial evolution drives RBNs to the edge of chaos (Torres-Sosa), and RBNs evolved for
+combinatorial tasks converge to critical (Goudarzi); Hidalgo et al. find criticality is a stable
+evolutionary solution **only in variable / complex environments**, not low-complexity ones. But
+Benedettini/Roli show **not all tasks lead to criticality** — the fitness landscape and task can dominate
+the dynamical regime. **Task-dependence is the central unresolved point.**
+
+## Open questions
+
+- **Definitional slipperiness.** Criticality is defined via average perturbation response, but the
+  *ensemble* one averages over (all initial conditions vs. reachable states vs. states on an attractor
+  vs. structure ensembles) changes the definition and can mislead — formalised as a **hierarchy of
+  sensitivities**.
+- **When does evolution favour criticality?** Needs a fitness function and a proper categorisation of
+  *tasks* by their fitness-landscape features (correlation length, rate/amount of change); the guess is
+  time-varying, complicated tasks.
+- **Environment & openness**, and the evolution/adaptation/learning relation, are usually overlooked.
+- **Artificial design.** Enforcing criticality could be a general, task-agnostic design criterion for
+  learning systems — an alternative to ad-hoc fitness functions.
+- **Common internal organisation?** Whether critical systems share a structural signature (e.g. via the
+  dynamical cluster index / relevant subsets) is still open.
+
+## References
+
+Roli, Villani, Filisetti & Serra (2016), arXiv:1512.05259 · Langton (1990), *Physica D* **42**, 12 ·
+Crutchfield & Young (1990), *Complexity, Entropy & Physics of Information* · Kauffman (1993),
+*The Origins of Order* · Kinouchi & Copelli (2006), *Nat. Phys.* **2**, 348 · Lizier, Prokopenko & Zomaya
+(2008), *ALIFE XI* · Serra, Villani, Graudenzi & Kauffman (2007), *J. Theor. Biol.* **246**, 449 ·
+Hidalgo et al. (2014), *PNAS* **111**, 10095 · Mora & Bialek (2011), *J. Stat. Phys.* **144**, 268 ·
+Beggs & Timme (2012), *Front. Physiol.* **3**, 163.

@@ -1,0 +1,71 @@
+---
+title: Activation fronts in active systems
+description: Gascuel et al. (2024) — coupling an agent's internal state to its self-propulsion turns a 2-state active system into an effective 3-state (excitable) one, giving a phase transition in 1D and scale-invariant activity avalanches in 2D.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *A generic coupling between internal states and activity leads to
+activation fronts and criticality in active systems* — Hadrien-Matthieu Gascuel, Parisa Rahmani,
+Richard Bon & Fernando Peruani, arXiv:2311.06208 (2024).
+[arXiv:2311.06208](https://arxiv.org/abs/2311.06208).
+:::
+
+## The question
+
+How does the *onset* of collective motion — a static, polarized group set in motion by a single initiator
+(a startled individual, a predator reaction) — propagate through a group, and when does it become critical?
+Most collective-motion work models *constantly moving* units; this paper studies agents that switch
+self-propulsion **on and off**, with the internal state coupled to motion, and shows criticality emerges
+generically from that coupling.
+
+## The model
+
+Each agent has a position $x_i$ and a behavioural state $q_i\in\{I \text{ (inactive)}, A \text{ (active)}\}$,
+with the coupling $\dot x_i = v$ if active, $0$ if inactive. Starting from a polarized static group (all
+$I$ except one initiator in $A$), the only transition is a **mimetic activation**,
+
+$$
+I + A \xrightarrow{\;\gamma(|\Delta x|)\;} 2A, \qquad \gamma(|\Delta x|)=\alpha\,K(|\Delta x|/d),
+$$
+
+so a newly active agent adopts the active neighbour's velocity — inheriting the initiator's chosen $v$. The
+sign and size of $v$ controls the physics.
+
+## Fronts and regimes
+
+A hydrodynamic (Kolmogorov-forward) treatment gives, for $v=0$, an FKPP-like activation front; for $v>0$
+the leading-edge speed is **linear but non-trivial**, $c(v)\approx c_0 + m\,v$ with **$m\neq1$** ($m=4/3$
+for exponential $K$). Two regimes follow: a **slow** regime ($0<v<c_0$) where the whole group activates and
+moves keeping its structure, and a **high-speed / "selfish"** regime ($v\ge c_0$) where the initiator
+outruns its neighbours, penetrates the group, and recruits agents behind it — Hamilton's selfish-herd
+scenario, achieved simply by choosing $v>c_0$.
+
+## From two states to an effective three — and criticality
+
+For $v<0$ the fluctuating dynamics maps onto the **SIR / forest-fire** model ($S+I\to2I$, $I\to R$): an
+inactive agent may be "passed" before it activates, ending a cascade — so the 2-state active system behaves
+as an effective **3-state (excitable)** one. In **1D** this gives a sharp transition in the order parameter
+$\phi=\langle s\rangle/N$ (fraction ever activated) at $v_c=0$ — exponentially distributed cascades below,
+full activation above. In **2D**, because the 3-state SIR model is itself critical, the active system shows
+genuine **critical behaviour** at a critical speed $v_c<0$: **power-law activity avalanches**
+$P(s)\propto s^{-\beta}$ with $\beta\approx1$ (small to system-spanning), a susceptibility
+$\chi(\phi)=N(\langle\phi^2\rangle-\langle\phi\rangle^2)$ that grows and narrows with system size, and no
+characteristic correlation length. (The 2D SIR mapping is approximate — moving active agents can reactivate
+inactive "islands" that SIR would leave protected.)
+
+## Why it's collected here
+
+This is close to a template for a next-step experiment on our own swarm. It is exactly a **reorientation /
+activation cascade** through a group, with an **internal-state→motion coupling** (the reservoir-controls-body
+idea in miniature), analysed as an **excitable / SIR avalanche** process with a **power-law cascade-size
+test** for criticality — the same machinery as the naive-agent cascade-scaling experiment we have planned
+(power law *with* a finite-size cutoff, susceptibility growing with $N$). It also gives a clean, mechanistic
+account of behavioural contagion (complementing the Romanczuk & Daniels review) and shows how a single
+control — the initiator's speed — selects between "whole group moves together" and "selfish" restructuring.
+
+## References
+
+Gascuel et al. (2024), arXiv:2311.06208 · Ginelli, Peruani et al. (2015), *PNAS* **112**, 12729 ·
+Gómez-Nava, Bon & Peruani (2022), *Nat. Phys.* **18**, 1494 · Poel et al. (2022), *Sci. Adv.* **8**, eabm6385 ·
+Muñoz (2018), *Rev. Mod. Phys.* **90**, 031001 · Klamser & Romanczuk (2021), *PLoS Comput. Biol.* **17**, e1008832 ·
+Grassberger (1983), *Math. Biosci.* **63**, 157 · Hamilton (1971), *J. Theor. Biol.* **31**, 295.

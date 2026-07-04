@@ -1,0 +1,93 @@
+---
+title: Criticality in living systems
+description: Muñoz (2018) — the Rev. Mod. Phys. Colloquium reviewing the criticality hypothesis in biology, its dynamical vocabulary (contact/branching process, SOC, generic scale invariance), functional advantages, and the empirical evidence with its caveats.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Colloquium: Criticality and dynamical scaling in living systems* —
+Miguel A. Muñoz, *Rev. Mod. Phys.* (2018) **90**, 031001 (arXiv:1712.04499).
+[doi:10.1103/RevModPhys.90.031001](https://doi.org/10.1103/RevModPhys.90.031001).
+:::
+
+## The hypothesis, and the framing
+
+The authoritative review of the **criticality hypothesis**: that biological systems — parts, aspects, or
+groups of them — may draw functional benefits from operating near the critical point of a continuous
+phase transition, balancing **robustness (order)** against **flexibility (disorder)** while gaining
+maximal sensitivity, large dynamical repertoires, and optimal computation. Muñoz deliberately takes the
+**dynamical / non-equilibrium** view (there is an underlying process poised near a transition), as
+distinct from the **statistical-criticality** view (analyse the statistics of configurations), and reviews
+the evidence with pointed skepticism — the signatures are appealing but there is "no smoking gun."
+
+## The vocabulary of criticality
+
+- **Scale invariance = power laws.** $P(x)=Ax^{-\alpha}$ is the only distribution unchanged under
+  rescaling; the statistical trademark of criticality (versus a characteristic scale).
+- **The contact / branching process** (the prototype absorbing-state transition): active nodes die at
+  unit rate and spawn neighbours at rate $\lambda$; a mean-field bifurcation at $\lambda_c=1$ separates a
+  **quiescent (absorbing)** phase from an **active** one. At criticality: **critical slowing down**
+  ($\rho(t)\sim t^{-1}$), diverging susceptibility, and **avalanches** with power-law sizes
+  ($P(S)\sim S^{-\tau}$, $\tau=3/2$) and durations ($\sim T^{-2}$) — the mean-field (Galton–Watson)
+  branching exponents. Finite systems obey **finite-size scaling** $P(S,N)\sim S^{-\tau}G(S/N)$.
+- **Damage spreading** — evolve two replicas differing by one perturbation; it grows (chaotic), shrinks
+  (ordered), or is marginal (critical), gauging the dynamical regime.
+- **Self-organized criticality (SOC)** — the sandpile: a feedback loop between activity and a
+  slowly-driven control parameter (slow drive + fast dissipation) self-tunes to the critical point *if*
+  timescales separate infinitely and dynamics conserve. Otherwise → **self-organized *quasi*-criticality**
+  (hovering around the point with excursions) or nothing. Also **adaptive criticality** (network rewiring).
+- **Generic scale invariance** (Grinstein) — scaling across *extended regions* without tuning, via broken
+  continuous symmetry, **quenched disorder → Griffiths phases**, or **neutral dynamics**.
+- **Statistical criticality** — maximum-entropy Ising-like models inferred from data (retina, flocks,
+  immune repertoire) sit at $\beta_c\approx1$; but this can be an artifact of marginalising hidden
+  variables / of fitting feature-rich data (Schwab, Marsili).
+
+## Functional advantages
+
+- **Sensory criticality (the clean case).** Inner-ear hair cells sit at a **Hopf bifurcation**: the
+  response goes nonlinear, $R\sim F^{1/3}$, so the gain $R/F\sim F^{-2/3}$ **diverges** for tiny signals
+  at the characteristic frequency — extreme sensitivity plus sharp frequency selectivity; coupling many
+  Hopf oscillators (cochlea) yields a genuine critical point.
+- **Maximal sensitivity / dynamic range** (Kinouchi–Copelli — peaks at $\lambda_c$), **large
+  correlations** (coordination), **critical slowing down** (long memories), and a **maximal dynamical
+  repertoire** (variability of patterns).
+- **Computation at the edge of chaos** (Langton) — optimal trade-off between information storage and
+  transmission (Turing's two ingredients). This is the basis of **reservoir computing** (echo-state
+  networks, liquid-state machines), which performs best near a critical point.
+
+## The empirical tour (in brief)
+
+- **Neural** — spontaneous cortical activity; **neuronal avalanches** (Beggs–Plenz: $\tau\approx3/2$,
+  $\alpha\approx2$, a universal avalanche shape); edges of synchronization, global stability, percolation,
+  and a thermodynamic (retinal maxent) transition; criticality fades in seizure, anaesthesia, and sleep.
+- **Gene regulatory networks** — RBNs critical near $\langle K\rangle=2$ (Derrida $\zeta=1$);
+  damage-spreading best-fits real microarray data at criticality; Zipf's law in gene expression.
+- **Collective motion** — flocks with scale-free correlations (speed fluctuations *not* explained by a
+  Goldstone mode → tuning to a critical point); insect swarms regulating density (finite-size scaling);
+  sheep herds' intermittent packing; ant foraging poised between exploration and recruitment.
+
+:::tip[Why it's collected here]
+This is the reference the other papers hang off, and it is unusually concrete for this lab: it is the
+canonical statement of **reservoir computing at criticality**, of **branching/avalanche** exponents
+($\tau=3/2$), and of **self-organized *quasi*-criticality** (the honest alternative to a clean rate-clamp);
+and its section on the **thresholding, time-binning, and sub-sampling** pitfalls of avalanche measurement
+— plus the "causally-defined vs time-binned avalanches" gap — is a direct checklist for any cluster /
+avalanche analysis run on the harness.
+:::
+
+## The skeptic's caution
+
+Avalanche evidence is dogged by **thresholding**, **time-binning**, and **sub-sampling** artifacts (which
+can manufacture exponents), and rarely spans more than 2–3 decades. A deeper worry is a **near-tautology**:
+feature-rich, multi-scale data are *best* fit by a model tuned near its critical point simply because that
+is the only regime generating multi-scale patterns. Hence the open dichotomy — is biological criticality a
+real organizing principle, or a reflection of our models' limits? Finite systems are never truly critical
+(do finite-size analysis; name the two phases), and **generic scale invariance / Griffiths phases** may
+supply the scaling without fine-tuning.
+
+## References
+
+Muñoz (2018), *Rev. Mod. Phys.* **90**, 031001 · Mora & Bialek (2011), *J. Stat. Phys.* **144**, 268 ·
+Beggs & Plenz (2003), *J. Neurosci.* **23**, 11167 · Bak, Tang & Wiesenfeld (1987), *Phys. Rev. Lett.* **59**, 381 ·
+Kinouchi & Copelli (2006), *Nat. Phys.* **2**, 348 · Langton (1990), *Physica D* **42**, 12 ·
+Bonachela & Muñoz (2009), *J. Stat. Mech.*, P09009 · Schwab, Nemenman & Mehta (2014), *Phys. Rev. Lett.* **113**, 068102 ·
+Clauset, Shalizi & Newman (2009), *SIAM Rev.* **51**, 661 · Cavagna et al. (2010), *PNAS* **107**, 11865.

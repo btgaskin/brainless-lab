@@ -1,0 +1,77 @@
+---
+title: Subcritical escape waves in fish
+description: Poel et al. (2022) — startle cascades in fish schools are subcritical, and the school tunes its distance to criticality with perceived risk, managing a sensitivity-vs-robustness (false-alarm) trade-off.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Subcritical escape waves in schooling fish* — Winnie Poel, Bryan C.
+Daniels, Matthew M. G. Sosna, Colin R. Twomey, Simon P. Leblanc, Iain D. Couzin & Pawel Romanczuk,
+*Science Advances* (2022) **8**, eabm6385. [doi:10.1126/sciadv.abm6385](https://doi.org/10.1126/sciadv.abm6385).
+:::
+
+## The finding
+
+Startle cascades (escape waves) in schools of juvenile golden shiners are **subcritical** — *not* maximally
+responsive to cues — and the school's **distance to criticality shrinks as perceived risk rises**. The
+authors argue that being subcritical, and *modulating* the distance to criticality by context, is how the
+group manages the **trade-off between sensitivity and robustness**: criticality has a cost (amplifying
+noise into false alarms), usually ignored when only its benefits (maximal sensitivity) are counted.
+
+## System and model
+
+Data (schools of $N=40$) come in two conditions — **baseline** and **alarmed** (an alarm substance raises
+perceived risk). Alarmed schools show **larger cascades** *and* **higher density** (lower nearest-neighbour
+distance, NND); crucially, the larger cascades **cannot be explained by individual responsiveness alone** —
+the **group structure (density)** is essential. A **SIR-type behavioural-contagion** model runs on
+visual interaction networks (links from a logistic regression on distance and visual angle); rescaling the
+positions predicts cascades at densities not observed, revealing a **critical density** (local→global
+cascade transition) at NND ≈ 0.3–0.4 body lengths. Criticality is located two ways that agree: a
+**collective sensitivity** $c = c_2 - c_1$ (responsiveness to two vs. one initial startlers — the
+finite-size susceptibility analog, peaking at the transition) and an analytic **branching ratio**
+$b = \tfrac{\tau_{\text{act}}}{\bar\theta}\sum_i w_{ij}/K_i$, with **$b=1$** the critical line separating
+subcritical ($b<1$) from supercritical ($b>1$).
+
+## The result and the trade-off
+
+Both observed conditions are **subcritical**, with the **alarmed** condition **closer** to the transition;
+their sensitivity could be raised 3.4–5.9× by becoming critical, but they don't — and the fishes' **physical
+bodies cap density**, so a school *cannot* reach maximal sensitivity by crowding alone. Distance to
+criticality is controlled by **density and individual responsiveness** (threshold). A hypothetical
+predator-detection model then weighs two error types — **false positives** (startle with no predator:
+energy/time cost) and **false negatives** (miss a real predator: injury/death) — into a relative payoff
+that depends on the environment's **relative noise cost**:
+
+- **safe / noisy** environments → optimum at **low density**, *away* from criticality (false positives
+  dominate; near-criticality is *detrimental*);
+- **high-predation / low-noise** → near (or past) criticality is best (false negatives dominate);
+- **intermediate** → near-criticality maximises payoff.
+
+Density also trades **personal** information (visual access, *falls* with density via occlusion) against
+**social** information (*rises* with density) — so the individual optimum is genuinely context-dependent.
+
+## The message
+
+A real animal collective **does not sit at the critical point**; it **tunes its distance** to criticality
+(via density, with risk) to match the environment's sensitivity/robustness demands. The paper is a pointed
+call to weigh the **costs of criticality** (amplified noise) alongside the benefits, to take an
+**individual-based, context-dependent** view, and to remember that the group-level optimum (criticality)
+need not be the individual's (it cites Klamser & Romanczuk on exactly this).
+
+## Why it's collected here
+
+This is the empirical anchor for the **"near, not at, criticality — and tune the distance"** stance that
+runs through the Romanczuk & Daniels review and the Meijers result, and it bears directly on our own
+working hypothesis. Its **subcriticality + cost-of-criticality** framing is a ready-made lens for the
+possibility that our swarm has no accessible critical point (or sits deliberately below one): a collective
+that **aggregates but doesn't propagate cascades** may be *avoiding false alarms*, not failing to be
+critical. Concretely reusable: the **$b=1$ branching-ratio** locator and the **$c_2-c_1$ collective
+sensitivity** are clean criticality measures; **density/NND** is the control parameter (our arena/spacing
+sweeps); and the **false-positive/false-negative payoff** is a genuinely different way to *interpret*
+performance than the raw forage score — one that could explain a subcritical optimum.
+
+## References
+
+Poel et al. (2022), *Sci. Adv.* **8**, eabm6385 · Sosna et al. (2019), *PNAS* **116**, 20556 ·
+Rosenthal et al. (2015), *PNAS* **112**, 4690 · Daniels, Krakauer & Flack (2017), *Nat. Commun.* **8**, 14301 ·
+Romanczuk & Daniels (2022), *Order, Disorder and Criticality* · Klamser & Romanczuk (2021), *PLoS Comput. Biol.* **17**, e1008832 ·
+Dodds & Watts (2004), *Phys. Rev. Lett.* **92**, 218701 · Muñoz (2018), *Rev. Mod. Phys.* **90**, 031001.

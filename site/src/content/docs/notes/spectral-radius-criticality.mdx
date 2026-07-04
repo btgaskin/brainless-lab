@@ -1,0 +1,75 @@
+---
+title: Spectral radius, criticality & dynamic range
+description: Larremore, Shew & Restrepo (2011) — in excitable networks the largest eigenvalue of the weighted adjacency matrix governs criticality (λ=1) and peak dynamic range, generalizing the branching-ratio criterion across topologies.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Predicting Criticality and Dynamic Range in Complex Networks: Effects
+of Topology* — Daniel B. Larremore, Woodrow L. Shew & Juan G. Restrepo, *Phys. Rev. Lett.* (2011) **106**,
+058101. [doi:10.1103/PhysRevLett.106.058101](https://doi.org/10.1103/PhysRevLett.106.058101).
+:::
+
+## The result
+
+For a network of coupled **excitable** nodes, criticality and maximal **dynamic range** are governed by
+one quantity: the **largest eigenvalue $\lambda$ of the weighted adjacency matrix** (the spectral radius).
+**$\lambda=1$ is the critical point with maximum dynamic range**, universally — for random, scale-free,
+assortative, and degree-correlated topologies alike. This **generalizes** the earlier branching-ratio /
+mean-degree criterion $\sigma=1$, which *fails* for heterogeneous degree distributions.
+
+## Setup and the old criterion
+
+In the Kinouchi–Copelli model, a resting node is excited by an active neighbour $j$ with probability
+$A_{ij}$, or by external stimulus with probability $\eta$; the response $F$ is the time-averaged excited
+fraction, and **dynamic range** $\Delta = 10\log_{10}(\eta_{\text{high}}/\eta_{\text{low}})$ measures the
+span of stimuli that produce distinguishable responses. The prior theory said criticality occurs at
+**branching ratio** $\sigma = \tfrac1N\sum_{ij}A_{ij} = \langle d\rangle = 1$ (one excitation begets one),
+where avalanches are power-law — but this holds only for homogeneous (Erdős–Rényi) networks.
+
+## The derivation
+
+Linearising the excitation dynamics about the quiescent fixed point $p=0$ gives
+$\lambda u_i = \sum_j u_j A_{ij}$ — so stability is set by the **largest eigenvalue** $\lambda$ ($\lambda<1$
+quiescent, $\lambda>1$ active; Perron–Frobenius makes $\lambda$ real and positive). Near critical, the
+excitation profile aligns with the **dominant eigenvector** $u$, and a weakly-nonlinear expansion (using
+the left/right eigenvectors $u,v$) yields the response in terms of a few **spectral properties** of $A$,
+e.g.
+
+$$
+F_{\eta\to0} = \frac{\lambda-1}{\lambda+\tfrac12\lambda^2}\,\frac{\langle uv\rangle\langle u\rangle}{\langle u^2 v\rangle}.
+$$
+
+The bridge to the old rule: $\lambda \approx \rho\,\langle d^{\text{in}}d^{\text{out}}\rangle/\langle d\rangle$
+(with $\rho$ the assortativity), which reduces to $\lambda\approx\langle d\rangle$ only when the network is
+homogeneous and uncorrelated. Simulations across six network families confirm the transition sits at
+**$\lambda=1$, not $\langle d\rangle=1$** — including cases tuned through criticality by changing
+*assortativity alone* at fixed mean degree.
+
+## Homogeneity raises dynamic range
+
+The peak dynamic range carries a topology term,
+$\Lambda_{\max} = 10\log_{10}\!\frac{2}{3F_*^2} - 10\log_{10}\frac{\langle vu^2\rangle}{\langle v\rangle\langle u\rangle^2}$;
+for an uncorrelated undirected network the second term is $\approx -10\log_{10}(\langle d^3\rangle/\langle d\rangle^3)$,
+maximised when the degree is **uniform**. So **homogeneous topologies achieve higher dynamic range** than
+heterogeneous (scale-free) ones — confirmed by scale-free nets with larger exponent $\gamma$ (more
+homogeneous) reaching higher range. The authors close with the conjecture that if wide dynamic range is
+adaptive, evolution may **homogenize** brain topology, and that real brains operate at $\lambda\approx1$.
+
+## Why it's collected here
+
+This is the most directly actionable paper for our **node/reservoir scale**. The controlling quantity is
+literally the **spectral radius** — the `spectral_radius` measure already in the harness — and the paper
+says $\lambda=1$ is the *correct, topology-general* critical point, of which the branching-ratio $\sigma=1$
+(what our node-branching estimator targets) is only the homogeneous special case. That reframes our own
+observations cleanly: in the N-sweep the spectral radius rising *through* the performance peak, and
+$m_{\text{node}}\approx1$ under homeostasis, are two views of $\lambda\to1$; and the "**homogeneous
+topology → higher dynamic range**" result is a concrete, testable prediction for the connectome variants
+(link density, degree distribution) we've been sweeping. **Dynamic range** is also a candidate functional
+readout — a principled, criticality-linked alternative to the raw forage score.
+
+## References
+
+Larremore, Shew & Restrepo (2011), *Phys. Rev. Lett.* **106**, 058101 · Kinouchi & Copelli (2006), *Nat. Phys.* **2**, 348 ·
+Shew et al. (2009), *J. Neurosci.* **29**, 15595 · Beggs & Plenz (2003), *J. Neurosci.* **23**, 11167 ·
+Restrepo, Ott & Hunt (2006), *Phys. Rev. Lett.* **97**, 094102 · Restrepo, Ott & Hunt (2007), *Phys. Rev. E* **76**, 056119 ·
+Copelli & Campos (2007), *Eur. Phys. J. B* **56**, 273 · Newman (2003), *Phys. Rev. E* **67**, 026126.

@@ -1,0 +1,65 @@
+---
+title: Information-based fitness & criticality
+description: Hidalgo et al. (2014) — an evolutionary/adaptive argument that living systems self-tune to criticality because it is the optimal way to represent complex, heterogeneous environments (the fittest agent sits at the Fisher-information peak).
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Information-based fitness and the emergence of criticality in living
+systems* — Jorge Hidalgo, Jacopo Grilli, Samir Suweis, Miguel A. Muñoz, Jayanth R. Banavar & Amos Maritan,
+*PNAS* (2014) **111**(28), 10095. [doi:10.1073/pnas.1319166111](https://doi.org/10.1073/pnas.1319166111).
+:::
+
+## The question
+
+Empirically, many living systems look near-critical, but *why* would evolution or adaptation drive them
+there? Unlike mechanistic self-organized criticality (which applies to inanimate systems), this paper
+gives an **adaptive/evolutionary** answer: criticality is the **functional optimum** for a system that
+must build compact internal representations of a **complex, variable, heterogeneous** environment — the
+best possible compromise between accuracy and flexibility.
+
+## The framework
+
+A living system carries an internal distribution $P_{\text{int}}(s\mid\beta)$ that tries to represent an
+environmental source $P_{\text{src}}(s\mid\alpha)$; the quality of the representation is the
+**Kullback–Leibler divergence** $D(\alpha\mid\beta)=\sum_s P_{\text{src}}\log(P_{\text{src}}/P_{\text{int}})$,
+and **fitness decreases with the mean KL divergence** across the sources an agent must cope with. The key
+analytical result: for two agents with nearby parameters,
+
+$$
+D(\beta_A+\delta\beta\mid\beta_A) - D(\beta_A\mid\beta_A+\delta\beta) \approx \tfrac{1}{6}\,\nabla\chi(\beta_A)\,\delta\beta^3,
+$$
+
+where $\chi$ is the **generalized susceptibility = Fisher information**. The agent with the *larger* $\chi$
+has the *smaller* KL divergence — it is fitter. Since **$\chi$ peaks at the critical point**, the fittest
+agent sits **at criticality**: the region of maximal variability, where a small parameter change can
+account for many different complex sources (echoing Mastromatteo–Marsili on the extra distinguishable
+outputs of near-critical models).
+
+## Two models
+
+- **Coevolutionary.** Each agent's environment *is* the rest of the community — pairs compete, the
+  lower-KL agent reproduces, the other dies. From *any* start (ordered, disordered, or broad), the
+  community converges robustly to a **unique steady state peaked exactly at the Fisher-information peak**,
+  i.e. a shared "collective language" that is critical.
+- **Evolutionary.** Agents face $S$ external sources drawn from a pool $\rho_{\text{src}}(\alpha)$. A
+  **homogeneous** environment yields **specialised, non-critical** internal states; a sufficiently
+  **heterogeneous** one drives the population **near criticality** (less precisely than the coevolutionary
+  case). This is *not* an artifact of a critical environment — even non-Zipfian heterogeneous environments
+  give the same result.
+
+## Why it's collected here
+
+This is the theoretical backbone for **why a collective would evolve toward criticality**, and it is cited
+throughout the rest of this list. Two things make it load-bearing for us: it is **Fisher-information-centred**
+(the same quantity Crosato and Chen–Prokopenko use, and a criticality probe we could adopt), and it is the
+claim **Klamser & Romanczuk directly refute** — their spatial predator–prey model shows individual-level
+selection driving the group *away* from criticality (a social dilemma), precisely where Hidalgo et al.'s
+non-spatial, mutual-representation setup drives it *toward* criticality. Holding the two side by side sharpens
+exactly what our own two-scale, spatial, non-mutual-representation setting is and isn't.
+
+## References
+
+Hidalgo et al. (2014), *PNAS* **111**, 10095 · Mora & Bialek (2011), *J. Stat. Phys.* **144**, 268 ·
+Mastromatteo & Marsili (2011), *J. Stat. Mech.* P10012 · Kauffman (1993), *The Origins of Order* ·
+Kinouchi & Copelli (2006), *Nat. Phys.* **2**, 348 · Schwab, Nemenman & Mehta (2014), *Phys. Rev. Lett.* **113**, 068102 ·
+Goudarzi et al. (2012), *Phys. Rev. Lett.* **108**, 128702 · Klamser & Romanczuk (2021), *PLoS Comput. Biol.* **17**, e1008832.

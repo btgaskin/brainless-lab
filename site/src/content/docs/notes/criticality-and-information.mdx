@@ -1,6 +1,6 @@
 ---
 title: Swarm criticality & transmission
-description: Vanni, Lukovic & Grigolini (2011) — a summary of how swarm information transmission is located at a critical point via organizational collapses and flock-scale correlation length.
+description: Vanni, Lukovic & Grigolini (2011) — swarm information transmission located at a critical point via organizational collapses (temporal complexity) and flock-scale correlation length, shown in a Vicsek flock and a decision-making lattice.
 ---
 
 :::note[Research summary]
@@ -11,50 +11,100 @@ Cooperative Units* — Fabio Vanni, Mirko Lukovic & Paolo Grigolini, *Phys. Rev.
 
 ## The claim
 
-Swarm "intelligence" — a small informed subset (lookouts) steering the whole flock toward a resource
-or away from a predator — is located at a **critical point**, and emerges from the *joint* action of
-two ingredients.
+A swarm behaves "as a single cognitive mind" — a small informed subset (lookouts sensing a predator
+or resource) steering the whole flock — as an effect located at a **critical point**, from the *joint*
+action of two ingredients:
 
-## Ingredient 1 — organizational collapses (temporal complexity)
+1. **Frequent organizational collapses** that momentarily make each bird independent of the others,
+   opening the short "free-will" window in which the informed few can set a new direction;
+2. a **correlation length as extended as the flock size**, so that choice, once made, is felt
+   everywhere (a violation of locality).
 
-The global alignment order parameter $\Phi(t)$ (the swarm's mean flight direction) intermittently
-drops below a threshold; in that instant the birds recover independence and are free to pick a new
-direction — the window in which a small informed subset can steer the whole. At criticality the
-distribution of waiting times between consecutive collapses is **scale-free**:
+The information the lookouts hold is transmitted to the whole swarm with a **delay set by the time
+between consecutive collapses**. The argument is carried by two models — a Vicsek flock (used to
+establish *temporal complexity*) and a decision-making lattice (used to establish *transmission*).
 
-$$
-\psi(\tau) \sim \tau^{-\mu}, \qquad \mu \approx 1.35,
-$$
+## Temporal complexity
 
-which they call **temporal complexity**. The mean inter-collapse time $\langle\tau\rangle$ stays finite
-for $\mu > 2$ but *diverges* for $\mu < 2$ (the non-ergodic, ideal-complexity condition). A finite
-swarm truncates the power law exponentially at long times, at a cutoff that grows with size.
-
-## Ingredient 2 — correlation length as large as the flock
-
-At criticality the velocity-fluctuation correlation length $\xi$ grows with the system size $L$
-($\xi \sim L$), violating locality: the informed minority's choice is felt everywhere, and because
-$\langle\tau\rangle \sim L$ too, larger swarms transmit **more slowly**.
-
-## Transmission peaks at criticality
-
-A lookout subset carries an environmental message $t(n) \in \{-1,+1\}$; a distant unit's
-time-averaged, binarised signal $r(n)$ is correlated with it,
+Collapses are treated as renewal events: the probability of the next collapse falling in
+$[\tau, \tau+d\tau]$ is $dp = \psi(\tau)\,d\tau$, with the generic critical-state waiting-time density
 
 $$
-C = \frac{1}{B}\sum_{n=1}^{B} r(n)\,t(n),
+\psi(\tau) = \frac{\mu-1}{T}\,\frac{1}{\left(1+\tau/T\right)^{\mu}},
 $$
 
-and $C$ **peaks at criticality** — a bell curve in the control parameter. Sub-critically the swarm
-ignores the lookouts (too independent); super-critically it is too rigid to re-synchronise. The
-transmission delay is set by $\langle\tau\rangle$. The decision-making lattice model reproduces the
-same picture, so the result is not special to the Vicsek dynamics.
+where $T$ is the minimal recovery time. The mean inter-collapse time,
 
----
+$$
+\langle\tau\rangle = \frac{T}{\mu-2}\quad(\mu>2),
+$$
+
+is finite for $\mu>2$ but **diverges for $\mu<2$** — the non-ergodic, "ideal temporal complexity"
+condition, conjectured to be a general property of physiological systems and important for transfer
+of information between complex systems. At criticality the tail is a pure power law,
+$\psi(\tau)\sim\tau^{-\mu}$, with **$\mu \approx 1.35$**.
+
+## Model 1 — the Vicsek flock
+
+Each bird adopts the average heading of neighbours within an interaction radius $r$, plus white noise
+of intensity $\eta$ (the knob tuned to criticality). Cooperation is read off the **global speed /
+polarization order parameter**
+
+$$
+\Phi_a(t) = \frac{1}{N v_0}\left|\sum_{k=1}^{N} v_0\, e^{i\theta_k(t)}\right|.
+$$
+
+A **collapse** is registered when $\Phi_a(t)$ drops below an (arbitrary) threshold — $\Phi_a=0$ never
+actually occurs, but near-vanishing marks the organized→disorganized transition. The survival function
+$\Psi(t)=\int_t^\infty \psi(\tau')\,d\tau'$ recovers $\mu\approx 1.35$ at criticality.
+
+- **1D version:** abrupt left/right flips, as in migrating locust bands (Buhl 2006); each flip is an
+  unambiguous collapse with negligible reorganization time, and the same $\mu\approx 1.35$ recurs —
+  suggesting **universality**.
+- **Finite size:** the power law is truncated by an exponential drop at long times, and the truncation
+  moves later as the swarm grows. Both the correlation length and $\langle\tau\rangle$ scale with the
+  linear size $L$:
+
+$$
+\frac{\langle\tau_1\rangle}{\langle\tau_2\rangle} = \frac{L_1}{L_2}.
+$$
+
+## Model 2 — the decision-making lattice (transmission)
+
+Each bird is a node on an $L\times L$ periodic lattice with a binary choice $s=\pm 1$ and base decision
+rate $g$. With cooperation strength $K$, each flip is biased toward the majority of its four neighbours
+($p_{2\to1}=g\,e^{K[M(1)-M(2)]/M}$, $M=4$); $K>0$ lengthens the mean state duration, which grows
+exponentially at criticality. A small corner cluster of **lookouts** is driven by a regular alternating
+"environmental" signal, and its transmission across the lattice is tracked.
+
+- **Sub-critical $K$:** the swarm ignores the lookouts (or does not depart from its unperturbed
+  behaviour at all). **Super-critical $K$:** the swarm is too rigid to re-synchronise. **At criticality
+  ($K_c\approx 1.61$): the whole swarm tracks the lookouts.**
+- **Information view:** the lookout motion is a transmitted bit sequence $t(n)\in\{-1,+1\}$; a distant
+  receiver time-averages a node's signal into $b(n)$ over windows $\Delta t$ and takes
+  $r(n)=\mathrm{sgn}[b(n)]$. The lookout–node correlation
+
+$$
+C = \frac{1}{B}\sum_{n=1}^{B} r(n)\,t(n)
+$$
+
+  is **bell-shaped in $K$, maximal at criticality**, and $\to 1$ (perfect, and *independent of distance
+  from the lookouts*) for large $\Delta t$. There is **no direct transmitter–receiver link**: the
+  message rides the criticality-induced long-range correlation, with a delay equal to the inter-collapse
+  time.
+
+## The cost of size
+
+Because $\langle\tau\rangle\sim L$, the transmission delay grows with the swarm — **larger flocks
+transmit more slowly** (less efficiently). The mechanism is criticality-induced nonlocality rather than
+travelling waves; the authors flag communication-algorithm / engineering implications and the link to
+intelligence-as-criticality (Chialvo 2010).
 
 ## References
 
 Vanni, Lukovic & Grigolini (2011), *Phys. Rev. Lett.* **107**, 078103 · Vicsek et al. (1995),
 *Phys. Rev. Lett.* **75**, 1226 · Cavagna et al. (2010), *PNAS* **107**, 11865 ·
-Turalska, West & Grigolini (2011), *Phys. Rev. E* **83**, 061142 · Couzin (2007), *Nature* **445**, 715 ·
-Buhl et al. (2006), *Science* **312**, 1402.
+Turalska et al. (2009), *Phys. Rev. E* **80**, 021110; Turalska, West & Grigolini (2011),
+*Phys. Rev. E* **83**, 061142 · Buhl et al. (2006), *Science* **312**, 1402 · Couzin (2007),
+*Nature* **445**, 715 · Chialvo (2010), *Nat. Phys.* **6**, 744 · Scher & Montroll (1975),
+*Phys. Rev. B* **12**, 2455.

@@ -1,0 +1,78 @@
+---
+title: Thermodynamics of collective motion
+description: Crosato et al. (2018) — a first-law analysis of self-propelled particles across a flocking transition, showing Fisher information diverges and the thermodynamic efficiency of computation peaks at criticality.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Thermodynamics and computation during collective motion near
+criticality* — Emanuele Crosato, Richard E. Spinney, Ramil Nigmatullin, Joseph T. Lizier & Mikhail
+Prokopenko, *Phys. Rev. E* (2018) **97**, 012120 (arXiv:1708.04004).
+[doi:10.1103/PhysRevE.97.012120](https://doi.org/10.1103/PhysRevE.97.012120).
+:::
+
+## The thesis
+
+Treat the self-organization of collective motion as a **thermodynamic** phenomenon and track it through
+the **first law**: as a flock orders, how do generalized internal energy and work trade off against
+configuration entropy? Driving a self-propelled-particle model across its kinetic (disorder→coherence)
+transition, the paper finds that at criticality the entropy drops, the rates of change of work and energy
+fall while their *curvatures diverge*, and — the headline — the **entropy reduction achieved per unit of
+work (a thermodynamic efficiency of computation) peaks at the critical point**. This is the concrete
+flocking demonstration behind the "super-efficiency at criticality" idea.
+
+## The setup
+
+The Grégoire–Chaté model ($N=512$ self-propelled particles: alignment + cohesion + perturbation), with two
+control parameters — the **alignment strength** $J = v_0 a/n_c$ and the **number of nearest neighbours**
+$n_c$ (topological). A **quasi-static** protocol varies them infinitesimally slowly so the system stays in
+equilibrium, and the velocity distribution (relative to each particle's neighbourhood) is estimated from
+simulation — connecting to Bialek et al.'s maximum-entropy model $p(v_i\mid J,n_c)\propto\exp(\tfrac{J}{2}\sum v_i\!\cdot\!v_j)$.
+
+## Fisher information ↔ thermodynamics
+
+The engine is the identity that **Fisher information is the curvature of the free entropy**
+$\psi=\ln Z$ (the thermodynamic metric), which in the quasi-static limit equals minus the curvature of
+work: $F(\theta) = -\,d^2\langle\beta W_{\text{gen}}\rangle/d\theta^2$. Combined with the first law
+$d\langle\beta U_{\text{gen}}\rangle/d\theta = dS/d\theta + d\langle\beta W_{\text{gen}}\rangle/d\theta$, this gives the
+information-geometric decomposition
+
+$$
+\frac{d^2\langle\beta U_{\text{gen}}\rangle}{d\theta^2} = \frac{d^2 S}{d\theta^2} - F(\theta),
+$$
+
+i.e. the internal-energy curvature is a **computational balance** between the system's *sensitivity*
+(Fisher information) and its *uncertainty* (configuration-entropy curvature) — a balance that is broken at
+criticality.
+
+## Results
+
+- **Fisher information diverges at criticality** ($J\approx0.075$ for $n_c=20$), letting the critical point
+  be localized *without* any order parameter, and used to draw a phase diagram over $(J, n_c)$ (critical
+  curve $J = v_0 a/n_c$) — useful where a good order parameter is hard to define.
+- **Configuration entropy drops** sharply across the transition (its curvature is discontinuous), and the
+  internal-energy curvature diverges with it.
+- **The thermodynamic efficiency of computation peaks at criticality**:
+  $$
+  \eta = \frac{-\,dS/d\theta}{d\langle\beta W_{\text{gen}}\rangle/d\theta} = \frac{-\,dS/d\theta}{\int_\theta^{\theta^*} F(\theta')\,d\theta'},
+  $$
+  the order generated per unit work. Because the denominator (cumulative Fisher information to the
+  perfectly-ordered "zero-response" point $\theta^*$) acts like a **distance to perfect order**, one bit of
+  uncertainty reduction near order counts for more than one bit in disorder — so the reduction of
+  uncertainty is *most significant* at the critical point.
+
+## Why it's collected here
+
+This is the foundational, self-propelled-particle result underlying Chen & Prokopenko's Principle of
+Super-efficiency — the same lab, the same $\eta$, shown in an actual **flocking** model rather than an
+Ising lattice. Two methods it contributes are directly usable: **Fisher information as an
+order-parameter-free phase detector** (a cleaner criticality probe than a hand-picked susceptibility), and
+the **sensitivity-vs-uncertainty** decomposition of internal energy, which is a principled way to read
+what diverges — and what balance breaks — at a collective transition.
+
+## References
+
+Crosato et al. (2018), *Phys. Rev. E* **97**, 012120 · Grégoire & Chaté (2004), *Phys. Rev. Lett.* **92**, 025702 ·
+Vicsek et al. (1995), *Phys. Rev. Lett.* **75**, 1226 · Bialek et al. (2012), *PNAS* **109**, 4786 ·
+Prokopenko, Lizier, Obst & Wang (2011), *Phys. Rev. E* **84**, 041116 · Crooks (2007), *Phys. Rev. Lett.* **99**, 100602 ·
+Nigmatullin & Prokopenko (2021), *Entropy* **23**, 757 · Mora & Bialek (2011), *J. Stat. Phys.* **144**, 268 ·
+Cavagna et al. (2010), *PNAS* **107**, 11865.

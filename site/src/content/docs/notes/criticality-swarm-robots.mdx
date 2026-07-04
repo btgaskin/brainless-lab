@@ -1,0 +1,78 @@
+---
+title: Criticality in swarm robots
+description: Lei et al. (2023) — a real programmable swarm-robot test of the criticality hypothesis, finding that only alignment-induced criticality (not noise-induced) maximizes collective response.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Exploring the criticality hypothesis using programmable swarm robots
+with Vicsek-like interactions* — Xiaokang Lei, Yalun Xiang, Mengyuan Duan & Xingguang Peng,
+*J. R. Soc. Interface* (2023) **20**, 20230176.
+[doi:10.1098/rsif.2023.0176](https://doi.org/10.1098/rsif.2023.0176).
+:::
+
+## The question
+
+Many different factors can drive a collective through the order–disorder transition — but does *every*
+such transition confer the functional benefit the criticality hypothesis promises? Using a **real**
+programmable swarm (up to 50 SwarmBang robots) with Vicsek-like interactions, subject to time-varying
+stimuli and a predator, this paper asks **which inducer of criticality actually maximizes collective
+response**, and to what extent other behavioural factors modulate it — questions hard to answer in animals
+(you can't fine-tune their interaction rules) or in idealized simulations (which omit real-world physics).
+
+## The model
+
+Each robot follows short-range repulsion, long-range attraction, and **alignment** with neighbours, then
+blends its own heading, the social heading (weighted by a **social level** $\alpha_{\text{soc}}$), and
+**motion noise** $\eta_m$; polarization $\psi=|\tfrac1N\sum_i \mathbf r_i|$ is the order parameter. Five
+programmable factors split into **alignment factors** (alignment weight $w_{\text{ali}}$, scale
+$D_{\text{ali}}$) and **non-alignment factors** ($\eta_m$, $\alpha_{\text{soc}}$, action cycle $\tau$). An
+"informed robot" tracks an external signal (attractive: periodic 120° turns; repulsive: a faster predator
+robot), imposing a local stimulus the rest of the swarm must respond to.
+
+## Result 1 — many factors induce the transition
+
+Noise, alignment weight, alignment scale, and social level all drive an order–disorder transition. Noise
+gives an (empirically) **continuous/second-order** transition; alignment weight and scale give
+**discontinuous/first-order** transitions with **bistability** near the critical points. Critical slowing
+down appears near all of them, and nearest-neighbour distance (safety) peaks just above the alignment
+transition.
+
+## Result 2 — only *alignment-induced* criticality maximizes response
+
+To an attractive stimulus, the group responsiveness $R$ varies **non-monotonically** with alignment,
+peaking at a critical $w_{\text{ali}}\approx25$, $D_{\text{ali}}\approx40$ (with minimal turning time and
+maximal spacing there) — clean support for the criticality hypothesis. But for the **non-alignment**
+factors, $R$ falls **monotonically** with noise and with decreasing social level: the noise-induced
+order–disorder transition gives *no* functional gain. **The transition's source matters** — phenomenology
+(being "at the edge") does not by itself confer the benefit.
+
+## Result 3 — non-alignment factors *sharpen* the alignment benefit
+
+Increasing noise (or lowering the social level, or lengthening the action cycle) makes the peak of $R$
+versus alignment **more pronounced** (steeper fall-off away from the critical alignment). So noise, while
+unable to create the benefit, **highlights** alignment-induced criticality — implying real (noisy) groups
+may show the advantage *more* clearly than noise-free toy models. The effect also strengthens with group
+size (invisible at $N=10$, clear by $N=30$–$50$).
+
+## Predator-evasion re-validation
+
+Under a pursuing predator, the first-capture time, polarization, and spacing all **peak near the critical
+alignment** ($w_{\text{ali}}\approx25$): longest survival, most synchronized escape, lowest collision
+risk. Escape information (the informed robot's manoeuvre) propagates most efficiently near the critical
+point, with naive robots rapidly "copying" it.
+
+## The upshot
+
+The functional advantage the criticality hypothesis predicts is **real and physically demonstrable**, but
+**specific to alignment (velocity/directional coupling)**, not to noise or other non-alignment factors —
+and **moderate**, not strong, alignment is best. The authors suggest treating alignment strength/scale as
+*adjustable* parameters in models, and float the **social level and action cycle** — how agents allocate
+attention and how often they act — as candidate *internal self-tuning* (SOC) knobs by which real groups
+might hold themselves near criticality.
+
+## References
+
+Lei et al. (2023), *J. R. Soc. Interface* **20**, 20230176 · Vicsek et al. (1995), *Phys. Rev. Lett.* **75**, 1226 ·
+Mora & Bialek (2011), *J. Stat. Phys.* **144**, 268 · Muñoz (2018), *Rev. Mod. Phys.* **90**, 031001 ·
+Klamser & Romanczuk (2021), *PLoS Comput. Biol.* **17**, e1008832 · Calovi et al. (2015), *J. R. Soc. Interface* **12**, 20141362 ·
+Kinouchi & Copelli (2006), *Nat. Phys.* **2**, 348 · Poel et al. (2022), *Sci. Adv.* **8**, eabm6385.

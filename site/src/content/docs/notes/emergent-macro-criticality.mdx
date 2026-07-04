@@ -1,0 +1,81 @@
+---
+title: Macro-criticality from micro-critical agents
+description: Bessone & Plantec (2026) — in reservoir-agent swarms, near-critical internal dynamics are not sufficient for collective critical avalanches; macro-criticality is governed by the interaction network's connectivity.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Emergent Macro-Criticality from Micro-Critical Agents* — Nicolas
+Bessone & Erwan Plantec, arXiv:2605.01818 (2026). IT University of Copenhagen / Barcelona Computational
+Foundation. [arXiv:2605.01818](https://arxiv.org/abs/2605.01818) ·
+[code](https://github.com/nhbess/emergent-macro-criticality).
+:::
+
+## The question
+
+Does tuning each **individual agent** near its own dynamical critical point make the **collective**
+critical? The paper builds a two-scale system to test exactly this cross-scale propagation of criticality
+— and finds that near-critical *internal* dynamics are **not sufficient** for collective critical-like
+avalanches. What matters instead is whether activity can **propagate through the interaction network**.
+
+## The model
+
+- **Micro (reservoir).** Each agent holds a discrete-time stochastic recurrent network of binary neurons
+  with **branching-process** dynamics: an active neuron activates each other with homogeneous probability
+  $p^{\text{micro}}$, so the nominal critical point is $p^{\text{micro}}_c = 1/(N_{\text{neurons}}-1)$
+  (one activation per active neuron on average) — subcritical activity dies, near-critical self-sustains,
+  supercritical saturates.
+- **Macro (environment).** $N_{\text{agents}}=256$ light-signalling agents on a 2D torus. Each senses the
+  angular distribution of *lit* neighbours within a **vision radius $v_r$** (discretised into $E$ sectors),
+  feeds that into its reservoir's input neurons, and a readout neuron sets its own light on/off — a static
+  spatial sensing graph driving a dynamic activity network.
+- Avalanches are extracted from the population light activity $A_l(t)=\sum_i l_i(t)$ (size $S=\sum_t A_l$,
+  duration $T$), and scored against the branching exponents via
+  $L = |\alpha_S-1.5| + |\alpha_T-2| + \mathrm{KS}_S + \mathrm{KS}_T$ (lower = closer to critical branching).
+
+## Micro-criticality is not sufficient
+
+The macro criticality landscape $L(p^{\text{micro}}, v_r)$ is a structured phase diagram — **silence** at
+low $p^{\text{micro}}$/$v_r$, **saturation** at high, and a **narrow curved band** of near-critical
+avalanches between — and that band is **displaced from the reservoir's own critical point**
+$p^{\text{micro}}_c$, shifting systematically with $v_r$. So collective near-criticality lives in a
+restricted region set by the *spatial interactions*, not inherited from tuning the agents.
+
+## Connectivity controls it
+
+Activity propagation is a **network** property. The interaction graph is a **random geometric graph**;
+its giant connected component appears at a connectivity threshold
+$v_r^{\text{conn}} = \sqrt{L^2\ln N_{\text{agents}} / ((N_{\text{agents}}-1)\pi)} \approx 47$ for their
+parameters. Below it the graph is fragmented and activity stays local; above it, activity spreads
+population-wide. As $v_r$ (hence mean degree) grows, the effective branching ratio $\sigma_{\text{eff}}$
+reaches 1 at progressively **lower** $p^{\text{micro}}$ — spatial coupling substitutes for internal
+propagation. Recast in average degree $\kappa$, the same structure holds: critical-like behaviour is
+sustained across an **extended range of connectivity**, not a single point.
+
+## Two findings worth flagging
+
+- **Slightly subcritical micro is more robust.** The *width* of the near-critical band in $\kappa$ depends
+  on $p^{\text{micro}}$: values **just below** $p^{\text{micro}}_c$ support near-criticality across a
+  *broader* range of macroscopic connectivity than critical or supercritical ones — a candidate reason
+  some biological networks (e.g. gene-regulatory) sit subcritically when embedded in larger interaction
+  networks.
+- **Exponents deviate from mean-field.** At the best operating point the size exponent is
+  $\alpha_S\approx1.7$ — consistently **above** the mean-field $3/2$ *even though the score $L$ rewards
+  $1.5$* — with $\alpha_T\approx2.0$. The authors attribute the shift to constrained, spatially structured
+  propagation (violating homogeneous mixing) and finite size, echoing other reservoir/spatial systems.
+
+:::tip[Why it's collected here]
+This is the closest published analog to this lab's central question: agents whose controller is a
+**reservoir** (micro/network scale) coupled through a spatial sensing graph into a **collective**
+(macro/ensemble scale), asking whether network criticality propagates to ensemble criticality. Its answer
+— **it does not, by itself**; the coupling/propagation structure is decisive, the two critical points do
+*not* coincide, and slightly-subcritical internal dynamics are the most robust — is the same conclusion
+the forage-criticality work has been converging on, reached with the same branching/avalanche + Clauset
+power-law machinery (and the same $\alpha_S\approx1.7$ deviation).
+:::
+
+## References
+
+Bessone & Plantec (2026), arXiv:2605.01818 · Beggs & Plenz (2003), *J. Neurosci.* **23**, 11167 ·
+Kinouchi & Copelli (2006), *Nat. Phys.* **2**, 348 · Mora & Bialek (2011), *J. Stat. Phys.* **144**, 268 ·
+Clauset, Shalizi & Newman (2009), *SIAM Rev.* **51**, 661 · Cramer et al. (2020), *Nat. Commun.* **11**, 2853 ·
+Pontes-Filho, Nichele & Lepperød (2025), arXiv:2508.02218 · Romanczuk & Daniels (2022), *Order, Disorder and Criticality* · Torres-Sosa, Huang & Aldana (2012), *PLoS Comput. Biol.* **8**, e1002669.

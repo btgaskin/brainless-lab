@@ -1,6 +1,6 @@
 ---
 title: Information flow near criticality
-description: Meijers, Ito & ten Wolde (2021) — a summary of why the optimal information transmission rate sits near, but not at, the critical point, with an optimal input timescale.
+description: Meijers, Ito & ten Wolde (2021) — in a driven 2D Ising system the information transmission rate is optimized near (not at) the critical point, at a finite optimal input timescale, via a response-time / input-time trade-off.
 ---
 
 :::note[Research summary]
@@ -9,44 +9,89 @@ Sosuke Ito & Pieter Rein ten Wolde, *Phys. Rev. E* (2021) **103**, L010102.
 [doi:10.1103/PhysRevE.103.L010102](https://doi.org/10.1103/PhysRevE.103.L010102).
 :::
 
+## The question
+
+Many biological systems self-organise near criticality (starling flocks, signal percolation in
+bacterial communities, neural networks), where they map a **time-varying input** onto an output.
+Earlier Ising studies showed mutual information / transfer entropy peaking at (or just above) $T_c$ —
+but only between spins in **thermodynamic equilibrium**, not for the processing of time-varying signals
+that drive the system *out* of equilibrium. This Letter asks how information flow depends on three
+things left open: the **dynamics of the input**, the **distance** over which it must travel, and the
+**distance to the critical point**.
+
 ## The setup
 
-A 2D Ising system is driven by a **time-varying input** — an input spin flipped by a random telegraph
-process with correlation time $\tau_s$ — and an output spin is read a distance $d$ away. This adds
-what the static critical-flock picture lacks: a controllable *input timescale* and a clean separation
-of two information measures.
+A 2D Ising system ($N\times N$, periodic boundaries, coupling $J$; $k_B T_c/J = 2.269$) under
+discrete-time Glauber dynamics. One **input spin** $S$ is flipped by a stationary random-telegraph
+process with timescale $\tau_s$, regulated *independently* of the remaining spins (whose dynamics are
+set by the temperature $T$). This drives the system to a **stationary non-equilibrium steady state**.
+An **output spin** $X$ sits a distance $d$ away along the diagonal. Because information propagates
+through the intermediate spins, the output is strongly **non-Markovian**, so the full input/output
+*history* matters.
 
-## Two information measures
+## Two measures
 
-$$
-I_{\text{inst}}(S;X) = H(S) - H(S\mid X), \qquad
-I_R = \lim_{L\to\infty}\frac{I(S^L; X^L)}{L}.
-$$
+- **Instantaneous mutual information** — the *accuracy* of the map at a single instant:
+  $$
+  I_{\text{inst}}(S;X) = H(S) - H(S\mid X),
+  $$
+  with $2^{I_{\text{inst}}}$ the number of reliably distinguishable input→output mappings.
+- **Information transmission rate** — accuracy *and* speed, folding in the signals' autocorrelations:
+  $$
+  I_R = \lim_{L\to\infty}\frac{I(S^L; X^L)}{L},
+  $$
+  the rate at which the mutual information between input/output *trajectories* $S^L, X^L$ grows. With no
+  output→input feedback, $I_R$ equals the **multi-step transfer entropy**. It requires trajectory
+  lengths $L > \tau_s, \tau_r$, and is computed via a sampling-interval extrapolation with the Nemenman
+  Bayesian entropy estimator.
+- The **response time** $\tau_r$ is the relaxation time of spontaneous fluctuations in the *undriven*
+  system (from the two-point time correlation), set by $T$ — and it **diverges near $T_c$**.
 
-- **Instantaneous mutual information** $I_{\text{inst}}$ — the *accuracy* of the input→output map.
-- **Information transmission rate** $I_R$ — accuracy *and speed*, folding in trajectory
-  autocorrelation; with no output→input feedback it equals the **multi-step transfer entropy**.
+## Result 1 — accuracy has an optimal temperature, but is monotonic in $\tau_s$
 
-They behave differently: $I_{\text{inst}}$ rises monotonically with $\tau_s$ to a plateau, whereas
-$I_R$ has an **optimal finite $\tau_s$** — a trade-off between sending independent messages often,
-responding fast, and responding reliably.
+$I_{\text{inst}}$ rises monotonically with $\tau_s$ to a plateau equal to the **static** mutual
+information (input held fixed), and that plateau rises as $T$ falls (less thermal noise). But for short
+$\tau_s \sim \tau_r$ it is **non-monotonic in $T$**: there is an optimal $T_{\text{opt}}(\tau_s)$ from a
+trade-off — higher $T$ adds thermal noise (lowers $I_{\text{inst}}$) but shortens $\tau_r$, letting the
+output track the input better (raises it). $T_{\text{opt}}$ decreases as $\tau_s$ grows.
 
-## The sharp results
+## Result 2 — the rate is optimized *near, not at*, criticality
 
-- The transmission-rate optimum is **near but not *at*** criticality — on the *disordered* side (above
-  $T_c$), because the response time diverges as the critical point is approached.
-- The optimum **moves toward** the critical point as the transmission **distance $d$ grows**.
-- It **moves away** as the **system size grows** at fixed $d$.
+Unlike the accuracy, the **rate** $I_R$ has an **optimal finite input timescale** $\tau_s^{\text{opt}}$:
+too fast and the output cannot keep up ($H(S^L\mid X^L)$ rises); too slow and time is wasted between
+changes ($H(S^L)$ falls). Optimising over $\tau_s$, the peak rate $I_R^{\max}$ *itself* has an
+**optimal temperature — and it lies above $T_c$**, because the response time diverges as $T\to T_c$,
+throttling the bits sent per unit time. This is the headline: the transmission *rate* peaks close to,
+but not at, the critical point (on the disordered side).
 
-The governing trade-off is between the system's **response time** $\tau_r$ (the relaxation time of
-spontaneous fluctuations) and the **input time** $\tau_s$ — a refinement of the "peak at criticality"
-picture into "peak near criticality, set by matched timescales."
+## Distance and size dependence
 
----
+- As the transmission **distance $d$ grows**, $I_R^{\max}$ falls (weaker long-range correlations) and
+  the optimal temperature **moves toward $T_c$** — a longer correlation length is needed to span $d$,
+  which means sitting closer to criticality.
+- At fixed $d$, increasing **system size** moves the optimum **away from $T_c$** (larger systems have a
+  longer near-critical response time — up to 6× from $5\times5$ to $10\times10$ — which must be
+  mitigated).
+- Scaling $d$ *with* size (the RG-relevant finite-size question): $T_{\text{opt}} \approx 2.53$
+  $(d{=}2,N{=}5) \to 2.44$ $(d{=}4,N{=}10) \to 2.38$ $(d{=}6,N{=}15)$ — hinting $T_{\text{opt}}\to T_c$
+  in the thermodynamic limit.
+
+## The trade-off, and the biological reading
+
+$I_R$ reflects a three-way trade-off: maximise the **frequency** of independent input messages, respond
+**fast** to changes, and respond **reliably**. Both $\tau_s$ and $T$ tune it, yielding an optimum
+near-but-above criticality. Biologically: raising the **interaction strength** between components
+(proteins in a signalling network, cells in a community, birds in a flock) increases reliability but
+also the response time — so there is an **optimal coupling strength** that maximises $I_R$, a candidate
+reason systems tune near a critical point. Because $\tau_r$ is dimension-independent while correlations
+decay faster with distance in higher dimensions, they conjecture the optimum sits **closer to
+criticality in higher-dimensional systems**.
 
 ## References
 
-Meijers, Ito & ten Wolde (2021), *Phys. Rev. E* **103**, L010102 · Schreiber (2000),
-*Phys. Rev. Lett.* **85**, 461 · Barnett et al. (2013), *Phys. Rev. Lett.* **111**, 177203 ·
-Tostevin & ten Wolde (2009), *Phys. Rev. Lett.* **102**, 218101 · Mora & Bialek (2011),
-*J. Stat. Phys.* **144**, 268.
+Meijers, Ito & ten Wolde (2021), *Phys. Rev. E* **103**, L010102 · Tostevin & ten Wolde (2009),
+*Phys. Rev. Lett.* **102**, 218101 · Schreiber (2000), *Phys. Rev. Lett.* **85**, 461 ·
+Barnett et al. (2013), *Phys. Rev. Lett.* **111**, 177203 · Matsuda et al. (1996),
+*Int. J. Theor. Phys.* **35**, 839 · Cavagna et al. (2010), *PNAS* **107**, 11865 ·
+Mora & Bialek (2011), *J. Stat. Phys.* **144**, 268 · Onsager (1944), *Phys. Rev.* **65**, 117 ·
+Glauber (1963), *J. Math. Phys.* **4**, 294 · Nemenman et al. (2004), *Phys. Rev. E* **69**, 056111.

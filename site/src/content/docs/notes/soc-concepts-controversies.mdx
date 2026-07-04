@@ -1,0 +1,81 @@
+---
+title: 25 years of self-organized criticality
+description: Watkins et al. (2016) — a retrospective clarifying what self-organized criticality is and isn't, its necessary/sufficient conditions, and why a power-law distribution alone is not evidence of criticality.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *25 Years of Self-organized Criticality: Concepts and Controversies* —
+Nicholas W. Watkins, Gunnar Pruessner, Sandra C. Chapman, Norma B. Crosby & Henrik J. Jensen,
+*Space Sci. Rev.* (2016) **198**, 3. [doi:10.1007/s11214-015-0155-x](https://doi.org/10.1007/s11214-015-0155-x).
+:::
+
+## What it does
+
+A 25-year retrospective that untangles what Bak, Tang & Wiesenfeld (BTW) actually claimed with
+**self-organized criticality (SOC)** from the much larger set of things later attributed to it. It is the
+authoritative statement of SOC's **necessary and sufficient conditions** and a careful, partly polemical
+account of the controversies — invaluable as a checklist for anyone claiming criticality from data.
+
+## Four nested perceptions
+
+The authors separate (Fig. 1) an increasingly sweeping ladder of claims: the defensible **core** —
+*self-tuned phase transitions exist in nature* (some systems dynamically drive themselves to a critical
+point) — then the progressively wrong/unfalsifiable *all fractals are SOC*, *all power laws are SOC*, and
+*the contingency of nature is SOC*. Only the core is defended; the rest are flagged as the source of much
+confusion.
+
+## BTW's core and the SOC postulate
+
+BTW sought to unify **spatial fractals** and **temporal $1/f$ noise** as two faces of one self-organized
+critical state. The postulate: **open, extended, dissipative systems driven slowly go automatically to a
+critical state** — later distilled by Jensen as **SDIDT** (*slowly driven, interaction-dominated,
+threshold* systems). A key clarification: SOC does **not** mean every local degree of freedom sits at its
+threshold. That is true only of the (trivial) 1D sandpile; in 2D the average height is 2.125 against a
+threshold of 3. "Critical" means the *system* looks critical — long-range correlations, divergent
+susceptibility — not that every site is poised.
+
+## The conditions (a checklist)
+
+- **Necessary** (the "phenotype", the *definition* of SOC): (1) **non-trivial scaling** (finite-size
+  scaling, no dependence on a tuned control parameter); (2) **spatio-temporal power-law correlations**;
+  (3) **apparent self-tuning** to the critical point of an underlying continuous transition.
+- **Sufficient** (the "genotype", the *mechanism*): (4) **non-linear interaction** (usually a threshold);
+  (5) **avalanching / intermittency**; (6) **separation of time scales** (slow drive, fast relaxation).
+
+The clearest computational instances (the ones that pass all of this) are the **Manna** and **Oslo**
+models — notably, *not* the original BTW sandpile, whose scaling is poorly defined.
+
+## The caution that matters most
+
+**A power-law distribution is not, by itself, evidence of criticality.** The literature drifted into
+treating power-law *avalanche-size distributions* as a *replacement* for power-law *correlations*, but the
+two are distinct: directed sandpiles show power-law avalanche sizes with **zero spatial correlation**, and
+"trivial" power laws arise from linear/dimensional-analysis mechanisms. Not everything that avalanches is
+critical; not every heavy tail is SOC. And observational evidence for genuine scale invariance in nature is
+far thinner than the "ubiquity" rhetoric suggests.
+
+## Alternatives and quasi-criticality
+
+Several non-SOC routes reproduce apparent criticality: **sweeping of an instability** (Sornette); a system
+that merely **hovers around** an ordinary critical point without fine-tuning to it (precipitation —
+Peters–Neelin; resting-brain fMRI percolation — Tagliazucchi); and, most importantly, **self-organized
+*quasi*-criticality** (Bonachela–Muñoz) — when dynamics are non-conservative or timescales don't separate
+perfectly, the system drifts *around* the critical point rather than sitting on it, still producing
+scale-free-*ish* behaviour over a few decades.
+
+## Why it's collected here
+
+This is the reference that keeps an avalanche analysis honest. Its **necessary/sufficient checklist** is a
+direct rubric for any criticality claim off the harness; its central caution — **power-law size
+distribution ≠ power-law correlation ≠ criticality** — is exactly the trap our cluster/avalanche measures
+must avoid (a fitted $P(s)\sim s^{-\tau}$ proves far less than it seems); and **self-organized
+quasi-criticality** is the precise vocabulary for the m-homeostasis question (is $m\approx1$ genuine SOC, a
+rate-clamp, or drift-around-the-point?). It pairs with Muñoz (living-systems criticality) and Roli
+(dynamical criticality) as the SOC-proper authority.
+
+## References
+
+Watkins et al. (2016), *Space Sci. Rev.* **198**, 3 · Bak, Tang & Wiesenfeld (1987), *Phys. Rev. Lett.* **59**, 381 ·
+Bak & Chen (1989), *Physica D* **38**, 5 · Jensen (1998), *Self-Organized Criticality* · Pruessner (2012), *Self-Organised Criticality* ·
+Vespignani, Dickman, Muñoz & Zapperi (1998), *Phys. Rev. Lett.* **81**, 5676 · Bonachela & Muñoz (2009), *J. Stat. Mech.* P09009 ·
+Manna (1991), *J. Phys. A* **24**, L363 · Christensen et al. (1996), *Phys. Rev. Lett.* **77**, 107 · Sornette (2006), *Critical Phenomena in Natural Sciences*.

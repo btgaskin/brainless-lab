@@ -1,0 +1,69 @@
+---
+title: SOC induced by diversity
+description: Corral, Pérez & Díaz-Guilera (1997) — heterogeneity among integrate-and-fire oscillators is the mechanism that induces self-organized criticality, over an extended critical region rather than a single point.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Self-Organized Criticality Induced by Diversity* — Álvaro Corral,
+Conrad J. Pérez & Albert Díaz-Guilera, *Phys. Rev. Lett.* (1997) **78**, 1492 (arXiv:cond-mat/9701084).
+[arXiv:cond-mat/9701084](https://arxiv.org/abs/cond-mat/9701084).
+:::
+
+## The claim
+
+A population of pulse-coupled **integrate-and-fire oscillators** does **not** show self-organized
+criticality when the units are identical — it tends instead to synchronize. Introducing **diversity** (a
+random spread of natural periods) is the *mechanism* that induces SOC in the long-time regime. As
+diversity grows the system sweeps through **supercritical → SOC → subcritical**, and — crucially —
+criticality holds over an **extended range** of the control parameter, not a single point (unlike
+percolation or equilibrium transitions).
+
+## The model
+
+Each oscillator has a state $E_i$ with $dE_i/dt = S - \gamma E_i$; on reaching threshold it resets to zero
+and redistributes a fixed $\varepsilon$ to its neighbours, which can trigger a chain of relaxations — an
+**avalanche** of size $s$. The reset-and-transfer rule makes it **intrinsically non-conservative**. On a
+2D lattice with **open boundaries** (so edge units couple to fewer neighbours), it models spiking neurons
+(membrane as an RC circuit), cardiac pacemakers, and flashing fireflies; at $\gamma=0$ it is the
+Feder–Feder stick-slip earthquake model.
+
+## Diversity that touches only the slow scale
+
+Diversity enters as a distribution of intrinsic periods $T = \gamma^{-1}\ln\!\big(S/(S-\gamma E_{\text{th}})\big)$,
+implemented via a spread of input currents $S$ of width $\Delta$. The key subtlety: this affects **only the
+slow (driving) timescale**, leaving the fast (avalanche) dynamics untouched — unlike a distribution of
+*thresholds*, which perturbs *both* scales and is known to **destroy** criticality in the dissipative case.
+The slow-vs-fast distinction is what makes diversity constructive here.
+
+## Results
+
+- **Identical units** ($\Delta=0$): no SOC — avalanche sizes peak at multiples of $L$ (open-boundary
+  effect) and at $L^2$ (synchronization), not a power law.
+- Increasing $\Delta$: the peaks smooth out; a mild spread ($\Delta\approx0.15$) is still **supercritical**
+  (system-spanning events); around $\Delta\approx0.5$ the system reaches **SOC** — a scale-free power-law
+  avalanche distribution ($P(s)\sim s^{-\tau}$, $\tau\approx1.6$); large $\Delta\gtrsim1.5$ turns
+  **subcritical** — exponential cutoff, localized avalanches, finite correlation length.
+- **Finite-size scaling** ($L^{\beta}P(s,L)$ vs. $s/L^{\nu}$, with $\langle s\rangle\sim L^{2\nu-\beta}$)
+  collapses across a *band* of $\Delta$ values — direct evidence of an **extended critical region**, not a
+  critical point (e.g. $\nu\approx2.0,\beta\approx3.15$ at $\Delta=0.3$).
+- **Robust** to random (quenched or annealed) coupling strengths and to Olami–Feder–Christensen relaxation
+  rules; the SOC-inducing regime sits at large $\varepsilon$, small $\gamma$.
+
+## Why it's collected here
+
+Three hooks for this lab. First, the substrate is exactly the **node scale** — integrate-and-fire units
+producing power-law **avalanches** — so its exponents and finite-size-scaling method are the same
+machinery used on reservoir spikes. Second, its headline is that **heterogeneity is constructive**:
+diversity among units *creates* criticality rather than washing it out, which bears directly on a reservoir
+of non-identical nodes or a swarm of non-identical agents. Third, the **extended-critical-region** finding
+lines up with the Griffiths-phase / generic-scale-invariance thread (Muñoz), the swarm extended-region
+model (González-Albaladejo), and the connectivity-band result (Bessone & Plantec) — and its insistence
+that diversity work *only on the slow timescale* is a concrete lesson for any homeostatic / rate-separated
+mechanism.
+
+## References
+
+Corral, Pérez & Díaz-Guilera (1997), *Phys. Rev. Lett.* **78**, 1492 · Bak, Tang & Wiesenfeld (1987), *Phys. Rev. Lett.* **59**, 381 ·
+Olami, Feder & Christensen (1992), *Phys. Rev. Lett.* **68**, 1244 · Feder & Feder (1991), *Phys. Rev. Lett.* **66**, 2669 ·
+Kuramoto (1984), *Chemical Oscillations, Waves and Turbulence* · Mirollo & Strogatz (1990), *SIAM J. Appl. Math.* **50**, 1645 ·
+Corral et al. (1995), *Phys. Rev. Lett.* **74**, 118 · Muñoz (2018), *Rev. Mod. Phys.* **90**, 031001.

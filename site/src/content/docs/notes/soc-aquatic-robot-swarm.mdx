@@ -1,0 +1,71 @@
+---
+title: SOC in an aquatic robot swarm
+description: Zhao et al. (2026) — a physical robot swarm that self-organizes to criticality via optical attraction and hydrodynamic repulsion, showing power-law avalanches, finite-size scaling, and a parameter-independent steady state.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Self-organized criticality in aquatic robot swarm* — Shiji Zhao,
+Jiajun Huang, Chaoqun Li & Shengli Mi, *Science Advances* (2026) **12**, eaec6153.
+[doi:10.1126/sciadv.aec6153](https://doi.org/10.1126/sciadv.aec6153).
+:::
+
+## The claim
+
+A **physical, programmable** robot swarm engineered to exhibit **self-organized criticality (SOC)** — a
+gap prior platforms left open (ultracold-atom SOC is isolated with few tunable knobs; most robot swarms
+run on inert surfaces without dynamic physical coupling). Each aquatic robot is autonomous, and neighbours
+interact through the *environment*: **optical attraction** (phototaxis toward others' LEDs — positive
+feedback) and **hydrodynamic repulsion** (water waves from vibrating films — negative feedback), forming a
+decentralised nonlinear feedback loop. The swarm shows the three hallmarks of SOC — power-law avalanches,
+finite-size-scaling universality, and spontaneous evolution to a steady state independent of parameters —
+and, under stimuli, retains criticality while producing adaptive collective behaviour.
+
+## Correlated clusters and power-law cascades
+
+The avalanche observable is a **correlated cluster**: two individuals are *directly correlated* if within
+a distance $\varepsilon$ (= 11 cm) *and* with velocity directions within an angle $\theta$ (= 60°); the
+relation is transitive, so a cluster is a connected component and its size is $S=|C|$. (This is essentially
+a proximity-plus-alignment contact graph.) For $N=64$ robots:
+
+- cluster **size** distribution $D(S)\sim S^{-\tau}$, $\tau = 1.68(3)$ — close to neural avalanches (1.5),
+  forest fires (1.4), atomic gases (1.37);
+- cluster **duration** $D(T)\sim T^{-\alpha}$, $\alpha = 1.54(2)$;
+- **size–duration** relation $\langle T\rangle \sim S^{\gamma}$, $\gamma = 0.74(4)$;
+- with a finite-size cutoff near the system size, and $1/f$-type noise (spectral exponent $\beta\approx1.26$).
+
+## Finite-size scaling universality
+
+A 2D lattice simulation (light modelled as an excitation field $\propto 1/r^2$, water-wave as a negative
+field behind moving agents) run at $N = 100$, $1000$, $10{,}000$ (fixed density) keeps power-law cascades
+with **essentially fixed exponents across a 100× size change**. The simulation's absolute exponents differ
+from the experiment (temporal discretisation, 8-direction motion, simplified collisions), but the authors
+stress that SOC universality means the *ability to self-organise into a scale-invariant state* — not exact
+exponent agreement, since exponents depend on microscopic details and observational definitions.
+
+## Self-organization to a steady state — with a coupling threshold
+
+Unlike a tuned phase transition ($T\to T_c$), the swarm evolves to criticality on its own; quadrupling
+light intensity and density still yields power-law cascades. Tracking the **Shannon entropy**
+$H = -\sum_S P(S)\log_2 P(S)$ of the cluster-size distribution reveals a **threshold**: below it (light
+$I<4$ cd or density $\rho<3.99\,\mathrm{m}^{-2}$) the excitation-field feedback network is too fragmented,
+entropy settles at scattered values, and the distribution is *not* power-law; above it, entropy converges
+to a **fixed value independent of the parameters** (≈3.57 bits for light, ≈3.44 for density) and the
+cascades are power-law. Criticality requires the coupling to exceed a threshold; beyond it the steady
+state is parameter-independent.
+
+## Robustness and emergent function
+
+A passive infrared **stimulus source** (robots raise their own brightness with local IR strength) is not
+individually localisable, but aggregation produces a brightness gradient that biases a subcluster's net
+motion toward it — yielding **unprogrammed collective pushing** (transporting the source at ~0.63 cm/s).
+Adding stimulus sources does not destroy criticality (cascades stay power-law); fixed sources act as
+spatial anchors, and two of them induce a spontaneous **"bridge"** structure between clusters. Function
+emerges from local interactions and the underlying SOC state, without global control — the authors frame
+this as a route to adaptive swarm robotics with minimal onboard computation.
+
+## References
+
+Zhao et al. (2026), *Sci. Adv.* **12**, eaec6153 · Bak, Tang & Wiesenfeld (1987), *Phys. Rev. Lett.* **59**, 381 ·
+Cavagna et al. (2010), *PNAS* **107**, 11865 · Shew & Plenz (2013), *The Neuroscientist* **19**, 88 ·
+Rubenstein, Cornejo & Nagpal (2014), *Science* **345**, 795 · Marković & Gros (2014), *Phys. Rep.* **536**, 41 ·
+Klaus, Yu & Plenz (2011), *PLoS ONE* **6**, e19779 · Marshall et al. (2016), *Front. Physiol.* **7**, 250.

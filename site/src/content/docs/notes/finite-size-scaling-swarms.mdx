@@ -1,0 +1,84 @@
+---
+title: Finite-size scaling in natural swarms
+description: Attanasi, Cavagna et al. (2014) — direct finite-size-scaling evidence that wild midge swarms are near-critical, mutually adjusting control parameter and size to stay scale-free.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Finite-size scaling as a way to probe near-criticality in natural
+swarms* — A. Attanasi, A. Cavagna, L. Del Castello, I. Giardina, S. Melillo, L. Parisi, O. Pohl,
+B. Rossaro, E. Shen, E. Silvestri & M. Viale, *Phys. Rev. Lett.* (2014) **113**, 238102 (arXiv:1412.6975).
+[doi:10.1103/PhysRevLett.113.238102](https://doi.org/10.1103/PhysRevLett.113.238102).
+:::
+
+## The gap it fills
+
+Earlier claims that biological groups sit near criticality had two weaknesses: the control parameter was
+always **inferred through a model** (prone to undersampling), and off-equilibrium conservation laws can
+produce long-range correlations *generically* ("generic scale invariance") without any tuning. Worse, the
+critical point is sharp only in the thermodynamic limit — at finite $N$ the sole remnant is a
+**susceptibility peak whose position depends on $N$**. So a single bulk critical value is *not* critical
+across sizes (a tiny Ising model at bulk $T_c$ is deeply magnetised). The two missing pieces this paper
+supplies: (i) a **direct measurement** of the control parameter, and (ii) evidence that across sizes the
+control parameter varies **with $N$** to stay near the susceptibility maximum. The lesson: it is the
+**pair $(x, N)$** that must sit in the scaling region, not merely proximity to $x_c$.
+
+## System and observables
+
+Wild midge swarms (Diptera) reconstructed in 3D, $N \approx 100$–$600$, in the **disordered phase** (low
+polarization $\Phi \approx 0.2$) yet strongly correlated. From velocity fluctuations $\delta\vec\varphi$
+(with instantaneous global translation, rotation *and* dilatation subtracted — a non-equilibrium system
+has no usable time average), they build the connected correlation $C(r)$, take the correlation length
+$\xi \sim r_0$ (its first zero, far larger than the nearest-neighbour distance), and the **susceptibility**
+$\chi$ = integrated correlation up to $r_0$ (∝ number of correlated individuals). Natural swarms reach
+$\chi$ up to ~5.6 vs. ~0.1 for a non-interacting system (50× more correlated). The control parameter is
+the nearest-neighbour distance rescaled by the interaction range, $x = r_1/\lambda \approx r_1/l$ (the
+acoustic interaction range scales with body length $l$).
+
+## The Vicsek yardstick and finite-size scaling
+
+The 3D Vicsek model has a density-driven order/disorder transition at $x_c$. Its bulk transition is
+first-order, but only above a huge crossover size ($N^\star\sim10^6$); **below** it — the swarm-relevant
+regime — a pseudo-second-order phenomenology holds and standard finite-size scaling applies:
+
+$$
+x_{\max}(N) = x_c + N^{-1/3\nu}, \qquad y = (x - x_c)\,N^{1/3\nu},
+$$
+$$
+\chi \sim N^{\gamma/3\nu}\,f(y), \qquad \xi \sim L\,g(y).
+$$
+
+Two paths matter (map in the paper's Fig. 2a): at **fixed $x$**, growing $N$ makes $\chi$ and $\xi$
+**saturate** (you fall away from the peak); along **constant $y$**, $\chi \sim N^{\gamma/3\nu}$ and
+$\xi \sim L$ stay **scale-free** (you track the peak). 3D-Vicsek fit: $\nu\approx0.75$, $\gamma\approx1.6$,
+$x_c\approx0.42$ (near 3D Heisenberg).
+
+## The result
+
+Natural swarms show **no saturation** of $\chi$ or $\xi$ with size — $\chi$ scales with $N$ and $\xi$ with
+$L$ up to the largest swarms. That places them on the **constant-$y$ path**: as $N$ grows, $x$ *decreases*
+(following the susceptibility peak while staying on the disordered side), evidenced by a direct
+$x$–$N$ correlation. So $(x,N)$ lives in the near-critical region, with $\chi \sim (x-x_c)^{-\gamma}$. The
+new content over prior work: the control parameter is **measured, not inferred**, and what is seen is not
+a generic vicinity but a **mutual adjustment of $x$ and $N$** that keeps correlations scale-free — which
+rules out generic scale invariance. (The fitted swarm exponents are not conclusive given the limited size
+span, but the *scaling* result is fit-independent.)
+
+## Two readings of near-criticality
+
+- **Adjust $x$ given $N$** — tune the control parameter toward $x_{\max}(N)$; requires individuals to
+  assess global correlation via a *local proxy* and readjust as $N$ changes.
+- **Grow $N$ given $x$** — a swarm aggregates up to a maximum sustainable size $N_{\max}(x)$: below it the
+  group stays scale-free-correlated ($\xi/L$ constant via the Goldstone mode of the ordered phase), beyond
+  it correlation deteriorates. A mating-driven aggregation mechanism plausibly enforces such a ceiling —
+  and may explain why swarms stay disordered.
+
+A caveat with reach: the second (aggregation) reading relies on **continuous** symmetry breaking
+(Goldstone → divergent bulk $\xi$). For **discrete** symmetry (Ising-like, as in many neural models) it
+fails, and an adaptive-$x$ mechanism seems required instead.
+
+## References
+
+Attanasi, Cavagna et al. (2014), *Phys. Rev. Lett.* **113**, 238102 · Cavagna et al. (2010), *PNAS* **107**, 11865 ·
+Vicsek et al. (1995), *Phys. Rev. Lett.* **75**, 1226 · Mora & Bialek (2011), *J. Stat. Phys.* **144**, 268 ·
+Bialek et al. (2014), *PNAS* **111**, 7212 · Chaté et al. (2008), *Phys. Rev. E* **77**, 046113 ·
+Toner & Tu (1998), *Phys. Rev. E* **58**, 4828 · Grinstein, Lee & Sachdev (1990), *Phys. Rev. Lett.* **64**, 1927.

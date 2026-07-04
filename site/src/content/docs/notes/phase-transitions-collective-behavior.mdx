@@ -1,0 +1,110 @@
+---
+title: Criticality in collective behavior
+description: Romanczuk & Daniels (2022) — a review of phase transitions and the criticality hypothesis in animal collectives, arguing for tuning an optimal distance from criticality rather than sitting exactly at it.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Phase Transitions and Criticality in the Collective Behavior of
+Animals — Self-organization and biological function* — Pawel Romanczuk & Bryan C. Daniels, book chapter,
+arXiv:2211.03879 (2022). [arXiv:2211.03879](https://arxiv.org/abs/2211.03879).
+:::
+
+## The thesis
+
+A review of the **criticality hypothesis** for animal groups — that collectives processing information in
+a distributed way should sit near a (pseudo-)critical point separating qualitatively different aggregate
+behaviours, where susceptibility and information transmission are maximal. Its central move is the
+**emerging, more nuanced view**: de-emphasise being *exactly* at a critical point, and instead ask what
+is gained by a system tuning an **optimal distance** from criticality to manage competing trade-offs.
+
+## Applying phase-transition physics to biology (the caveats)
+
+- **Far-from-equilibrium.** Animal groups are non-equilibrium; the relevant theory is that of
+  non-equilibrium phase transitions.
+- **Finite $N$.** Groups are $N\sim10$–$10^3$ (rarely $10^6$), not the thermodynamic $N\to\infty$ in which
+  transitions are rigorously defined. Quasi-critical *benefits* (correlation length, transmission,
+  susceptibility maxima) still peak in finite systems — but **universality is tied to $N\to\infty$**, so
+  sorting biological transitions into universality classes may be impractical, and empirical scaling laws
+  in small groups must be read cautiously.
+- **Boundaries dominate.** With small $N$, boundary conditions are non-negligible — biologically a
+  *feature* (edge individuals gather most of the environmental information).
+
+## Four transitions in collective behaviour
+
+- **Flocking** — orientational order by spontaneous symmetry breaking (Vicsek's self-propelled particles;
+  a non-equilibrium XY-model whose long-range order evades Mermin–Wagner via Toner–Tu). Once thought
+  continuous, now understood to be **discontinuous** through a **density–order coupling** that forms
+  high-density bands; topological (k-nearest-neighbour) and variable-speed variants refine this
+  (scale-free speed correlations require variable-speed models *at criticality*).
+- **Collective decision-making** — majority commitment as symmetry breaking (Ising/Potts, quorum/threshold
+  rules), usually on well-mixed or network topologies. Criticality is under-discussed here (often framed
+  as bifurcations), but the **speed–accuracy trade-off** is modulated by distance from the critical point.
+- **Behavioural contagion** — cascades as **percolation / epidemic spreading**, *not* symmetry breaking.
+  Simple (pairwise) vs. complex (higher-order/threshold) contagion; the Dodds–Watts model gives
+  continuous and discontinuous onsets depending on the threshold distribution.
+- **Synchronization** — the Kuramoto model's continuous transition from incoherence to a common frequency,
+  with the mean-field amplitude as order parameter.
+
+## Quantifying distance from criticality
+
+- **Susceptibility** — peak in the order parameter's sensitivity to perturbation defines an effective
+  critical point in a finite system; Fisher information generalises this; correlation length in spatial
+  cases.
+- **For cascades** — a local-amplification / reproduction number $R_0$ (with $R_0=1$ critical in the
+  infinite limit), and **cascade-size distributions that go power-law at the transition** (deviation from
+  a power law as a criticality indicator, as with neural avalanches).
+- **Discontinuous transitions** — detected via bistability / hysteresis.
+- The payoff: near a continuous transition, collective behaviour is dominated by the *distance from the
+  transition*, simplifying how individual-scale parameters must be tuned.
+
+## Function near a transition — the trade-off view
+
+Far from a transition, collective behaviour is "boring" (weak coupling = sum of individuals; strong
+coupling = unresponsive/stuck); only *near* it can individual interactions shape the macroscopic state
+(the "edge of chaos"). But these collective effects **are not always beneficial**, motivating a zoom-in:
+
+- **Maximal susceptibility** helps when shared individual information is accurate and aligned, but *hurts*
+  when it is noisy or motives conflict — so **near-but-not-at** the transition, tunable by context (fish
+  startle spread depends on predation threat — Poel et al.'s *subcritical* escape waves; macaque conflict
+  — Daniels et al.).
+- **Critical slowing down** manufactures long timescales from short-memory components (integrating noisy
+  evidence; the speed–accuracy trade-off).
+- **Spontaneous symmetry breaking** yields consensus among equal options, but staying *at* the transition
+  means large slow fluctuations — committing may require moving *beyond* it.
+- **Hysteresis** (discontinuous) gives switch-like commitment (a bee swarm locking onto one nest site),
+  costly when it traps the group in a suboptimal state.
+
+## The crux: self-organization toward criticality
+
+The hard problem: a phase transition is a **macroscopic, group-level** property, but adaptation is done by
+**individuals with only local information** — how can locals tune the global distance to criticality? A
+neuroscience mechanism (Bornholdt–Rohlf: too-silent/too-active nodes adjust their thresholds from local
+time-averages) relies on **ergodicity and time-scale separation**, both likely **violated in animal
+groups**. Candidate macroscopic knobs: group size $N$ (finite-size scaling locates the susceptibility peak
+— midge swarms may tune via $N$), **density** (the prime knob for fish escape tuning via perceived risk,
+with individual-threshold adaptation negligible there), and composition/heterogeneity (which can open
+**Griffiths phases** — extended quasi-critical regions).
+
+**Evolution runs into a social dilemma.** Reaching criticality by individual-level selection requires that
+it be beneficial across contexts *and* that the group optimum coincide with the individual ESS — but group
+optimum ≠ individual ESS is the rule, and multi-level selection cannot generally rescue it. Hidalgo et
+al.'s agents evolve *to* criticality in variable environments; but Klamser & Romanczuk find the flocking
+critical point **maximally evolutionarily unstable** in spatial predator-prey, because it is exactly where
+collective dynamics is most sensitive to individual heterogeneity — steep fitness gradients push evolution
+*away* into the ordered phase.
+
+## Open challenges
+
+Modern tracking enables real tests, but the inverse problem (inferring interaction models from data) is
+hard, with **spurious criticality** a known pitfall (Zipf's law without fine-tuning). The fundamental open
+questions are the distributed self-tuning mechanisms and the evolutionary social dilemma — and even
+*negative* results (failing to find, or disproving, criticality) sharpen the understanding of collective
+behaviour, provided physics is kept in dialogue with evolutionary biology.
+
+## References
+
+Romanczuk & Daniels (2022), arXiv:2211.03879 · Muñoz (2018), *Rev. Mod. Phys.* **90**, 031001 ·
+Vicsek et al. (1995), *Phys. Rev. Lett.* **75**, 1226 · Toner & Tu (1995), *Phys. Rev. Lett.* **75**, 4326 ·
+Poel et al. (2022), *Sci. Adv.* **8**, eabm6385 · Klamser & Romanczuk (2021), *PLoS Comput. Biol.* **17**, e1008832 ·
+Daniels, Krakauer & Flack (2017), *Nat. Commun.* **8**, 14301 · Hidalgo et al. (2014), *PNAS* **111**, 10095 ·
+Mora & Bialek (2011), *J. Stat. Phys.* **144**, 268 · Schwab, Nemenman & Mehta (2014), *Phys. Rev. Lett.* **113**, 068102.
