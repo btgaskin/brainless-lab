@@ -32,11 +32,23 @@
   --sl-color-hairline: var(--bl-grid);
 }
 
-/* Dark theme: keep teal accent, warm-neutral ink surfaces */
+/* Dark theme: warm charcoal surfaces (not cool gray) + brighter teal accent,
+   so the warm identity holds in dark as well as light. */
 :root[data-theme='dark'] {
-  --sl-color-accent-low: #133128;
-  --sl-color-accent: #4f9f89;
-  --sl-color-accent-high: #cfe6dd;
+  --sl-color-accent-low: #163a30;
+  --sl-color-accent: #5aa98f;
+  --sl-color-accent-high: #d6ece3;
+
+  --sl-color-bg: #201f1c;          /* warm near-black */
+  --sl-color-bg-nav: #201f1c;
+  --sl-color-bg-sidebar: #26241f;
+  --sl-color-bg-inline-code: #2c2a25;
+  --sl-color-hairline: #38352e;
+  --sl-color-gray-6: #2c2a25;
+  --sl-color-gray-5: #38352e;
+  --sl-color-text: #ece8df;
+  --sl-color-text-accent: #7dc4ac;
+  --sl-color-white: #f6f3ea;
 }
 
 /* Editorial serif for page + section headings */

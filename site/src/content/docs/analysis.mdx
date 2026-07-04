@@ -100,7 +100,7 @@ together across levels as a control parameter is swept.
 - **Polarization** $\;P = \big|\frac{1}{N}\sum_i e^{i\theta_i}\big|$ — heading alignment, $0$ disordered → $1$ aligned.
 - **Milling** — rotational order about the torus-aware circular centroid.
 - **Cohesion** — mean nearest-neighbour + pairwise distance (periodic-boundary aware).
-- **Swarm regime** — a discrete label {polarized, milling, swarming, static} from $P$, milling, and speed.
+- **Swarm regime** — a discrete label (polarized, milling, swarming, or static) from $P$, milling, and speed.
 - **Correlation length** — the distance at which the velocity-*fluctuation* correlation crosses zero (Cavagna et al. 2010 form: subtract the global mean velocity, normalize once globally).
 
 <p class="bl-source">Source: <code>src/world/Metrics.jl</code> (polarization, milling, cohesion) and <code>src/analysis/SwarmAnalysis.jl</code> (<code>swarm_regime</code>, <code>correlation_length</code>).</p>

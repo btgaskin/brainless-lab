@@ -1,0 +1,89 @@
+---
+title: Neurons
+description: The features of real neurons this lab abstracts — integration, threshold, homeostasis, Dale's law, spiking dendrites, delays, and spontaneous activity — and which node each one lives in.
+---
+
+The nodes here are deliberately **minimal caricatures** of real neurons: enough biology
+to make behaviour self-organise, not one channel more. This page steps back from any
+single node and lays out the neuron features the lab models, the biology behind each, and
+where it lives in the code. Think of it as the map from *neuroscience* to *variant*.
+
+Each feature below reads: **the biology → what BrainlessLab does with it**.
+
+## Membrane integration & leak
+
+A neuron's membrane sums synaptic current and forgets it over time — a leaky integrator.
+→ Every Falandays node does `aᵢ ← aᵢ(1−λ) + input + recurrent` each tick (leak
+$\lambda = 0.25$). The same leak turns injected noise into a temporally-correlated
+(Ornstein–Uhlenbeck) subthreshold signal — see **spontaneous activity** below.
+
+## Threshold & reset
+
+Above a voltage threshold a neuron fires and its membrane resets. → A node fires when
+$a_i \ge \mu T_i$ and **resets by subtraction** ($a_i \leftarrow a_i - \mu T_i$), which
+preserves the overshoot rather than discarding it. See [Falandays](/nodes/falandays/).
+
+## Homeostasis & intrinsic plasticity
+
+Real neurons regulate their own excitability toward a firing set-point (intrinsic
+plasticity / synaptic scaling). → Each node carries a **target** $T_i$ that adapts every
+tick ($T_i \leftarrow \max(T_{\min}, T_i + \eta_T e_i)$), and recurrent weights follow a
+local homeostatic error rule. This "homeostasis as prediction" framing is the core of the
+Falandays model; `:falandays_ablated` pins the target to show what it buys you.
+
+## Dale's law (excitatory / inhibitory)
+
+A biological neuron is either excitatory or inhibitory — its outgoing synapses share one
+sign. → The `sign=:dale` axis fixes each node's output sign; `:falandays_extended` bundles
+it with small-world wiring and sensory noise.
+
+## Spiking dendrites & dendritic computation
+
+Dendrites are not passive wires. They host voltage-gated channels and generate **local
+dendritic spikes**, so a single neuron behaves like a small network of semi-independent
+nonlinear subunits — and those local events can gate **plasticity** at just the synapses
+on the active branch, independent of whether the soma fired.<sup>[1](#ref-1),
+[2](#ref-2), [3](#ref-3)</sup> Dendrite-local prediction and burst signals are increasingly
+seen as a substrate for biologically plausible credit assignment.<sup>[4](#ref-4),
+[5](#ref-5)</sup>
+
+→ `:falandays_dendritic` partitions each node's recurrent synapses across `n_dendrites`
+compartments. Each dendrite integrates its own routed current and fires its own spike;
+a dendritic spike sets an **eligibility tag** on the synapses feeding it, and the
+homeostatic weight update fires on *presynaptic-spike **or** dendrite-tag* — so a local
+dendritic event can license learning with no somatic/presynaptic spike. With
+`eligibility_only=false` the dendritic spikes also inject somatic current. This is a
+discrete, homeostatic caricature of dendritic computation, distinct from the biophysical
+`:compartmental_*` multi-compartment ODE cells.
+
+```julia
+simulate(:wall; node=:falandays_dendritic, ticks=300)
+```
+
+<p class="bl-source">Source: <code>src/nodes/Dendritic.jl</code> (port of <code>v0.2/crho/node_dendritic.py</code>).</p>
+
+## Conduction delays & spatial embedding
+
+Signals take time to travel down axons, and neurons sit in physical space where nearby
+cells connect more readily. → `:falandays_delayed` gives per-edge conduction delays;
+`:falandays_spatial` embeds nodes in a metric space with a distance-dependent connection
+kernel. `:falandays_hemispheric` uses that embedding for two contralaterally-wired
+half-brains.
+
+## Endogenous / spontaneous activity
+
+Some cells generate spikes with no external input at all — a metabolically-powered,
+internally-driven fluctuation, not thermal leakage. → The **Oosawa drive**
+(`:falandays_oosawa`) adds target-gated membrane noise that keeps a blind network alive by
+variance. The biology — Oosawa's *Paramecium* recordings and the Langevin/OU model of
+membrane-potential fluctuation — is written up in
+[Falandays §The Oosawa drive](/nodes/falandays/#the-biology-oosawas-spontaneous-activity).
+
+## References
+
+1. <span id="ref-1">London, M. & Häusser, M. (2005). Dendritic computation. *Annual Review of Neuroscience* **28**, 503–532.</span>
+2. <span id="ref-2">Poirazi, P. & Papoutsi, A. (2020). Illuminating dendritic function with computational models. *Nature Reviews Neuroscience* **21**, 303–321.</span>
+3. <span id="ref-3">Gidon, A. et al. (2020). Dendritic action potentials and computation in human layer 2/3 cortical neurons. *Science* **367**, 83–87.</span>
+4. <span id="ref-4">Urbanczik, R. & Senn, W. (2014). Learning by the dendritic prediction of somatic spiking. *Neuron* **81**, 521–528.</span>
+5. <span id="ref-5">Payeur, A., Guerguiev, J., Zenke, F., Richards, B. A. & Naud, R. (2021). Burst-dependent synaptic plasticity can coordinate learning in hierarchical circuits. *Nature Neuroscience* **24**, 1010–1019.</span>
+6. <span id="ref-6">Oosawa, F. (2007). Spontaneous activity of living cells. *BioSystems* **88**, 191–201.</span>

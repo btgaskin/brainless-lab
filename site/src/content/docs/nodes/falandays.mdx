@@ -1,5 +1,5 @@
 ---
-title: "Falandays: base vs extended"
+title: "Falandays"
 description: The homeostatic spiking reservoir — its exact update and learning equations, and the base-vs-extended contrast.
 ---
 
@@ -96,4 +96,40 @@ When a node sits below its firing threshold (starved), $\sigma_i$ grows and it k
 randomly crossing threshold; at set-point $\sigma_i \to \text{noise}_0$. So `oosawa`
 belongs on a *dynamics* page, not the base↔extended substrate contrast.
 
-<p class="bl-source">Source: <code>src/nodes/Drives.jl</code> (<code>apply_drive!(::OosawaDrive, …)</code>).</p>
+### The biology: Oosawa's spontaneous activity
+
+The drive is a minimal model of the **spontaneous** regime described by Fumio Oosawa,
+[*Spontaneous activity of living cells*, **BioSystems** 88 (2007) 191–201](https://doi.org/10.1016/j.biosystems.2006.05.006)
+(and Oosawa 2001, *Bull. Math. Biol.* 63, 643). Oosawa separates three
+stimulus→response regimes in living cells: **reflective** (tight, deterministic
+coupling), **autonomic** (loose — the same stimulus gives varying responses), and
+**spontaneous** — internally-generated activity with *no* external stimulus. The Oosawa
+drive models that third regime.
+
+In *Paramecium*, an inserted microelectrode shows the membrane potential is never
+constant even in a fixed environment: a **basic fluctuation** plus occasional
+**spike-like events** that trigger spontaneous reversals of ciliary beating — the cell's
+spontaneous changes of swimming direction. Two facts from the paper map directly onto the
+node's update:
+
+- **The basic fluctuation is an Ornstein–Uhlenbeck process** (Oosawa's Eq. 1,
+  $C\,\dot{\delta V} = -G\,\delta V + I(\dots)$ — a Langevin equation). In the node, the
+  membrane **leak** is the $-G\,\delta V$ relaxation and the injected Gaussian current is
+  the random force, so the noise is added to $a_i$ *before* thresholding and integrated
+  into a temporally-correlated subthreshold fluctuation. The **spike-like events** (Eq. 2,
+  nonlinear, from field-sensitive channels) are the threshold crossings.
+- **It is metabolically driven, and regulated.** The fluctuation's variance is
+  proportional to a *circulating* ionic current sustained by free-energy consumption —
+  "active" cells (Paramecium, ~3 mV) *produce* large fluctuations, "quiet" cells (nerve
+  axon, ~0.03 mV) *suppress* them. And the *frequency* of spontaneous events is regulated
+  by internal state (in thermotaxis, fewer direction-changes when heading toward the
+  preferred temperature). That regulation is exactly the node's **target-modulated gain** —
+  $\sigma_i$ ramps up when a node is starved and switches off at set-point.
+
+**Why it matters here.** The Oosawa drive keeps a **blind or input-starved network alive
+by variance** rather than deterministic self-excitation — an endogenous source of
+exploration. It is the same role spontaneous direction-changes play in Paramecium
+thermotaxis, and it is what lets an untrained reservoir keep acting on the wall, pong, and
+tracking demos when sensory drive alone would let it fall silent.
+
+<p class="bl-source">Source: <code>src/nodes/Drives.jl</code> (<code>apply_drive!(::OosawaDrive, …)</code>). See also <a href="/nodes/neurons/">Neurons</a> for where this sits among the neuron features modelled here.</p>
