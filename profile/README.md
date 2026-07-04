@@ -33,7 +33,7 @@ profile/runs/<node>/<UTCstamp>_<shortgit>_<id>/
 Each run contains:
 
 - `manifest.toml` -- git SHA, Julia/package versions, seeds, and resolved profile metadata.
-- `profile.resolved.toml` -- resolved profile settings.
+- `config.resolved.toml` -- resolved profile settings.
 - `metrics.csv` -- per-task score, `sigma_mr`, spectral radius, liveness/rate, and avalanche summaries.
 - `figures/*.png` -- house-palette branching, spectral, target-error, and situated task panels where available.
 - `gifs/*.gif` -- one representative behaviour GIF per task.

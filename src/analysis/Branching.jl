@@ -143,14 +143,15 @@ function _branching_mr_level_summary(level::Symbol, rates::AbstractMatrix{<:Real
 end
 
 """
-    branching_ratio(sim; level=:pooled)
+    branching_ratio(sim; level=:pooled, turn_threshold=DEFAULT_TURN_THRESHOLD)
 
 Compute branching-ratio summaries from a recorded rollout's `:rate` channel.
 
 `level=:pooled` preserves the legacy population series. `level=:node` computes
 the estimator inside each agent's node population and returns per-agent
-distributions plus mean/std summaries. `level=:agent` treats each agent's
-population rate as the unit activity and estimates the ensemble-level signature.
+distributions plus mean/std summaries. `level=:agent` uses an agent-scale turn
+event count: per tick, it counts agents whose absolute recorded heading change
+exceeds `turn_threshold` (default `pi/12` radians).
 
 Returns the high-variance per-tick ratio `A(t+1)/A(t)`, the legacy
 through-origin least-squares `sigma`, the intercept-corrected single-lag
@@ -158,7 +159,7 @@ through-origin least-squares `sigma`, the intercept-corrected single-lag
 compatibility and existing visualizations; under subsampling it is biased.
 Prefer `branching_ratio_mr` for a subsampling-robust estimate of m.
 """
-function branching_ratio(sim::SimResult; level::Symbol=:pooled)
+function branching_ratio(sim::SimResult; level::Symbol=:pooled, turn_threshold::Real=DEFAULT_TURN_THRESHOLD)
     level = _analysis_level(level, :branching_ratio)
     if level == :pooled
         pop = _analysis_population_rate_series(sim, :branching_ratio)
@@ -170,8 +171,8 @@ function branching_ratio(sim::SimResult; level::Symbol=:pooled)
         return _branching_level_summary(:node, rates, per_agent)
     end
 
-    rates = _analysis_rate_matrix(sim, :branching_ratio)
-    pop = _analysis_row_sums(rates)
+    events = _analysis_agent_activity_matrix(sim, :branching_ratio; turn_threshold=turn_threshold)
+    pop = _analysis_row_sums(events)
     res = _branching_from_rates(pop)
     return (;
         level=:agent,
@@ -180,12 +181,14 @@ function branching_ratio(sim::SimResult; level::Symbol=:pooled)
         sigma_ols=res.sigma_ols,
         population_rate=pop,
         agent_activity=pop,
-        n_agents=size(rates, 2),
+        agent_events=events,
+        n_agents=size(events, 2),
+        turn_threshold=Float64(turn_threshold),
     )
 end
 
 """
-    branching_ratio_mr(sim; kmax=20, transient=0, level=:pooled)
+    branching_ratio_mr(sim; kmax=20, transient=0, level=:pooled, turn_threshold=DEFAULT_TURN_THRESHOLD)
 
 Estimate the branching ratio m with the Wilting-Priesemann multistep-regression
 (MR) estimator. After optionally dropping `transient` initial ticks, it computes
@@ -193,10 +196,10 @@ the intercept-corrected lag slopes `r_k` for `k = 1:kmax` and fits
 `r_k = b * m^k` over positive finite `r_k`.
 
 `level=:pooled` preserves the legacy population series. `level=:node` returns
-per-agent MR estimates across reservoirs. `level=:agent` uses the per-agent
-population-rate vector as the ensemble activity.
+per-agent MR estimates across reservoirs. `level=:agent` uses the same
+turn-event count as `branching_ratio`.
 """
-function branching_ratio_mr(sim::SimResult; kmax::Integer=20, transient::Integer=0, level::Symbol=:pooled)
+function branching_ratio_mr(sim::SimResult; kmax::Integer=20, transient::Integer=0, level::Symbol=:pooled, turn_threshold::Real=DEFAULT_TURN_THRESHOLD)
     kmax = Int(kmax)
     transient = Int(transient)
     level = _analysis_level(level, :branching_ratio_mr)
@@ -215,8 +218,8 @@ function branching_ratio_mr(sim::SimResult; kmax::Integer=20, transient::Integer
         return _branching_mr_level_summary(:node, rates, per_agent, kmax, transient)
     end
 
-    rates = _analysis_rate_matrix(sim, :branching_ratio_mr)
-    pop = _analysis_row_sums(rates)
+    events = _analysis_agent_activity_matrix(sim, :branching_ratio_mr; turn_threshold=turn_threshold)
+    pop = _analysis_row_sums(events)
     res = _branching_mr_from_rates(pop; kmax=kmax, transient=transient)
-    return (; level=:agent, res..., population_rate=pop, n_agents=size(rates, 2), transient=transient)
+    return (; level=:agent, res..., population_rate=pop, agent_activity=pop, agent_events=events, n_agents=size(events, 2), transient=transient, turn_threshold=Float64(turn_threshold))
 end

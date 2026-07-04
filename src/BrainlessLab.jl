@@ -2,7 +2,7 @@
     BrainlessLab
 
 An extensible Julia tinkering lab for brainless reservoirs, bodies, tasks, and
-collectives. The high-level workflow is intentionally two lines:
+ensembles. The high-level workflow is intentionally two lines:
 
     sim = simulate(:wall; node=:falandays)
     visualize(sim)
@@ -40,7 +40,7 @@ include("envs/WallBox.jl")
 include("envs/Envs.jl")
 include("envs/CartPoleVariants.jl")
 include("tasks/Tasks.jl")
-include("world/Mediums.jl")
+include("world/Environments.jl")
 include("world/Ensemble.jl")
 include("world/Metrics.jl")
 include("api/Highlevel.jl")
@@ -161,6 +161,7 @@ export FalandaysParams,
     FalandaysConnState,
     FalandaysNodeState,
     FalandaysReservoir,
+    SORNParams,
     SORNReservoir,
     activations,
     weights,
@@ -368,7 +369,7 @@ register_node!(:falandays_hemispheric, _falandays_hemispheric_native; genome_typ
 register_node!(:falandays_oosawa, _falandays_oosawa_native; genome_type=FalandaysParams)
 register_node!(:falandays_spatial, _falandays_spatial_native; genome_type=FalandaysParams)
 register_node!(:falandays_delayed, _falandays_delayed_native; genome_type=FalandaysParams)
-register_node!(:sorn, _sorn_native)
+register_node!(:sorn, _sorn_native; genome_type=SORNParams)
 register_node!(:compartmental_dense, _compartmental_dense_native; genome_type=DenseCompartmental)
 register_node!(:compartmental_structured, _compartmental_structured_native; genome_type=StructuredCompartmental)
 

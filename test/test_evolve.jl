@@ -94,7 +94,7 @@ end
 @testset "Plastic rollout diagnostics wrap rollout" begin
     x0 = pack_params(FalandaysParams())
     plastic = BrainlessLab._plastic_rollout(:wall, x0, 7; N=16, ticks=30, window=30)
-    shared = rollout(:wall, x0, 7; N=16, ticks=30, window=30, learn_on=true, return_collective=true)
+    shared = rollout(:wall, x0, 7; N=16, ticks=30, window=30, learn_on=true, return_ensemble=true)
 
     @test propertynames(plastic) == (
         :task,
@@ -114,8 +114,8 @@ end
         :weight_delta_mean_abs,
         :metrics,
     )
-    @test hasproperty(shared, :collective)
-    @test !hasproperty(plastic, :collective)
+    @test hasproperty(shared, :ensemble)
+    @test !hasproperty(plastic, :ensemble)
     @test plastic.score == shared.score
     @test plastic.norm_score == shared.norm_score
     @test plastic.metrics == shared.metrics
@@ -139,6 +139,24 @@ end
         x0=x0,
         seed=2,
     )
+    @test isfinite(result.best_fitness)
+    @test 0.0 <= result.best_fitness <= 1.0
+end
+
+@testset "SORN evolve smoke" begin
+    result = evolve(
+        model_sym=:sorn,
+        train_tasks=(:wall,),
+        optimizer=TestOptimizer,
+        generations=1,
+        popsize=2,
+        k_trials=1,
+        N=8,
+        ticks=20,
+        sigma0=0.1,
+        seed=4,
+    )
+    @test result.optimizer isa TestOptimizer
     @test isfinite(result.best_fitness)
     @test 0.0 <= result.best_fitness <= 1.0
 end

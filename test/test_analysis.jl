@@ -25,7 +25,7 @@ using Test
     @test isfinite(br.sigma)
     @test isfinite(br.sigma_ols)
 
-    swarm = simulate(:torus; node=:falandays_base, ticks=70, seed=12, n_agents=4, n_nodes=12, record=(:spikes, :rate))
+    swarm = simulate(:torus; node=:falandays_base, ticks=70, seed=12, n_agents=4, n_nodes=12, record=(:spikes, :rate, :poses))
     node_br = branching_ratio(swarm; level=:node)
     @test node_br.level == :node
     @test node_br.n_agents == 4
@@ -37,14 +37,36 @@ using Test
     agent_br = branching_ratio(swarm; level=:agent)
     @test agent_br.level == :agent
     @test agent_br.n_agents == 4
-    @test isfinite(agent_br.sigma)
+    @test length(agent_br.agent_activity) == size(agent_br.agent_events, 1)
+    @test agent_br.turn_threshold == BrainlessLab.DEFAULT_TURN_THRESHOLD
 
-    single_swarm = simulate(:torus; node=:falandays_base, ticks=60, seed=13, n_agents=1, n_nodes=12, record=(:spikes, :rate))
+    rec_turns = Recorder(enabled=(:rate, :poses))
+    for (rates, poses) in zip(
+        ([0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5]),
+        (
+            [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0)],
+            [(0.0, 0.0, pi / 4), (1.0, 0.0, 0.0)],
+            [(0.0, 0.0, pi / 2), (1.0, 0.0, pi / 4)],
+            [(0.0, 0.0, pi / 2), (1.0, 0.0, pi / 2)],
+        ),
+    )
+        record!(rec_turns, :rate, rates)
+        record!(rec_turns, :poses, poses)
+        tick!(rec_turns)
+    end
+    turn_sim = SimResult(rec_turns, (;), :synthetic, :synthetic, (; n_agents=2, n_nodes=4, every=1, environment=(; size=nothing)))
+    pooled_turn = branching_ratio(turn_sim; level=:pooled)
+    agent_turn = branching_ratio(turn_sim; level=:agent)
+    @test agent_turn.n_agents == 2
+    @test agent_turn.agent_activity == [1.0, 2.0, 1.0]
+    @test agent_turn.sigma != pooled_turn.sigma
+
+    single_swarm = simulate(:torus; node=:falandays_base, ticks=60, seed=13, n_agents=1, n_nodes=12, record=(:spikes, :rate, :poses))
     pooled_single = branching_ratio(single_swarm)
     node_single = branching_ratio(single_swarm; level=:node)
     agent_single = branching_ratio(single_swarm; level=:agent)
     @test (isnan(node_single.sigma) && isnan(pooled_single.sigma)) || node_single.sigma ≈ pooled_single.sigma
-    @test (isnan(agent_single.sigma) && isnan(pooled_single.sigma)) || agent_single.sigma ≈ pooled_single.sigma
+    @test agent_single.n_agents == 1
 
     @test resolve_analysis(:branching_ratio) === branching_ratio
     @test :branching_ratio in analyses()
@@ -78,7 +100,7 @@ end
     @test abs(mr.m_mr - true_m) < 0.05
     @test abs(mr.m_mr - true_m) < abs(legacy.sigma - true_m)
 
-    swarm = simulate(:torus; node=:falandays_base, ticks=90, seed=14, n_agents=3, n_nodes=10, record=(:spikes, :rate))
+    swarm = simulate(:torus; node=:falandays_base, ticks=90, seed=14, n_agents=3, n_nodes=10, record=(:spikes, :rate, :poses))
     node_mr = branching_ratio_mr(swarm; kmax=4, level=:node)
     @test node_mr.level == :node
     @test node_mr.n_agents == 3
@@ -114,7 +136,7 @@ end
     @test got.n_avalanches == 1
     @test isnan(got.tau)
 
-    swarm = simulate(:torus; node=:falandays_base, ticks=80, seed=15, n_agents=4, n_nodes=12, record=(:spikes, :rate))
+    swarm = simulate(:torus; node=:falandays_base, ticks=80, seed=15, n_agents=4, n_nodes=12, record=(:spikes, :rate, :poses))
     node_av = avalanches(swarm; level=:node)
     @test node_av.level == :node
     @test node_av.n_agents == 4
@@ -126,6 +148,7 @@ end
     @test agent_av.level == :agent
     @test agent_av.n_agents == 4
     @test isfinite(Float64(agent_av.n_avalanches))
+    @test agent_av.turn_threshold == BrainlessLab.DEFAULT_TURN_THRESHOLD
 
     @test resolve_analysis(:avalanches) === avalanches
     @test analysis_meta(:avalanches).label == "neuronal avalanche size/duration exponents"
@@ -161,7 +184,10 @@ end
     @test node_te.level == :node
     @test node_te.signal == :spikes
     @test node_te.sampled
-    @test node_te.pairs_evaluated == 24
+    @test node_te.n_agents == 3
+    @test length(node_te.per_agent) == 3
+    @test node_te.n_nodes_distribution == [10, 10, 10]
+    @test node_te.pairs_evaluated == 24 * 3
     @test node_te.valid_pairs == node_te.pairs_evaluated
     @test isfinite(node_te.mean_pairwise_te)
     @test isfinite(node_te.net_directional_asymmetry)
@@ -244,6 +270,7 @@ end
     @test length(node_fano.distribution) == 4
     @test isfinite(node_fano.fano_factor)
     @test isfinite(agent_fano.fano_factor)
+    @test agent_fano.turn_threshold == BrainlessLab.DEFAULT_TURN_THRESHOLD
 
     node_pr = participation_ratio(sim; level=:node)
     agent_pr = participation_ratio(sim; level=:agent)

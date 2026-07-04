@@ -1,4 +1,5 @@
 runs/
+/sweeps/
 *.cov
 .DS_Store
 deps/build.log

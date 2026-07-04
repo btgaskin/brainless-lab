@@ -830,9 +830,7 @@ function _make_run_dir(cfg::BenchConfig, out_root::AbstractString)
 end
 
 function _manifest_dict(cfg::BenchConfig, run_info)
-    manifest = BrainlessLab.capture_manifest(_manifest_run_config(cfg); seeds=_seed_manifest(cfg))
-    manifest["manifest_version"] = "bench-v1"
-    manifest["tool"] = "bench"
+    manifest = BrainlessLab.capture_manifest(_manifest_run_config(cfg); seeds=_seed_manifest(cfg), tool=:bench)
     manifest["timestamp_utc"] = run_info.timestamp_utc
     manifest["run_id"] = run_info.run_id
     manifest["short_git"] = run_info.short_git
@@ -915,7 +913,7 @@ function run_benchmark(cfg::BenchConfig; out_root::AbstractString=joinpath(Store
     run_info = _make_run_dir(cfg, out_root)
     run_dir = run_info.dir
 
-    Store.write_toml(joinpath(run_dir, "config.resolved.toml"), _config_dict(cfg))
+    Store.write_toml(joinpath(run_dir, BrainlessLab.resolved_config_filename()), _config_dict(cfg))
     Store.write_toml(joinpath(run_dir, "manifest.toml"), _manifest_dict(cfg, run_info))
 
     metas = Dict{Tuple{Symbol,Symbol},CellMeta}()

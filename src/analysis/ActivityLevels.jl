@@ -1,4 +1,5 @@
 const _ANALYSIS_LEVELS = (:pooled, :node, :agent)
+const DEFAULT_TURN_THRESHOLD = pi / 12
 
 function _analysis_level(level::Symbol, name::Symbol)
     level in _ANALYSIS_LEVELS ||
@@ -204,6 +205,9 @@ function _analysis_node_count_matrix_and_widths(sim::SimResult, name::Symbol)
 
     n_nodes = _analysis_config_int(sim, :n_nodes, 1)
     rates = _analysis_rate_matrix(sim, name)
+    if size(rates, 2) > 1 && !hasproperty(sim.config, :n_nodes)
+        throw(ArgumentError("$(name) rate fallback for multiple agents needs homogeneous n_nodes in sim.config; record :spikes to avoid this assumption"))
+    end
     return rates .* Float64(n_nodes), fill(Int(n_nodes), size(rates, 2))
 end
 
@@ -216,8 +220,31 @@ function _analysis_population_rate_series(sim::SimResult, name::Symbol)
     return _analysis_row_means(_analysis_rate_matrix(sim, name))
 end
 
-function _analysis_agent_activity_series(sim::SimResult, name::Symbol)
-    return _analysis_row_sums(_analysis_rate_matrix(sim, name))
+_analysis_wrap_to_pi(a::Real) = atan(sin(a), cos(a))
+
+function _analysis_turn_threshold(value, name::Symbol)
+    threshold = Float64(value)
+    isfinite(threshold) && threshold >= 0.0 ||
+        throw(ArgumentError("$(name) turn_threshold must be finite and non-negative"))
+    return threshold
+end
+
+function _analysis_agent_activity_matrix(sim::SimResult, name::Symbol; turn_threshold::Real=DEFAULT_TURN_THRESHOLD)
+    _, _, headings = _analysis_pose_matrices(getchannel(sim.recorder, :poses), name)
+    n_ticks, n_agents = size(headings)
+    n_ticks >= 2 || return zeros(Float64, 0, n_agents)
+
+    threshold = _analysis_turn_threshold(turn_threshold, name)
+    events = Matrix{Float64}(undef, n_ticks - 1, n_agents)
+    @inbounds for t in 1:(n_ticks - 1), i in 1:n_agents
+        delta = abs(_analysis_wrap_to_pi(Float64(headings[t + 1, i]) - Float64(headings[t, i])))
+        events[t, i] = delta > threshold ? 1.0 : 0.0
+    end
+    return events
+end
+
+function _analysis_agent_activity_series(sim::SimResult, name::Symbol; turn_threshold::Real=DEFAULT_TURN_THRESHOLD)
+    return _analysis_row_sums(_analysis_agent_activity_matrix(sim, name; turn_threshold=turn_threshold))
 end
 
 function _analysis_population_count_series(sim::SimResult, name::Symbol)
@@ -231,6 +258,9 @@ function _analysis_population_count_series(sim::SimResult, name::Symbol)
 
     n_nodes = _analysis_config_int(sim, :n_nodes, 1)
     n_agents = _analysis_config_int(sim, :n_agents, 1)
+    if n_agents > 1 && !hasproperty(sim.config, :n_nodes)
+        throw(ArgumentError("$(name) rate fallback for multiple agents needs homogeneous n_nodes in sim.config; record :spikes to avoid this assumption"))
+    end
     activity = Vector{Float64}(undef, length(raw_rates))
     @inbounds for t in eachindex(raw_rates)
         rates = _analysis_numeric_vector(raw_rates[t], name, t)

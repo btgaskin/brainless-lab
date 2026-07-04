@@ -5,7 +5,7 @@ Every task defines a sensorimotor contract: how many **receptors** (R, the reser
 action. A node is built to match `(n_receptors, n_effectors)`; the controller itself is task-agnostic.
 
 `tasks()` lists what is registered: `:wall`, `:tracking`, `:pong`, `:pong_hitrate`, `:cartpole`,
-`:cartpole_hard`, `:cartpole_swingup`, `:cartpole_long`, and `:torus`. Today R/E counts and encodings are
+`:cartpole_hard`, `:cartpole_swingup`, `:cartpole_long`, `:torus`, and `:forage`. Today R/E counts and encodings are
 **fixed per task/body** (see [receptors-effectors.md](receptors-effectors.md) for the plan to make them
 tunable/evolvable).
 
@@ -39,11 +39,13 @@ and the reservoir's effector vector is passed straight to `step!(env, E)`.
 | task | per-agent R | sensory encoding | per-agent E | effector decode | coupling |
 |---|---:|---|---:|---|---|
 | `:torus` | **64** | `VENBody` bearing vision over neighbours: two eyes (+/-30 deg) x 31 angles = **62 bearing sensors**, then padded into a **64-channel receptor vector** (`inputs[3:64]`); values are binary by default (`sens_agent_dist=0`) or `1 - d/d_max` when distance coding is enabled, plus additive `sensory_noise` (default 0.1), clipped >= 0 and optionally sum-normalized | **3** | **VEN kinematics**: `e1`/`e2` set heading acceleration by their difference, `e3` sets forward acceleration; speed and heading rate are capped by `VENParams` | agents see each other on a periodic torus; mutual vision is the default coupling |
+| `:forage` | **128** | same 64-channel conspecific bank as `:torus`, plus a second 64-channel source-vision bank; `conspecific_vision=false` zeros only the conspecific bank | **3** | same VEN kinematics as `:torus` | periodic torus with a source target; metrics include `mean_distance_to_source`, `frac_within_capture`, `time_to_first_arrival`, and bounded `forage_score` |
 
 - **Dyad** = `simulate(:torus; n_agents=2, ...)`; **swarm** = any `n_agents=N`.
 - The body here is `VENBody` (vs `PassthroughBody` for single-agent tasks). See [collective.md](collective.md).
-- `:torus` is registered as the swarm task symbol, not as a `TaskSpec` with `normalized_score`; read it via
-  collective metrics such as polarization, milling, pairwise distance, input stability, and liveness.
+- `:torus` and `:forage` are registered swarm task symbols, not `TaskSpec`s with `normalized_score`; read
+  them via ensemble metrics such as polarization, milling, pairwise distance, input stability, liveness, and
+  the forage-specific source metrics.
 
 ## Adding a task
 

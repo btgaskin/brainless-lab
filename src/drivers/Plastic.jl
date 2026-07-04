@@ -47,10 +47,10 @@ function _plastic_rollout(
         lam=lam,
         learn_on=true,
         record=Symbol[],
-        return_collective=true,
+        return_ensemble=true,
     )
 
-    reservoir = out.collective.agents[1].reservoir
+    reservoir = out.ensemble.agents[1].reservoir
 
     return (
         task=out.task,

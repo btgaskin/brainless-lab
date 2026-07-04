@@ -62,7 +62,7 @@ end
 end
 
 @testset "Forage receptor banks and blind condition" begin
-    setup = BrainlessLab._build_collective(
+    setup = BrainlessLab._build_ensemble(
         :forage,
         :falandays_base;
         ticks=1,
@@ -73,7 +73,7 @@ end
         source_gain=2.0,
         record=Symbol[],
     )
-    agent = setup.collective.agents[1]
+    agent = setup.ensemble.agents[1]
     morphology = default_morphology(agent.body)
     @test n_receptors(agent.reservoir) == 128
     @test n_receptors(morphology) == 128
@@ -106,7 +106,9 @@ end
 
     before = [body.pos for body in bodies]
     actuate!(environment, bodies, [zeros(3), zeros(3)])
-    @test [body.pos for body in bodies] == before
+    after = [body.pos for body in bodies]
+    @test after != before
+    @test tdistance(torus, after[1], after[2]) >= 2.0 * params.agent_radius - 1e-9
 end
 
 @testset "Forage seeded determinism" begin

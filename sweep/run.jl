@@ -2,12 +2,22 @@
 
 using BrainlessLab
 
-function _usage()
-    println("""
+const _DEBUG_FLAGS = ("--debug", "--verbose")
+
+if !("--help" in ARGS || "-h" in ARGS || "--list-axes" in ARGS)
+    try
+        @eval using CairoMakie
+    catch err
+        @warn "CairoMakie could not be loaded; sweep figures/GIFs may fall back to placeholders" error=sprint(showerror, err)
+    end
+end
+
+function _usage(io=stdout)
+    println(io, """
     Usage:
-      julia --project=. sweep/run.jl CONFIG.toml [--force]
+      julia --project=. sweep/run.jl CONFIG.toml [--force] [--debug]
       julia --project=. sweep/run.jl --list-axes --node falandays_base --task wall
-      julia --project=. sweep/run.jl ablate NODE TASK [--force]
+      julia --project=. sweep/run.jl ablate NODE TASK [--force] [--debug]
     """)
 end
 
@@ -19,8 +29,9 @@ function _arg_value(args, name, default)
 end
 
 function _print_axes(node, task)
+    axes = sweepable_axes(Symbol(node), Symbol(task))
     println("Sweepable axes for node=:$(Symbol(node)), task=:$(Symbol(task))")
-    for axis in sweepable_axes(Symbol(node), Symbol(task))
+    for axis in axes
         default = axis.default === nothing ? "nothing" : string(axis.default)
         range = isempty(axis.range) ? "" : " range=$(axis.range)"
         println(rpad(axis.path, 28), " default=", default, range, "  ", axis.description)
@@ -28,7 +39,12 @@ function _print_axes(node, task)
 end
 
 function main(args=ARGS)
-    isempty(args) && (_usage(); return 1)
+    args = [arg for arg in args if !(arg in _DEBUG_FLAGS)]
+    if "--help" in args || "-h" in args
+        _usage()
+        return 0
+    end
+    isempty(args) && (_usage(stderr); return 1)
 
     if "--list-axes" in args
         node = _arg_value(args, "--node", "falandays_base")
@@ -51,4 +67,16 @@ function main(args=ARGS)
     return 0
 end
 
-exit(main())
+function _entrypoint(args=ARGS)
+    debug = any(flag -> flag in args, _DEBUG_FLAGS)
+    try
+        return main(args)
+    catch err
+        debug && rethrow()
+        println(stderr, "error: ", sprint(showerror, err))
+        _usage(stderr)
+        return 1
+    end
+end
+
+exit(_entrypoint())

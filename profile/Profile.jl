@@ -798,9 +798,7 @@ end
 
 function _write_profile_manifest(path::AbstractString, node_sym::Symbol, tasks, n_seeds::Integer, canonical_N, run_info)
     cfg = _profile_run_config(node_sym, tasks, n_seeds)
-    manifest = BrainlessLab.capture_manifest(cfg; seeds=_profile_seed_manifest(n_seeds))
-    manifest["manifest_version"] = "profile-v1"
-    manifest["tool"] = "profile"
+    manifest = BrainlessLab.capture_manifest(cfg; seeds=_profile_seed_manifest(n_seeds), tool=:profile)
     manifest["timestamp_utc"] = run_info.timestamp_utc
     manifest["run_id"] = run_info.run_id
     manifest["short_git"] = run_info.short_git
@@ -810,7 +808,7 @@ function _write_profile_manifest(path::AbstractString, node_sym::Symbol, tasks, 
         "tasks" => String.(collect(tasks)),
         "n_seeds" => Int(n_seeds),
         "canonical_N" => Dict{String,Any}(String(k) => v for (k, v) in canonical_N),
-        "output_shape" => "manifest.toml + profile.resolved.toml + metrics.csv + figures/*.png + gifs/*.gif + README.md; optional report.html behind report=true",
+        "output_shape" => "manifest.toml + config.resolved.toml + metrics.csv + figures/*.png + gifs/*.gif + README.md; optional report.html behind report=true",
     )
     manifest["tool_packages"] = _tool_package_versions(@__DIR__)
     open(path, "w") do io
@@ -902,7 +900,7 @@ end
 Build a timestamped per-node characterization run directory for `node_sym`.
 For each task, run `n_seeds` rollouts at the task's canonical N, write
 `metrics.csv`, house-palette PNG panels in `figures/`, a representative
-behaviour GIF per task in `gifs/`, `manifest.toml`, `profile.resolved.toml`,
+behaviour GIF per task in `gifs/`, `manifest.toml`, `config.resolved.toml`,
 and a short `README.md`. HTML is off by default; `report=true` writes only an
 opt-in stub so the old rich report can be revived later. Returns a NamedTuple
 with the run directory and primary artifact paths.
@@ -930,7 +928,7 @@ function node_profile(
         _write_profile_gifs(joinpath(run_dir, "gifs"), node_sym, results; gif_ticks=gif_ticks, gif_fps=gif_fps) :
         Dict{Symbol,String}()
     manifest_path = _write_profile_manifest(joinpath(run_dir, "manifest.toml"), node_sym, tasks, n_seeds, canonical_N, run_info)
-    config_path = _write_profile_config(joinpath(run_dir, "profile.resolved.toml"), node_sym, tasks, n_seeds, canonical_N; gifs=render_gifs, report=report)
+    config_path = _write_profile_config(joinpath(run_dir, BrainlessLab.resolved_config_filename()), node_sym, tasks, n_seeds, canonical_N; gifs=render_gifs, report=report)
     report_path = report ? _write_html_stub(joinpath(run_dir, "report.html"), node_sym, results) : nothing
     readme_path = _write_profile_readme(joinpath(run_dir, "README.md"), node_sym, results; report_path=report_path)
 

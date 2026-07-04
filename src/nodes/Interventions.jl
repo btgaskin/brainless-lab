@@ -1,3 +1,10 @@
+"""
+Registered ablations are named perturbations applied to a node and/or its
+environment during construction. Falandays uses `freeze_plasticity`,
+`zero_recurrent`, and the canonical target-homeostasis clamp `clamp_target`;
+swarm/forage tasks use `disable_vision`; compartmental nodes additionally use
+`reset_dendrites`, `no_soma_back`, and `no_hillock_back`.
+"""
 struct ResetDendrites <: Intervention end
 struct NoSomaBack <: Intervention end
 struct NoHillockBack <: Intervention end

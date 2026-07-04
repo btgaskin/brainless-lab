@@ -30,11 +30,6 @@ _rng_uniform(rng::AbstractRNG, lo::Real, hi::Real) = Float64(lo) + (Float64(hi) 
 _rng_choice_pm1(src::RecordedDraws) = Float64(recorded_draw!(src))
 _rng_choice_pm1(rng::AbstractRNG) = rand(rng, Bool) ? 1.0 : -1.0
 
-_rng_standard_normal(src::RecordedDraws) = Float64(recorded_draw!(src))
-_rng_standard_normal(src::RecordedDraws, k::Integer) = recorded_draw!(src, k)
-_rng_standard_normal(rng::AbstractRNG) = randn(rng)
-_rng_standard_normal(rng::AbstractRNG, k::Integer) = randn(rng, k)
-
 function _wrap_angle(theta::Real)
     wrapped = mod(Float64(theta) + pi, 2.0 * pi) - pi
     if wrapped <= -pi

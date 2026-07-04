@@ -148,32 +148,36 @@ function _fano_node(sim::SimResult)
     )
 end
 
-function _fano_agent(sim::SimResult)
-    rates = _analysis_rate_matrix(sim, :fano_factor)
-    counts = _analysis_row_sums(rates)
+function _fano_agent(sim::SimResult; turn_threshold::Real=DEFAULT_TURN_THRESHOLD)
+    events = _analysis_agent_activity_matrix(sim, :fano_factor; turn_threshold=turn_threshold)
+    counts = _analysis_row_sums(events)
     value = _fano_from_counts(counts)
     return (;
         level=:agent,
         fano_factor=value,
         fano=value,
         activity=counts,
-        n_agents=size(rates, 2),
+        agent_events=events,
+        n_agents=size(events, 2),
+        turn_threshold=Float64(turn_threshold),
     )
 end
 
 """
-    fano_factor(sim; level=:node)
+    fano_factor(sim; level=:node, turn_threshold=DEFAULT_TURN_THRESHOLD)
 
 Compute an EXPERIMENTAL finite-window Fano factor, `var(activity count) /
 mean(activity count)`.
 
 At `level=:node`, activity count is each agent's node spike count per tick. At
-`level=:agent`, activity count is the summed per-agent population-rate activity
-across the ensemble.
+`level=:agent`, activity count is the number of agents whose absolute recorded
+heading change exceeds `turn_threshold` (default `pi/12` radians) at each tick.
+When only rates are recorded for node-level fallbacks, the configured `n_nodes`
+is treated as a homogeneous per-agent node count.
 """
-function fano_factor(sim::SimResult; level::Symbol=:node)
+function fano_factor(sim::SimResult; level::Symbol=:node, turn_threshold::Real=DEFAULT_TURN_THRESHOLD)
     level = _second_order_level(level, :fano_factor)
-    return level == :node ? _fano_node(sim) : _fano_agent(sim)
+    return level == :node ? _fano_node(sim) : _fano_agent(sim; turn_threshold=turn_threshold)
 end
 
 function _participation_node(sim::SimResult)

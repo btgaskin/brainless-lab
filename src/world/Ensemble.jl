@@ -136,7 +136,7 @@ function _record_spectral!(rec::Recorder, agents)
     return rec
 end
 
-function _record_collective!(rec::Recorder, c::Ensemble, bodies, percepts, spikes, rates, Es)
+function _record_ensemble!(rec::Recorder, c::Ensemble, bodies, percepts, spikes, rates, Es)
     if !_record_active(rec)
         tick!(rec)
         return rec
@@ -212,7 +212,7 @@ function step!(c::Ensemble)
     c.t += 1
 
     if c.recorder isa Recorder
-        _record_collective!(c.recorder, c, bodies, percepts, spikes, rates, Es)
+        _record_ensemble!(c.recorder, c, bodies, percepts, spikes, rates, Es)
     end
 
     return spikes

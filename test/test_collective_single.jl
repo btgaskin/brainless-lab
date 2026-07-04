@@ -67,12 +67,12 @@ function _single_reservoir(data)
     )
 end
 
-function _single_collective(data)
+function _single_ensemble(data)
     draws = RecordedDraws(_single_vector(data, "env_draws"))
     env = WallEnv(; rng=draws)
     agent = Agent(_single_reservoir(data), PassthroughBody())
-    collective = Ensemble([agent], TaskEnvironment(env))
-    return collective, env, agent
+    ensemble = Ensemble([agent], TaskEnvironment(env))
+    return ensemble, env, agent
 end
 
 function _single_pose(env::WallEnv)
@@ -100,15 +100,15 @@ end
     path = _single_fixture_path()
     isfile(path) || error("missing fixture $path; run test/oracle/gen_single_agent_fixtures.py from the v0.2 directory")
     data = npzread(path)
-    collective, env, agent = _single_collective(data)
+    ensemble, env, agent = _single_ensemble(data)
 
     sensors = _single_matrix(data, "sensors")
     spikes_t = _single_matrix(data, "spikes")
     effectors_t = _single_matrix(data, "effectors")
     pose_t = _single_matrix(data, "pose")
 
-    @test length(collective.agents) == 1
-    @test collective.environment isa TaskEnvironment
+    @test length(ensemble.agents) == 1
+    @test ensemble.environment isa TaskEnvironment
     @test size(sensors, 1) == _single_int(data, "ticks")
     @test size(spikes_t, 2) == _single_int(data, "N")
 
@@ -121,7 +121,7 @@ end
         max_sensor = max(max_sensor, sensor_dev)
         @test sensor_dev <= COLLECTIVE_SINGLE_ATOL
 
-        spikes = only(step!(collective))
+        spikes = only(step!(ensemble))
         expected_spikes = vec(spikes_t[t, :])
         @test spikes == expected_spikes
 
@@ -143,8 +143,8 @@ end
     rates = vec(sum(spikes_t, dims=2)) ./ size(spikes_t, 2)
     expected_live = liveness(rates, size(spikes_t, 2), default_window(env))
 
-    collective2, _, _ = _single_collective(data)
-    rollout_result = rollout!(collective2, size(spikes_t, 1); window=default_window(env))
+    ensemble2, _, _ = _single_ensemble(data)
+    rollout_result = rollout!(ensemble2, size(spikes_t, 1); window=default_window(env))
     @test abs(rollout_result.score - _single_scalar(data, "metric_score")) <= COLLECTIVE_SINGLE_ATOL
     @test abs(rollout_result.distance_window - _single_scalar(data, "metric_distance_window")) <= COLLECTIVE_SINGLE_ATOL
     @test rollout_result.collisions_window == _single_int(data, "metric_collisions_window")
@@ -153,5 +153,5 @@ end
     @test rollout_result.total_spikes_window ≈ expected_live.total_spikes_window atol=COLLECTIVE_SINGLE_ATOL
     @test rollout_result.alive == expected_live.alive
 
-    @info "collective single-agent oracle parity" max_sensor max_effector max_pose
+    @info "ensemble single-agent oracle parity" max_sensor max_effector max_pose
 end

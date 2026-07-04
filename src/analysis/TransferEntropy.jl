@@ -225,6 +225,43 @@ function _te_pairwise_summary(
     )
 end
 
+function _te_weighted_mean(values, weights)
+    total = 0.0
+    wsum = 0
+    @inbounds for i in eachindex(values, weights)
+        value = Float64(values[i])
+        weight = Int(weights[i])
+        if isfinite(value) && weight > 0
+            total += value * weight
+            wsum += weight
+        end
+    end
+    return wsum == 0 ? NaN : total / wsum
+end
+
+function _node_te_summary(per_agent)
+    valid_pairs = [res.valid_pairs for res in per_agent]
+    return (;
+        level=:node,
+        signal=:spikes,
+        per_agent=per_agent,
+        mean_pairwise_te=_te_weighted_mean([res.mean_pairwise_te for res in per_agent], valid_pairs),
+        net_directional_asymmetry=_te_weighted_mean([res.net_directional_asymmetry for res in per_agent], valid_pairs),
+        pairs_evaluated=sum(res.pairs_evaluated for res in per_agent),
+        valid_pairs=sum(valid_pairs),
+        n_series=sum(res.n_series for res in per_agent),
+        n_agents=length(per_agent),
+        n_nodes_distribution=[res.n_series for res in per_agent],
+        n_ticks=isempty(per_agent) ? 0 : first(per_agent).n_ticks,
+        sampled=any(res.sampled for res in per_agent),
+        total_pairs=sum(res.total_pairs for res in per_agent),
+        max_pairs=isempty(per_agent) ? 0 : first(per_agent).max_pairs,
+        bins=isempty(per_agent) ? 0 : first(per_agent).bins,
+        lag=isempty(per_agent) ? 0 : first(per_agent).lag,
+        pair_selection=:per_agent,
+    )
+end
+
 """
     node_transfer_entropy(sim; pairs=:all_or_sampled, bins=2, lag=1, max_pairs=512, seed=0)
 
@@ -233,8 +270,13 @@ trains from the `:spikes` channel. Spike values are binarized as `spike > 0`.
 The summary reports mean directed pairwise TE and mean absolute directional
 asymmetry `|TE(i -> j) - TE(j -> i)|`.
 
+For multi-agent simulations, node-node pairs are evaluated within each agent's
+reservoir and then summarized across agents; pairs never cross reservoir
+boundaries.
+
 For large node counts the default `pairs=:all_or_sampled` samples up to
-`max_pairs` unordered pairs and logs the sampled pair indices with `@info`.
+`max_pairs` unordered pairs per agent and logs the sampled pair indices with
+`@info`.
 """
 function node_transfer_entropy(
     sim::SimResult;
@@ -244,21 +286,21 @@ function node_transfer_entropy(
     max_pairs::Integer=512,
     seed=0,
 )
-    raw = getchannel(sim.recorder, :spikes)
-    isempty(raw) && throw(ArgumentError("node_transfer_entropy needs the :spikes channel recorded; run simulate(...; record=(:spikes, ...))"))
-
-    spikes = _analysis_sample_matrix(raw, :node_transfer_entropy)
-    binary_spikes = Float64.(spikes .> 0.0)
-    return _te_pairwise_summary(
-        binary_spikes;
-        level=:node,
-        signal=:spikes,
-        pairs=pairs,
-        bins=bins,
-        lag=lag,
-        max_pairs=max_pairs,
-        seed=seed,
-    )
+    spike_mats = _analysis_spike_matrices(sim, :node_transfer_entropy)
+    per_agent = [
+        _te_pairwise_summary(
+            Float64.(mat .> 0.0);
+            level=:node,
+            signal=:spikes,
+            pairs=pairs,
+            bins=bins,
+            lag=lag,
+            max_pairs=max_pairs,
+            seed=(seed === nothing ? nothing : Int(seed) + i - 1),
+        )
+        for (i, mat) in enumerate(spike_mats)
+    ]
+    return _node_te_summary(per_agent)
 end
 
 function _te_pose_matrices(raw, name::Symbol)

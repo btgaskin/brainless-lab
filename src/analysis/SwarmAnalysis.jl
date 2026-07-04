@@ -180,10 +180,11 @@ Estimate an EXPERIMENTAL spatial velocity-correlation length for a swarm.
 For each recorded pose transition, velocities are computed with torus-aware
 deltas when the simulation has a torus size. The velocity fluctuation for each
 agent is its velocity minus the ensemble mean velocity at that transition. The
-pairwise correlation is the cosine similarity of those fluctuations, binned by
-pairwise torus distance. The returned scalar is the first distance where the
-binned mean correlation crosses zero (`crossing=:zero`, default) or drops below
-`1/e` of the first occupied bin (`crossing=:inv_e`).
+pairwise correlation follows Cavagna et al. (2010): binned
+`<δv_i · δv_j>` is normalized once by the global `<δv_i · δv_i>`, not by each
+pair's vector norms. The returned scalar is the first distance where the binned
+mean correlation crosses zero (`crossing=:zero`, default) or drops below `1/e`
+of the first occupied bin (`crossing=:inv_e`).
 """
 function correlation_length(sim::SimResult; nbins::Integer=12, crossing::Symbol=:zero)
     vx, vy, xs, ys, _ = _analysis_velocity_matrices(sim, :correlation_length)
@@ -195,32 +196,39 @@ function correlation_length(sim::SimResult; nbins::Integer=12, crossing::Symbol=
     torus_size = _analysis_environment_size(sim)
     torus = torus_size === nothing ? nothing : Torus(torus_size)
     distances = Float64[]
-    correlations = Float64[]
+    dot_products = Float64[]
+    fluctuation_norm2 = 0.0
+    fluctuation_count = 0
 
     @inbounds for t in 1:n_steps
         mean_vx = _series_mean(@view vx[t, :])
         mean_vy = _series_mean(@view vy[t, :])
+        for i in 1:n_agents
+            uix = vx[t, i] - mean_vx
+            uiy = vy[t, i] - mean_vy
+            fluctuation_norm2 += uix * uix + uiy * uiy
+            fluctuation_count += 1
+        end
         for i in 1:(n_agents - 1)
             uix = vx[t, i] - mean_vx
             uiy = vy[t, i] - mean_vy
-            ni = hypot(uix, uiy)
-            ni > 0.0 || continue
             for j in (i + 1):n_agents
                 ujx = vx[t, j] - mean_vx
                 ujy = vy[t, j] - mean_vy
-                nj = hypot(ujx, ujy)
-                nj > 0.0 || continue
-                corr = (uix * ujx + uiy * ujy) / (ni * nj)
                 if torus === nothing
                     d = hypot(xs[t, j] - xs[t, i], ys[t, j] - ys[t, i])
                 else
                     d = tdistance(torus, (xs[t, i], ys[t, i]), (xs[t, j], ys[t, j]))
                 end
                 push!(distances, d)
-                push!(correlations, corr)
+                push!(dot_products, uix * ujx + uiy * ujy)
             end
         end
     end
 
+    # Cavagna et al. (2010) normalize by the global mean squared fluctuation.
+    denom = fluctuation_count == 0 ? 0.0 : fluctuation_norm2 / fluctuation_count
+    denom > 0.0 || return 0.0
+    correlations = dot_products ./ denom
     return _profile_correlation_length(distances, correlations, nbins, crossing)
 end

@@ -8,7 +8,8 @@ their own parts without forking the framework. The core concept is *neurons as n
 a collective* -- the same abstraction at every scale.
 
 The project is a summer-institute testbed: a clean framework for other people to run
-experiments around a settled Falandays baseline. Validation means bit-fidelity to the local
+experiments around a settled Falandays baseline. Use a project-local Julia environment
+(`pkg> activate .` or `julia --project=.`) when running examples and tooling. Validation means bit-fidelity to the local
 numpy reference implementations (`../v0`, `../v0.2`) where those reference paths exist.
 The 2021 paper-faithful baseline is `:falandays_base` with the original constants; v0.2
 also contains documented experimental departures, so numpy fidelity should not be read as
@@ -31,8 +32,9 @@ experiment.
 
 **Experimental platform:** everything around that baseline is for experiments and is still
 in flux: the compartmental/CTRNN nodes, the evolution layer, the swarm/VEN extensions, and
-the Falandays variants beyond base (`:falandays_noisy`, `:falandays_ablated`,
-`:falandays_hemispheric`, `:falandays_oosawa`). These pieces are useful testbed surfaces,
+the SORN reference node, the Falandays variants beyond base (`:falandays_noisy`,
+`:falandays_ablated`, `:falandays_hemispheric`, `:falandays_oosawa`,
+`:falandays_spatial`, `:falandays_delayed`). These pieces are useful testbed surfaces,
 but they should not be described as the 2021 paper model.
 
 ---
@@ -40,6 +42,7 @@ but they should not be described as the 2021 paper model.
 ## Quickstart
 
 ```julia
+pkg> activate .         # or run scripts with julia --project=.
 pkg> dev .              # from the brainless-lab/ directory
 pkg> add CairoMakie     # a Makie backend, for plotting
 
@@ -53,6 +56,10 @@ The compute core does **not** depend on Makie -- `simulate` runs headless. Plot 
 automatically (a package extension) once you load a Makie backend (`CairoMakie` for static
 figures, `GLMakie` for interactive windows). See [docs/onboarding.md](docs/onboarding.md)
 for the root package and tooling-project setup split.
+
+`explore(...)` opens a live GLMakie display. On SSH/headless machines, use saved static
+outputs instead (`visualize`/`animate` with CairoMakie, or the CLI `--save` paths where
+available).
 
 ---
 
@@ -114,6 +121,9 @@ The registered high-level variants are:
 | `:falandays_ablated` | experimental | Target homeostasis frozen (`lrate_targ=0`): target pinned at 1.0, threshold fixed at 2.0; weights still learn. |
 | `:falandays_hemispheric` | experimental | Two half-size reservoirs, contralateral wiring (right sensors -> left effectors, left -> right). |
 | `:falandays_oosawa` | experimental | Oosawa endogenous membrane drive (pure target-modulated, stays active when blind). |
+| `:falandays_spatial` | experimental | Falandays reservoir with spatial embedding and distance-dependent wiring. |
+| `:falandays_delayed` | experimental | Falandays reservoir with heterogeneous recurrent transmission delays. |
+| `:sorn` | experimental | Self-organizing recurrent network reference with STDP, intrinsic plasticity, and synaptic normalization. |
 | `:compartmental_dense` | experimental | Dense compartmental cell (dendrite -> soma -> hillock CTRNN, emergent weights, no plasticity). |
 | `:compartmental_structured` | experimental | Structured compartmental cell (single-port dendrite/soma routing, emergent threshold). |
 
@@ -122,11 +132,13 @@ The registered high-level variants are:
 ## Tasks
 
 The registered tasks are `:wall`, `:tracking`, `:pong`, `:pong_hitrate`, `:cartpole`,
-`:cartpole_hard`, `:cartpole_swingup`, `:cartpole_long`, and `:torus`.
+`:cartpole_hard`, `:cartpole_swingup`, `:cartpole_long`, `:torus`, and `:forage`.
 
 Single-agent tasks use task-specific 2-effector decoders. The swarm task (`:torus`) uses
 `VENBody`: 62 bearing-vision sensors are padded to **64 receptor inputs**, and the motor
-decode consumes **3 effectors** for heading and forward acceleration. `tasks()` lists them all.
+decode consumes **3 effectors** for heading and forward acceleration. `:forage` uses the same
+3-effector VEN decode with **128 receptors**: 64 conspecific-vision inputs plus 64 source-vision
+inputs, scored by bounded `forage_score` and source-arrival metrics. `tasks()` lists them all.
 
 See [docs/tasks.md](docs/tasks.md) and [docs/contracts.md](docs/contracts.md) before comparing
 results across tasks, because effectors and scores are intentionally non-uniform.
@@ -156,8 +168,8 @@ required before those non-plastic nodes are a meaningful test.
 directory under `runs/` containing a `manifest.toml` (git SHA, Julia + package versions,
 timestamps, full seed scheme), the resolved config, CSV/JSONL logs, and a JLD2 genome
 checkpoint. A run reproduces **bit-for-bit** from its own artifacts. `run_sweep` does
-cartesian parameter sweeps with an index. Loading a saved run directory back into `replay`
-is not implemented yet.
+cartesian parameter sweeps with an index. `replay(rundir)` can load a saved run directory with
+`recorder.jld2` back into a `SimResult` for `visualize`/`animate`.
 
 ## Performance
 
@@ -218,7 +230,7 @@ optimizers (`<: AbstractEvolutionStrategy` with `ask`/`tell!`/`result`). See
 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-The test suite covers node families, envs, collectives, ablations, the CMA runner, run
+The test suite covers node families, envs, ensembles, ablations, the CMA runner, run
 artifacts, and Makie extension loading against Float64 numpy fixtures where applicable.
 
 ## Layout
@@ -226,7 +238,7 @@ artifacts, and Makie extension loading against Float64 numpy fixtures where appl
 ```
 src/core/    interfaces, traits, registries, params, Recorder
 src/nodes/   Falandays baseline/variants + compartmental (cell, reservoir, wiring, interventions)
-src/world/   Body, Torus, Mediums, Ensemble, Metrics  (single-agent task = collective of one)
+src/world/   Body, Torus, Environments, Ensemble, Metrics  (single-agent task = ensemble of one)
 src/envs/    WallBox + the four environments + cartpole variants
 src/drivers/ rollout, SepCMA + EvolveRunner, Fixed/Plastic, threaded harness
 src/run/     TOML config, profiles, manifest, artifacts, sweeps

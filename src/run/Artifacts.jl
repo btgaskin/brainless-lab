@@ -229,7 +229,7 @@ function save_run(result, cfg::RunConfig, dir::AbstractString; manifest=nothing,
     mkpath(joinpath(dir, "genomes"))
     mkpath(joinpath(dir, "metrics"))
 
-    write_config(resolved, joinpath(dir, "config.resolved.toml"))
+    write_config(resolved, joinpath(dir, resolved_config_filename()))
     open(joinpath(dir, "manifest.toml"), "w") do io
         TOML.print(io, manifest_info)
     end

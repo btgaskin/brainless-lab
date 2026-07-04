@@ -8,9 +8,13 @@ directory where you use it; `bench/` and `profile/` do not share the root enviro
 From `brainless-lab/`:
 
 ```julia
+pkg> activate .
 pkg> dev .
 pkg> add CairoMakie
 ```
+
+Equivalently, run commands as `julia --project=.` from the repository root. Avoid installing packages into
+the global Julia environment while working on this project.
 
 Then:
 
@@ -22,6 +26,8 @@ visualize(sim)
 ```
 
 Use `CairoMakie` for static figures. Use `GLMakie` if you want `explore(...)` interactive windows.
+`explore(...)` needs a display; over SSH/headless sessions, save static figures/GIFs with CairoMakie or use
+tooling `--save`/output paths instead of opening an interactive window.
 
 ## Profile project
 

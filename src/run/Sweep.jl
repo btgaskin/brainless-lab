@@ -168,16 +168,17 @@ function _baseline_from_dict(path::AbstractString, data)
 end
 
 function _resolve_sweep_baseline(base::SweepBaseline)
-    resolve_node(base.node)
-    task_obj = resolve_task(base.task)
-    is_swarm = base.task in _SWEEP_SWARM_TASKS || base.n_agents !== nothing
+    node = _validate_sweep_node(base.node)
+    task = _validate_sweep_task(base.task)
+    task_obj = resolve_task(task)
+    is_swarm = task in _SWEEP_SWARM_TASKS || base.n_agents !== nothing
 
     if task_obj isa TaskSpec
         ticks = base.ticks === nothing ? task_obj.default_ticks : base.ticks
         window = base.window === nothing ? min(ticks, task_obj.default_window) : base.window
-        N = base.N === nothing ? _default_node_count(base.node) : base.N
+        N = base.N === nothing ? _default_node_count(node) : base.N
         return SweepBaseline(
-            node=base.node,
+            node=node,
             task=task_obj.name,
             N=N,
             ticks=ticks,
@@ -193,14 +194,14 @@ function _resolve_sweep_baseline(base::SweepBaseline)
         )
     end
 
-    is_swarm || throw(ArgumentError("task :$(base.task) is not a TaskSpec and is not a known swarm task"))
+    is_swarm || throw(ArgumentError("task :$(task) is not a TaskSpec and is not a known swarm task"))
     ticks = base.ticks === nothing ? 1000 : base.ticks
     window = base.window === nothing ? ticks : base.window
-    N = base.N === nothing ? _default_node_count(base.node) : base.N
+    N = base.N === nothing ? _default_node_count(node) : base.N
     n_agents = base.n_agents === nothing ? 8 : base.n_agents
     return SweepBaseline(
-        node=base.node,
-        task=base.task == :swarm ? :torus : base.task,
+        node=node,
+        task=task,
         N=N,
         ticks=ticks,
         window=window,
@@ -226,6 +227,11 @@ function _sweep_max_cells(data)
     return Int(get(_sweep_section(data), "max_cells", 200))
 end
 
+function _sweep_max_rollouts(data)
+    sweep = _sweep_section(data)
+    return Int(get(sweep, "max_rollouts", get(sweep, "max_cells", 200)))
+end
+
 function _sweep_force(data, force)
     force && return true
     value = get(_sweep_section(data), "force", false)
@@ -247,16 +253,32 @@ function _is_swarm_sweep(base::SweepBaseline)
     return base.task in (:torus, :swarm, :forage) || base.n_agents !== nothing
 end
 
-function _try_param_default(node::Symbol, key::Symbol)
-    if _is_falandays_node(node) && key in fieldnames(FalandaysParams)
-        return getfield(FalandaysParams(), key)
+function _registry_name_error(kind::AbstractString, name::Symbol, known)
+    known_strings = sort!(string.(collect(known)))
+    suggestion = _suggest_name(string(name), known_strings)
+    known_msg = isempty(known_strings) ? "none registered" : join(known_strings, ", ")
+    if suggestion === nothing
+        return ArgumentError("unknown $(kind) ':$(name)' (known: $(known_msg))")
     end
-    return nothing
+    return ArgumentError("unknown $(kind) ':$(name)' -- did you mean ':$(suggestion)'? (known: $(known_msg))")
+end
+
+function _validate_sweep_node(node)
+    node_sym = _canonical_model_sym(Symbol(node))
+    haskey(NODES, node_sym) || throw(_registry_name_error("node", node_sym, keys(NODES)))
+    return node_sym
+end
+
+function _validate_sweep_task(task)
+    task_sym = Symbol(task)
+    task_sym === :swarm && return :torus
+    haskey(TASKS, task_sym) || throw(_registry_name_error("task", task_sym, keys(TASKS)))
+    return task_sym
 end
 
 function sweepable_axes(node=:falandays_base, task=:wall)
-    node_sym = _canonical_model_sym(Symbol(node))
-    task_sym = Symbol(task)
+    node_sym = _validate_sweep_node(node)
+    task_sym = _validate_sweep_task(task)
     out = SweepAxisInfo[]
 
     if _is_falandays_node(node_sym)
@@ -270,6 +292,8 @@ function sweepable_axes(node=:falandays_base, task=:wall)
         push!(out, SweepAxisInfo(path="node.weight_init_std", default=params.weight_init_std, range=">= 0", description="Falandays recurrent initialization scale"))
         push!(out, SweepAxisInfo(path="node.learn_on", default=params.learn_on, range="true|false", description="Falandays online plasticity switch"))
         push!(out, SweepAxisInfo(path="node.link_p", default=0.1, range="0.0..1.0", description="random recurrent/input/output graph density"))
+        push!(out, SweepAxisInfo(path="drive.noise_gain", default=0.0, range=">= 0", description="Oosawa target-deficit membrane noise gain"))
+        push!(out, SweepAxisInfo(path="drive.membrane_noise", default=0.0, range=">= 0", description="Oosawa constant membrane noise floor"))
     elseif _is_compartmental_node(node_sym)
         push!(out, SweepAxisInfo(path="node.raw_scale", default=0.25, range=">= 0", description="random compartmental genome scale"))
         push!(out, SweepAxisInfo(path="node.link_p", default=0.1, range="0.0..1.0", description="compartmental recurrent graph density"))
@@ -281,12 +305,8 @@ function sweepable_axes(node=:falandays_base, task=:wall)
         push!(out, SweepAxisInfo(path="node.hill_tau", default=HILL_TAU, range="> 0", description="hillock recovery time constant"))
         push!(out, SweepAxisInfo(path="node.hill_reset", default=HILL_RESET, range="real", description="post-spike hillock reset"))
     else
-        push!(out, SweepAxisInfo(path="node.n_nodes", default=_default_node_count(node_sym), range="integer", description="reservoir size alias"))
         push!(out, SweepAxisInfo(path="node.learn_on", default=nothing, range="true|false", description="online plasticity switch when the node supports it"))
     end
-
-    push!(out, SweepAxisInfo(path="drive.noise_gain", default=0.0, range=">= 0", description="Oosawa target-deficit membrane noise gain"))
-    push!(out, SweepAxisInfo(path="drive.membrane_noise", default=0.0, range=">= 0", description="Oosawa constant membrane noise floor"))
 
     push!(out, SweepAxisInfo(path="task.N", default=_default_node_count(node_sym), range="integer", description="reservoir node count"))
     push!(out, SweepAxisInfo(path="task.ticks", default=nothing, range="integer", description="rollout duration"))
@@ -303,7 +323,10 @@ function sweepable_axes(node=:falandays_base, task=:wall)
         push!(out, SweepAxisInfo(path="env.capture_radius", default=cfg.capture_radius, range=">= 0", description="forage capture radius"))
         push!(out, SweepAxisInfo(path="env.conspecific_vision", default=cfg.conspecific_vision, range="true|false", description="whether agents see each other"))
     else
-        push!(out, SweepAxisInfo(path="env.lam", default=1.0, range="> 0", description="wall/task environment parameter when supported"))
+        task_obj = resolve_task(task_sym)
+        if task_obj isa TaskSpec && task_obj.env_type === WallEnv
+            push!(out, SweepAxisInfo(path="env.lam", default=1.0, range="> 0", description="wall-task collision penalty"))
+        end
     end
 
     values = join(vcat(["none"], string.(ablations())), " | ")
@@ -576,24 +599,20 @@ function _baseline_toml(base::SweepBaseline)
 end
 
 function _write_manifest(path::AbstractString, id::AbstractString, base::SweepBaseline, seeds, measures, preview)
-    manifest = Dict{String,Any}(
-        "manifest_version" => "sweep-v1",
-        "id" => id,
-        "timestamp_utc" => _utc_timestamp(),
-        "repo_path" => _repo_root(),
-        "git_sha" => _git_sha(_repo_root()),
-        "git_dirty" => _git_dirty(_repo_root()),
-        "julia_version" => string(VERSION),
-        "hostname" => _hostname(),
-        "packages" => _direct_package_versions(),
-        "seeds" => Dict{String,Any}(
-            "seed_base" => base.seed_base,
-            "offsets" => collect(seeds),
-            "resolved" => [base.seed_base + seed for seed in seeds],
+    manifest = _manifest_header(:sweep)
+    merge!(
+        manifest,
+        Dict{String,Any}(
+            "id" => id,
+            "seeds" => Dict{String,Any}(
+                "seed_base" => base.seed_base,
+                "offsets" => collect(seeds),
+                "resolved" => [base.seed_base + seed for seed in seeds],
+            ),
+            "analytics" => Dict{String,Any}("measures" => collect(measures)),
+            "cost_preview" => preview,
+            "baseline" => _baseline_toml(base),
         ),
-        "analytics" => Dict{String,Any}("measures" => collect(measures)),
-        "cost_preview" => preview,
-        "baseline" => _baseline_toml(base),
     )
     open(path, "w") do io
         TOML.print(io, manifest)
@@ -601,13 +620,14 @@ function _write_manifest(path::AbstractString, id::AbstractString, base::SweepBa
     return path
 end
 
-function _write_resolved_config(path::AbstractString, id::AbstractString, mode::AbstractString, base::SweepBaseline, axes, seeds, measures, max_cells)
+function _write_resolved_config(path::AbstractString, id::AbstractString, mode::AbstractString, base::SweepBaseline, axes, seeds, measures, max_cells, max_rollouts)
     data = Dict{String,Any}(
         "sweep" => Dict{String,Any}(
             "id" => id,
             "mode" => mode,
             "seeds" => collect(seeds),
             "max_cells" => max_cells,
+            "max_rollouts" => max_rollouts,
         ),
         "baseline" => _baseline_toml(base),
         "axes" => Dict{String,Any}(string(k) => v for (k, v) in axes),
@@ -679,8 +699,13 @@ function _sim_score(sim::SimResult)
 end
 
 function _measure_sigma_mr(sim::SimResult)
-    kmax = max(2, min(20, Int(floor(sim.config.ticks / 3))))
-    res = branching_ratio_mr(sim; kmax=kmax, transient=0)
+    ticks = Int(sim.config.ticks)
+    window = hasproperty(sim.config, :window) ? min(Int(sim.config.window), ticks) : ticks
+    # Match the sweep score/liveness window discipline: drop the pre-window
+    # warmup so online-learning switch-on transients do not enter sigma_mr.
+    transient = max(ticks - window, 0)
+    kmax = max(2, min(20, Int(floor(max(window, 1) / 3))))
+    res = branching_ratio_mr(sim; kmax=kmax, transient=transient)
     return _finite_or_nan(res.m_mr)
 end
 
@@ -689,10 +714,42 @@ function _measure_spectral_radius(sim::SimResult)
     return _finite_or_nan(res.mean)
 end
 
+function _failed_seed_row(seed::Integer, err)
+    message = sprint(showerror, err)
+    return Dict{String,Any}(
+        "seed" => Int(seed),
+        "score" => NaN,
+        "raw_score" => NaN,
+        "score_key" => "",
+        "alive" => false,
+        "liveness" => 0.0,
+        "rate_mean" => NaN,
+        "rate_var" => NaN,
+        "sigma_mr" => NaN,
+        "spectral_radius" => NaN,
+        "regime" => "",
+        "regime_polarization" => NaN,
+        "regime_milling" => NaN,
+        "regime_speed" => NaN,
+        "warnings" => "cell failed: $(message)",
+        "error" => message,
+        "notes" => "",
+    )
+end
+
 function _run_seed_metrics(base::SweepBaseline, seed::Integer, measures)
     kwargs = _simulation_kwargs(base, seed, measures)
-    sim = simulate(base.task; _kwargs_tuple(kwargs)...)
-    score, raw_score, score_key = _sim_score(sim)
+    sim = try
+        simulate(base.task; _kwargs_tuple(kwargs)...)
+    catch err
+        return _failed_seed_row(seed, err), nothing
+    end
+
+    score, raw_score, score_key = try
+        _sim_score(sim)
+    catch err
+        return _failed_seed_row(seed, err), nothing
+    end
     warnings = String[]
     notes = String.(getproperty(sim.config, :ablation_notes))
 
@@ -712,6 +769,7 @@ function _run_seed_metrics(base::SweepBaseline, seed::Integer, measures)
         "rate_mean" => hasproperty(sim.metrics, :rate_mean) ? _finite_or_nan(sim.metrics.rate_mean) : NaN,
         "rate_var" => hasproperty(sim.metrics, :rate_var) ? _finite_or_nan(sim.metrics.rate_var) : NaN,
         "warnings" => "",
+        "error" => "",
         "notes" => join(notes, " | "),
         "regime" => "",
     )
@@ -759,7 +817,7 @@ function _run_seed_metrics(base::SweepBaseline, seed::Integer, measures)
 end
 
 function _csv_header(rows)
-    fixed = ["seed", "score", "raw_score", "score_key", "alive", "liveness", "rate_mean", "rate_var", "sigma_mr", "spectral_radius", "regime", "regime_polarization", "regime_milling", "regime_speed", "warnings", "notes"]
+    fixed = ["seed", "score", "raw_score", "score_key", "alive", "liveness", "rate_mean", "rate_var", "sigma_mr", "spectral_radius", "regime", "regime_polarization", "regime_milling", "regime_speed", "warnings", "error", "notes"]
     extras = sort!(setdiff(unique(vcat([collect(keys(row)) for row in rows]...)), fixed))
     return vcat(fixed, extras)
 end
@@ -775,14 +833,47 @@ function _write_rows_csv(path::AbstractString, rows; header=nothing)
     return path
 end
 
+function _parse_csv_record(line::AbstractString)
+    fields = String[]
+    buf = IOBuffer()
+    in_quotes = false
+    i = firstindex(line)
+    while i <= lastindex(line)
+        c = line[i]
+        if in_quotes
+            if c == '"'
+                j = nextind(line, i)
+                if j <= lastindex(line) && line[j] == '"'
+                    write(buf, UInt8('"'))
+                    i = j
+                else
+                    in_quotes = false
+                end
+            else
+                print(buf, c)
+            end
+        elseif c == '"'
+            in_quotes = true
+        elseif c == ','
+            push!(fields, String(take!(buf)))
+        else
+            print(buf, c)
+        end
+        i = nextind(line, i)
+    end
+    in_quotes && throw(ArgumentError("unterminated quoted CSV field"))
+    push!(fields, String(take!(buf)))
+    return fields
+end
+
 function _read_simple_csv(path::AbstractString)
     lines = readlines(path)
     isempty(lines) && return Dict{String,Any}[]
-    header = split(lines[1], ",")
+    header = _parse_csv_record(lines[1])
     rows = Dict{String,Any}[]
     for line in lines[2:end]
         isempty(strip(line)) && continue
-        values = split(line, ","; keepempty=true)
+        values = _parse_csv_record(line)
         row = Dict{String,Any}()
         for (key, value) in zip(header, values)
             if key in ("seed",)
@@ -839,6 +930,7 @@ function _aggregate_cell(cell_id, cell, rows, measures)
         "value" => cell["value"],
         "n_seeds" => length(rows),
         "warnings" => join(unique(filter(!isempty, string.(get.(rows, "warnings", "")))), " | "),
+        "errors" => join(unique(filter(!isempty, string.(get.(rows, "error", "")))), " | "),
     )
 
     for key in ("score", "raw_score", "liveness", "sigma_mr", "spectral_radius", "rate_mean", "rate_var")
@@ -891,7 +983,7 @@ function _run_cell(cell_id, cell, seeds, measures, cell_dir)
     for seed in seed_values
         row, sim = _run_seed_metrics(base, seed, measures)
         push!(rows, row)
-        representative === nothing && (representative = sim)
+        representative === nothing && sim !== nothing && (representative = sim)
     end
     _write_rows_csv(joinpath(cell_dir, "metrics.csv"), rows)
     _write_cell_manifest(joinpath(cell_dir, "manifest.toml"), cell_id, cell, base, seed_values)
@@ -909,7 +1001,7 @@ function _results_header(measures)
         push!(header, "$(measure)_mean")
         push!(header, "$(measure)_std")
     end
-    append!(header, ["regime_mode", "warnings", "result_path"])
+    append!(header, ["regime_mode", "warnings", "errors", "result_path"])
     return header
 end
 
@@ -1024,8 +1116,19 @@ function _write_readme(path::AbstractString, id, base::SweepBaseline, rows, axis
             end
         end
         dead = count(row -> _finite_or_nan(row["liveness_mean"]) < 0.5, rows)
+        failed = count(row -> !isempty(string(get(row, "errors", ""))), rows)
         println(io)
         println(io, "Dead/liveness-failed cells flagged: $(dead) / $(length(rows)).")
+        println(io, "Cells with recorded errors: $(failed) / $(length(rows)).")
+        if failed > 0
+            println(io)
+            println(io, "## Errors")
+            for row in rows
+                err = string(get(row, "errors", ""))
+                isempty(err) && continue
+                println(io, "- `$(row["cell"])` `$(row["axis"])=$(row["value"])`: $(err)")
+            end
+        end
         println(io)
         println(io, "Representative GIFs use the first completed seed for each cell; if no Makie backend is loaded, a placeholder GIF is written and the numeric metrics remain authoritative.")
     end
@@ -1042,11 +1145,13 @@ function _run_sweep_data(data, source_path::AbstractString; root=nothing, force=
     measures = _analytics_measures(data)
     cells, axis_names, axis_values = _build_sweep_cells(base, axes, mode)
     max_cells = _sweep_max_cells(data)
+    max_rollouts = _sweep_max_rollouts(data)
+    rollout_count = length(cells) * length(seeds)
     preview = _cost_preview(mode, axis_values, seeds, base.ticks)
     println("Sweep cost preview: ", preview)
 
-    if length(cells) > max_cells && !_sweep_force(data, force)
-        throw(ArgumentError("sweep has $(length(cells)) cells above max_cells=$(max_cells); pass force=true or use --force. If this is factorial, consider mode = \"one_at_a_time\"."))
+    if rollout_count > max_rollouts && !_sweep_force(data, force)
+        throw(ArgumentError("sweep has $(length(cells)) cells x $(length(seeds)) seeds = $(rollout_count) rollouts above max_rollouts=$(max_rollouts); pass force=true or use --force. If this is factorial, consider mode = \"one_at_a_time\"."))
     end
 
     id = _sweep_id(source_path, data)
@@ -1055,7 +1160,7 @@ function _run_sweep_data(data, source_path::AbstractString; root=nothing, force=
     mkpath(joinpath(sweep_root, "cells"))
 
     _write_manifest(joinpath(sweep_root, "manifest.toml"), id, base, seeds, measures, preview)
-    _write_resolved_config(joinpath(sweep_root, "sweep.resolved.toml"), id, mode, base, axes, seeds, measures, max_cells)
+    _write_resolved_config(joinpath(sweep_root, resolved_config_filename()), id, mode, base, axes, seeds, measures, max_cells, max_rollouts)
 
     aggregate_rows = Dict{String,Any}[]
     cell_rows = Dict{String,Any}[]

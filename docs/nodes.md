@@ -37,6 +37,8 @@ variants, compartmental nodes, or evolution experiments.
 | `:falandays_ablated` | experimental | **target homeostasis frozen** (`lrate_targ=0`): target pinned at 1.0, threshold fixed at 2.0; weights still learn -- an ablation probe of the homeostatic mechanism |
 | `:falandays_hemispheric` | experimental | **two half-size reservoirs, contralateral wiring**: right sensors -> left effectors, left sensors -> right effectors; the hemispheres couple only through the body/world |
 | `:falandays_oosawa` | experimental | + **Oosawa membrane drive**: target-modulated stochastic membrane noise. `sigma = membrane_noise + noise_gain * max(0, 2T - acts)` is the noise amplitude, so exploration grows when a node is below threshold and vanishes at set-point when there is no constant floor; keeps a blind network alive |
+| `:falandays_spatial` | experimental | Falandays dynamics with an embedded metric-space connectome and distance-dependent connection probabilities |
+| `:falandays_delayed` | experimental | Falandays dynamics with heterogeneous recurrent delays carried by spike-history buffers |
 | `:sorn` | experimental | **SORN** criticality reference with STDP + intrinsic plasticity + synaptic normalization; Lazar/Pipa/Triesch 2009; not yet validated for avalanche-scaling criticality in this implementation |
 | `:compartmental_dense` | experimental | dense dendrite -> soma -> hillock CTRNN cell with emergent weights and no online plasticity |
 | `:compartmental_structured` | experimental | structured single-port dendrite/soma routing with emergent threshold; the recommended compartmental build |
@@ -55,6 +57,21 @@ The evolvable genome is 7 scalars (`leak`, `lrate_wmat`, `lrate_targ`, `threshol
 Two noises are distinct: **membrane** noise (`:falandays_oosawa`, on the membrane potential `acts`) vs
 **sensory** noise (`:falandays_noisy`, on the receptor input). See
 [receptors-effectors.md](receptors-effectors.md).
+
+## Registered ablations
+
+Ablations are named perturbations applied to a node and/or environment during construction. They are the
+mechanism behind `ablate(node, task)` and the sweep `ablation` axis.
+
+| ablation | applies to | effect |
+|---|---|---|
+| `:freeze_plasticity` | Falandays, SORN | sets `learn_on=false`; compartmental nodes have no online plasticity and are reported as no-op |
+| `:zero_recurrent` | Falandays, compartmental | removes recurrent weights/connectivity at build time |
+| `:clamp_target` | Falandays | canonical target-homeostasis clamp: sets `lrate_targ=0`; `:falandays_ablated` is the packaged node preset for this same mechanism |
+| `:disable_vision` | torus/forage environments | sets `conspecific_vision=false`, zeroing only the conspecific vision bank; physical collision handling remains controlled by `physical_coupling` |
+| `:reset_dendrites` | compartmental | zeros dendritic state on each tick via the intervention hook |
+| `:no_soma_back` | compartmental | removes soma-to-dendrite feedback weights |
+| `:no_hillock_back` | compartmental | removes hillock-to-soma feedback weights |
 
 ## Compartmental / CTRNN family (emergent weights, no plasticity)
 

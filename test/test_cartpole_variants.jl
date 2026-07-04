@@ -11,11 +11,6 @@ end
 
 _cartpole_nothing_policy(env) = [0.0, 0.0]
 
-function _cartpole_constant_policy(value::Real)
-    eff = Float64(value) < 0.0 ? [1.0, 0.0] : [0.0, 1.0]
-    return env -> eff
-end
-
 function _assert_cartpole_variant_runs(task::Symbol; seed::Integer=11, ticks::Integer=120)
     spec = resolve_task(task)
     env = make_env(spec; rng=MersenneTwister(seed))

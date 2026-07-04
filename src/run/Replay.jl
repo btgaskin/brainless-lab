@@ -67,7 +67,7 @@ end
 
 function _run_provenance(dir::AbstractString)
     return (
-        config=_maybe_parse_toml(joinpath(dir, "config.resolved.toml")),
+        config=_maybe_parse_toml(joinpath(dir, resolved_config_filename())),
         manifest=_maybe_parse_toml(joinpath(dir, "manifest.toml")),
     )
 end

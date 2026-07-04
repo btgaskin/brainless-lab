@@ -162,7 +162,7 @@ function _avalanches_level_summary(counts::AbstractMatrix{<:Real}, per_agent)
 end
 
 """
-    avalanches(sim; threshold=nothing, level=:pooled)
+    avalanches(sim; threshold=nothing, level=:pooled, turn_threshold=DEFAULT_TURN_THRESHOLD)
 
 Compute EXPERIMENTAL neuronal-avalanche size and duration statistics from a
 recorded rollout.
@@ -172,7 +172,9 @@ count per tick from `:spikes`; if `:spikes` is absent, `:rate` is multiplied by
 the configured node count as a rate*N fallback. `level=:node` computes
 avalanches inside each agent's node population and returns per-agent
 distributions plus mean/std summaries. `level=:agent` treats each agent's
-population rate as one ensemble unit.
+turn event as one ensemble count, where a turn event is a recorded heading
+change with absolute size greater than `turn_threshold` (default `pi/12`
+radians).
 
 An avalanche is a maximal run of ticks with `A(t) > threshold`, bounded by
 sub-threshold ticks. The default threshold is the median nonzero population
@@ -185,7 +187,7 @@ xmin = the smallest positive observed size/duration. `gamma_fit` is the slope of
 crackling-noise scaling prediction. These fits need long runs and adequate
 avalanche counts; tiny samples return `NaN` exponents.
 """
-function avalanches(sim::SimResult; threshold=nothing, level::Symbol=:pooled)
+function avalanches(sim::SimResult; threshold=nothing, level::Symbol=:pooled, turn_threshold::Real=DEFAULT_TURN_THRESHOLD)
     level = _analysis_level(level, :avalanches)
     if level == :pooled
         return _avalanches_from_activity(_analysis_population_count_series(sim, :avalanches), threshold)
@@ -195,8 +197,8 @@ function avalanches(sim::SimResult; threshold=nothing, level::Symbol=:pooled)
         return _avalanches_level_summary(counts, per_agent)
     end
 
-    rates = _analysis_rate_matrix(sim, :avalanches)
-    activity = _analysis_row_sums(rates)
+    events = _analysis_agent_activity_matrix(sim, :avalanches; turn_threshold=turn_threshold)
+    activity = _analysis_row_sums(events)
     res = _avalanches_from_activity(activity, threshold)
-    return (; level=:agent, res..., activity=activity, n_agents=size(rates, 2))
+    return (; level=:agent, res..., activity=activity, agent_events=events, n_agents=size(events, 2), turn_threshold=Float64(turn_threshold))
 end

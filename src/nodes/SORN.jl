@@ -1,5 +1,75 @@
 using Random
 
+Base.@kwdef struct SORNParams <: NodeModel
+    inhibitory_fraction::Float64 = 0.2
+    p_ee::Float64 = 0.1
+    p_ei::Float64 = 0.2
+    p_ie::Float64 = 0.2
+    p_input::Float64 = 0.2
+    p_output::Float64 = 0.1
+    ee_row_sum::Float64 = 1.0
+    ei_row_sum::Float64 = 1.0
+    ie_row_sum::Float64 = 1.0
+    input_row_sum::Float64 = 1.0
+    T_E_max::Float64 = 0.5
+    T_I_max::Float64 = 1.0
+    eta_stdp::Float64 = 0.004
+    eta_ip::Float64 = 0.001
+    H_ip::Float64 = 0.1
+end
+
+const SORN_PARAM_DIM = 15
+
+paramdim(::Type{SORNParams}) = SORN_PARAM_DIM
+paramdim(::SORNParams) = SORN_PARAM_DIM
+
+function unpack_params(::Type{SORNParams}, raw::AbstractVector{<:Real})::SORNParams
+    length(raw) == SORN_PARAM_DIM ||
+        throw(DimensionMismatch("SORNParams expects $SORN_PARAM_DIM raw parameters, got $(length(raw))"))
+    return SORNParams(
+        inhibitory_fraction=_sigmoid_clipped(raw[1]),
+        p_ee=_sigmoid_clipped(raw[2]),
+        p_ei=_sigmoid_clipped(raw[3]),
+        p_ie=_sigmoid_clipped(raw[4]),
+        p_input=_sigmoid_clipped(raw[5]),
+        p_output=_sigmoid_clipped(raw[6]),
+        ee_row_sum=softplus(Float64(raw[7])),
+        ei_row_sum=softplus(Float64(raw[8])),
+        ie_row_sum=softplus(Float64(raw[9])),
+        input_row_sum=softplus(Float64(raw[10])),
+        T_E_max=softplus(Float64(raw[11])),
+        T_I_max=softplus(Float64(raw[12])),
+        eta_stdp=softplus(Float64(raw[13])),
+        eta_ip=softplus(Float64(raw[14])),
+        H_ip=_sigmoid_clipped(raw[15]),
+    )
+end
+
+function pack_params(p::SORNParams)
+    return Float64[
+        _inverse_sigmoid(p.inhibitory_fraction),
+        _inverse_sigmoid(p.p_ee),
+        _inverse_sigmoid(p.p_ei),
+        _inverse_sigmoid(p.p_ie),
+        _inverse_sigmoid(p.p_input),
+        _inverse_sigmoid(p.p_output),
+        _inverse_softplus(p.ee_row_sum),
+        _inverse_softplus(p.ei_row_sum),
+        _inverse_softplus(p.ie_row_sum),
+        _inverse_softplus(p.input_row_sum),
+        _inverse_softplus(p.T_E_max),
+        _inverse_softplus(p.T_I_max),
+        _inverse_softplus(p.eta_stdp),
+        _inverse_softplus(p.eta_ip),
+        _inverse_sigmoid(p.H_ip),
+    ]
+end
+
+pack_params(::Type{SORNParams}) = pack_params(SORNParams())
+
+_as_sorn_params(p::SORNParams) = p
+_as_sorn_params(raw::AbstractVector{<:Real}) = unpack_params(SORNParams, raw)
+
 """
     SORNReservoir(n_nodes, n_receptors, n_effectors; seed=0, kwargs...)
 
@@ -173,6 +243,7 @@ function SORNReservoir(
     eta_ip::Real=0.001,
     H_ip::Real=0.1,
     learn_on::Bool=true,
+    kwargs...,
 )
     N_E = Int(n_nodes)
     n_receptors_i = Int(n_receptors_)

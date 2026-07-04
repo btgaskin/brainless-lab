@@ -1,7 +1,11 @@
 import Dates
 import TOML
 
+const MANIFEST_VERSION = "brainlesslab-v1"
+const RESOLVED_CONFIG_FILENAME = "config.resolved.toml"
+
 _repo_root() = abspath(joinpath(@__DIR__, "..", ".."))
+resolved_config_filename() = RESOLVED_CONFIG_FILENAME
 
 function _utc_timestamp()
     return Dates.format(Dates.now(Dates.UTC), "yyyy-mm-ddTHH:MM:SS.sss") * "Z"
@@ -139,26 +143,31 @@ function _manifest_config(cfg::RunConfig)
     )
 end
 
-function capture_manifest(cfg::RunConfig; seeds=nothing)
-    resolved = resolve(cfg)
-    repo = _repo_root()
-    sha = _git_sha(repo)
-    seed_info = seeds === nothing ? _seed_scheme(resolved) : seeds
-    manifest_sha = _manifest_toml_fnv1a()
-
+function _manifest_header(tool; timestamp_utc=_utc_timestamp(), repo::AbstractString=_repo_root())
     return Dict{String,Any}(
-        "manifest_version" => "1",
-        "timestamp_utc" => _utc_timestamp(),
+        "manifest_version" => MANIFEST_VERSION,
+        "tool" => string(Symbol(tool)),
+        "timestamp_utc" => timestamp_utc,
         "repo_path" => repo,
-        "git_sha" => sha,
+        "git_sha" => _git_sha(repo),
         "git_dirty" => _git_dirty(repo),
-        "manifest_sha" => manifest_sha,
-        "manifest_toml_fnv1a" => manifest_sha,
         "julia_version" => string(VERSION),
         "hostname" => _hostname(),
         "threads" => Threads.nthreads(),
         "packages" => _direct_package_versions(),
-        "seeds" => seed_info,
-        "config" => _manifest_config(resolved),
     )
+end
+
+function capture_manifest(cfg::RunConfig; seeds=nothing, tool=:run)
+    resolved = resolve(cfg)
+    repo = _repo_root()
+    seed_info = seeds === nothing ? _seed_scheme(resolved) : seeds
+    manifest_sha = _manifest_toml_fnv1a()
+
+    manifest = _manifest_header(tool; repo=repo)
+    manifest["manifest_sha"] = manifest_sha
+    manifest["manifest_toml_fnv1a"] = manifest_sha
+    manifest["seeds"] = seed_info
+    manifest["config"] = _manifest_config(resolved)
+    return manifest
 end

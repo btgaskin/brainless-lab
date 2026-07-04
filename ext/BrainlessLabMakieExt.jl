@@ -831,6 +831,31 @@ function _sweep_row_float(row, key::AbstractString)
     end
 end
 
+function _sweep_plot_finite!(ax, xs, ys; color, linewidth, linestyle=nothing, label, markersize)
+    idx = findall(isfinite, ys)
+    isempty(idx) && return false
+    line_kwargs = linestyle === nothing ? (; color, linewidth, label) : (; color, linewidth, linestyle, label)
+    Makie.lines!(ax, xs[idx], ys[idx]; line_kwargs...)
+    Makie.scatter!(ax, xs[idx], ys[idx]; color=color, markersize=markersize)
+    return true
+end
+
+function _sweep_no_metric_text!(ax, selected)
+    errors = count(row -> !isempty(string(get(row, "error", ""))) || _sweep_row_float(row, "errors") > 0, selected)
+    msg = errors > 0 ? "No finite metrics to plot; $errors row(s) recorded errors." : "No finite metrics to plot."
+    Makie.text!(
+        ax,
+        0.5,
+        0.5;
+        text=msg,
+        space=:relative,
+        align=(:center, :center),
+        color=_INKSOFT,
+        fontsize=14,
+    )
+    return nothing
+end
+
 function BL._save_sweep_axis_figure(path::AbstractString, rows, axis)
     selected = [row for row in rows if string(get(row, "axis", "")) == string(axis)]
     isempty(selected) && return BL._write_axis_figure_placeholder(path, rows, axis)
@@ -848,23 +873,17 @@ function BL._save_sweep_axis_figure(path::AbstractString, rows, axis)
     sigma = [_sweep_row_float(row, "sigma_mr_mean") for row in selected]
     rho = [_sweep_row_float(row, "spectral_radius_mean") for row in selected]
 
-    Makie.lines!(ax_score, xs, scores; color=_TEAL, linewidth=2.4, label="score")
-    Makie.scatter!(ax_score, xs, scores; color=_TEAL, markersize=9)
-    Makie.lines!(ax_score, xs, liveness; color=_AMBER, linewidth=2.0, linestyle=:dash, label="liveness")
-    Makie.scatter!(ax_score, xs, liveness; color=_AMBER, markersize=8)
+    has_score =
+        _sweep_plot_finite!(ax_score, xs, scores; color=_TEAL, linewidth=2.4, label="score", markersize=9) |
+        _sweep_plot_finite!(ax_score, xs, liveness; color=_AMBER, linewidth=2.0, linestyle=:dash, label="liveness", markersize=8)
     ax_score.xticks = (xs, labels)
-    Makie.axislegend(ax_score; position=:rb, framevisible=false)
+    has_score ? Makie.axislegend(ax_score; position=:rb, framevisible=false) : _sweep_no_metric_text!(ax_score, selected)
 
-    if any(isfinite, sigma)
-        Makie.lines!(ax_mech, xs, sigma; color=_TEAL, linewidth=2.2, label="sigma_mr")
-        Makie.scatter!(ax_mech, xs, sigma; color=_TEAL, markersize=8)
-    end
-    if any(isfinite, rho)
-        Makie.lines!(ax_mech, xs, rho; color=_INKSOFT, linewidth=2.2, linestyle=:dash, label="rho(W)")
-        Makie.scatter!(ax_mech, xs, rho; color=_INKSOFT, markersize=8)
-    end
+    has_mech =
+        _sweep_plot_finite!(ax_mech, xs, sigma; color=_TEAL, linewidth=2.2, label="sigma_mr", markersize=8) |
+        _sweep_plot_finite!(ax_mech, xs, rho; color=_INKSOFT, linewidth=2.2, linestyle=:dash, label="rho(W)", markersize=8)
     ax_mech.xticks = (xs, labels)
-    Makie.axislegend(ax_mech; position=:rb, framevisible=false)
+    has_mech ? Makie.axislegend(ax_mech; position=:rb, framevisible=false) : _sweep_no_metric_text!(ax_mech, selected)
 
     Makie.Label(
         fig[3, 1],

@@ -434,7 +434,6 @@ end
 
 function _resolve_collisions!(m::AbstractTorusEnvironment, bodies::Vector{VENBody})
     m.physical_coupling || return nothing
-    m.config.conspecific_vision || return nothing
 
     radius = Float64(m.config.ven.agent_radius)
     min_d = 2.0 * radius

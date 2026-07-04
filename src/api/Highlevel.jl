@@ -147,12 +147,6 @@ _ablation_symbol(name::AbstractString) = Symbol(name)
 _ablation_symbol(::Type{T}) where {T<:Intervention} = Symbol(nameof(T))
 _ablation_symbol(i::Intervention) = Symbol(nameof(typeof(i)))
 
-function _ablation_instance(ablation)
-    sym = _ablation_symbol(ablation)
-    sym === :none && return nothing
-    return _compartmental_intervention(resolve_ablation(sym))
-end
-
 function _is_swarm_task(task::Symbol, n_agents)
     return task in (:torus, :swarm, :forage) || n_agents !== nothing
 end
@@ -247,7 +241,14 @@ function _falandays_native(n_nodes::Integer, n_receptors_::Integer, n_effectors_
 end
 
 function _sorn_native(n_nodes::Integer, n_receptors_::Integer, n_effectors_::Integer; seed=nothing, kwargs...)
-    return SORNReservoir(Int(n_nodes), Int(n_receptors_), Int(n_effectors_); seed=seed, kwargs...)
+    options = _kwdict(kwargs)
+    if haskey(options, :params)
+        params = _as_sorn_params(pop!(options, :params))
+        for name in fieldnames(SORNParams)
+            haskey(options, name) || (options[name] = getfield(params, name))
+        end
+    end
+    return SORNReservoir(Int(n_nodes), Int(n_receptors_), Int(n_effectors_); seed=seed, _kwargs_tuple(options)...)
 end
 
 function _falandays_oosawa_native(
@@ -293,12 +294,6 @@ function _falandays_noisy_native(
 )
     inner = _falandays_native(n_nodes, n_receptors_, n_effectors_; seed=seed, kwargs...)
     return NoisyInput(inner; sensory_noise=Float64(sensory_noise), seed=(seed === nothing ? 0 : Int(seed)))
-end
-
-# Copy a FalandaysParams with the target learning rate overridden.
-function _with_lrate_targ(p::FalandaysParams, value::Real)
-    fields = (; (f => getfield(p, f) for f in fieldnames(FalandaysParams))...)
-    return FalandaysParams(; fields..., lrate_targ=Float64(value))
 end
 
 function _falandays_hemispheric_native(
@@ -363,9 +358,10 @@ function _falandays_hemispheric_native(
     )
 end
 
-# `:falandays_ablated` -- target homeostasis ablated: lrate_targ=0 pins every
-# node's target at its init (1.0), so the firing threshold stays fixed at 2.0;
-# recurrent weights still learn. Tests the homeostatic-target mechanism.
+# `:falandays_ablated` is the packaged node preset for the canonical
+# `clamp_target` intervention: lrate_targ=0 pins every node's target at its
+# init (1.0), so the firing threshold stays fixed at 2.0; recurrent weights
+# still learn.
 function _falandays_ablated_native(
     n_nodes::Integer,
     n_receptors_::Integer,
@@ -374,10 +370,9 @@ function _falandays_ablated_native(
     kwargs...,
 )
     options = _kwdict(kwargs)
-    base_params = _as_falandays_params(pop!(options, :params, FalandaysParams()))
-    pinned = _with_lrate_targ(base_params, 0.0)
-    return _falandays_native(n_nodes, n_receptors_, n_effectors_;
-                             seed=seed, params=pinned, _kwargs_tuple(options)...)
+    reservoir = _falandays_native(n_nodes, n_receptors_, n_effectors_;
+                                  seed=seed, _kwargs_tuple(options)...)
+    return apply!(ClampTarget(), reservoir)
 end
 
 function _native_compartmental_wiring(
@@ -563,7 +558,7 @@ function _resolve_task_body(body)
     throw(ArgumentError("task body must be a Body instance, registered body symbol, or zero-argument Body constructor"))
 end
 
-function _make_task_collective(
+function _make_task_ensemble(
     task_spec::TaskSpec,
     node::Symbol,
     node_ctor;
@@ -592,11 +587,11 @@ function _make_task_collective(
     )
     agent = _make_agent(reservoir, _resolve_task_body(body), morphology)
     recorder = Recorder(enabled=record, every=every)
-    collective = Ensemble([agent], TaskEnvironment(env); recorder=recorder)
-    return collective, recorder
+    ensemble = Ensemble([agent], TaskEnvironment(env); recorder=recorder)
+    return ensemble, recorder
 end
 
-function _make_swarm_collective(
+function _make_swarm_ensemble(
     node::Symbol,
     node_ctor;
     seed=0,
@@ -636,8 +631,8 @@ function _make_swarm_collective(
     end
 
     recorder = Recorder(enabled=record, every=every)
-    collective = Ensemble(agents, environment; recorder=recorder)
-    return collective, recorder
+    ensemble = Ensemble(agents, environment; recorder=recorder)
+    return ensemble, recorder
 end
 
 _environment_size(::TaskWorld) = nothing
@@ -758,7 +753,7 @@ function _simulation_config(
     )
 end
 
-function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, record=_DEFAULT_RECORD_CHANNELS, every::Integer=1, kwargs...)
+function _build_ensemble(task::Symbol, node::Symbol; ticks=nothing, seed=0, record=_DEFAULT_RECORD_CHANNELS, every::Integer=1, kwargs...)
     options = _kwdict(kwargs)
     record_channels = _record_symbols(record)
 
@@ -794,7 +789,7 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
     if is_swarm
         n_agents_ = n_agents === nothing ? 8 : Int(n_agents)
         forage = task == :forage
-        collective, recorder = _make_swarm_collective(
+        ensemble, recorder = _make_swarm_ensemble(
             node,
             node_ctor;
             seed=seed,
@@ -812,7 +807,7 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
         window = window_arg === nothing ? tick_count : Int(window_arg)
         result_task = forage ? :forage : :torus
         return (
-            collective=collective,
+            ensemble=ensemble,
             recorder=recorder,
             task=result_task,
             node=node,
@@ -830,7 +825,7 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
     task_spec = resolve_task(task)
     task_spec isa TaskSpec ||
         throw(ArgumentError("Registered task :$(task) is not a TaskSpec and is not handled by simulate."))
-    collective, recorder = _make_task_collective(
+    ensemble, recorder = _make_task_ensemble(
         task_spec,
         node,
         node_ctor;
@@ -847,7 +842,7 @@ function _build_collective(task::Symbol, node::Symbol; ticks=nothing, seed=0, re
     window = window_arg === nothing ? min(tick_count, task_spec.default_window) : Int(window_arg)
 
     return (
-        collective=collective,
+        ensemble=ensemble,
         recorder=recorder,
         task=task_spec.name,
         node=node,
@@ -870,10 +865,10 @@ or run a swarm with `simulate(:torus; node=:falandays, n_agents=5)`.
 """
 function simulate(task::Symbol; node=:falandays, ticks=nothing, seed=0, record=_DEFAULT_RECORD_CHANNELS, every::Integer=1, metrics=nothing, kwargs...)
     node_sym = Symbol(node)
-    setup = _build_collective(task, node_sym; ticks=ticks, seed=seed, record=record, every=every, kwargs...)
-    result_metrics = rollout!(setup.collective, setup.ticks; window=setup.window, metrics=metrics)
+    setup = _build_ensemble(task, node_sym; ticks=ticks, seed=seed, record=record, every=every, kwargs...)
+    result_metrics = rollout!(setup.ensemble, setup.ticks; window=setup.window, metrics=metrics)
     config = _simulation_config(
-        setup.collective;
+        setup.ensemble;
         ticks=setup.ticks,
         seed=setup.seed,
         record=setup.record,

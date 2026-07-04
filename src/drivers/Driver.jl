@@ -46,6 +46,16 @@ function _node_kwargs_for_model(model_sym::Symbol, model; learn_on=nothing)
         return options
     end
 
+    if genome_T === SORNParams
+        params =
+            model isa SORNParams ? model :
+            model isa AbstractVector{<:Real} ? unpack_params(SORNParams, model) :
+            throw(ArgumentError("SORN rollout model must be SORNParams or a raw parameter vector"))
+        options[:params] = params
+        learn_on === nothing || (options[:learn_on] = Bool(learn_on))
+        return options
+    end
+
     if genome_T <: AbstractCompartmental
         model isa AbstractCompartmental || model isa AbstractVector{<:Real} ||
             throw(ArgumentError("compartmental rollout model must be an AbstractCompartmental genome or raw parameter vector"))
@@ -79,7 +89,7 @@ end
 """
     rollout(task, model, seed; ticks, N, model_sym=:falandays, kwargs...)
 
-Build a deterministic single-agent task collective, stamp `model` into the
+Build a deterministic single-agent task ensemble, stamp `model` into the
 reservoir, run it, and return task score, normalized score, and liveness
 diagnostics.
 """
@@ -98,7 +108,7 @@ function rollout(
     every::Integer=1,
     metrics=nothing,
     learn_on=nothing,
-    return_collective::Bool=false,
+    return_ensemble::Bool=false,
     body=:passthrough,
     node_kwargs=NamedTuple(),
     env_kwargs=NamedTuple(),
@@ -130,7 +140,7 @@ function rollout(
         env_options[:lam] = Float64(lam)
     end
 
-    collective, _ = _make_task_collective(
+    ensemble, _ = _make_task_ensemble(
         task_spec,
         node_sym,
         node_ctor;
@@ -143,7 +153,7 @@ function rollout(
         body=body,
     )
 
-    metrics_nt = rollout!(collective, tick_count; window=win, metrics=metrics)
+    metrics_nt = rollout!(ensemble, tick_count; window=win, metrics=metrics)
     raw_score = _metric_value(metrics_nt, task_spec.score_key)
     norm = normalized_score(task_spec, raw_score)
 
@@ -162,5 +172,5 @@ function rollout(
         metrics=metrics_nt,
     )
 
-    return return_collective ? (result..., collective=collective) : result
+    return return_ensemble ? (result..., ensemble=ensemble) : result
 end

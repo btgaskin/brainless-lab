@@ -7,6 +7,12 @@ end
 
 @testset "SORN reservoir" begin
     @test :sorn in variants()
+    @test genome_type(:sorn) === SORNParams
+    @test paramdim(SORNParams) == length(pack_params(SORNParams()))
+
+    raw = pack_params(SORNParams())
+    params = unpack_params(SORNParams, raw)
+    @test pack_params(params) ≈ raw
 
     sim = simulate(:wall; node=:sorn, ticks=200, seed=0)
     rates = _single_agent_rates(sim)
