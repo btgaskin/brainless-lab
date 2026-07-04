@@ -46,25 +46,47 @@ export default defineConfig({
         github: 'https://github.com/btgaskin/brainless-lab',
       },
       sidebar: [
-        { label: 'Introduction', slug: 'introduction' },
-        { label: 'Concepts', slug: 'concepts' },
         {
-          label: 'Nodes',
+          label: 'Start here',
           items: [
-            { label: 'Overview', slug: 'nodes/overview' },
-            { label: 'Falandays', slug: 'nodes/falandays' },
-            { label: 'Neurons', slug: 'nodes/neurons' },
+            { label: 'Introduction', slug: 'introduction' },
+            { label: 'Concepts', slug: 'concepts' },
           ],
         },
-        { label: 'Environments & Tasks', slug: 'environments-tasks' },
-        { label: 'Scoring', slug: 'scoring' },
-        { label: 'The collective', slug: 'collective' },
-        { label: 'Receptors & Effectors', slug: 'receptors-effectors' },
-        { label: 'Analysis', slug: 'analysis' },
-        { label: 'Evolution', slug: 'evolution' },
-        { label: 'Tooling', slug: 'tooling' },
-        { label: 'Extending it', slug: 'extending' },
-        { label: 'Contracts', slug: 'contracts' },
+        {
+          label: 'The model',
+          items: [
+            {
+              label: 'Nodes',
+              items: [
+                { label: 'Overview', slug: 'nodes/overview' },
+                { label: 'Falandays', slug: 'nodes/falandays' },
+                { label: 'Neurons', slug: 'nodes/neurons' },
+              ],
+            },
+            { label: 'Environments & Tasks', slug: 'environments-tasks' },
+            { label: 'Receptors & Effectors', slug: 'receptors-effectors' },
+            { label: 'The collective', slug: 'collective' },
+          ],
+        },
+        {
+          label: 'Running experiments',
+          items: [
+            { label: 'Tooling', slug: 'tooling' },
+            { label: 'Evolution', slug: 'evolution' },
+            { label: 'Analysis', slug: 'analysis' },
+            { label: 'Scoring', slug: 'scoring' },
+            { label: 'Outputs', slug: 'outputs/overview' },
+          ],
+        },
+        {
+          label: 'Extending & reference',
+          items: [
+            { label: 'Extending it', slug: 'extending' },
+            { label: 'Contracts', slug: 'contracts' },
+            { label: 'Reference', slug: 'reference' },
+          ],
+        },
         {
           label: 'Papers',
           items: [
@@ -72,11 +94,6 @@ export default defineConfig({
             { label: 'Information flow near criticality (Meijers 2021)', slug: 'notes/information-flow-near-criticality' },
             { label: 'Cognition as search efficiency (Chis-Ciure & Levin 2025)', slug: 'notes/cognition-all-the-way-down' },
           ],
-        },
-        { label: 'Reference', slug: 'reference' },
-        {
-          label: 'Outputs',
-          items: [{ label: 'Overview', slug: 'outputs/overview' }],
         },
       ],
     }),
