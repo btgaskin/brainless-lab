@@ -53,3 +53,38 @@ simulate(:forage; node=:falandays_base, n_agents=12, conspecific_vision=false)  
 ```
 
 <p class="bl-source">Source: <code>src/world/Environments.jl</code> (<code>ForageEnvironment</code>), <code>src/world/Metrics.jl</code> (foraging metrics).</p>
+
+## Acoustic signalling
+
+Foraging agents can optionally **call** to one another. Set `signalling=true` and each
+`VENBody` grows a fourth effector, `:signal` — a continuous emission intensity in $[0,1]$
+that does *not* move the agent — plus one scalar `:acoustic` receptor. The receptor reuses a
+reserved input slot, so the count stays **128**; the reservoir is simply built `(128, 4)`
+instead of `(128, 3)`.
+
+Hearing is **loudness only, with no direction** — an agent can tell *how much* calling is
+happening nearby but not *where* it comes from. Agent *i* reads:
+
+```
+heard_i = signal_gain · clamp( Σ_{j ≠ i} emit_j · exp(−d_ij / signal_range),  0, 1 )
+```
+
+- **Self-excluded** (`j ≠ i`) — an agent never hears its own call.
+- **Distance fall-off** — `exp(−d/signal_range)` over torus distance; `signal_range` is the
+  e-folding distance.
+- **Saturates** — the `clamp(·, 0, 1)` ceiling equals *one caller right next to you*, so a
+  dense cluster can't read louder than a single adjacent shout. With `signal_gain=1` the
+  receptor sits on the same $[0,1]$ scale as vision.
+- **One-tick delay** — emissions made on tick *t* are heard on *t+1* (the `observe → actuate`
+  order), a small acoustic propagation lag.
+
+```julia
+simulate(:forage; node=:falandays_base, n_agents=12,
+         signalling=true, signal_range=3.0, signal_gain=1.0,
+         record=[:effectors])   # emission is effector channel 4
+```
+
+With `signalling=false` (the default) the task is byte-for-byte the base forage experiment,
+and non-forage swarms are unaffected.
+
+<p class="bl-source">Source: <code>src/world/Environments.jl</code> (<code>ForageEnvironment</code> hearing), <code>src/world/Morphology.jl</code> / <code>src/world/Body.jl</code> (the <code>:signal</code> effector and <code>:acoustic</code> receptor).</p>
