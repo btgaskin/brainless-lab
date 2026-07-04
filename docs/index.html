@@ -701,9 +701,9 @@
       <section id="what-it-is">
         <h2>What it is</h2>
         <p>BrainlessLab.jl is a summer-institute testbed: a clean framework for running experiments around a
-          settled Falandays baseline. Everything &mdash; the neuron model filling a reservoir, the body that
-          turns world state into sensory current and motor output back into action, the task/environment, the
-          swarm medium, the optimizer &mdash; is <strong>registry-backed</strong>. You pick parts by symbol
+          settled Falandays baseline. Everything &mdash; the node model filling a reservoir, the body that
+          turns world state into sensory current and motor output back into action, the environment (a task
+          world or a swarm world), the optimizer &mdash; is <strong>registry-backed</strong>. You pick parts by symbol
           (<code>node=:falandays_base</code>, <code>task=:wall</code>) and the framework assembles them to a
           matching sensorimotor contract.</p>
         <p>Validation means <strong>bit-fidelity</strong> to the local numpy reference implementations
@@ -724,8 +724,8 @@
             <span class="chip">NodeModel</span>
             <span class="to">&rarr;</span>
             <span class="chip unit">Reservoir</span>
-            <span class="cap">a neuron model fills a reservoir &mdash; internally
-              <code>Model &otimes; Connectome &otimes; ConnState &otimes; State</code></span>
+            <span class="cap">a node model fills a reservoir &mdash; internally
+              <code>NodeModel &otimes; Connectome &otimes; ConnState &otimes; NodeState</code></span>
           </div>
           <div class="arow">
             <span class="chip unit">Reservoir</span>
@@ -740,25 +740,22 @@
             <span class="chip">N&nbsp;&times;</span>
             <span class="chip unit">Agent</span>
             <span class="plus">+</span>
-            <span class="chip">Medium</span>
+            <span class="chip">Environment</span>
             <span class="to">&rarr;</span>
-            <span class="chip unit">Collective{Medium}</span>
-            <span class="cap">a population in a world &mdash; the body&nbsp;+&nbsp;medium decide the setup:
+            <span class="chip unit">Collective</span>
+            <span class="cap">a population in a world &mdash; the body&nbsp;+&nbsp;environment decide the setup:
               <b>agent&ndash;environment</b> (1 agent) or <b>multi-agent</b> (N); one <code>step!</code>
               drives them all</span>
           </div>
-          <div class="arow">
-            <span class="chip unit">Collective</span>
-            <span class="plus">+</span>
-            <span class="chip">Task</span>
-            <span class="plus">+</span>
-            <span class="chip">Driver</span>
-            <span class="to">&rarr;</span>
-            <span class="chip unit">Run</span>
-            <span class="cap">a task scores it; a driver (<code>fixed</code> / <code>evolve</code> /
-              <code>plastic</code>) rolls it out into a recorded run</span>
-          </div>
         </div>
+
+        <p>The <strong>task</strong> you choose is what fixes the environment and the
+          <code>(n_receptors, n_effectors)</code> the whole stack is built to &mdash; it shapes the assembly
+          <em>and</em> supplies the score. Then you <strong>run it</strong>: that&rsquo;s a separate axis.
+          A <code>Collective</code> is executed by <code>simulate</code> (one rollout &rarr; a
+          <code>SimResult</code>) or by a <strong>Runner</strong> &mdash; <code>FixedRunner</code> (baseline
+          evaluation), <code>PlasticRunner</code> (an online-learning run), or <code>EvolveRunner</code> (an
+          evolutionary search over many rollouts) &mdash; producing a recorded <strong>Run</strong>.</p>
 
         <p class="figcap">Every box is a <b>registry-backed</b> part: pick it by symbol
           (<code>node=:falandays_base</code>, <code>task=:wall</code>) or register your own, and the framework
@@ -795,15 +792,15 @@
             <span class="key"><span class="sw mut"></span> mutable &mdash; changes every tick</span>
           </div>
           <div class="frame">
-            <span class="tag">ReservoirInstance{ Model, Connectome, ConnState, State }</span>
+            <span class="tag">ReservoirInstance{ NodeModel, Connectome, ConnState, NodeState }</span>
             <div class="parts">
-              <div class="part imm"><div class="nm">Model</div><div class="hd">the neuron dynamics &amp; params
+              <div class="part imm"><div class="nm">NodeModel</div><div class="hd">the node dynamics &amp; params
                 &mdash; leak, thresholds, drive, learning rule</div></div>
               <div class="part imm"><div class="nm">Connectome</div><div class="hd">the wiring structure &mdash;
                 who connects to whom (mask, node positions, delays)</div></div>
               <div class="part mut"><div class="nm">ConnState</div><div class="hd">live connection state &mdash;
                 the learned weight matrix, the spike-history buffer</div></div>
-              <div class="part mut"><div class="nm">State</div><div class="hd">live neuron state &mdash;
+              <div class="part mut"><div class="nm">NodeState</div><div class="hd">live node state &mdash;
                 membrane activations, targets, spikes, errors</div></div>
             </div>
           </div>
@@ -813,7 +810,15 @@
         </div>
 
         <p>In code this is literally the type parameter list:</p>
-        <pre><code>ReservoirInstance{Model, Connectome, ConnState, State}</code></pre>
+        <pre><code>ReservoirInstance{NodeModel, Connectome, ConnState, NodeState}</code></pre>
+
+        <div class="callout">
+          <p>The name is a nod, not a claim: these are recurrent spiking node-networks in the
+            <strong>reservoir-computing spirit</strong> &mdash; a recurrent pool read out by simple effectors
+            &mdash; but <strong>not</strong> classical reservoir computing. The Falandays pool
+            <strong>learns its weights online</strong>, and the compartmental pool&rsquo;s weights are
+            <strong>evolved</strong>, rather than being random and fixed.</p>
+        </div>
 
         <p>Both node families in the package share this exact shape. The Falandays family instantiates it as
           <code>FalandaysModel</code> &otimes; a connectome (<code>DenseConnectome</code>,
@@ -1043,15 +1048,15 @@
         <p>All three share the same <code>FalandaysModel</code> dynamics and simply supply a different
           <code>Connectome</code> &mdash; the <code>spatiality</code>/<code>delaykind</code> traits let the
           shared <code>step!</code>/<code>learn_connectome!</code> machinery dispatch to the right
-          recurrent-input and learning rule without duplicating the neuron model.</p>
+          recurrent-input and learning rule without duplicating the node model.</p>
       </section>
 
       <section id="collective">
         <h2>Two setups: agent&ndash;environment &amp; multi-agent</h2>
         <p>There are <strong>two</strong> ways a reservoir meets a world, and the framework supports both from
           the same parts. Each is a <code>Collective{Medium}</code> of <code>Agent{Reservoir, Body}</code>
-          &mdash; what differs is the <strong>body</strong> and the <strong>medium</strong> you assemble it
-          with:</p>
+          &mdash; what differs is the <strong>body</strong> and the <strong>environment</strong> (its
+          <code>Medium</code>) you assemble it with:</p>
 
         <div class="setups">
           <div class="setup env">
@@ -1060,20 +1065,18 @@
             <dl>
               <dt>agents</dt><dd>1</dd>
               <dt>body</dt><dd>PassthroughBody</dd>
-              <dt>medium</dt><dd>TaskMedium</dd>
-              <dt>world</dt><dd>the task environment</dd>
+              <dt>environment</dt><dd>TaskMedium</dd>
               <dt>tasks</dt><dd>:wall :tracking :pong :cartpole&hellip;</dd>
               <dt>read as</dt><dd>a normalized task score</dd>
             </dl>
           </div>
           <div class="setup multi">
             <div class="st-tag">Multi-agent (collective)</div>
-            <div class="st-sub">N agents coupling through a shared world</div>
+            <div class="st-sub">N agents coupling through a shared 2-D torus</div>
             <dl>
               <dt>agents</dt><dd>N &mdash; dyad = 2, swarm = N</dd>
               <dt>body</dt><dd>VENBody</dd>
-              <dt>medium</dt><dd>TorusMedium</dd>
-              <dt>world</dt><dd>a periodic 2-D torus</dd>
+              <dt>environment</dt><dd>TorusMedium</dd>
               <dt>tasks</dt><dd>:torus</dd>
               <dt>read as</dt><dd>swarm metrics</dd>
             </dl>
@@ -1081,7 +1084,7 @@
         </div>
         <p class="setups-join">Both run through one identical tick &mdash;
           <code>observe &rarr; step! &rarr; actuate &rarr; commit</code>. A single-agent task is simply a
-          <code>Collective</code> of one; you assemble either setup by choosing the body&nbsp;+&nbsp;medium
+          <code>Collective</code> of one; you assemble either setup by choosing the body&nbsp;+&nbsp;environment
           pair.</p>
 
         <pre><code><span class="c"># single agent</span>
@@ -1198,7 +1201,7 @@ julia --project=. run.jl pong --node falandays_oosawa --save
 julia --project=. run.jl torus --n-agents 6 --save     <span class="c"># multi-agent swarm</span></code></pre>
 
         <h3>Statistical benchmark</h3>
-        <p><code>bench/</code> is a self-contained sibling project for comparing registered neuron variants
+        <p><code>bench/</code> is a self-contained sibling project for comparing registered node variants
           across registered tasks: auto-prep by plasticity (Falandays untrained, compartmental trained from a
           stored genome), best/representative/worst behaviour GIFs, nonparametric statistics with power
           analysis, and a structured, provenance-tracked output directory.</p>
