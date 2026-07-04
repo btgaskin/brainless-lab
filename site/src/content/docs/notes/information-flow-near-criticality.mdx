@@ -1,0 +1,52 @@
+---
+title: Information flow near criticality
+description: Meijers, Ito & ten Wolde (2021) — a summary of why the optimal information transmission rate sits near, but not at, the critical point, with an optimal input timescale.
+---
+
+:::note[Research summary]
+One paper, summarised for reference. *Behavior of information flow near criticality* — Matthijs Meijers,
+Sosuke Ito & Pieter Rein ten Wolde, *Phys. Rev. E* (2021) **103**, L010102.
+[doi:10.1103/PhysRevE.103.L010102](https://doi.org/10.1103/PhysRevE.103.L010102).
+:::
+
+## The setup
+
+A 2D Ising system is driven by a **time-varying input** — an input spin flipped by a random telegraph
+process with correlation time $\tau_s$ — and an output spin is read a distance $d$ away. This adds
+what the static critical-flock picture lacks: a controllable *input timescale* and a clean separation
+of two information measures.
+
+## Two information measures
+
+$$
+I_{\text{inst}}(S;X) = H(S) - H(S\mid X), \qquad
+I_R = \lim_{L\to\infty}\frac{I(S^L; X^L)}{L}.
+$$
+
+- **Instantaneous mutual information** $I_{\text{inst}}$ — the *accuracy* of the input→output map.
+- **Information transmission rate** $I_R$ — accuracy *and speed*, folding in trajectory
+  autocorrelation; with no output→input feedback it equals the **multi-step transfer entropy**.
+
+They behave differently: $I_{\text{inst}}$ rises monotonically with $\tau_s$ to a plateau, whereas
+$I_R$ has an **optimal finite $\tau_s$** — a trade-off between sending independent messages often,
+responding fast, and responding reliably.
+
+## The sharp results
+
+- The transmission-rate optimum is **near but not *at*** criticality — on the *disordered* side (above
+  $T_c$), because the response time diverges as the critical point is approached.
+- The optimum **moves toward** the critical point as the transmission **distance $d$ grows**.
+- It **moves away** as the **system size grows** at fixed $d$.
+
+The governing trade-off is between the system's **response time** $\tau_r$ (the relaxation time of
+spontaneous fluctuations) and the **input time** $\tau_s$ — a refinement of the "peak at criticality"
+picture into "peak near criticality, set by matched timescales."
+
+---
+
+### References
+
+Meijers, Ito & ten Wolde (2021), *Phys. Rev. E* **103**, L010102 · Schreiber (2000),
+*Phys. Rev. Lett.* **85**, 461 · Barnett et al. (2013), *Phys. Rev. Lett.* **111**, 177203 ·
+Tostevin & ten Wolde (2009), *Phys. Rev. Lett.* **102**, 218101 · Mora & Bialek (2011),
+*J. Stat. Phys.* **144**, 268.

@@ -1,182 +1,60 @@
 ---
-title: Criticality & Information
-description: A design note on why collective computation is expected to peak near a critical point — the cue→signal reading, the two source papers, and how each construct maps onto (or is still a target for) the BrainlessLab measure suite.
+title: Swarm criticality & transmission
+description: Vanni, Lukovic & Grigolini (2011) — a summary of how swarm information transmission is located at a critical point via organizational collapses and flock-scale correlation length.
 ---
 
-:::note[Design note, not a feature list]
-This page records *why* we measure what we measure, and *what we would still build*, for the
-criticality-and-transmission programme. Some measures below already exist in the tree; others
-are **targets** and are marked as such. The transmission *task* it points to does not exist yet
-and is described as a future direction, not a capability. It is a roadmap, kept honest.
+:::note[Research summary]
+One paper, summarised for reference. *Criticality and Transmission of Information in a Swarm of
+Cooperative Units* — Fabio Vanni, Mirko Lukovic & Paolo Grigolini, *Phys. Rev. Lett.* (2011)
+**107**, 078103. [doi:10.1103/PhysRevLett.107.078103](https://doi.org/10.1103/PhysRevLett.107.078103).
 :::
 
-## The principle
+## The claim
 
-Many biological collectives appear to sit close to a **critical point** — the boundary between an
-ordered and a disordered phase — from starling flocks to bacterial biofilms to cortical networks
-(Mora & Bialek 2011; Chialvo 2010). The recurring conjecture is not that criticality *is*
-computation, but that it is the regime in which **information transmission is optimised**: near the
-transition, correlations reach across the whole system, so a perturbation felt by a few units can
-be read out by all of them.
+Swarm "intelligence" — a small informed subset (lookouts) steering the whole flock toward a resource
+or away from a predator — is located at a **critical point**, and emerges from the *joint* action of
+two ingredients.
 
-For BrainlessLab the useful way to say this is in the vocabulary the rest of these docs are built
-on — **cue → signal**. A *cue* is structure an agent reads directly from the world; a *signal* is
-something one agent produces that another acts on. Criticality is the regime in which **a cue held
-by a few becomes a signal the collective acts on**: the lookout that sees the resource, the sentinel
-that sees the predator, the informed minority (Couzin 2007; Buhl et al. 2006). The whole programme
-here is to measure, at two nested scales, whether that cue-to-signal conversion is in fact best
-near the critical point.
+## Ingredient 1 — organizational collapses (temporal complexity)
 
-Two scales, because BrainlessLab contains two nested near-critical systems:
-
-- the **reservoir** — the untrained nodes inside one agent, transducing its percepts;
-- the **ensemble** — the swarm of agents, transducing the environment collectively.
-
-The novel question the two-scale design exists to ask is whether the reservoir's proximity to
-criticality *gates* the agent's contribution to transmission at the swarm scale — a mechanistic
-chain, not a coincidence of two exponents.
-
-## Mechanism I — collapses and correlation length (Vanni, Lukovic & Grigolini 2011)
-
-*[Criticality and Transmission of Information in a Swarm of Cooperative Units](https://doi.org/10.1103/PhysRevLett.107.078103),
-Phys. Rev. Lett. **107**, 078103.*
-
-Vanni et al. locate swarm "intelligence" in the **joint** action of two ingredients.
-
-**Organizational collapses.** The global alignment $\Phi(t)$ intermittently drops below a threshold;
-in that instant birds recover independence and are free to pick a new direction — the window in
-which a small informed subset can steer the whole. The distribution of waiting times between
-consecutive collapses is scale-free at criticality,
+The global alignment order parameter $\Phi(t)$ (the swarm's mean flight direction) intermittently
+drops below a threshold; in that instant the birds recover independence and are free to pick a new
+direction — the window in which a small informed subset can steer the whole. At criticality the
+distribution of waiting times between consecutive collapses is **scale-free**:
 
 $$
 \psi(\tau) \sim \tau^{-\mu}, \qquad \mu \approx 1.35,
 $$
 
-which they call **temporal complexity**. The mean inter-collapse time $\langle\tau\rangle$ stays
-finite for $\mu > 2$ but *diverges* for $\mu < 2$ (the non-ergodic, ideal-complexity condition).
+which they call **temporal complexity**. The mean inter-collapse time $\langle\tau\rangle$ stays finite
+for $\mu > 2$ but *diverges* for $\mu < 2$ (the non-ergodic, ideal-complexity condition). A finite
+swarm truncates the power law exponentially at long times, at a cutoff that grows with size.
 
-**Correlation length as large as the flock.** At criticality the velocity-fluctuation correlation
-length $\xi$ grows with the system size $L$ ($\xi \sim L$), violating locality: the informed
-minority's choice is felt everywhere.
+## Ingredient 2 — correlation length as large as the flock
 
-**Transmission.** A lookout subset carries an environmental message $t(n) \in \{-1,+1\}$; a distant
-unit's time-averaged, binarised signal $r(n)$ is correlated with it,
+At criticality the velocity-fluctuation correlation length $\xi$ grows with the system size $L$
+($\xi \sim L$), violating locality: the informed minority's choice is felt everywhere, and because
+$\langle\tau\rangle \sim L$ too, larger swarms transmit **more slowly**.
+
+## Transmission peaks at criticality
+
+A lookout subset carries an environmental message $t(n) \in \{-1,+1\}$; a distant unit's
+time-averaged, binarised signal $r(n)$ is correlated with it,
 
 $$
 C = \frac{1}{B}\sum_{n=1}^{B} r(n)\,t(n),
 $$
 
-and $C$ **peaks at criticality** (a bell curve in the control parameter). Sub-critical: the swarm
-ignores the lookouts. Super-critical: the swarm is too rigid to re-synchronise. The transmission
-delay is set by $\langle\tau\rangle$, so larger swarms transmit more slowly.
-
-## Mechanism II — the near-but-not-at refinement (Meijers, Ito & ten Wolde 2021)
-
-*[Behavior of information flow near criticality](https://doi.org/10.1103/PhysRevE.103.L010102),
-Phys. Rev. E **103**, L010102.*
-
-Meijers et al. drive a 2D Ising system with a **time-varying input** — an input spin flipped by a
-random telegraph process with correlation time $\tau_s$ — and read an output spin a distance $d$
-away. This adds what Vanni's static picture lacks: a controllable *input timescale*, and a clean
-separation of two information measures.
-
-$$
-I_{\text{inst}}(S;X) = H(S) - H(S\mid X), \qquad
-I_R = \lim_{L\to\infty}\frac{I(S^L; X^L)}{L}.
-$$
-
-**Instantaneous mutual information** $I_{\text{inst}}$ measures the *accuracy* of the input→output
-map. **Information transmission rate** $I_R$ measures accuracy *and speed*, folding in the
-autocorrelation of the trajectories; with no output→input feedback it equals the **multi-step
-transfer entropy**. The two behave differently: $I_{\text{inst}}$ rises monotonically with $\tau_s$
-to a plateau, whereas $I_R$ has an **optimal finite $\tau_s$** — a trade-off between sending
-independent messages often, responding fast, and responding reliably.
-
-The sharp results, all falsifiable predictions for us:
-
-- the optimum is **near but not *at*** criticality — on the *disordered* side (above $T_c$),
-  because response time diverges as the critical point is approached;
-- the optimum **moves toward** the critical point as the transmission **distance $d$ grows**;
-- it **moves away** as the **system size grows** at fixed $d$.
-
-The relevant trade-off variable is the **response time** $\tau_r$ — the relaxation time of
-spontaneous fluctuations — playing against the input time $\tau_s$.
-
-:::tip[The synthesis these two suggest together]
-Vanni fixes the swarm's transmission delay at $\langle\tau\rangle$ (the inter-collapse time);
-Meijers says there is an optimal input timescale $\tau_s^{\text{opt}}$. Put together they predict
-**$\tau_s^{\text{opt}} \approx \langle\tau\rangle$** — the collective transmits best when the world
-changes on the timescale of its own organizational collapses. This is *our* conjecture, not a claim
-from either paper, and it is the kind of thing the two-scale harness is built to test.
-:::
-
-## How the constructs map onto the measure suite
-
-The criticality-*locating* toolkit already exists and is level-aware (`:node` / `:agent`); the
-information-*rate* and *temporal-complexity* pieces are the targets.
-
-| Construct | Realised by | Status |
-| --- | --- | --- |
-| Branching ratio $m$ (subsampling-robust) | `branching_ratio_mr` (`Branching.jl`) | Built |
-| Avalanche exponents $\tau,\alpha,\gamma$ | `avalanches` (`Avalanches.jl`) | Built |
-| Susceptibility $\chi=N\,\mathrm{Var}[\phi]$ | `susceptibility` (`SecondOrder.jl`) | Built |
-| Correlation length $\xi\sim L$ (Cavagna) | `correlation_length` (`SwarmAnalysis.jl`) | Built |
-| Spectral radius $\rho(W)$ | `Spectral.jl` | Built |
-| One-step transfer entropy | `transfer_entropy` family (`TransferEntropy.jl`) | Built (order-1) |
-| **Temporal complexity** $\psi(\tau),\mu,\langle\tau\rangle$ | collapse detector on the polarization series | **Target** |
-| **Response time** $\tau_r$ | order-parameter autocorrelation time | **Target** |
-| **Transmission rate** $I_R$ / multi-step TE | history-embedded upgrade to `TransferEntropy.jl` | **Target** |
-| **Instantaneous MI** $I_{\text{inst}}(S;X)$ | MI between a driven input channel and an output | **Target** (needs a defined input) |
-
-<p class="bl-source">Sources: <code>src/analysis/Branching.jl</code>, <code>Avalanches.jl</code>, <code>SecondOrder.jl</code>, <code>SwarmAnalysis.jl</code>, <code>Spectral.jl</code>, <code>TransferEntropy.jl</code>.</p>
-
-:::caution[What is a *trustworthy* cross-scale quantity — and what is not]
-Not every measure survives being read across scales. On foraging, agent-scale **branching ratio**
-fails the circular-shift null (`crossshift_null`, `NullTest.jl`): its temporal autocorrelation comes
-from *within-agent* maneuvers, not agent-to-agent propagation, and the shared source drive inflates
-it. **Susceptibility** — synchrony at node scale, polarization at agent scale — is structurally
-cross-agent and *passes*. So susceptibility is the natural same-measure-at-two-scales quantity;
-agent-branching is kept only as a labelled null-failing negative control. Any new cross-agent
-measure must clear the null before it is trusted, and the real coupling readout is the
-**vision-on minus vision-off difference** — the null removes both real coupling and common-source
-correlation, so only that difference isolates true transmission.
-:::
-
-## Future direction — the transmission task
-
-None of the above requires a new task; the criticality and (endogenous) information-flow measures
-run on ordinary rollouts once the collective actually self-organises. The *controlled transmission*
-experiment — the direct test of "cue held by a few → signal acted on by all" — does need a small
-mechanism that does not exist yet:
-
-- **A lookout subset.** Today source vision is uniform and always-on; `conspecific_vision` blinds
-  agents to *each other*, never to the source. A per-agent source-vision flag would let a subset
-  read the resource cue while the rest are blind and can only receive it socially — through the
-  existing **acoustic channel** (distance-attenuated, one-tick lag), which is the natural signal
-  substrate. This is the cue→signal conversion made literal.
-- **A time-varying source** (optional, and the more speculative half). A stationary beacon offers a
-  message only during the approach; a **slowly drifting source** gives a continuous, stationary
-  stream to transmit and a $\tau_s$ set by drift speed — the ecologically honest way to get the
-  Meijers input-timescale knob without an artificial telegraph.
-
-Both are downstream of a sweep that reliably produces foraging / swarming / shoaling in the first
-place. They are recorded here so the design does not have to be re-derived when that day comes.
-
-<p class="bl-source">Task substrate: <code>src/world/Environments.jl</code> (forage source, acoustic signalling channel, <code>conspecific_vision</code>).</p>
+and $C$ **peaks at criticality** — a bell curve in the control parameter. Sub-critically the swarm
+ignores the lookouts (too independent); super-critically it is too rigid to re-synchronise. The
+transmission delay is set by $\langle\tau\rangle$. The decision-making lattice model reproduces the
+same picture, so the result is not special to the Vicsek dynamics.
 
 ---
 
 ### References
 
-Vanni, Lukovic & Grigolini (2011), *Phys. Rev. Lett.* **107**, 078103 ·
-Meijers, Ito & ten Wolde (2021), *Phys. Rev. E* **103**, L010102 ·
-Cavagna et al. (2010), *PNAS* **107**, 11865 ·
-Schreiber (2000), *Phys. Rev. Lett.* **85**, 461 ·
-Barnett, Lizier, Harré, Seth & Bossomaier (2013), *Phys. Rev. Lett.* **111**, 177203 ·
-Tostevin & ten Wolde (2009), *Phys. Rev. Lett.* **102**, 218101 ·
-Mora & Bialek (2011), *J. Stat. Phys.* **144**, 268 ·
-Chialvo (2010), *Nat. Phys.* **6**, 744 ·
-Couzin (2007), *Nature* **445**, 715 ·
-Buhl et al. (2006), *Science* **312**, 1402 ·
-Beggs & Plenz (2003), *J. Neurosci.* **23**, 11167 ·
-Wilting & Priesemann (2018), *Nat. Commun.* **9**, 2325.
+Vanni, Lukovic & Grigolini (2011), *Phys. Rev. Lett.* **107**, 078103 · Vicsek et al. (1995),
+*Phys. Rev. Lett.* **75**, 1226 · Cavagna et al. (2010), *PNAS* **107**, 11865 ·
+Turalska, West & Grigolini (2011), *Phys. Rev. E* **83**, 061142 · Couzin (2007), *Nature* **445**, 715 ·
+Buhl et al. (2006), *Science* **312**, 1402.

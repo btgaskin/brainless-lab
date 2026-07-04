@@ -65,9 +65,11 @@ export default defineConfig({
         { label: 'Extending it', slug: 'extending' },
         { label: 'Contracts', slug: 'contracts' },
         {
-          label: 'Notes',
+          label: 'Papers',
           items: [
-            { label: 'Criticality & Information', slug: 'notes/criticality-and-information' },
+            { label: 'Swarm criticality & transmission (Vanni 2011)', slug: 'notes/criticality-and-information' },
+            { label: 'Information flow near criticality (Meijers 2021)', slug: 'notes/information-flow-near-criticality' },
+            { label: 'Cognition as search efficiency (Chis-Ciure & Levin 2025)', slug: 'notes/cognition-all-the-way-down' },
           ],
         },
         { label: 'Reference', slug: 'reference' },
