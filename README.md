@@ -1,5 +1,14 @@
 # BrainlessLab.jl
 
+<p align="center"><img src="brainless-lab.png" alt="BrainlessLab" width="760"></p>
+
+<p align="center">
+  <em>Behaviour from collectives of simple neuron-like nodes &mdash; brainless cognition.</em><br>
+  <a href="https://brainlesslab.dev"><strong>Documentation &amp; outputs</strong></a> &middot;
+  a <a href="https://disi.org">Diverse Intelligences Summer Institute</a> 2026 (Geneva NY) project<br>
+  Polyphony Bruna &middot; Benjamin Gaskin &middot; Ian Jackson &middot; William O'Hearn
+</p>
+
 An extensible Julia lab for **"brainless" cognition** -- behaviour that emerges from
 collectives of simple neuron-like nodes with no homunculus and no hand-wired control.
 Reservoirs, bodies, tasks, swarm environments, recorders, metrics, and Makie visualisations are
