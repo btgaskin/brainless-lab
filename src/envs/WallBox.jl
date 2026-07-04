@@ -70,9 +70,9 @@ function WallBox(;
     lo = r_f
     hi = size_f - r_f
 
-    x0 = x === nothing ? _rng_uniform(rng, lo, hi) : Float64(x)
-    y0 = y === nothing ? _rng_uniform(rng, lo, hi) : Float64(y)
-    raw_theta = theta === nothing ? _rng_uniform(rng, -pi, pi) : Float64(theta)
+    x0 = x === nothing ? size_f / 2.0 : Float64(x)
+    y0 = y === nothing ? size_f / 2.0 : Float64(y)
+    raw_theta = theta === nothing ? pi / 2.0 : Float64(theta)
     theta0 = _wrap_angle(raw_theta)
 
     if !(lo <= x0 <= hi && lo <= y0 <= hi)
@@ -102,9 +102,9 @@ WallBox(seed::Integer; kwargs...) = WallBox(; rng=MersenneTwister(seed), kwargs.
 function reset!(box::WallBox; x=nothing, y=nothing, theta=nothing)
     lo = box.r
     hi = box.size - box.r
-    x0 = x === nothing ? _rng_uniform(box.rng, lo, hi) : Float64(x)
-    y0 = y === nothing ? _rng_uniform(box.rng, lo, hi) : Float64(y)
-    raw_theta = theta === nothing ? _rng_uniform(box.rng, -pi, pi) : Float64(theta)
+    x0 = x === nothing ? box.size / 2.0 : Float64(x)
+    y0 = y === nothing ? box.size / 2.0 : Float64(y)
+    raw_theta = theta === nothing ? pi / 2.0 : Float64(theta)
     theta0 = _wrap_angle(raw_theta)
 
     if !(lo <= x0 <= hi && lo <= y0 <= hi)
@@ -123,18 +123,21 @@ function reset!(box::WallBox; x=nothing, y=nothing, theta=nothing)
 end
 
 function _ray_distance(box::WallBox, angle::Real)
-    dx = cos(Float64(angle))
-    dy = sin(Float64(angle))
+    angle_f = Float64(angle)
+    dx = cos(angle_f)
+    dy = sin(angle_f)
+    origin_x = box.x + box.r * dx
+    origin_y = box.y + box.r * dy
     candidates = Float64[]
     tol = 1e-12
 
     if abs(dx) > tol
         for wall_x in (0.0, box.size)
-            t = (wall_x - box.x) / dx
-            if t > 0.0
-                y_hit = box.y + t * dy
+            t = (wall_x - origin_x) / dx
+            if t >= -tol
+                y_hit = origin_y + t * dy
                 if -tol <= y_hit <= box.size + tol
-                    push!(candidates, Float64(t))
+                    push!(candidates, max(0.0, Float64(t)))
                 end
             end
         end
@@ -142,11 +145,11 @@ function _ray_distance(box::WallBox, angle::Real)
 
     if abs(dy) > tol
         for wall_y in (0.0, box.size)
-            t = (wall_y - box.y) / dy
-            if t > 0.0
-                x_hit = box.x + t * dx
+            t = (wall_y - origin_y) / dy
+            if t >= -tol
+                x_hit = origin_x + t * dx
                 if -tol <= x_hit <= box.size + tol
-                    push!(candidates, Float64(t))
+                    push!(candidates, max(0.0, Float64(t)))
                 end
             end
         end
@@ -156,15 +159,24 @@ function _ray_distance(box::WallBox, angle::Real)
     return minimum(candidates)
 end
 
-function sense(box::WallBox)
+function sense(box::WallBox; sensory_noise::Real=0.0, clip::Bool=true, rng=nothing)
     d_left = _ray_distance(box, box.theta + pi / 4.0)
     d_right = _ray_distance(box, box.theta - pi / 4.0)
     c_left = 1.0 - d_left / box.dist_max
     c_right = 1.0 - d_right / box.dist_max
-    return [
-        min(1.0, max(box.eps, c_left)),
-        min(1.0, max(box.eps, c_right)),
-    ]
+    noise = Float64(sensory_noise)
+    if noise > 0.0
+        rng_ = rng === nothing ? box.rng : rng
+        c_left += rand(rng_) * (2.0 * noise) - noise
+        c_right += rand(rng_) * (2.0 * noise) - noise
+    end
+    if clip
+        return [
+            min(1.0, max(box.eps, c_left)),
+            min(1.0, max(box.eps, c_right)),
+        ]
+    end
+    return [c_left, c_right]
 end
 
 function step!(box::WallBox, e_L::Real, e_R::Real)
@@ -175,19 +187,23 @@ function step!(box::WallBox, e_L::Real, e_R::Real)
     theta0 = box.theta
 
     v = (eL + eR) / 2.0
-    theta1 = _wrap_angle(theta0 + (eR - eL))
-    x1 = x0 + v * cos(theta1)
-    y1 = y0 + v * sin(theta1)
+    dtheta = (eR - eL) / (2.0 * box.r)
+    theta1 = _wrap_angle(theta0 + dtheta)
+    x1 = x0 + v * cos(theta0)
+    y1 = y0 + v * sin(theta0)
+    x_clamped = clamp(x1, box.r, box.size - box.r)
+    y_clamped = clamp(y1, box.r, box.size - box.r)
 
-    hit = x1 < box.r || x1 > box.size - box.r || y1 < box.r || y1 > box.size - box.r
+    hit = x1 != x_clamped || y1 != y_clamped
+    box.x = Float64(x_clamped)
+    box.y = Float64(y_clamped)
     if hit
-        box.theta = _wrap_angle(theta0 + _rng_choice_pm1(box.rng) * pi / 4.0)
+        box.theta = _wrap_angle(theta1 + _rng_choice_pm1(box.rng) * pi / 4.0)
         box.collisions += 1
-        translation = 0.0
+        translation = Float64(hypot(box.x - x0, box.y - y0))
+        box.distance += translation
         collision_flag = 1
     else
-        box.x = Float64(x1)
-        box.y = Float64(y1)
         box.theta = theta1
         translation = Float64(hypot(box.x - x0, box.y - y0))
         box.distance += translation

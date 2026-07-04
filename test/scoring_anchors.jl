@@ -32,6 +32,7 @@ using Test
     @test legacy.floor.provenance == "legacy literal (uncalibrated)"
     @test normalized_score(legacy, 2.0) == 0.5
 
-    @test WALL_TASK.score_key == :distance_window
+    @test WALL_TASK.score_key == :nav_score
     @test :collisions_window in WALL_TASK.descriptor_keys
+    @test :distance_window in WALL_TASK.descriptor_keys
 end

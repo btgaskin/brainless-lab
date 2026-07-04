@@ -1,4 +1,5 @@
 import type { Rng } from './rng';
+import type { FalandaysParams } from './types';
 
 /**
  * Bernoulli connectivity mask, `rows x cols`, row-major flat array
@@ -53,13 +54,25 @@ export function ensureEffectorInDegree(outputMask: Uint8Array, nNodes: number, n
   }
 }
 
-/** N(0, std) recurrent weight init, masked to the connectivity graph — mirrors `wmat0` init in Falandays.jl. */
-export function initWeights(recurrentMask: Uint8Array, nNodes: number, std: number, rng: Rng): Float64Array {
+/** Authors' per-task recurrent weight init, masked to the connectivity graph. */
+export function initWeights(
+  recurrentMask: Uint8Array,
+  nNodes: number,
+  params: Pick<FalandaysParams, 'inputWeight' | 'weightInitMode' | 'weightInitStd'>,
+  rng: Rng,
+): Float64Array {
   const w = new Float64Array(nNodes * nNodes);
   for (let i = 0; i < nNodes; i++) {
     for (let j = 0; j < nNodes; j++) {
       const idx = i * nNodes + j;
-      if (recurrentMask[idx]) w[idx] = std * rng.gaussian();
+      if (!recurrentMask[idx]) continue;
+      if (params.weightInitMode === 'excitatory') {
+        w[idx] = params.inputWeight + 0.1 * rng.gaussian();
+      } else if (params.weightInitMode === 'pongMixed') {
+        w[idx] = rng.uniform() < 0.25 ? -1.0 + 0.1 * rng.gaussian() : 0.2 * rng.gaussian();
+      } else {
+        w[idx] = params.weightInitStd * rng.gaussian();
+      }
     }
   }
   return w;

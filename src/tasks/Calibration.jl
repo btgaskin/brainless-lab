@@ -194,6 +194,16 @@ function _calibrated_ceiling(
     )
 end
 
+function _reference_ceiling_with_fallback(task_spec::TaskSpec, measured::ScoreAnchor, floor::ScoreAnchor)
+    if measured.kind == REFERENCE_MEASURED &&
+       measured.value <= floor.value &&
+       task_spec.ceiling.kind == REFERENCE_MEASURED &&
+       task_spec.ceiling.value > floor.value
+        return task_spec.ceiling
+    end
+    return measured
+end
+
 """
     calibrate_task(task; null=:null_random, reference=nothing, seeds=0:7, kw...)
 
@@ -206,7 +216,7 @@ function calibrate_task(
     task;
     null=:null_random,
     reference=nothing,
-    reference_model=:falandays,
+    reference_model=:falandays_base,
     seeds=0:7,
     ticks=nothing,
     window=nothing,
@@ -247,6 +257,7 @@ function calibrate_task(
             env_kwargs=env_kwargs,
             kwargs=kwargs,
         )
+        ceiling = _reference_ceiling_with_fallback(task_obj, ceiling, floor)
         return (floor=floor, ceiling=ceiling)
     elseif Symbol(task_obj) == :forage
         floor = _measure_null_anchor(
@@ -272,7 +283,11 @@ end
 function write_calibration_report(
     io::IO=stdout;
     task_names=(:wall, :pong, :pong_hitrate, :cartpole_swingup, :forage),
-    references=Dict{Symbol,Any}(:wall => (model=FalandaysParams(), model_sym=:falandays_oosawa)),
+    references=Dict{Symbol,Any}(
+        :wall => (model=FalandaysParams(), model_sym=:falandays_base),
+        :pong => (model=FalandaysParams(), model_sym=:falandays_base),
+        :pong_hitrate => (model=FalandaysParams(), model_sym=:falandays_base),
+    ),
     kwargs...,
 )
     for task_name in task_names

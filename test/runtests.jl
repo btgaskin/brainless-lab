@@ -2,6 +2,8 @@ using BrainlessLab
 using Test
 
 include("testutils.jl")
+include("test_paper_constants.jl")
+include("test_authors_parity.jl")
 include("test_falandays.jl")
 include("test_dendritic.jl")
 include("test_sorn.jl")

@@ -1,5 +1,5 @@
 import { Rng } from './rng';
-import { bernoulliMask, ensureEffectorInDegree, ensureNodeInDegree, initWeights } from './wiring';
+import { bernoulliMask, initWeights } from './wiring';
 import type { FalandaysParams, ReservoirSnapshot } from './types';
 
 /**
@@ -53,10 +53,8 @@ export class FalandaysReservoir {
     this.recurrentMask = bernoulliMask(n, n, params.linkP, rng, true);
     this.inputMask = bernoulliMask(nReceptors, n, params.linkP, rng, false);
     this.outputMask = bernoulliMask(n, nEffectors, params.linkP, rng, false);
-    ensureNodeInDegree(this.recurrentMask, this.inputMask, n, nReceptors, rng);
-    ensureEffectorInDegree(this.outputMask, n, nEffectors, rng);
 
-    this.wmat0 = initWeights(this.recurrentMask, n, params.weightInitStd, rng);
+    this.wmat0 = initWeights(this.recurrentMask, n, params, rng);
     this.wmat = this.wmat0.slice();
 
     this.acts = new Float64Array(n);

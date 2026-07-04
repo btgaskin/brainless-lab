@@ -13,24 +13,7 @@ const EFFECTOR_GAIN_DEG = 10;
 const STIMULUS_SPEED_DEG = 1;
 const STIMULUS_FLIP_EVERY = 720;
 const INITIAL_HEADING_DEG = 90;
-/**
- * The Gaussian tuning (exp(-delta^2/10)) is narrow — meaningful signal only
- * within roughly +/-8deg of a sensor's preferred angle, well inside the
- * paper's nominal +/-60deg eye field-of-view. Starting the stimulus at the
- * paper's own initial position (0deg, ~90deg from the nearest eye center)
- * is faithful to the paper's description of an undirected ~100-tick search
- * before lock-on, but reads as "broken" in a short interactive demo. Instead
- * start it just outside the left eye's cone, on the side its initial
- * direction of travel (stimulusDir=-1, decreasing angle) sweeps in from, so
- * tracking visibly begins within a few ticks instead of ~100.
- *
- * "Left eye" here is screen-left in trackingRenderer's canvas convention
- * (heading=90deg points down the canvas; offset +30deg -> cos(120deg)<0,
- * i.e. left of center), which is EYE_OFFSETS_DEG[0] (+30), not [1] (-30).
- */
-const LEFT_EYE_OFFSET_DEG = EYE_OFFSETS_DEG[0];
-const START_MARGIN_DEG = 6;
-const INITIAL_STIMULUS_DEG = INITIAL_HEADING_DEG + LEFT_EYE_OFFSET_DEG + START_MARGIN_DEG;
+const INITIAL_STIMULUS_DEG = 0;
 
 export interface TrackingSnapshot {
   headingDeg: number;
@@ -43,14 +26,14 @@ export class TrackingEnv implements TaskEnv<TrackingSnapshot> {
 
   private headingDeg = INITIAL_HEADING_DEG;
   private stimulusDeg = INITIAL_STIMULUS_DEG;
-  private stimulusDir = -1; // paper: starts moving counter-clockwise, toward the nearer eye center
+  private stimulusDir = 1;
 
   private tick = 0;
 
   reset(): void {
     this.headingDeg = INITIAL_HEADING_DEG;
     this.stimulusDeg = INITIAL_STIMULUS_DEG;
-    this.stimulusDir = -1;
+    this.stimulusDir = 1;
     this.tick = 0;
   }
 
@@ -61,7 +44,7 @@ export class TrackingEnv implements TaskEnv<TrackingSnapshot> {
       for (const sensorOffset of SENSOR_OFFSETS_DEG) {
         const sensorDeg = this.headingDeg + eyeOffset + sensorOffset;
         const delta = wrapDeg(sensorDeg - this.stimulusDeg);
-        out[idx] = Math.exp(-(delta * delta) / 10);
+        out[idx] = Math.abs(delta) <= 4 ? 1 : Math.exp(-(delta * delta) / 10);
         idx += 1;
       }
     }

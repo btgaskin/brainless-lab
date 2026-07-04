@@ -19,11 +19,17 @@ export interface TaskTuning {
   inputWeight: number;
   /** Falandays et al.'s per-task reservoir size N — the paper's own tuning. */
   N: number;
+  /** Authors' per-task recurrent homeostasis rate. */
+  lrateWmat: number;
+  /** Authors' per-task target homeostasis rate. */
+  lrateTarg: number;
+  /** Authors' per-task recurrent initialization scheme. */
+  weightInitMode: FalandaysParams['weightInitMode'];
 }
 
 /**
- * Per-task tuning, confirmed directly from the published paper text
- * (Falandays et al. 2023, PMC11297877) — NOT the numpy reference's defaults:
+ * Per-task tuning, mirrored from src/api/paper_config.jl, which is backed by
+ * the authors' original Julia task scripts — NOT the numpy reference's defaults:
  *
  *   "used the homeostatic network (N=200) to control an agent that can
  *    rotate left or right" (tracking)
@@ -44,9 +50,9 @@ export interface TaskTuning {
  * they live in each task module, not here.
  */
 export const TASK_TUNING: Record<TaskName, TaskTuning> = {
-  wall: { inputWeight: 2.0, N: 200 },
-  tracking: { inputWeight: 0.75, N: 200 },
-  pong: { inputWeight: 2.75, N: 500 },
+  wall: { inputWeight: 4.0, N: 200, lrateWmat: 1.0, lrateTarg: 0.01, weightInitMode: 'excitatory' },
+  tracking: { inputWeight: 0.75, N: 200, lrateWmat: 1.0, lrateTarg: 0.01, weightInitMode: 'excitatory' },
+  pong: { inputWeight: 2.75, N: 500, lrateWmat: 1.0, lrateTarg: 0.1, weightInitMode: 'pongMixed' },
 };
 
 export function taskTuningFor(task: TaskName): TaskTuning {

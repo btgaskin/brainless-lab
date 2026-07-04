@@ -1,79 +1,50 @@
-import { Play, Pause, SkipForward, ArrowCounterClockwise } from '@phosphor-icons/react';
 import { Slider } from './ui/Slider';
-import { Toggle } from './ui/Toggle';
-import { SegmentedControl } from './ui/SegmentedControl';
-import type { FalandaysParams, TaskName } from '../../simulation/types';
+import type { FalandaysParams } from '../../simulation/types';
 
 export interface ControlPanelProps {
   params: FalandaysParams;
   onParamsChange: (params: FalandaysParams) => void;
-  task: TaskName;
-  onTaskChange: (task: TaskName) => void;
-  running: boolean;
-  onTogglePlay: () => void;
-  onStep: () => void;
-  onReset: () => void;
-  className?: string;
 }
 
-const TASK_OPTIONS: Array<{ value: TaskName; label: string }> = [
-  { value: 'wall', label: 'Wall' },
-  { value: 'tracking', label: 'Track' },
-  { value: 'pong', label: 'Pong' },
-];
-
-function IconButton({ onClick, label, children }: { onClick: () => void; label: string; children: React.ReactNode }) {
+function Chip({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      aria-label={label}
-      className="flex h-8 w-8 items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-paper hover:text-ink active:translate-y-px"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`rounded-full border px-2 py-0.5 font-mono text-[9px] transition-colors active:translate-y-px ${
+        checked
+          ? 'border-teal/40 bg-teal-wash text-teal-ink'
+          : 'border-grid bg-transparent text-ink-muted hover:text-ink-soft'
+      }`}
     >
-      {children}
+      {label}
     </button>
   );
 }
 
 /**
- * The parameter panel — a plain card in the same palette as the rest of the
- * site (src/viz/Style.jl's identity: paper/ink/teal/amber), not a separate
- * dark "instrument" register. Sans+mono throughout, per the taste skill's
- * dashboard-UI rule.
+ * The parameter column — sliders + learning-rule chips only. Transport
+ * (play/step/reset) and the task switcher live in SimDemo's toolbar, which
+ * keeps this column short enough to fit beside the canvas without clipping.
+ * Same palette as the rest of the site (src/viz/Style.jl: paper/ink/teal/amber).
  */
-export function ControlPanel({ params, onParamsChange, task, onTaskChange, running, onTogglePlay, onStep, onReset, className }: ControlPanelProps) {
+export function ControlPanel({ params, onParamsChange }: ControlPanelProps) {
   const set = <K extends keyof FalandaysParams>(key: K, value: FalandaysParams[K]) =>
     onParamsChange({ ...params, [key]: value });
 
   return (
-    <div
-      className={`flex flex-col gap-4 overflow-y-auto rounded-lg border border-grid bg-card p-4 font-mono shadow-[0_1px_2px_rgba(30,30,25,0.06),0_6px_20px_-12px_rgba(30,30,25,0.18)] ${className ?? ''}`}
-    >
-      <div className="flex items-center gap-1">
-        <IconButton onClick={onTogglePlay} label={running ? 'Pause' : 'Play'}>
-          {running ? <Pause size={16} weight="fill" /> : <Play size={16} weight="fill" />}
-        </IconButton>
-        <IconButton onClick={onStep} label="Step">
-          <SkipForward size={16} weight="fill" />
-        </IconButton>
-        <IconButton onClick={onReset} label="Reset">
-          <ArrowCounterClockwise size={16} />
-        </IconButton>
-      </div>
-
-      <SegmentedControl options={TASK_OPTIONS} value={task} onChange={onTaskChange} />
-
-      <div className="h-px bg-grid" />
-
-      <div className="flex flex-col gap-3">
-        <Slider label="target floor" value={params.targetFloor} min={0.2} max={3} step={0.05} onChange={(v) => set('targetFloor', v)} />
-        <Slider label="leak" value={params.leak} min={0} max={0.9} step={0.01} onChange={(v) => set('leak', v)} />
+    <div className="flex flex-col gap-2 p-3">
+      <div className="flex flex-col gap-1.5">
+        <Slider label="target floor" value={params.targetFloor} min={0.2} max={3} step={0.05} format={fmt2} onChange={(v) => set('targetFloor', v)} />
+        <Slider label="leak" value={params.leak} min={0} max={0.9} step={0.01} format={fmt2} onChange={(v) => set('leak', v)} />
         <Slider label="lrate target" value={params.lrateTarg} min={0} max={0.2} step={0.001} onChange={(v) => set('lrateTarg', v)} />
-        <Slider label="lrate weight" value={params.lrateWmat} min={0} max={1} step={0.01} onChange={(v) => set('lrateWmat', v)} />
-        <Slider label="threshold ×" value={params.thresholdMult} min={1} max={4} step={0.1} onChange={(v) => set('thresholdMult', v)} />
-        <Slider label="input weight" value={params.inputWeight} min={0} max={6} step={0.05} onChange={(v) => set('inputWeight', v)} />
-        <Slider label="weight std" value={params.weightInitStd} min={0.1} max={3} step={0.05} onChange={(v) => set('weightInitStd', v)} />
-        <Slider label="link p" value={params.linkP} min={0.02} max={0.5} step={0.01} onChange={(v) => set('linkP', v)} />
+        <Slider label="lrate weight" value={params.lrateWmat} min={0} max={1} step={0.01} format={fmt2} onChange={(v) => set('lrateWmat', v)} />
+        <Slider label="threshold ×" value={params.thresholdMult} min={1} max={4} step={0.1} format={fmt2} onChange={(v) => set('thresholdMult', v)} />
+        <Slider label="input weight" value={params.inputWeight} min={0} max={6} step={0.05} format={fmt2} onChange={(v) => set('inputWeight', v)} />
+        <Slider label="weight std" value={params.weightInitStd} min={0.1} max={3} step={0.05} format={fmt2} onChange={(v) => set('weightInitStd', v)} />
+        <Slider label="link p" value={params.linkP} min={0.02} max={0.5} step={0.01} format={fmt2} onChange={(v) => set('linkP', v)} />
         <Slider
           label="N nodes"
           value={params.N}
@@ -87,11 +58,15 @@ export function ControlPanel({ params, onParamsChange, task, onTaskChange, runni
 
       <div className="h-px bg-grid" />
 
-      <div className="flex flex-col gap-2">
-        <Toggle label="learn weights" checked={params.learnWeights} onChange={(v) => set('learnWeights', v)} />
-        <Toggle label="learn targets" checked={params.learnTargets} onChange={(v) => set('learnTargets', v)} />
-        <Toggle label="rectify (≥0)" checked={params.rectify} onChange={(v) => set('rectify', v)} />
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Chip label="learn w" checked={params.learnWeights} onChange={(v) => set('learnWeights', v)} />
+        <Chip label="learn targets" checked={params.learnTargets} onChange={(v) => set('learnTargets', v)} />
+        <Chip label="rectify" checked={params.rectify} onChange={(v) => set('rectify', v)} />
       </div>
     </div>
   );
+}
+
+function fmt2(v: number): string {
+  return v.toFixed(2);
 }

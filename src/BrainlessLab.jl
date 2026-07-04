@@ -46,6 +46,7 @@ include("tasks/Tasks.jl")
 include("world/Environments.jl")
 include("world/Ensemble.jl")
 include("world/Metrics.jl")
+include("api/paper_config.jl")
 include("api/Highlevel.jl")
 include("analysis/ActivityLevels.jl")
 include("analysis/Branching.jl")
@@ -54,6 +55,7 @@ include("analysis/TargetError.jl")
 include("analysis/Spectral.jl")
 include("analysis/SecondOrder.jl")
 include("analysis/SwarmAnalysis.jl")
+include("analysis/NullTest.jl")
 include("analysis/TaskSignals.jl")
 include("analysis/TransferEntropy.jl")
 include("drivers/Driver.jl")
@@ -255,7 +257,10 @@ export TaskSpec,
     normalized_score,
     normalized_forage_score,
     calibrate_task,
-    write_calibration_report
+    write_calibration_report,
+    FalandaysPaperTaskConfig,
+    FALANDAYS_PAPER_CONFIG,
+    falandays_paper_config
 
 export Agent,
     Ensemble,
@@ -324,6 +329,7 @@ export SimResult,
     tasks,
     branching_ratio,
     branching_ratio_mr,
+    branching_ratio_mr_windowed,
     avalanches,
     transfer_entropy,
     node_transfer_entropy,
@@ -331,10 +337,16 @@ export SimResult,
     node_target_error,
     spectral_radius,
     susceptibility,
+    susceptibility_windowed,
     fano_factor,
     participation_ratio,
     swarm_regime,
     correlation_length,
+    correlation_length_windowed,
+    contact_graph_clusters,
+    contact_graph_clusters_windowed,
+    crossshift_null,
+    distance_to_source,
     wall_distance,
     heading_error,
     ball_paddle_distance
@@ -427,16 +439,23 @@ register_metric!(:forage_metrics, forage_metrics)
 
 register_analysis!(:branching_ratio, branching_ratio)
 register_analysis!(:branching_ratio_mr, branching_ratio_mr; label="branching ratio m (MR estimator, subsampling-robust)")
+register_analysis!(:branching_ratio_mr_windowed, branching_ratio_mr_windowed; label="windowed branching ratio m (MR estimator)")
 register_analysis!(:avalanches, avalanches; label="neuronal avalanche size/duration exponents")
 register_analysis!(:node_transfer_entropy, node_transfer_entropy; label="node-level transfer entropy (experimental)")
 register_analysis!(:agent_transfer_entropy, agent_transfer_entropy; label="agent-level transfer entropy (experimental)")
 register_analysis!(:node_target_error, node_target_error; label="per-node distance to target |act−T|")
 register_analysis!(:spectral_radius, spectral_radius; label="spectral radius ρ(W)")
 register_analysis!(:susceptibility, susceptibility; label="susceptibility χ (experimental)")
+register_analysis!(:susceptibility_windowed, susceptibility_windowed; label="windowed susceptibility χ (experimental)")
 register_analysis!(:fano_factor, fano_factor; label="Fano factor (experimental)")
 register_analysis!(:participation_ratio, participation_ratio; label="participation ratio (experimental)")
 register_analysis!(:swarm_regime, swarm_regime; label="swarm regime classifier (experimental)")
 register_analysis!(:correlation_length, correlation_length; label="swarm velocity correlation length (experimental)")
+register_analysis!(:correlation_length_windowed, correlation_length_windowed; label="windowed swarm velocity correlation length (experimental)")
+register_analysis!(:contact_graph_clusters, contact_graph_clusters; label="contact-graph connected-component clusters (experimental)")
+register_analysis!(:contact_graph_clusters_windowed, contact_graph_clusters_windowed; label="windowed contact-graph connected-component clusters (experimental)")
+register_analysis!(:crossshift_null, crossshift_null; label="per-agent circular-shift null test")
+register_analysis!(:distance_to_source, distance_to_source; task=:forage, label="mean distance to forage source")
 register_analysis!(:wall_distance, wall_distance; task=:wall, label="distance to nearest wall")
 register_analysis!(:heading_error, heading_error; task=:tracking, label="heading error (rad)")
 register_analysis!(:ball_paddle_distance, ball_paddle_distance; task=:pong, label="ball–paddle distance")

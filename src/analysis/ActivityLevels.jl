@@ -1,5 +1,7 @@
 const _ANALYSIS_LEVELS = (:pooled, :node, :agent)
 const DEFAULT_TURN_THRESHOLD = pi / 12
+const DEFAULT_ENSEMBLE_THRESHOLD = (:quantile, 0.85)
+const _ENSEMBLE_OBSERVABLE_KINDS = (:turn, :speed, :align, :graded)
 
 function _analysis_level(level::Symbol, name::Symbol)
     level in _ANALYSIS_LEVELS ||
@@ -222,29 +224,236 @@ end
 
 _analysis_wrap_to_pi(a::Real) = atan(sin(a), cos(a))
 
-function _analysis_turn_threshold(value, name::Symbol)
-    threshold = Float64(value)
+function _analysis_threshold_from_table(value, name::Symbol)
+    value isa AbstractDict ||
+        throw(ArgumentError("$(name) threshold table must define quantile, fixed, or median"))
+    if haskey(value, "quantile")
+        return (:quantile, Float64(value["quantile"]))
+    elseif haskey(value, :quantile)
+        return (:quantile, Float64(value[:quantile]))
+    elseif haskey(value, "fixed")
+        return Float64(value["fixed"])
+    elseif haskey(value, :fixed)
+        return Float64(value[:fixed])
+    elseif get(value, "median", get(value, :median, false)) == true
+        return :median
+    end
+    throw(ArgumentError("$(name) threshold table must define quantile, fixed, or median"))
+end
+
+function _analysis_resolve_activity_threshold(value, values::AbstractVector{<:Real}, name::Symbol)
+    value isa AbstractDict && (value = _analysis_threshold_from_table(value, name))
+    if value isa Number
+        threshold = Float64(value)
+        isfinite(threshold) && threshold >= 0.0 ||
+            throw(ArgumentError("$(name) activity threshold must be finite and non-negative"))
+        return threshold
+    elseif value === :median || value === :adaptive
+        return _quantile_positive(values, 0.5)
+    elseif value isa Tuple && length(value) == 2 && value[1] === :quantile
+        return _quantile_positive(values, Float64(value[2]))
+    end
+    throw(ArgumentError("$(name) activity threshold must be a non-negative number, :median, :adaptive, or (:quantile, q)"))
+end
+
+function _analysis_turn_threshold(value, values::AbstractVector{<:Real}, name::Symbol)
+    threshold = _analysis_resolve_activity_threshold(value, values, name)
     isfinite(threshold) && threshold >= 0.0 ||
         throw(ArgumentError("$(name) turn_threshold must be finite and non-negative"))
     return threshold
 end
 
-function _analysis_agent_activity_matrix(sim::SimResult, name::Symbol; turn_threshold::Real=DEFAULT_TURN_THRESHOLD)
-    _, _, headings = _analysis_pose_matrices(getchannel(sim.recorder, :poses), name)
+function _analysis_observable_get(observable, key::Symbol, default)
+    observable === nothing && return default
+    if observable isa NamedTuple
+        return haskey(observable, key) ? getproperty(observable, key) : default
+    elseif observable isa AbstractDict
+        return haskey(observable, string(key)) ? observable[string(key)] :
+            haskey(observable, key) ? observable[key] : default
+    elseif observable isa Symbol && key === :kind
+        return observable
+    end
+    return default
+end
+
+function _analysis_observable_spec(observable, name::Symbol; event_kind::Symbol=:turn, threshold=nothing, turn_threshold=DEFAULT_TURN_THRESHOLD, neighbor_radius=nothing)
+    kind = Symbol(_analysis_observable_get(observable, :kind, event_kind))
+    kind in _ENSEMBLE_OBSERVABLE_KINDS ||
+        throw(ArgumentError("$(name) observable kind must be one of $(join(string.(_ENSEMBLE_OBSERVABLE_KINDS), ", "))"))
+
+    raw_threshold = _analysis_observable_get(observable, :threshold, threshold)
+    if raw_threshold === nothing && kind != :graded
+        raw_threshold = observable === nothing ? turn_threshold : DEFAULT_ENSEMBLE_THRESHOLD
+    end
+    radius = _analysis_observable_get(observable, :neighbor_radius, neighbor_radius)
+    id = string(_analysis_observable_get(observable, :id, _analysis_observable_id(kind, raw_threshold)))
+    return (kind=kind, threshold=raw_threshold, neighbor_radius=radius, id=id)
+end
+
+function _analysis_observable_id(kind::Symbol, threshold)
+    kind === :graded && return "graded"
+    return string(kind) * "_" * _analysis_threshold_id(threshold)
+end
+
+function _analysis_threshold_id(threshold)
+    threshold isa AbstractDict && (threshold = _analysis_threshold_from_table(threshold, :observable_id))
+    threshold === nothing && return "none"
+    threshold === :median && return "median"
+    threshold === :adaptive && return "median"
+    if threshold isa Tuple && length(threshold) == 2 && threshold[1] === :quantile
+        q = Float64(threshold[2])
+        pct = 100.0 * q
+        if isapprox(pct, round(pct); atol=1e-9)
+            return "q" * string(round(Int, pct))
+        end
+        return "q" * replace(string(round(q; digits=3)), "." => "p")
+    elseif threshold isa Number
+        return "fixed_" * replace(replace(string(round(Float64(threshold); digits=4)), "." => "p"), "-" => "m")
+    end
+    return replace(string(threshold), ":" => "", " " => "_")
+end
+
+function _analysis_turn_magnitude_matrix(headings::AbstractMatrix{<:Real})
     n_ticks, n_agents = size(headings)
     n_ticks >= 2 || return zeros(Float64, 0, n_agents)
 
-    threshold = _analysis_turn_threshold(turn_threshold, name)
-    events = Matrix{Float64}(undef, n_ticks - 1, n_agents)
+    magnitudes = Matrix{Float64}(undef, n_ticks - 1, n_agents)
     @inbounds for t in 1:(n_ticks - 1), i in 1:n_agents
-        delta = abs(_analysis_wrap_to_pi(Float64(headings[t + 1, i]) - Float64(headings[t, i])))
-        events[t, i] = delta > threshold ? 1.0 : 0.0
+        magnitudes[t, i] = abs(_analysis_wrap_to_pi(Float64(headings[t + 1, i]) - Float64(headings[t, i])))
     end
-    return events
+    return magnitudes
 end
 
-function _analysis_agent_activity_series(sim::SimResult, name::Symbol; turn_threshold::Real=DEFAULT_TURN_THRESHOLD)
-    return _analysis_row_sums(_analysis_agent_activity_matrix(sim, name; turn_threshold=turn_threshold))
+function _analysis_speed_change_matrix(sim::SimResult, name::Symbol)
+    vx, vy, _, _, _ = _analysis_velocity_matrices(sim, name)
+    n_steps, n_agents = size(vx)
+    n_steps >= 2 || return zeros(Float64, 0, n_agents)
+
+    speeds = Matrix{Float64}(undef, n_steps, n_agents)
+    @inbounds for t in 1:n_steps, i in 1:n_agents
+        speeds[t, i] = hypot(vx[t, i], vy[t, i])
+    end
+
+    changes = Matrix{Float64}(undef, n_steps - 1, n_agents)
+    @inbounds for t in 1:(n_steps - 1), i in 1:n_agents
+        changes[t, i] = abs(speeds[t + 1, i] - speeds[t, i])
+    end
+    return changes
+end
+
+function _analysis_neighbor_radius(sim::SimResult, radius, name::Symbol)
+    if radius === nothing || radius === :vision_range || radius == "vision_range"
+        if hasproperty(sim.config, :environment) && hasproperty(sim.config.environment, :vision_range)
+            resolved = sim.config.environment.vision_range
+            resolved === nothing &&
+                throw(ArgumentError("$(name) align observable needs neighbor_radius or environment vision_range"))
+            return Float64(resolved)
+        end
+        throw(ArgumentError("$(name) align observable needs neighbor_radius or environment vision_range"))
+    end
+
+    resolved = Float64(radius)
+    isfinite(resolved) && resolved >= 0.0 ||
+        throw(ArgumentError("$(name) neighbor_radius must be finite and non-negative"))
+    return resolved
+end
+
+function _analysis_alignment_change_matrix(sim::SimResult, name::Symbol, radius)
+    xs, ys, headings = _analysis_pose_matrices(getchannel(sim.recorder, :poses), name)
+    n_ticks, n_agents = size(headings)
+    n_ticks >= 2 || return zeros(Float64, 0, n_agents)
+
+    radius_ = _analysis_neighbor_radius(sim, radius, name)
+    torus_size = _analysis_environment_size(sim)
+    torus = torus_size === nothing ? nothing : Torus(torus_size)
+    alignment = zeros(Float64, n_ticks, n_agents)
+
+    @inbounds for t in 1:n_ticks
+        for i in 1:n_agents
+            sx = 0.0
+            sy = 0.0
+            count = 0
+            for j in 1:n_agents
+                i == j && continue
+                d = torus === nothing ?
+                    hypot(xs[t, j] - xs[t, i], ys[t, j] - ys[t, i]) :
+                    tdistance(torus, (xs[t, i], ys[t, i]), (xs[t, j], ys[t, j]))
+                if d <= radius_
+                    sx += cos(headings[t, j])
+                    sy += sin(headings[t, j])
+                    count += 1
+                end
+            end
+            if count > 0
+                norm = hypot(sx, sy)
+                alignment[t, i] = norm > 0.0 ? (cos(headings[t, i]) * sx + sin(headings[t, i]) * sy) / norm : 0.0
+            end
+        end
+    end
+
+    changes = Matrix{Float64}(undef, n_ticks - 1, n_agents)
+    @inbounds for t in 1:(n_ticks - 1), i in 1:n_agents
+        changes[t, i] = abs(alignment[t + 1, i] - alignment[t, i])
+    end
+    return changes
+end
+
+function _analysis_agent_observable_magnitudes(sim::SimResult, name::Symbol, spec)
+    if spec.kind === :turn || spec.kind === :graded
+        _, _, headings = _analysis_pose_matrices(getchannel(sim.recorder, :poses), name)
+        return _analysis_turn_magnitude_matrix(headings)
+    elseif spec.kind === :speed
+        return _analysis_speed_change_matrix(sim, name)
+    elseif spec.kind === :align
+        return _analysis_alignment_change_matrix(sim, name, spec.neighbor_radius)
+    end
+    throw(ArgumentError("$(name) unsupported observable kind $(spec.kind)"))
+end
+
+function _analysis_agent_activity(sim::SimResult, name::Symbol; turn_threshold=DEFAULT_TURN_THRESHOLD, observable=nothing, event_kind::Symbol=:turn, threshold=nothing, neighbor_radius=nothing)
+    spec = _analysis_observable_spec(
+        observable,
+        name;
+        event_kind=event_kind,
+        threshold=threshold,
+        turn_threshold=turn_threshold,
+        neighbor_radius=neighbor_radius,
+    )
+    magnitudes = _analysis_agent_observable_magnitudes(sim, name, spec)
+    if spec.kind === :graded
+        return (; spec=spec, events=magnitudes, magnitudes=magnitudes, threshold=NaN)
+    end
+
+    theta = _analysis_turn_threshold(spec.threshold, vec(magnitudes), name)
+    events = Matrix{Float64}(undef, size(magnitudes)...)
+    @inbounds for i in eachindex(magnitudes)
+        events[i] = magnitudes[i] > theta ? 1.0 : 0.0
+    end
+    return (; spec=spec, events=events, magnitudes=magnitudes, threshold=theta)
+end
+
+function _analysis_agent_activity_matrix(sim::SimResult, name::Symbol; turn_threshold=DEFAULT_TURN_THRESHOLD, observable=nothing, event_kind::Symbol=:turn, threshold=nothing, neighbor_radius=nothing)
+    return _analysis_agent_activity(
+        sim,
+        name;
+        turn_threshold=turn_threshold,
+        observable=observable,
+        event_kind=event_kind,
+        threshold=threshold,
+        neighbor_radius=neighbor_radius,
+    ).events
+end
+
+function _analysis_agent_activity_series(sim::SimResult, name::Symbol; turn_threshold=DEFAULT_TURN_THRESHOLD, observable=nothing, event_kind::Symbol=:turn, threshold=nothing, neighbor_radius=nothing)
+    return _analysis_row_sums(_analysis_agent_activity_matrix(
+        sim,
+        name;
+        turn_threshold=turn_threshold,
+        observable=observable,
+        event_kind=event_kind,
+        threshold=threshold,
+        neighbor_radius=neighbor_radius,
+    ))
 end
 
 function _analysis_population_count_series(sim::SimResult, name::Symbol)
@@ -373,6 +582,43 @@ function _analysis_velocity_matrices(sim::SimResult, name::Symbol)
         vy[t, i] = _analysis_axis_delta(ys[t, i], ys[t + 1, i], torus_size) / stride
     end
     return vx, vy, xs, ys, headings
+end
+
+function _analysis_source_position(sim::SimResult, name::Symbol, source_position)
+    if source_position !== nothing
+        return (Float64(source_position[1]), Float64(source_position[2]))
+    end
+    if hasproperty(sim.config, :environment) && hasproperty(sim.config.environment, :source_position)
+        pos = sim.config.environment.source_position
+        pos === nothing ||
+            return (Float64(pos[1]), Float64(pos[2]))
+    end
+    throw(ArgumentError("$(name) needs a forage source_position in sim.config.environment or an explicit source_position"))
+end
+
+"""
+    distance_to_source(sim; source_position=nothing)
+
+Return the per-recorded-tick mean torus distance from the swarm to the forage
+source. Requires `:poses` and either `sim.config.environment.source_position` or
+an explicit `source_position`.
+"""
+function distance_to_source(sim::SimResult; source_position=nothing)
+    xs, ys, _ = _analysis_pose_matrices(getchannel(sim.recorder, :poses), :distance_to_source)
+    source = _analysis_source_position(sim, :distance_to_source, source_position)
+    torus_size = _analysis_environment_size(sim)
+    torus = torus_size === nothing ? nothing : Torus(torus_size)
+    out = Vector{Float64}(undef, size(xs, 1))
+    @inbounds for t in axes(xs, 1)
+        total = 0.0
+        for i in axes(xs, 2)
+            total += torus === nothing ?
+                hypot(xs[t, i] - source[1], ys[t, i] - source[2]) :
+                tdistance(torus, (xs[t, i], ys[t, i]), source)
+        end
+        out[t] = size(xs, 2) == 0 ? NaN : total / size(xs, 2)
+    end
+    return out
 end
 
 function _analysis_polarization_series(sim::SimResult, name::Symbol)

@@ -7,32 +7,42 @@ registered node can be built for any registered task/body dimensions. Pick one w
 
 ## Paper fidelity and status
 
-The stable baseline is `:falandays_base` (also accepted as `:falandays`). It is the 2021 Falandays
-homeostatic spiking reservoir with the paper constants used by this code path:
+The stable baseline is `:falandays_base` (also accepted as `:falandays`). It is the authors' 2021
+homeostatic spiking reservoir: no rectification (`acts_neg=1`), Bernoulli recurrent/input/output
+connectivity, no degree repair, binary input weights scaled by the task's `input_amp`, and online
+target/weight updates during rollout.
+
+The neuron equations are common across tasks:
 
 | parameter | value |
 |---|---:|
 | `leak` | 0.25 |
-| `lrate_wmat` | 0.1 |
-| `lrate_targ` | 0.01 |
 | `threshold_mult` | 2.0 |
 | `targ_min` | 1.0 |
-| `input_weight` | 1.875 |
-| `weight_init_std` | 1.0 |
 
-That baseline is validated against the numpy reference and is the paper-faithful model to use for reference
-experiments. The other registered Falandays variants are experimental perturbations around it. The
-compartmental/CTRNN nodes are **our construction**, not a Falandays paper model.
+The authors' scripts set several constants per task:
 
-"Validated against numpy v0/v0.2" means bit-fidelity to those reference implementations where fixtures
-exist. v0.2 itself contains documented departures, so do not let "paper-faithful" leak onto the experimental
-variants, compartmental nodes, or evolution experiments.
+| task | `nnodes` | `input_amp` | `lrate_wmat` | `lrate_targ` | recurrent init | sensory noise |
+|---|---:|---:|---:|---:|---|---:|
+| `:wall` | 200 | 4.0 | 1.0 | 0.01 | all-excitatory `Normal(input_amp, 0.1)` | 0.1* |
+| `:tracking` | 200 | 0.75 | 1.0 | 0.01 | all-excitatory `Normal(input_amp, 0.1)` | 0.0 |
+| `:pong` | 500 | 2.75 | 1.0 | 0.1 | per-synapse 25% `Normal(-1, 0.1)` / 75% `Normal(0, 0.2)` | 0.0 |
+
+`*` Wall sensory noise `0.1` is a labeled assumption: the committed authors file has `noise=0`, but the
+published noisy wall runs used an uncommitted nonzero value. BrainlessLab applies this as no-clip
+`Uniform(+/-0.1)` noise for the faithful wall high-level default.
+
+The baseline is validated against a dumped trajectory generated from the authors' Julia construction and
+dynamics (`test/fixtures/authors_<task>.jld2`). The old numpy v0.2 fixtures remain as legacy regression
+coverage only; v0.2 itself contains documented departures from the authors' code. The other registered
+Falandays variants are experimental perturbations around the baseline. The compartmental/CTRNN nodes are
+**our construction**, not a Falandays paper model.
 
 ## Registered variants
 
 | variant | status | what it adds |
 |---|---|---|
-| `:falandays_base` | **stable baseline** | the 2021 Falandays homeostatic reservoir; `:falandays` is an alias |
+| `:falandays_base` | **stable baseline** | the authors' 2021 Falandays homeostatic reservoir with task-specific paper constants; `:falandays` is an alias |
 | `:falandays_noisy` | experimental | + **sensory** input noise (`Uniform(+/-0.1)`, clip >= 0 -- perturbs the receptor vector) |
 | `:falandays_extended` | experimental | the paper's **extended** model: base + sensory noise + **Watts--Strogatz** small-world recurrent wiring + **Dale's law** (excitatory/inhibitory). Same neuron update as base; a richer substrate. The documented `base` vs `extended` contrast. |
 | `:falandays_ablated` | experimental | **target homeostasis frozen** (`lrate_targ=0`): target pinned at 1.0, threshold fixed at 2.0; weights still learn -- an ablation probe of the homeostatic mechanism |
@@ -53,7 +63,8 @@ target `T` (floor 1), firing threshold `T' = 2T`, leak 0.25 (0.75 retained), rec
 self-connections. Learning each tick: `W -= E/N` (mean over active presynaptic), `T += lrate_targ * error`.
 Because it self-organizes online, it is **fair to run untrained** (default params + random wiring per seed).
 The evolvable genome is 7 scalars (`leak`, `lrate_wmat`, `lrate_targ`, `threshold_mult`, `targ_min`,
-`input_weight`, `weight_init_std`) -- evolving it is optional and experimental.
+`input_weight`, `weight_init_std`) -- evolving it is optional and experimental. The faithful task defaults
+thread `input_amp` and `weight_init_mode` as construction options, not as packed genotype fields.
 
 Two noises are distinct: **membrane** noise (`:falandays_oosawa`, on the membrane potential `acts`) vs
 **sensory** noise (`:falandays_noisy`, on the receptor input). See

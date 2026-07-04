@@ -71,10 +71,10 @@ score_ceiling(task::TaskSpec) = task.ceiling.value
 const WALL_TASK = TaskSpec(
     :wall,
     WallEnv;
-    floor=null_anchor(80.82604304102207, "null=null_random, score_key=distance_window, seeds 0:7, git 4ec6f65, 2026-07-04"),
-    ceiling=reference_anchor(97.54838564213563, "reference=falandays_oosawa, score_key=distance_window, seeds 0:7, git 4ec6f65, 2026-07-04"),
-    score_key=:distance_window,
-    descriptor_keys=[:collisions_window],
+    floor=null_anchor(0.763125, "null=null_random, score_key=nav_score, seeds 0:7, git d420563, 2026-07-04"),
+    ceiling=reference_anchor(1.0, "legacy observed best, pending reference-genome calibration; reference=falandays_base measured 0.013392857142857137 <= null floor 0.763125, score_key=nav_score, seeds 0:7, git d420563, 2026-07-04"), # TODO(reference-genome)
+    score_key=:nav_score,
+    descriptor_keys=[:collisions_window, :distance_window],
 )
 
 const TRACKING_TASK = TaskSpec(
@@ -88,16 +88,16 @@ const TRACKING_TASK = TaskSpec(
 const PONG_TASK = TaskSpec(
     :pong,
     PongEnv;
-    floor=null_anchor(0.4551692294285557, "null=null_random, score_key=mean_align, seeds 0:7, git 4ec6f65, 2026-07-04"),
-    ceiling=reference_anchor(0.972, "legacy observed best, pending reference-genome calibration"), # TODO(reference-genome)
-    score_key=:mean_align,
+    floor=null_anchor(0.3561507936507936, "null=null_random, score_key=hit_rate, seeds 0:7, git d420563, 2026-07-04"),
+    ceiling=reference_anchor(0.7008928571428571, "reference=falandays_base, score_key=hit_rate, seeds 0:7, git d420563, 2026-07-04"),
+    score_key=:hit_rate,
 )
 
 const PONG_HITRATE_TASK = TaskSpec(
     :pong_hitrate,
     PongEnv;
-    floor=null_anchor(0.35416666666666663, "null=null_random, score_key=hit_rate, seeds 0:7, git 4ec6f65, 2026-07-04"),
-    ceiling=reference_anchor(0.52, "legacy observed best, pending reference-genome calibration"), # TODO(reference-genome)
+    floor=null_anchor(0.3561507936507936, "null=null_random, score_key=hit_rate, seeds 0:7, git d420563, 2026-07-04"),
+    ceiling=reference_anchor(0.7008928571428571, "reference=falandays_base, score_key=hit_rate, seeds 0:7, git d420563, 2026-07-04"),
     score_key=:hit_rate,
 )
 
@@ -118,7 +118,7 @@ const CARTPOLE_HARD_TASK = TaskSpec(
 const CARTPOLE_SWINGUP_TASK = TaskSpec(
     :cartpole_swingup,
     CartPoleSwingupEnv;
-    floor=null_anchor(0.1569039231621101, "null=null_random, score_key=mean_uprightness, seeds 0:7, git 4ec6f65, 2026-07-04"),
+    floor=null_anchor(0.1569039231621101, "null=null_random, score_key=mean_uprightness, seeds 0:7, git d420563, 2026-07-04"),
     ceiling=analytic(1.0; note="perfect uprightness"),
     score_key=:mean_uprightness,
 )
@@ -131,7 +131,7 @@ const CARTPOLE_LONG_TASK = TaskSpec(
 )
 
 const FORAGE_FLOOR_ANCHOR =
-    null_anchor(0.4556865216303779, "null=null_random, score_key=forage_score, seeds 0:7, git 4ec6f65, 2026-07-04")
+    null_anchor(0.4556865216303779, "null=null_random, score_key=forage_score, seeds 0:7, git d420563, 2026-07-04")
 const FORAGE_CEILING_ANCHOR =
     analytic(1.0; note="agents on source")
 

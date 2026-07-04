@@ -70,3 +70,154 @@
   font-size: 0.9em;
 }
 .bl-source code { color: var(--bl-teal-ink); }
+
+/* ---------------------------------------------------------------------------
+   Landing page (template: splash + frontmatter hero)
+   One centered editorial column: hero, demo card, and prose all share the
+   same measure. The nav carries the "BrainlessLab" name; the hero h1 is the
+   tagline, so nothing repeats. */
+
+[data-has-hero] {
+  --sl-content-width: 50rem;
+}
+[data-has-hero] .sl-container {
+  margin-inline: auto;
+}
+
+/* Compact, left-aligned hero (overrides Starlight's tall centered default). */
+[data-has-hero] .hero {
+  grid-template-columns: 1fr;
+  padding-block: 1rem 2.5rem;
+}
+/* Two-column masthead: the h1 spans the left; the tagline and the "Read the docs"
+   link stack in the right column, so the link nestles directly under the tagline.
+   Collapses to a single stack on narrow screens. */
+[data-has-hero] .hero .stack {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'title tagline'
+    'title actions';
+  align-items: center;
+  justify-content: start;
+  gap: 0.4rem 2.25rem;
+  text-align: start;
+}
+[data-has-hero] .hero .copy {
+  display: contents;
+}
+[data-has-hero] .hero .copy h1 {
+  grid-area: title;
+  align-self: center;
+  max-width: 30rem;
+}
+[data-has-hero] .hero .copy .tagline {
+  grid-area: tagline;
+  align-self: end;
+  max-width: 26rem;
+}
+[data-has-hero] .hero .actions {
+  grid-area: actions;
+  align-self: start;
+}
+@media (max-width: 50rem) {
+  [data-has-hero] .hero .stack {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'title' 'tagline' 'actions';
+  }
+}
+[data-has-hero] .hero h1 {
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  font-size: clamp(1.85rem, 1.1rem + 2.6vw, 2.5rem);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.08;
+}
+[data-has-hero] .hero .tagline {
+  font-size: 1.03rem;
+  line-height: 1.6;
+}
+[data-has-hero] .hero .actions {
+  justify-content: flex-start;
+}
+[data-has-hero] .hero .actions a {
+  font-size: var(--sl-text-base);
+  padding: 0;
+}
+
+/* Demo range inputs: hairline track + teal thumb (appearance-none needs an
+   explicit thumb on WebKit, or it vanishes). */
+.bl-range {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+}
+.bl-range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--bl-grid);
+}
+.bl-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -4px;
+  height: 11px;
+  width: 11px;
+  border-radius: 50%;
+  background: var(--bl-teal);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px var(--bl-grid);
+}
+.bl-range::-moz-range-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--bl-grid);
+}
+.bl-range::-moz-range-thumb {
+  height: 7px;
+  width: 7px;
+  border-radius: 50%;
+  background: var(--bl-teal);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px var(--bl-grid);
+}
+
+/* Caption line under the demo — small, muted, with citation links. */
+.bl-caption {
+  max-width: 44rem;
+  margin: 0.9rem auto 0;
+  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--sl-color-gray-3);
+}
+
+/* "More below" chevron cue under the demo. */
+.bl-chevron {
+  display: flex;
+  justify-content: center;
+  margin: 1.1rem auto 0.25rem;
+  color: var(--bl-teal);
+}
+.bl-chevron svg {
+  width: 1.6rem;
+  height: 1.6rem;
+  animation: bl-bob 1.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bl-chevron svg {
+    animation: none;
+  }
+}
+@keyframes bl-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(5px);
+  }
+}
+#more {
+  scroll-margin-top: 4rem;
+}
