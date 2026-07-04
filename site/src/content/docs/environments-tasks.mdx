@@ -1,13 +1,55 @@
 ---
 title: Environments & Tasks
-description: Single-agent tasks and the swarm — their receptor/effector contracts and scoring.
+description: Single-agent tasks and the swarm — their receptor/effector contracts, scoring, and the foraging experiment.
 ---
 
-The **task** fixes the `Environment` and the `(n_receptors, n_effectors)` the whole
-stack is built to. Single-agent tasks use a `PassthroughBody` over a `TaskWorld`; the
-swarm uses `VENBody` in a `TorusEnvironment` / `ForageEnvironment`.
+The **task** you pick fixes the `Environment` and the `(n_receptors, n_effectors)` the
+whole stack is built to — it shapes the assembly *and* supplies the score. Single-agent
+tasks use a `PassthroughBody` over a `TaskWorld`; the swarm uses a `VENBody` in a
+`TorusEnvironment` / `ForageEnvironment`.
 
-- **Single-agent**: `:wall`, `:tracking`, `:pong`, `:cartpole` (+ variants) — read as a normalized task score. Effector semantics are intentionally non-uniform per task.
-- **Swarm**: `:torus`, and `:forage` — a source seen via a second visual bank, with a **social-vs-blind** condition (agents that can see each other vs the same number that cannot). Read through swarm metrics.
+## Single-agent tasks
 
-*(Stub — to be ported from `docs/tasks.md`, `docs/contracts.md`, `docs/collective.md`.)*
+| Task | R | E | senses / acts with |
+|---|---:|---:|---|
+| `:wall` | 2 | 2 | two ray-cast wall sensors; differential wheel speeds |
+| `:tracking` | 62 | 2 | two eyes × 31 Gaussian bearing sensors; eye-rotation command |
+| `:pong` / `:pong_hitrate` | 46 | 2 | ball-bearing bins; paddle vote/differential |
+| `:cartpole` (+ hard/swingup/long) | 8 | 2 | 4 state dims × 2 polarities; binary force vote |
+
+Effector semantics are **intentionally non-uniform**: channel 1 in Pong is not the same
+physical quantity as channel 1 in cartpole. `normalized_score(task, raw)` maps each
+task's raw score onto $[0,1]$ via a per-task floor/ceiling — for optimizer bookkeeping,
+not a universal unit. Don't compare raw scores across tasks.
+
+<p class="bl-source">Source: <code>src/envs/</code> (the <code>TaskWorld</code>s), <code>src/tasks/Tasks.jl</code> (<code>TaskSpec</code>, <code>normalized_score</code>).</p>
+
+## The swarm
+
+`VENBody` turns bearing-vision into receptors and VEN kinematics out of effectors: **62**
+bearing sensors (two eyes × 31 angles) padded to **64** inputs; **3** effectors (`e3`
+forward acceleration, `e2−e1` heading acceleration). Coupling is **vision** — agents
+influence each other only by being seen, so the sensor geometry *is* the interaction
+topology; collective order is emergent, not imposed.
+
+<p class="bl-source">Source: <code>src/world/Body.jl</code> (<code>VENBody</code>, <code>sense_agents</code>), <code>src/world/Environments.jl</code> (<code>TorusEnvironment</code>).</p>
+
+## The foraging experiment
+
+`:forage` adds a **source** the agents can find, sensed via a *second* bearing-vision
+bank (its own gain) alongside the conspecific bank. The headline manipulation is
+**social vs blind**:
+
+- **social** — agents see each other *and* the source;
+- **blind** — the same `N` agents see the source but are blind to each other (and don't collide).
+
+The scientific question: does social vision speed convergence to the source — i.e. do
+agents use each other's presence as a guide? Metrics: mean distance-to-source, fraction
+within a capture radius, and time-to-first-arrival.
+
+```julia
+simulate(:forage; node=:falandays_base, n_agents=12, conspecific_vision=true)   # social
+simulate(:forage; node=:falandays_base, n_agents=12, conspecific_vision=false)  # blind
+```
+
+<p class="bl-source">Source: <code>src/world/Environments.jl</code> (<code>ForageEnvironment</code>), <code>src/world/Metrics.jl</code> (foraging metrics).</p>

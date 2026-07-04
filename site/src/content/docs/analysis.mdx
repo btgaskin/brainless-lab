@@ -1,19 +1,127 @@
 ---
 title: Analysis
-description: The analytic suite — criticality, collective, cross-level, and information measures, with equations and code references.
+description: The analytic suite — criticality, collective, cross-level, and information measures, each with its equation and a code reference.
 ---
 
-Every measure here will carry its **equation**, a one-line interpretation, and a
-**Source** callout to its Julia implementation. The suite spans three scales.
+The analytic suite reads the *statistics of self-organised dynamics* at three scales.
+Every measure below carries its equation, a one-line reading, and a **Source** callout
+to its Julia implementation. All operate on channels recorded by the `Recorder` (off
+the compute hot path), so nothing here perturbs a run.
 
-- **Node-level** — branching ratio (the subsampling-robust MR estimator), avalanche size/duration exponents + the crackling-noise relation, spectral radius $\rho(W)$, per-node distance-to-target.
-- **Collective-level** — polarization, milling, cohesion, swarm regime, correlation length.
-- **Cross-level** — the *same* estimators computed at the node scale and the agent scale (agent-scale activity = per-tick turn-event counts), so node-vs-agent covariation is a plot; plus susceptibility, Fano factor, participation ratio at both levels.
-- **Information** — transfer entropy, within the node network and between agents.
+## Criticality (node scale)
 
-:::note
-A homeostatically rate-pinned $\sigma \approx 1$ is not by itself criticality — so
-$\sigma$ and $\rho(W)$ are shown together.
+### Branching ratio — the MR estimator
+
+For a population-activity series $A(t)$, the branching ratio $m$ is how much activity
+one tick begets the next. The naive slope $\hat m = \sum A_t A_{t+1} / \sum A_t^2$ is
+**biased under subsampling** (Wilting & Priesemann 2018) — and this is subsampling (a
+scalar summary of the population). The **multistep-regression** estimator fixes it: for
+lags $k = 1\dots k_{\max}$ take the (intercept-corrected) slope $r_k$ of $A(t{+}k)$ on
+$A(t)$, then fit
+
+$$
+r_k = b\,m^{k} \quad\Longrightarrow\quad \log r_k = \log b + k\log m,
+$$
+
+and read $m$ off the exponential decay — which is invariant to the subsampling that
+distorts the single-lag slope.
+
+<p class="bl-source">Source: <code>src/analysis/Branching.jl</code> — <code>branching_ratio</code> (per-tick + legacy σ), <code>branching_ratio_mr</code>.</p>
+
+:::caution
+The Falandays homeostat regulates the population rate directly, so $m \approx 1$ can be
+*rate-pinned* rather than emergent — read it alongside the spectral radius (below).
 :::
 
-*(Stub — each measure to get its own equation + code ref, authored from the sources in `src/analysis/`.)*
+### Neuronal avalanches
+
+Threshold $A(t)$ into supra-threshold excursions; each avalanche has a **size** $S$
+(summed activity) and **duration** $D$. Near criticality both are power laws,
+$P(S)\sim S^{-\tau}$ and $P(D)\sim D^{-\alpha}$, tied by the **crackling-noise scaling
+relation**
+
+$$
+\frac{\alpha-1}{\tau-1} \;=\; \gamma, \qquad \langle S\rangle(D)\sim D^{\gamma}.
+$$
+
+Agreement of the three exponents is a far stronger criticality claim than any single
+$\sigma$ (Beggs & Plenz 2003).
+
+<p class="bl-source">Source: <code>src/analysis/Avalanches.jl</code> — <code>avalanches</code> (τ, α, γ_fit vs γ_pred).</p>
+
+### Spectral radius
+
+The dominant magnitude of the learned recurrent matrix, $\rho(W) = \max_i |\lambda_i(W)|$
+— the linear-stability read that complements the branching (avalanche) read. Tracked
+over the rollout, and per agent.
+
+<p class="bl-source">Source: <code>src/analysis/Spectral.jl</code>.</p>
+
+### Per-node distance-to-target
+
+Each node has a homeostatic target $T_i$; its instantaneous strain is $|a_i - T_i|$.
+The across-node distribution is an "internal effort map" — which nodes are working,
+which are settled.
+
+<p class="bl-source">Source: <code>src/analysis/TargetError.jl</code> — <code>node_target_error</code>.</p>
+
+## Cross-level — the same measure at two scales
+
+The point of the whole programme: measure the *same* signature at the **node** scale and
+the **agent** scale, and ask whether they covary. Every criticality estimator takes a
+`level`:
+
+- `:node` — within each agent's own reservoir (its node spikes),
+- `:agent` — the **per-tick count of agents undergoing a turn event** ($|\Delta\theta| > \theta_{\text{thr}}$, default $\pi/12$) — a genuine agent-scale cascade, *not* the pooled node rate rescaled,
+- `:pooled` — all nodes together (the default).
+
+Because `:agent` is a distinct process, `branching_ratio(sim; level=:agent)` and
+`level=:node` are comparable quantities you can plot against each other.
+
+<p class="bl-source">Source: <code>src/analysis/ActivityLevels.jl</code>; consumed by Branching / Avalanches / SecondOrder.</p>
+
+### Second-order signatures (both levels)
+
+$$
+\chi = N\,\mathrm{Var}[\phi], \qquad
+F = \frac{\mathrm{Var}[A]}{\langle A\rangle}, \qquad
+\mathrm{PR} = \frac{(\sum_i \lambda_i)^2}{\sum_i \lambda_i^2}
+$$
+
+**Susceptibility** $\chi$ (order parameter $\phi$ = synchrony at node scale, polarization
+at agent scale), the **Fano factor** $F$, and the **participation ratio** PR (effective
+dimensionality of the activity covariance). A criticality hypothesis predicts these peak
+together across levels as a control parameter is swept.
+
+<p class="bl-source">Source: <code>src/analysis/SecondOrder.jl</code>.</p>
+
+## Collective (agent scale)
+
+- **Polarization** $\;P = \big|\frac{1}{N}\sum_i e^{i\theta_i}\big|$ — heading alignment, $0$ disordered → $1$ aligned.
+- **Milling** — rotational order about the torus-aware circular centroid.
+- **Cohesion** — mean nearest-neighbour + pairwise distance (periodic-boundary aware).
+- **Swarm regime** — a discrete label {polarized, milling, swarming, static} from $P$, milling, and speed.
+- **Correlation length** — the distance at which the velocity-*fluctuation* correlation crosses zero (Cavagna et al. 2010 form: subtract the global mean velocity, normalize once globally).
+
+<p class="bl-source">Source: <code>src/world/Metrics.jl</code> (polarization, milling, cohesion) and <code>src/analysis/SwarmAnalysis.jl</code> (<code>swarm_regime</code>, <code>correlation_length</code>).</p>
+
+## Information flow
+
+**Transfer entropy** — directional, order-1 discrete plug-in estimator:
+
+$$
+\mathrm{TE}_{X\to Y} = \sum p(y_{t+1}, y_t, x_t)\,\log_2\frac{p(y_{t+1}\mid y_t, x_t)}{p(y_{t+1}\mid y_t)} .
+$$
+
+Two variants: node-to-node **within a reservoir** (spike trains), and agent-to-agent
+(binarised heading change) — the direct measure for the social-foraging "do they use
+each other as a guide?" question. *Experimental* (plug-in bias; a KSG upgrade is flagged).
+
+<p class="bl-source">Source: <code>src/analysis/TransferEntropy.jl</code> — <code>transfer_entropy</code>, <code>node_transfer_entropy</code>, <code>agent_transfer_entropy</code>.</p>
+
+---
+
+### References
+
+Beggs & Plenz (2003), *J. Neurosci.* · Wilting & Priesemann (2018), *Nat. Commun.* ·
+Del Papa, Priesemann & Triesch (2017), *PLOS ONE* · Cavagna et al. (2010), *PNAS*.

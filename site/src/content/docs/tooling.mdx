@@ -1,15 +1,55 @@
 ---
 title: Tooling
-description: The four verbs — benchmark, profile, sweep, ablate — and their outputs.
+description: The four verbs — benchmark, profile, sweep, ablate — their workflows and outputs.
 ---
 
-Four verbs, each with a distinct job and a standardized timestamped run-dir
-(`manifest.toml` + CSVs + figures in the house palette + behaviour GIFs + a README
-callout).
+Four verbs, each a distinct job, each writing the same timestamped **run-dir**:
+`manifest.toml` (git SHA + seeds + versions) · CSVs (raw + summary) · `figures/*.png`
+in the house palette · behaviour GIFs · a `README` callout with the headline result.
 
-- **`benchmark`** — one neuron vs the roster; **compare** performance *(the cellular-cognition workflow)*.
-- **`profile`** — one neuron, in-depth: the full analytic suite + behaviour GIF; **characterize** *(the collective-intelligence workflow)*.
-- **`sweep <config.toml>`** — **perturb** parameters and measure signatures across cells. Namespaced axes (`node.`/`env.`/`drive.`/`task.`/`ablation`/`seed`), one-at-a-time (default) or factorial, a cost preview + `max_cells` guard, and per-axis breakdown figures (score, σ, liveness vs the knob). `sweep --list-axes` shows what's tunable.
+- **`benchmark`** — one neuron vs the roster; **compare** performance. *(the cellular-cognition workflow)*
+- **`profile`** — one neuron, in-depth: the full analytic suite + behaviour GIF. **characterize**. *(the collective-intelligence workflow)*
+- **`sweep`** — **perturb** parameters, measure signatures across cells.
 - **`ablate <node> <task>`** — a config-free preset: baseline vs each registered ablation (`freeze_plasticity`, `zero_recurrent`, `clamp_target`, `disable_vision`).
 
-*(Stub — the sweep config walkthrough + example run-dirs to be authored here.)*
+## Sweep — "what makes it work, how it breaks"
+
+A sweep perturbs the parameters that shape a run and records the analytic **signatures**
+per cell, so you can see performance *and* criticality against the knob. Discover what's
+tunable with `sweep --list-axes <node> <task>`.
+
+```toml
+[sweep]
+id   = "falandays_wall_perturb"
+mode = "one_at_a_time"    # default: each axis varied alone (Σ of axis lengths)
+                          # "factorial" = full cartesian product
+seeds = [0, 1, 2, 3]
+max_cells = 200           # cost guard; the preview shows cells × seeds rollouts
+
+[baseline]                # the canonical setup every axis perturbs around
+node = "falandays_base"
+task = "wall"
+N = 100
+ticks = 2000
+
+[axes]                    # namespaced parameter path -> values
+"node.threshold_mult" = [1.5, 1.75, 2.0, 2.25, 2.5]
+"node.lrate_targ"     = [0.0, 0.005, 0.01, 0.02]
+"env.vision_range"    = [2.0, 4.0, 8.0]
+"ablation"            = ["none", "freeze_plasticity", "zero_recurrent"]
+
+[analytics]
+measures = ["sigma_mr", "spectral_radius", "liveness", "regime"]
+```
+
+**Axis namespaces:** `node.*`, `env.*`, `drive.*`, `task.*`, `ablation`, `seed` — routed
+into the real `simulate` kwargs, validated up front (a wrong or inapplicable axis is a
+clear "did you mean…" error, not a silent no-op). A failing cell records an error and the
+sweep **continues**.
+
+**Outputs:** `results.csv` (cell × axis × value × score + each measure) · per-axis
+breakdown figures (score, σ, liveness vs the knob — with $\sigma$ and $\rho(W)$ shown
+together) · a representative GIF per cell · a README callout (best value / breakdown
+point / regime flip).
+
+<p class="bl-source">Source: <code>src/run/Sweep.jl</code> (<code>run_sweep</code>, <code>ablate</code>, <code>sweepable_axes</code>); CLI <code>sweep/run.jl</code>; examples in <code>configs/sweep_*.toml</code>.</p>
