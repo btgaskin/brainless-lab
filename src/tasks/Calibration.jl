@@ -141,23 +141,38 @@ function _measure_reference_anchor(
     model, model_sym =
         reference isa NamedTuple ? _reference_from_namedtuple(reference, reference_model) :
         (reference, reference_model)
+    # Measure the reference on the CANONICAL agent path (via simulate, exactly as
+    # the null floor is measured and as scores/the sweep are produced) — NOT a raw
+    # rollout. A raw rollout skips `_apply_falandays_task_defaults!` (weight-init
+    # mode, input amplitude, topology, drive), which builds a crippled, non-canonical
+    # agent whose score does not match real runs (e.g. wall nav ~0 vs the real ~0.9).
+    ref_node_kwargs = _merge_kwdicts(node_kwargs)
+    model === nothing || (ref_node_kwargs[:params] = model)
     raw = Float64[]
+    used_key = task_spec.score_key
+    task_sym = _calibration_task_symbol(task_spec)
     for seed in seed_values
-        out = rollout(
-            task_spec,
-            model,
-            seed;
-            model_sym=model_sym,
-            ticks=ticks,
-            window=window,
-            N=N,
-            node_kwargs=node_kwargs,
-            env_kwargs=env_kwargs,
-            kwargs...,
+        sim = simulate(
+            task_sym;
+            _calibration_sim_kwargs(
+                task_spec;
+                node=model_sym,
+                seed=seed,
+                ticks=ticks,
+                window=window,
+                N=N,
+                n_agents=nothing,
+                record=Symbol[],
+                node_kwargs=ref_node_kwargs,
+                env_kwargs=env_kwargs,
+                kwargs=kwargs,
+            )...,
         )
-        push!(raw, Float64(out.score))
+        value, key = _calibration_raw_score(sim, task_spec.score_key)
+        used_key = key
+        push!(raw, value)
     end
-    provenance = "reference=$(model_sym), score_key=$(task_spec.score_key), seeds $(_seed_summary(seed_values)), git $(_git_short_sha()), $(Dates.today())"
+    provenance = "reference=$(model_sym), score_key=$(used_key), seeds $(_seed_summary(seed_values)), git $(_git_short_sha()), $(Dates.today())"
     return reference_anchor(_mean_float64(raw), provenance)
 end
 

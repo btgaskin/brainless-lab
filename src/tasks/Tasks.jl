@@ -89,7 +89,7 @@ const PONG_TASK = TaskSpec(
     :pong,
     PongEnv;
     floor=null_anchor(0.3561507936507936, "null=null_random, score_key=hit_rate, seeds 0:7, git d420563, 2026-07-04"),
-    ceiling=reference_anchor(0.7008928571428571, "reference=falandays_base, score_key=hit_rate, seeds 0:7, git d420563, 2026-07-04"),
+    ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
 
@@ -97,7 +97,7 @@ const PONG_HITRATE_TASK = TaskSpec(
     :pong_hitrate,
     PongEnv;
     floor=null_anchor(0.3561507936507936, "null=null_random, score_key=hit_rate, seeds 0:7, git d420563, 2026-07-04"),
-    ceiling=reference_anchor(0.7008928571428571, "reference=falandays_base, score_key=hit_rate, seeds 0:7, git d420563, 2026-07-04"),
+    ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
 

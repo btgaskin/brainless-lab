@@ -1,0 +1,76 @@
+# Oosawa-drive forage criticality sweep.
+# Question: does target-deficit membrane noise (OosawaDrive) un-pin the near-
+# critical branching that the falandays_base homeostat clamps? Any nonzero
+# drive.* value flips falandays_base onto the Oosawa drive; noise_gain=0.0 is
+# the drive with zero injection (~= base) and the NoDrive baseline anchors it.
+# Run with:
+#   julia --project=. sweep/run.jl configs/sweep_forage_oosawa.toml
+
+[sweep]
+id = "forage_oosawa"
+mode = "one_at_a_time"
+seeds = [0, 1, 2, 3]
+max_cells = 200
+max_rollouts = 80
+
+[baseline]
+node = "falandays_base"
+task = "forage"
+N = 80
+n_agents = 6
+ticks = 1200
+window = 1200
+"env.vision_range" = 6.0
+"env.source_gain" = 1.0
+"env.capture_radius" = 1.0
+"env.sensory_noise" = 0.05
+
+[axes]
+# Sweep across the Oosawa drive strength (target-deficit exploration noise).
+"drive.noise_gain" = [0.0, 0.25, 0.5, 1.0]
+"drive.membrane_noise" = [0.05]
+
+[analytics]
+measures = [
+  "sigma_mr",
+  "sigma_mr_node",
+  "sigma_mr_agent",
+  "dist_to_source",
+  "susceptibility_node",
+  "susceptibility_agent",
+  "correlation_length",
+  "contact_clusters",
+  "spectral_radius",
+  "liveness",
+  "regime",
+]
+
+[capture]
+group = "representative"
+timeseries = true
+gif = true
+gif_framerate = 20
+gif_maxframes = 160
+window = 240
+stride = 60
+n_shifts = 20
+seed = 4242
+
+[capture.groups.representative]
+"drive.noise_gain" = 0.5
+
+[[ensemble]]
+kind = "turn"
+threshold = { quantile = 0.85 }
+
+[[ensemble]]
+kind = "align"
+threshold = { quantile = 0.85 }
+neighbor_radius = "vision_range"
+
+[[ensemble]]
+kind = "speed"
+threshold = { quantile = 0.85 }
+
+[[ensemble]]
+kind = "graded"

@@ -1,0 +1,71 @@
+# Collective-coupling sweep (falandays_base, fixed brain N=250): how the coupling
+# channels — conspecific vision + acoustic signalling — and their range affect
+# foraging AND ensemble criticality. The blind cell (vision off + signalling off)
+# is the control. Hypothesis: coupling -> collective dynamics -> better foraging,
+# and that gain correlates with ensemble susceptibility (which should pass the
+# circular-shift null in coupled cells but not blind).
+# Run with:
+#   julia --project=. sweep/run.jl configs/sweep_forage_coupling.toml
+
+[sweep]
+id = "forage_coupling"
+mode = "factorial"
+seeds = [0, 1, 2, 3]
+max_cells = 200
+max_rollouts = 120
+
+[baseline]
+node = "falandays_base"
+task = "forage"
+N = 250
+n_agents = 6
+ticks = 1200
+window = 1200
+"env.vision_range" = 6.0
+"env.source_gain" = 1.0
+"env.capture_radius" = 1.0
+"env.sensory_noise" = 0.05
+
+[axes]
+"env.conspecific_vision" = [true, false]
+"env.signalling" = [true, false]
+"env.vision_range" = [3.0, 6.0, 12.0]
+
+[analytics]
+measures = [
+  "sigma_mr", "sigma_mr_node", "sigma_mr_agent", "dist_to_source",
+  "susceptibility_node", "susceptibility_agent", "correlation_length",
+  "contact_clusters", "spectral_radius", "liveness", "regime",
+]
+
+[capture]
+# Capture the vision_range=6 slice -> all 4 vision x signalling combos (incl.
+# the blind control) get a null test, enabling the coupled-vs-blind contrast.
+group = "range6"
+timeseries = true
+gif = true
+gif_framerate = 20
+gif_maxframes = 160
+window = 240
+stride = 60
+n_shifts = 20
+seed = 4242
+
+[capture.groups.range6]
+"env.vision_range" = 6.0
+
+[[ensemble]]
+kind = "turn"
+threshold = { quantile = 0.85 }
+
+[[ensemble]]
+kind = "align"
+threshold = { quantile = 0.85 }
+neighbor_radius = "vision_range"
+
+[[ensemble]]
+kind = "speed"
+threshold = { quantile = 0.85 }
+
+[[ensemble]]
+kind = "graded"

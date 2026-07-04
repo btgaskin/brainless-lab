@@ -1,0 +1,72 @@
+# Single-axis forage sweep: network size 100 -> 1000.
+# Does foraging (and the collective susceptibility that tracked it) keep
+# improving with reservoir size, and does network branching stay rate-pinned?
+# Run with:
+#   julia -t auto --project=. sweep/run.jl configs/sweep_forage_size.toml
+
+[sweep]
+id = "forage_size"
+mode = "one_at_a_time"
+seeds = [0, 1, 2, 3]
+max_cells = 200
+max_rollouts = 80
+
+[baseline]
+node = "falandays_base"
+task = "forage"
+N = 100
+n_agents = 6
+ticks = 1200
+window = 1200
+"env.vision_range" = 6.0
+"env.source_gain" = 1.0
+"env.capture_radius" = 1.0
+"env.sensory_noise" = 0.05
+
+[axes]
+"task.N" = [100, 250, 500, 750, 1000]
+
+[analytics]
+measures = [
+  "sigma_mr",
+  "sigma_mr_node",
+  "sigma_mr_agent",
+  "dist_to_source",
+  "susceptibility_node",
+  "susceptibility_agent",
+  "correlation_length",
+  "contact_clusters",
+  "spectral_radius",
+  "liveness",
+  "regime",
+]
+
+[capture]
+group = "representative"
+timeseries = true
+gif = true
+gif_framerate = 20
+gif_maxframes = 160
+window = 240
+stride = 60
+n_shifts = 20
+seed = 4242
+
+[capture.groups.representative]
+"task.N" = 500
+
+[[ensemble]]
+kind = "turn"
+threshold = { quantile = 0.85 }
+
+[[ensemble]]
+kind = "align"
+threshold = { quantile = 0.85 }
+neighbor_radius = "vision_range"
+
+[[ensemble]]
+kind = "speed"
+threshold = { quantile = 0.85 }
+
+[[ensemble]]
+kind = "graded"

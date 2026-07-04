@@ -1,0 +1,63 @@
+# Collective vs individual foraging (frozen HEAD 30b1af2): at each N, agents
+# with conspecific vision ON (collective coupling) vs OFF (individuals foraging
+# alone on the source). How much does collective coupling help, and where?
+# Run with:
+#   julia --project=. sweep/run.jl configs/sweep_forage_collective.toml
+
+[sweep]
+id = "forage_collective"
+mode = "factorial"
+seeds = [0, 1, 2, 3]
+max_cells = 200
+max_rollouts = 120
+
+[baseline]
+node = "falandays_base"
+task = "forage"
+N = 100
+n_agents = 6
+ticks = 1200
+window = 1200
+"env.vision_range" = 6.0
+"env.source_gain" = 1.0
+"env.capture_radius" = 1.0
+"env.sensory_noise" = 0.05
+
+[axes]
+"task.N" = [60, 100, 200, 500]
+"env.conspecific_vision" = [true, false]
+
+[analytics]
+measures = [
+  "sigma_mr", "sigma_mr_node", "sigma_mr_agent", "dist_to_source",
+  "susceptibility_node", "susceptibility_agent", "correlation_length",
+  "contact_clusters", "spectral_radius", "liveness", "regime",
+]
+
+[capture]
+group = "n100"
+timeseries = true
+gif = false
+window = 240
+stride = 60
+n_shifts = 20
+seed = 4242
+
+[capture.groups.n100]
+"task.N" = 100
+
+[[ensemble]]
+kind = "turn"
+threshold = { quantile = 0.85 }
+
+[[ensemble]]
+kind = "align"
+threshold = { quantile = 0.85 }
+neighbor_radius = "vision_range"
+
+[[ensemble]]
+kind = "speed"
+threshold = { quantile = 0.85 }
+
+[[ensemble]]
+kind = "graded"

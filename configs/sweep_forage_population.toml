@@ -1,0 +1,69 @@
+# Population x sight sweep (falandays_base, link_p at default): vary network
+# population N and the sight/coupling channels (conspecific vision + signalling),
+# link_p held static. Tests whether larger populations + collective coupling
+# improve foraging and whether that gain tracks ensemble criticality.
+# Run with:
+#   julia --project=. sweep/run.jl configs/sweep_forage_population.toml
+
+[sweep]
+id = "forage_population"
+mode = "factorial"
+seeds = [0, 1, 2, 3]
+max_cells = 200
+max_rollouts = 120
+
+[baseline]
+node = "falandays_base"
+task = "forage"
+N = 100
+n_agents = 6
+ticks = 1200
+window = 1200
+"env.vision_range" = 6.0
+"env.source_gain" = 1.0
+"env.capture_radius" = 1.0
+"env.sensory_noise" = 0.05
+
+[axes]
+"task.N" = [100, 250, 500]
+"env.conspecific_vision" = [true, false]
+"env.signalling" = [true, false]
+
+[analytics]
+measures = [
+  "sigma_mr", "sigma_mr_node", "sigma_mr_agent", "dist_to_source",
+  "susceptibility_node", "susceptibility_agent", "correlation_length",
+  "contact_clusters", "spectral_radius", "liveness", "regime",
+]
+
+[capture]
+# Capture the N=500 slice -> all 4 vision x signalling combos (incl. blind) get
+# a null test at the high-population regime for the coupled-vs-blind contrast.
+group = "popcap"
+timeseries = true
+gif = true
+gif_framerate = 20
+gif_maxframes = 160
+window = 240
+stride = 60
+n_shifts = 20
+seed = 4242
+
+[capture.groups.popcap]
+"task.N" = 500
+
+[[ensemble]]
+kind = "turn"
+threshold = { quantile = 0.85 }
+
+[[ensemble]]
+kind = "align"
+threshold = { quantile = 0.85 }
+neighbor_radius = "vision_range"
+
+[[ensemble]]
+kind = "speed"
+threshold = { quantile = 0.85 }
+
+[[ensemble]]
+kind = "graded"
