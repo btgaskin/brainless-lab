@@ -1,16 +1,53 @@
 ---
 title: Nodes — overview
-description: The node families — Falandays (plastic), compartmental (evolved), SORN (experimental).
+description: The node families — Falandays (plastic), compartmental (evolved), SORN (experimental) — and the shared contract.
 ---
 
 A **node** is the neuron model that fills a reservoir. Every node satisfies the same
-contract — `step!(r, R) → spikes`, `effectors(r, spikes) → E`, `reset!`,
-`n_receptors`, `n_effectors` — so any registered node builds for any task's dimensions.
+contract, so any registered node builds for any task's dimensions:
 
-| Family | Plasticity | Prepared how |
+```julia
+step!(r, R)            # advance one tick, return spikes/rates
+effectors(r, spikes)   # map to an E-vector of length n_effectors(r)
+reset!(r)              # reset runtime state
+n_receptors(r); n_effectors(r)
+```
+
+Pick one with `node=:symbol`; `variants()` lists what's registered.
+
+## Three families
+
+### Falandays — homeostatic, online-plastic
+A leaky-integrate-and-fire reservoir that **learns during the rollout** (weights and
+per-node targets adapt each tick). Because it self-organises online, it is **fair to run
+untrained**. See [base vs extended](/nodes/falandays/) for the equations. The family:
+`:falandays_base`, `:falandays_extended`, `:falandays_noisy`, `:falandays_ablated`,
+`:falandays_hemispheric`, `:falandays_oosawa`, `:falandays_spatial`, `:falandays_delayed`.
+
+### Compartmental / CTRNN — evolved, fixed-weight
+Dendrite → soma → hillock continuous-time recurrent cells with **emergent/evolved
+weights and no online plasticity** — adaptation lives in the *dynamics* of a fixed-weight
+system. An untrained compartmental node is random; it **must be evolved** to be a fair
+test. `:compartmental_dense`, `:compartmental_structured`.
+
+### `:sorn` — experimental
+A self-organising recurrent network (Lazar/Triesch): binary threshold units with **STDP
++ intrinsic plasticity + synaptic normalisation** — a mechanistically distinct route to
+near-critical dynamics, useful as a criticality positive-control. Not yet validated to
+reproduce avalanche scaling in this implementation.
+
+## Plasticity ⇒ how you prepare it
+
+| family | online plasticity | default benchmark prep |
 |---|---|---|
-| **Falandays** ([base vs extended](/nodes/falandays/)) | online homeostatic | fair **untrained** |
-| **Compartmental / CTRNN** | none (evolved fixed weights) | must be **evolved** |
-| **`:sorn`** (experimental) | STDP + intrinsic + normalisation | fair untrained |
+| Falandays (base + variants) | yes | **untrained** (fair) |
+| `:sorn` | yes | **untrained** (fair, once validated) |
+| Compartmental | no | **trained** (required) — untrained is flagged not-comparable |
 
-*(Stub — full family detail to be ported from `docs/nodes.md`.)*
+## Composing & extending
+
+Node axes compose via kwargs — `simulate(:wall; node=:falandays_base, sign=:dale,
+topology=:watts_strogatz, drive=OosawaDrive(...))`; the named variants are preset kwarg
+bundles. To add a genuinely new node, see [Extending it](/extending/).
+
+<p class="bl-source">Source: <code>src/core/Interfaces.jl</code> (the generics), <code>src/nodes/</code> (the families).</p>

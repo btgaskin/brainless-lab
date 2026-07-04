@@ -1,12 +1,39 @@
 ---
 title: Reference
-description: Preset, task, and config-schema tables.
+description: Presets, tasks, ablations, and the sweep config schema.
 ---
 
-Quick tables — the registered symbols and the sweep config schema.
+Quick tables. `variants()` and `tasks()` are the live source of truth.
 
-- **`variants()`** — registered node symbols (Falandays family incl. `:falandays_base` / `:falandays_extended`, compartmental, `:sorn`).
-- **`tasks()`** — registered task symbols.
-- **Sweep config** — `[sweep]` (`mode`, `seeds`, `max_cells`), `[baseline]`, `[axes]` (namespaced paths → value lists), `[analytics]`.
+## Node presets
 
-*(Stub — auto-generated tables to be populated from the registries.)*
+| symbol | family | status |
+|---|---|---|
+| `:falandays_base` (`:falandays`) | Falandays | stable baseline (paper-faithful) |
+| `:falandays_extended` | Falandays | base + noise + Watts–Strogatz + Dale |
+| `:falandays_noisy` / `_ablated` / `_hemispheric` / `_oosawa` / `_spatial` / `_delayed` | Falandays | experimental variants |
+| `:compartmental_dense` / `_structured` | CTRNN | evolved (required) |
+| `:sorn` | SORN | experimental |
+
+## Tasks
+
+`:wall`, `:tracking`, `:pong`, `:pong_hitrate`, `:cartpole` (+ `_hard` / `_swingup` /
+`_long`), `:torus`, `:forage`.
+
+## Ablations
+
+`:freeze_plasticity`, `:zero_recurrent`, `:clamp_target`, `:disable_vision` (cross-family
+perturbations), plus the compartmental `:reset_dendrites`, `:no_soma_back`,
+`:no_hillock_back`.
+
+## Sweep config schema
+
+```toml
+[sweep]     # id, mode = one_at_a_time | factorial, seeds = [...], max_cells
+[baseline]  # node, task, N, ticks — the canonical setup
+[axes]      # "node.<p>" / "env.<p>" / "drive.<p>" / "task.<p>" / "ablation" / "seed" -> [values]
+[analytics] # measures = ["sigma_mr", "spectral_radius", "liveness", "regime", ...]
+```
+
+See [Tooling](/tooling/) for the walkthrough and `sweep --list-axes <node> <task>` to
+discover what's tunable.

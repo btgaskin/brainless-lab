@@ -3,22 +3,57 @@ title: Extending it
 description: Add your own node, task, metric, drive, or ablation — without forking.
 ---
 
-Every surface has a registry: register a part under a symbol, then reference it. To add
-a node, implement the contract and `import` the generics (so your methods land on
-BrainlessLab's functions):
+Every surface has a registry: register a part under a symbol, then reference that symbol
+from high-level code. **The framework is designed to be extended without forking.**
+
+## Add a node
+
+A node constructor must accept `(n_nodes, n_receptors, n_effectors; seed=0, kwargs...)`
+and return a `Reservoir` implementing the [contract](/nodes/overview/). Because you're
+adding *methods* to BrainlessLab's generics, you must **`import`** them (not just `using`):
 
 ```julia
 import BrainlessLab: step!, effectors, reset!, n_receptors, n_effectors
 
-struct MyNode <: Reservoir  # ... end
+struct MyNode <: Reservoir
+    # ...
+end
 
-register_node!(:mynode, (n, r, e; seed=0, kwargs...) -> MyNode(...);
-               genome_type = MyNodeParams)   # so evolve() can find its genome
+function step!(r::MyNode, R); # ...; end
+effectors(r::MyNode, spikes) = # ...
+
+register_node!(:mynode,
+    (n, r, e; seed=0, kwargs...) -> MyNode(n, r, e; seed=seed, kwargs...);
+    genome_type = MyNodeParams)   # so evolve() derives the genome from the contract
+
 simulate(:wall; node=:mynode)
 ```
 
-The same `register_*!` pattern applies to tasks, drives, bodies, metrics, analyses,
-ablations, views, and optimizers. Keep evolvable parameters (`pack_params`) separate
-from runtime state (`snapshot_state`).
+Without `import`, Julia won't add your methods to the package generics and `simulate`
+won't dispatch to your node.
 
-*(Stub — the full extension contract + the `examples/templates/new_project` walkthrough to be ported from `docs/contracts.md`.)*
+## The other registries
+
+The same `register_*!` / `resolve_*` pattern is consumed by the framework for:
+
+| register | referenced as | for |
+|---|---|---|
+| `register_task!` | `task=:sym` | a `TaskSpec` |
+| `register_body!` | `body=:sym` | a `Body` |
+| `register_drive!` | `drive=:sym` | a `Drive` (e.g. `:oosawa`) |
+| `register_metric!` | `metrics=[:sym]` | a collective metric |
+| `register_analysis!` | (analysis suite) | a measure over a run |
+| `register_ablation!` | `ablation=:sym` | a named perturbation |
+| `register_optimizer!` | `optimizer=:sym` | an `AbstractEvolutionStrategy` |
+| `register_view!` | `view(sim, :sym)` | a Makie panel |
+
+## Genotype vs state
+
+Keep the two separate:
+
+- **`pack_params` / `unpack_params` / `paramdim`** — evolvable parameters an optimizer stores and mutates (the genome).
+- **`snapshot_state` / `load_state!`** — transient runtime state (activations, learned weights, buffers) for replay/reset.
+
+A ready-to-copy skeleton lives in `examples/templates/new_project/`.
+
+<p class="bl-source">Source: <code>src/core/Registry.jl</code>, <code>docs/contracts.md</code>, <code>examples/templates/new_project/</code>.</p>
