@@ -6,7 +6,7 @@ interface SegmentedControlProps<T extends string> {
 
 export function SegmentedControl<T extends string>({ options, value, onChange }: SegmentedControlProps<T>) {
   return (
-    <div className="grid auto-cols-fr grid-flow-col gap-0.5 rounded-md bg-paper p-0.5">
+    <div className="grid auto-cols-fr grid-flow-col gap-0.5 rounded-md border border-grid bg-paper p-0.5">
       {options.map((opt) => (
         <button
           key={opt.value}

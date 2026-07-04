@@ -60,6 +60,12 @@ export default defineConfig({
         { label: 'Analysis', slug: 'analysis' },
         { label: 'Tooling', slug: 'tooling' },
         { label: 'Extending it', slug: 'extending' },
+        {
+          label: 'Notes',
+          items: [
+            { label: 'Criticality & Information', slug: 'notes/criticality-and-information' },
+          ],
+        },
         { label: 'Reference', slug: 'reference' },
         {
           label: 'Outputs',

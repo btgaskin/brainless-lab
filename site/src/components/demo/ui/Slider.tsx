@@ -10,10 +10,10 @@ interface SliderProps {
 
 export function Slider({ label, value, min, max, step, onChange, format }: SliderProps) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="flex items-baseline justify-between font-mono text-[10px] uppercase tracking-wide text-ink-muted">
+    <label className="flex flex-col gap-[3px]">
+      <span className="flex items-baseline justify-between font-mono text-[9px] uppercase leading-none tracking-wide text-ink-muted">
         <span>{label}</span>
-        <span className="text-ink-soft">{(format ?? ((v: number) => v.toFixed(3)))(value)}</span>
+        <span className="tabular-nums text-ink-soft">{(format ?? ((v: number) => v.toFixed(3)))(value)}</span>
       </span>
       <input
         type="range"
@@ -22,7 +22,7 @@ export function Slider({ label, value, min, max, step, onChange, format }: Slide
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1 w-full cursor-pointer appearance-none rounded-full bg-grid accent-teal"
+        className="bl-range h-3 w-full cursor-pointer"
       />
     </label>
   );

@@ -3,15 +3,12 @@ title: BrainlessLab
 description: Behaviour from collectives of simple neuron-like nodes — brainless cognition. A Diverse Intelligences Summer Institute 2026 project.
 template: splash
 hero:
-  tagline: Behaviour that emerges from collectives of simple neuron-like nodes — no homunculus, no hand-wired control. The same abstraction at every scale.
-  image:
-    file: ../../assets/brainless-lab.png
+  title: Emergent behavioural complexity in collectives
+  tagline: Simple units, each minding only itself — collectives nested within collectives. Live and untrained below.
   actions:
-    - text: Get started
+    - text: Read the docs
       link: /introduction/
       icon: right-arrow
-    - text: The concepts
-      link: /concepts/
       variant: minimal
 ---
 
@@ -20,32 +17,36 @@ import FalandaysDemo from '../../components/FalandaysDemo.tsx';
 
 <FalandaysDemo client:load />
 
+<p class="bl-caption">
+  The units are homeostatic spiking neurons after <strong>Falandays&nbsp;et&nbsp;al. (2021)</strong> — the update equations and so forth can be found <a href="/nodes/falandays/">here</a>.
+</p>
+
+<a class="bl-chevron" href="#more" aria-label="Scroll for more">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9l7 7 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+</a>
+
+<div id="more"></div>
+
 ## Two ways in
 
 <CardGrid>
   <Card title="Cellular cognition" icon="seti:julia">
-    What can a single node design do? Test — and **evolve** — new neuron models
-    within a strict locality constraint, and look for general self-organising
-    competence. You **benchmark** node designs across tasks.
+    Design and **evolve** node models under a strict locality constraint, then
+    **benchmark** their self-organising competence across tasks.
   </Card>
   <Card title="Collective intelligence" icon="puzzle">
-    What dynamics emerge in the collective — read both as a **network**
-    (nodes-in-a-reservoir) and a **multi-agent system** (agents-in-an-ensemble)?
-    You **profile** and **sweep** to map the dynamics.
+    Read the collective as a **network** and a **multi-agent system** at once —
+    **profile** and **sweep** to map criticality, order, and information flow.
   </Card>
 </CardGrid>
 
-The two meet in the **cross-level analysis**: the same dynamical signatures —
-criticality, order, information flow — measured at the node scale and the agent
-scale, and asked whether they covary.
-
 :::note[Reservoir-computing *spirit*, not classical reservoir computing]
-These are recurrent spiking node-networks read out by simple effectors — but the
-Falandays weights **learn online**, the compartmental weights are **evolved**, and
-there is **no trained linear readout**. The name is a nod, not a claim.
+Recurrent spiking pools read out by simple effectors — but the weights **adapt online**
+(Falandays) or are **evolved** (compartmental), with **no trained readout**. The name is
+a nod, not a claim.
 :::
 
 ---
 
 A product of the **[Diverse Intelligences Summer Institute](https://disi.org) 2026**,
-Geneva NY — **Polyphony Bruna · Benjamin Gaskin · Ian Jackson · William O'Hearn**.
+Geneva NY.
