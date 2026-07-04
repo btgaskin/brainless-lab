@@ -53,9 +53,9 @@ const TRACKING_TASK = TaskSpec(
 const PONG_TASK = TaskSpec(
     :pong,
     PongEnv;
-    score_floor=0.33,
-    score_ceiling=0.972,
-    score_key=:mean_align,
+    score_floor=0.30,
+    score_ceiling=0.52,
+    score_key=:hit_rate,
 )
 
 const PONG_HITRATE_TASK = TaskSpec(

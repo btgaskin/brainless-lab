@@ -47,11 +47,27 @@ end
 mutable struct WallEnv{R} <: TaskWorld
     rng::R
     lam::Float64
+    sensory_noise::Float64
+    clip_sensory_noise::Bool
     box::WallBox{R}
 end
 
-function WallEnv(; rng=Random.default_rng(), x=nothing, y=nothing, theta=nothing, lam::Real=1.0)
-    return WallEnv(rng, Float64(lam), WallBox(; rng=rng, x=x, y=y, theta=theta))
+function WallEnv(;
+    rng=Random.default_rng(),
+    x=nothing,
+    y=nothing,
+    theta=nothing,
+    lam::Real=1.0,
+    sensory_noise::Real=0.0,
+    clip_sensory_noise::Bool=true,
+)
+    return WallEnv(
+        rng,
+        Float64(lam),
+        Float64(sensory_noise),
+        Bool(clip_sensory_noise),
+        WallBox(; rng=rng, x=x, y=y, theta=theta),
+    )
 end
 
 WallEnv(seed::Integer; kwargs...) = WallEnv(; rng=MersenneTwister(seed), kwargs...)
@@ -68,7 +84,12 @@ default_window(::WallEnv) = default_window(WallEnv)
 bounds(env::WallEnv) = (0.0, Float64(env.box.size), 0.0, Float64(env.box.size))
 pose(env::WallEnv) = (Float64(env.box.x), Float64(env.box.y), Float64(env.box.theta))
 
-sense(env::WallEnv) = sense(env.box)
+sense(env::WallEnv) = sense(
+    env.box;
+    sensory_noise=env.sensory_noise,
+    clip=env.clip_sensory_noise,
+    rng=env.rng,
+)
 
 function step!(env::WallEnv, effectors)
     e = _bounded_effectors(effectors, n_effectors(env))
@@ -86,6 +107,8 @@ function metrics(env::WallEnv, window::Integer=default_window(env))
     collisions_window = collisions_last(env.box, Int(window))
     return (
         name="wall",
+        # Brainless reconstruction: the authors' wall code records trajectories,
+        # not an in-code scalar score.
         score=Float64(distance_window - env.lam * collisions_window),
         distance_window=distance_window,
         collisions_window=collisions_window,
@@ -144,7 +167,7 @@ function sense(env::TrackingEnv)
         for sensor_offset in env.sensor_offsets_deg
             angle = theta_deg + eye_offset + sensor_offset
             delta = _angle_delta_deg(angle, phi_deg)
-            values[idx] = exp(-(delta * delta) / 10.0)
+            values[idx] = abs(delta) <= 4.0 ? 1.0 : exp(-(delta * delta) / 10.0)
             idx += 1
         end
     end
@@ -204,6 +227,8 @@ function metrics(env::TrackingEnv, window::Integer=default_window(env))
 
     return (
         name="tracking",
+        # Brainless reconstruction: the authors' tracking code records heading
+        # error, not an in-code scalar score.
         score=Float64(track_score),
         track_score=Float64(track_score),
         mean_abs_error_deg=Float64(mean_abs_error_deg),
@@ -246,7 +271,7 @@ function PongEnv(; rng=Random.default_rng())
         50.0,
         450.0,
         250.0,
-        985.0,
+        995.0,
         0.0,
         -5.0,
         0.0,
@@ -274,8 +299,8 @@ default_window(::PongEnv) = default_window(PongEnv)
 bounds(env::PongEnv) = (0.0, Float64(env.width), 0.0, Float64(env.height))
 
 function _reset_ball!(env::PongEnv)
-    env.ball_x = env.width - env.ball_r
-    env.ball_y = _rng_uniform(env.rng, env.ball_r, env.height - env.ball_r)
+    env.ball_x = env.width - 5.0
+    env.ball_y = _rng_uniform(env.rng, 1.0, env.height - 1.0)
     env.vx = -env.ball_speed
     env.vy = env.ball_speed * _rng_choice_pm1(env.rng)
     env._past_paddle = false
@@ -312,22 +337,22 @@ function step!(env::PongEnv, effectors)
     env.ball_x += env.vx
     env.ball_y += env.vy
 
-    if env.ball_y <= env.ball_r
-        env.ball_y = env.ball_r
+    if env.ball_y <= 5.0
+        env.ball_y = 5.0
         env.vy = abs(env.vy)
-    elseif env.ball_y >= env.height - env.ball_r
-        env.ball_y = env.height - env.ball_r
+    elseif env.ball_y >= env.height - 5.0
+        env.ball_y = env.height - 5.0
         env.vy = -abs(env.vy)
     end
 
-    if env.ball_x >= env.width - env.ball_r
-        env.ball_x = env.width - env.ball_r
+    if env.ball_x >= env.width - 5.0
+        env.ball_x = env.width - 5.0
         env.vx = -abs(env.vx)
         env._past_paddle = false
     end
 
     if env.vx < 0.0 && !env._past_paddle && env.ball_x <= env.paddle_x + env.ball_r
-        if abs(env.ball_y - env.paddle_y) <= env.paddle_h / 2.0
+        if abs(env.ball_y - env.paddle_y) <= env.paddle_h / 2.0 + env.ball_r
             env.ball_x = env.paddle_x + env.ball_r
             env.vx = abs(env.vx)
             hit = 1
@@ -358,7 +383,7 @@ function reset!(env::PongEnv)
 end
 
 function metrics(env::PongEnv, window::Integer=default_window(env))
-    bounds = _tail_bounds(length(env.hit_flags), Int(window))
+    bounds = eachindex(env.hit_flags)
     hits = isempty(bounds) ? 0 : Int(sum(@view env.hit_flags[bounds]))
     misses = isempty(bounds) ? 0 : Int(sum(@view env.miss_flags[bounds]))
     denom = hits + misses
@@ -367,7 +392,7 @@ function metrics(env::PongEnv, window::Integer=default_window(env))
     mean_align = _mean_float(align_values)
     return (
         name="pong",
-        score=Float64(mean_align),
+        score=Float64(hit_rate),
         mean_align=Float64(mean_align),
         hit_rate=Float64(hit_rate),
         hits=hits,
