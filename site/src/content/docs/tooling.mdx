@@ -1,26 +1,93 @@
 ---
 title: Tooling
-description: The four verbs — benchmark, profile, sweep, ablate — their workflows and outputs.
+description: The four verbs — benchmark, profile, sweep, ablate — their commands, run-dirs, and outputs.
 ---
 
-Four verbs, each a distinct job, each writing the same timestamped **run-dir**:
-`manifest.toml` (git SHA + seeds + versions) · CSVs (raw + summary) · `figures/*.png`
-in the house palette · behaviour GIFs · a `README` callout with the headline result.
+Four verbs, each a distinct job, each writing a self-describing **run-dir**:
+`manifest.toml` (git SHA + seeds + versions) · CSVs · `figures/*.png` in the house
+palette · a `README.md` callout with the headline result.
 
-- **`benchmark`** — one neuron vs the roster; **compare** performance. *(the cellular-cognition workflow)*
-- **`profile`** — one neuron, in-depth: the full analytic suite + behaviour GIF. **characterize**. *(the collective-intelligence workflow)*
-- **`sweep`** — **perturb** parameters, measure signatures across cells.
-- **`ablate <node> <task>`** — a config-free preset: baseline vs each registered ablation (`freeze_plasticity`, `zero_recurrent`, `clamp_target`, `disable_vision`).
+| Verb | Job | Run-dir |
+| --- | --- | --- |
+| **`benchmark`** | a **roster of nodes** across a task grid — rank and compare, with baseline-relative statistics | `bench/runs/<UTCstamp>_<shortgit>_<id>/` |
+| **`profile`** | **one node, in depth** — the full analytic suite + a behaviour GIF per task | `profile/runs/<node>/<UTCstamp>_<shortgit>_<id>/` |
+| **`sweep`** | **perturb** parameter axes, measure signatures per cell | `sweeps/<id>/` |
+| **`ablate`** | a config-free preset sweep: baseline vs each registered ablation | `sweeps/ablate_<node>_<task>/` |
+
+`benchmark` and `profile` timestamp each run (`<UTCstamp>_<shortgit>_<id>`, so repeats
+never collide). `sweep` and `ablate` instead key the run-dir on the sweep **id** — a
+re-run with the same id resumes/overwrites in place (completed cells are skipped), which
+is why `sweeps/` is not timestamped.
+
+:::note[One-time setup per tool]
+`bench/` and `profile/` each carry their **own `Project.toml`** and must be instantiated
+once (they `Pkg.develop` the repo they live in):
+
+```bash
+cd bench    && julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.instantiate()'
+cd profile  && julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.add(["CairoMakie","Statistics","Printf","TOML"]); Pkg.instantiate()'
+```
+
+`sweep` and `ablate` run against the **top-level** project, so no separate instantiate —
+just the repo's own `julia --project=. -e 'using Pkg; Pkg.instantiate()'`.
+:::
+
+## The commands
+
+Every command is the real entrypoint. `benchmark` and `profile` are their own directories
+with a local project; `sweep` and `ablate` are the **same** `sweep/run.jl` (`ablate` is a
+subcommand, not a separate directory).
+
+```bash
+# benchmark — from bench/, roster across a task grid
+cd bench && julia --project=. run.jl --neurons falandays_base,compartmental_structured --tasks wall,pong
+
+# profile — from profile/, one node in depth
+cd profile && julia --project=. run.jl falandays_base
+
+# sweep — from the repo root, a TOML config
+julia --project=. sweep/run.jl configs/sweep_falandays_wall.toml
+
+# ablate — same runner, a subcommand: NODE TASK, no config needed
+julia --project=. sweep/run.jl ablate falandays_base wall
+```
+
+Discover a sweep's tunable axes before writing a config:
+
+```bash
+julia --project=. sweep/run.jl --list-axes --node falandays_base --task wall
+```
+
+## Authoring a benchmark run
+
+`bench` reads `bench/configs/core.toml` (or `--config <path>`; flags like `--neurons` /
+`--tasks` / `--no-gifs` override it). The config sets the **roster** (`neurons = []` means
+all registered variants), the task grid, `n_trials`, the `baseline` every table is scored
+against, and a `[prep]` block that encodes the **fairness rule**:
+
+```toml
+neurons = []                                    # empty = all registered variants
+tasks   = ["wall", "tracking", "pong", "cartpole", "cartpole_swingup"]
+n_trials = 20
+baseline = "falandays_base"
+
+[prep]
+# falandays* default to "untrained" (seeded wiring + online plasticity);
+# compartmental* default to "trained" (untrained non-plastic weights aren't a
+# meaningful benchmark). A cell needing a trained genome that has none falls
+# back to untrained and is flagged "trained-required-but-untrained".
+```
+
+<p class="bl-source">Source: <code>bench/README.md</code>; <code>bench/configs/core.toml</code>; <code>bench/run.jl</code>.</p>
 
 ## Sweep — "what makes it work, how it breaks"
 
 A sweep perturbs the parameters that shape a run and records the analytic **signatures**
-per cell, so you can see performance *and* criticality against the knob. Discover what's
-tunable with `sweep --list-axes <node> <task>`.
+per cell, so you can see performance *and* criticality against the knob.
 
 ```toml
 [sweep]
-id   = "falandays_wall_perturb"
+id   = "falandays_wall_perturb"   # names the run-dir: sweeps/falandays_wall_perturb/
 mode = "one_at_a_time"    # default: each axis varied alone (Σ of axis lengths)
                           # "factorial" = full cartesian product
 seeds = [0, 1, 2, 3]
@@ -35,11 +102,11 @@ ticks = 2000
 [axes]                    # namespaced parameter path -> values
 "node.threshold_mult" = [1.5, 1.75, 2.0, 2.25, 2.5]
 "node.lrate_targ"     = [0.0, 0.005, 0.01, 0.02]
-"env.vision_range"    = [2.0, 4.0, 8.0]
+"env.lam"             = [0.5, 1.0, 2.0]
 "ablation"            = ["none", "freeze_plasticity", "zero_recurrent"]
 
 [analytics]
-measures = ["sigma_mr", "spectral_radius", "liveness", "regime"]
+measures = ["sigma_mr", "spectral_radius", "liveness"]
 ```
 
 **Axis namespaces:** `node.*`, `env.*`, `drive.*`, `task.*`, `ablation`, `seed` — routed
@@ -47,9 +114,11 @@ into the real `simulate` kwargs, validated up front (a wrong or inapplicable axi
 clear "did you mean…" error, not a silent no-op). A failing cell records an error and the
 sweep **continues**.
 
-**Outputs:** `results.csv` (cell × axis × value × score + each measure) · per-axis
-breakdown figures (score, σ, liveness vs the knob — with $\sigma$ and $\rho(W)$ shown
-together) · a representative GIF per cell · a README callout (best value / breakdown
-point / regime flip).
+**Outputs:** `results.csv` (one row per cell: axis × value × score + each measure) ·
+per-axis breakdown figures (score, σ, liveness vs the knob — with $\sigma$ and $\rho(W)$
+shown together) · a `README.md` callout (best value / breakdown point / regime flip) ·
+`cells/cell_NNN/` holding each cell's `metrics.csv` and manifest. Behaviour GIFs are
+**opt-in**: add a `[capture]` block (`group = …`) to record a representative GIF per cell,
+otherwise the numeric metrics are the whole output.
 
 <p class="bl-source">Source: <code>src/run/Sweep.jl</code> (<code>run_sweep</code>, <code>ablate</code>, <code>sweepable_axes</code>); CLI <code>sweep/run.jl</code>; examples in <code>configs/sweep_*.toml</code>.</p>

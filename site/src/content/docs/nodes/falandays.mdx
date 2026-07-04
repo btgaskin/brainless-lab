@@ -44,11 +44,14 @@ local: a node aggregates only its own afferents.
 
 <p class="bl-source">Source: the membrane update, threshold, and spike in <code>src/nodes/Falandays.jl</code> (<code>step!</code>); the homeostatic rules in <code>src/nodes/Axes.jl</code> (<code>learn!</code>, <code>_update_targets!</code>).</p>
 
-:::caution[Paper fidelity]
+:::caution[Authors' fidelity]
 The 2021 Falandays paper's equation 5 lost its numeric coefficient in a copy/paste
-(as did the connection-probability symbols). BrainlessLab uses $\eta_W = 0.1$ from the
-numpy reference it is bit-exact with — so "paper-faithful" here means *faithful to the
-implemented reference*, with the ambiguity stated rather than guessed.
+(as did the connection-probability symbols). BrainlessLab resolves it by following the
+**authors' own code**: `:falandays_base` is validated against dumped trajectories from
+the authors' Julia construction (`test/fixtures/authors_*.jld2`), with $\eta_W = 0.1$.
+So "authors-faithful" here means *faithful to the authors' reference*, the paper's
+ambiguity stated rather than guessed. (The older numpy v0.2 fixtures remain only as
+legacy regression coverage — v0.2 has documented departures.)
 :::
 
 ## base vs extended
@@ -58,8 +61,8 @@ built on.
 
 <Tabs>
   <TabItem label=":falandays_base">
-    The plain paper model: **Bernoulli** recurrent wiring, **unsigned** weights, no
-    sensory noise. Input-driven homeostatic reservoir. The settled, paper-faithful
+    The plain base model: **Bernoulli** recurrent wiring, **unsigned** weights, no
+    sensory noise. Input-driven homeostatic reservoir. The settled, authors-faithful
     baseline.
 
     ```julia

@@ -20,7 +20,7 @@ The project is a summer-institute testbed: a clean framework for other people to
 experiments around a settled Falandays baseline. Use a project-local Julia environment
 (`pkg> activate .` or `julia --project=.`) when running examples and tooling. Validation means bit-fidelity to the local
 numpy reference implementations (`../v0`, `../v0.2`) where those reference paths exist.
-The 2021 paper-faithful baseline is `:falandays_base` with the original constants; v0.2
+The 2021 authors-faithful baseline is `:falandays_base` with the original constants; v0.2
 also contains documented experimental departures, so numpy fidelity should not be read as
 paper fidelity for every platform component.
 
@@ -34,7 +34,7 @@ paper fidelity for every platform component.
 ## Stable baseline vs Experimental
 
 **Stable baseline:** `:falandays_base` (also accepted as `:falandays`) is the settled,
-validated, paper-faithful baseline: the 2021 Falandays homeostatic spiking reservoir with
+validated, authors-faithful baseline: the 2021 Falandays homeostatic spiking reservoir with
 its exact constants, run on the 2024 case-study task suite implemented here. This is the
 reference participants can rely on when they need the known model rather than a new
 experiment.
@@ -43,7 +43,7 @@ experiment.
 in flux: the compartmental/CTRNN nodes, the evolution layer, the swarm/VEN extensions, and
 the SORN reference node, the Falandays variants beyond base (`:falandays_noisy`,
 `:falandays_ablated`, `:falandays_hemispheric`, `:falandays_oosawa`,
-`:falandays_spatial`, `:falandays_delayed`). These pieces are useful testbed surfaces,
+`:falandays_spatial`, `:falandays_delayed`, `:falandays_dendritic`). These pieces are useful testbed surfaces,
 but they should not be described as the 2021 paper model.
 
 ---
@@ -57,7 +57,7 @@ pkg> add CairoMakie     # a Makie backend, for plotting
 
 julia> using BrainlessLab, CairoMakie
 
-julia> sim = simulate(:wall; node=:falandays_base, ticks=300)  # paper-faithful baseline
+julia> sim = simulate(:wall; node=:falandays_base, ticks=300)  # authors-faithful baseline
 julia> visualize(sim)                                          # spike raster + rate + trajectory
 ```
 
@@ -125,13 +125,14 @@ The registered high-level variants are:
 
 | Symbol | Status | Description |
 | --- | --- | --- |
-| `:falandays_base` | **stable baseline** | Base Falandays homeostatic spiking reservoir, paper-faithful to the 2021 model. `:falandays` is an alias. |
+| `:falandays_base` | **stable baseline** | Base Falandays homeostatic spiking reservoir, authors-faithful to the 2021 model. `:falandays` is an alias. |
 | `:falandays_noisy` | experimental | Base reservoir wrapped with sensory input noise (`Uniform(+/-0.1)`, clip >= 0 -- the v0.2 body formula). |
 | `:falandays_ablated` | experimental | Target homeostasis frozen (`lrate_targ=0`): target pinned at 1.0, threshold fixed at 2.0; weights still learn. |
 | `:falandays_hemispheric` | experimental | Two half-size reservoirs, contralateral wiring (right sensors -> left effectors, left -> right). |
 | `:falandays_oosawa` | experimental | Oosawa endogenous membrane drive (pure target-modulated, stays active when blind). |
 | `:falandays_spatial` | experimental | Falandays reservoir with spatial embedding and distance-dependent wiring. |
 | `:falandays_delayed` | experimental | Falandays reservoir with heterogeneous recurrent transmission delays. |
+| `:falandays_dendritic` | experimental | Base reservoir plus a parallel dendritic pathway: recurrent synapses are split across `n_dendrites` compartments, each firing a local dendritic spike that sets an eligibility tag, so the homeostatic weight update gates on presynaptic-spike **or** dendrite-tag (learning without a somatic spike); the soma still receives the full recurrent sum. |
 | `:sorn` | experimental | Self-organizing recurrent network reference with STDP, intrinsic plasticity, and synaptic normalization. |
 | `:compartmental_dense` | experimental | Dense compartmental cell (dendrite -> soma -> hillock CTRNN, emergent weights, no plasticity). |
 | `:compartmental_structured` | experimental | Structured compartmental cell (single-port dendrite/soma routing, emergent threshold). |

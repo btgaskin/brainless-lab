@@ -8,6 +8,13 @@ Every measure below carries its equation, a one-line reading, and a **Source** c
 to its Julia implementation. All operate on channels recorded by the `Recorder` (off
 the compute hot path), so nothing here perturbs a run.
 
+For a concrete, runnable end-to-end example that collects these measures at both scales
+from a single forage rollout — per-agent branching, node/agent susceptibility,
+correlation length, contact-graph clusters, and a `crossshift_null` control — see the
+two-scale data-collection harness:
+
+<p class="bl-source">Source: <code>examples/forage_criticality.jl</code>.</p>
+
 ## Criticality (node scale)
 
 ### Branching ratio — the MR estimator
@@ -68,15 +75,24 @@ which are settled.
 ## Cross-level — the same measure at two scales
 
 The point of the whole programme: measure the *same* signature at the **node** scale and
-the **agent** scale, and ask whether they covary. Every criticality estimator takes a
-`level`:
+the **agent** scale, and ask where each sits relative to its *own* critical point — because
+[information transmission is expected to peak near criticality](/notes/criticality-and-information/),
+so locating the transition at each scale is the prerequisite for everything downstream.
+Every criticality estimator takes a `level`:
 
-- `:node` — within each agent's own reservoir (its node spikes),
+- `:node` — each agent's own reservoir, as its per-agent population rate (fit per agent, then averaged — *not* node-to-node despite the name),
 - `:agent` — the **per-tick count of agents undergoing a turn event** ($|\Delta\theta| > \theta_{\text{thr}}$, default $\pi/12$) — a genuine agent-scale cascade, *not* the pooled node rate rescaled,
-- `:pooled` — all nodes together (the default).
+- `:pooled` — all nodes of all agents in one series (the legacy default; it mixes distinct reservoirs, so read it as a population summary, not "the reservoir's" dynamics).
 
-Because `:agent` is a distinct process, `branching_ratio(sim; level=:agent)` and
-`level=:node` are comparable quantities you can plot against each other.
+Not every measure is comparable across levels — this matters, because plotting an
+incomparable pair against each other is a real inferential error.
+**Susceptibility is the one clean pair**: node ($\chi = N\,\mathrm{Var}[\text{synchrony}]$) and
+agent ($\chi = n\,\mathrm{Var}[\text{polarization}]$) are the same quantity, and it passes the
+circular-shift null. Compare their *peak positions* as a control parameter is swept — not raw
+magnitudes, whose prefactors ($N\approx100$ vs $n\approx6$) differ by an order of magnitude.
+**Branching does not pair across levels**: agent-scale branching is dominated by *within-agent*
+maneuvers and **fails** the circular-shift null, so it is a labelled negative control, not a
+quantity to plot against node branching.
 
 <p class="bl-source">Source: <code>src/analysis/ActivityLevels.jl</code>; consumed by Branching / Avalanches / SecondOrder.</p>
 
@@ -95,6 +111,21 @@ together across levels as a control parameter is swept.
 
 <p class="bl-source">Source: <code>src/analysis/SecondOrder.jl</code>.</p>
 
+### Null test — `crossshift_null`
+
+Before a cross-scale coupling number is trusted, run it through the circular-shift null.
+Each surrogate independently circular-shifts every agent's recorded time series, so each
+agent's *own* dynamics are preserved while the *inter-agent timing* is destroyed. The
+measure is recomputed on the surrogate ensemble; comparing the real value against the
+null distribution separates genuine cross-agent coupling from what any independent set of
+single-agent series would produce by chance. Returns
+`(real, null_mean, null_std, ratio)` over `n_shifts` draws — a `ratio` near $1$ means the
+apparent coupling is indistinguishable from the null. Because the null strips both real
+coupling *and* common-source drive, read the coupling as the vision-on minus vision-off
+difference, not the raw ratio.
+
+<p class="bl-source">Source: <code>src/analysis/NullTest.jl</code> — <code>crossshift_null</code>.</p>
+
 ## Collective (agent scale)
 
 - **Polarization** $\;P = \big|\frac{1}{N}\sum_i e^{i\theta_i}\big|$ — heading alignment, $0$ disordered → $1$ aligned.
@@ -102,8 +133,22 @@ together across levels as a control parameter is swept.
 - **Cohesion** — mean nearest-neighbour + pairwise distance (periodic-boundary aware).
 - **Swarm regime** — a discrete label (polarized, milling, swarming, or static) from $P$, milling, and speed.
 - **Correlation length** — the distance at which the velocity-*fluctuation* correlation crosses zero (Cavagna et al. 2010 form: subtract the global mean velocity, normalize once globally).
+- **Contact-graph clusters** — build the per-tick within-vision-radius contact graph and summarize its connected components: number of components, largest-component fraction, and mean component size (torus-aware). A graph-level readout of how the swarm fragments and coalesces (surfaced in sweeps as the `contact_clusters` measure).
 
-<p class="bl-source">Source: <code>src/world/Metrics.jl</code> (polarization, milling, cohesion) and <code>src/analysis/SwarmAnalysis.jl</code> (<code>swarm_regime</code>, <code>correlation_length</code>).</p>
+<p class="bl-source">Source: <code>src/world/Metrics.jl</code> (polarization, milling, cohesion) and <code>src/analysis/SwarmAnalysis.jl</code> (<code>swarm_regime</code>, <code>correlation_length</code>, <code>contact_graph_clusters</code>).</p>
+
+:::caution[Read these at the swept sample size]
+Several estimators return a *confident number* rather than `NaN` when they are under-powered, so
+read them against the actual run size. At `n_agents = 6` the **correlation length**, **agent-scale
+susceptibility**, and **agent participation ratio** are severely under-sampled (6 points, 15
+pairs) — time-pooling over a long rollout hides the noise but does not remove it; treat them as
+uninterpretable below ~20–30 agents. **Branching (MR)** should be read with its per-agent
+distribution and fit quality, not the bare mean — a low-$R^2$ exponential fit still returns a
+finite $m$. **Avalanche** exponents need many events (tens to hundreds); a fit from a handful is
+meaningless. And any *cross-agent* claim should clear the circular-shift null (`crossshift_null`,
+`NullTest.jl`) before it is trusted — the null strips both real coupling and common-source drive,
+so the coupling readout is the **vision-on minus vision-off difference**.
+:::
 
 ## Information flow
 

@@ -1,37 +1,115 @@
 ---
 title: Introduction
-description: What BrainlessLab is, the two angles, and a two-line quickstart.
+description: What BrainlessLab is, and a getting-started path from clone to your first simulation and figure.
 ---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
 
 BrainlessLab is an extensible Julia lab for **"brainless" cognition** — behaviour that
 emerges from collectives of simple neuron-like nodes, with no homunculus and no
 hand-wired control. It is a Diverse Intelligences Summer Institute 2026 project, built
-as infrastructure for others to run experiments.
+as infrastructure for others to run experiments around a settled Falandays baseline.
 
 Two angles run through it: **cellular cognition** (test/evolve node designs, benchmark
 their self-organising competence) and **collective intelligence** (profile and sweep
 the dynamics, at the network *and* multi-agent scales). See [Concepts](/concepts/) for
-the ontology.
+the ontology — the same *neurons-as-nodes-within-a-collective* abstraction at every
+scale.
 
-## Quickstart
+## Prerequisites
 
-```julia
-pkg> dev .            # from the brainless-lab/ directory
-pkg> add CairoMakie   # a Makie backend, for plotting
+- **Julia 1.10 or newer** (the package `[compat]` pins `julia = "1.10"`).
+- **Git**, to clone the repository.
 
-using BrainlessLab, CairoMakie
-sim = simulate(:wall; node=:falandays_base, ticks=300)
-visualize(sim)
+```bash
+git clone https://github.com/…/brainless-lab.git
+cd brainless-lab
 ```
 
-The compute core is Makie-free; plots load via a package extension when a backend is
-present. Use `--project=.` (an isolated environment) for `demo`/`bench`/`profile`/`sweep`.
-For `explore(...)` interactive windows you need `GLMakie` and a display; on a headless
-machine use the `--save` / CairoMakie path instead.
+Everything below runs from the `brainless-lab/` root you just entered.
+
+## The one environment story
+
+BrainlessLab ships a checked-in `Manifest.toml`, so you don't resolve dependency
+versions — you reproduce the pinned set. Launch Julia *with the project active* and
+instantiate:
+
+```julia
+julia --project=.        # from brainless-lab/ — activates BrainlessLab's own project
+
+pkg> instantiate         # materialise the pinned Manifest.toml (one-time)
+pkg> add CairoMakie      # a Makie backend, for plotting
+```
+
+:::note[Which environment am I in, and why]
+`julia --project=.` makes **BrainlessLab itself the active project**. That is the whole
+story — the package is its own environment, so `using BrainlessLab` resolves directly and
+`instantiate` reproduces its exact dependency versions. You do **not** need `pkg> dev .`:
+that command is for tracking BrainlessLab as a dependency of *another* environment, not
+for running the package from its own root. Avoid installing into your global environment
+while working here.
+:::
+
+The compute core is **Makie-free** — `simulate` runs headless with no plotting
+dependency. Plot methods live in a package extension (`BrainlessLabMakieExt`) that loads
+automatically once a Makie backend is present, which is why `CairoMakie` is a separate
+`add` rather than a baked-in dependency.
+
+The separate tooling projects (`bench/`, `profile/`) have their own environments and are
+instantiated in their own directories — see the [onboarding notes](/tooling/) for that
+split.
+
+## Your first run
+
+```julia
+using BrainlessLab, CairoMakie
+
+sim = simulate(:wall; node=:falandays_base, ticks=300)   # stable baseline, 1 agent
+visualize(sim)                                           # spike raster + rate + trajectory
+```
+
+`simulate` runs the rollout and returns a result you can render; `visualize` assembles a
+static figure from it. The **first** Julia/Makie call spends noticeable time compiling —
+that is normal, and repeat calls are much faster.
+
+**CairoMakie vs GLMakie — pick by whether you have a display:**
+
+- **CairoMakie** draws *static* figures and GIFs (`visualize`, `animate`). It is the
+  headless-friendly path — use it over SSH, in CI, or with tooling `--save` / output-path
+  flags.
+- **GLMakie** backs the *interactive* `explore(...)` window (Play / Step / speed slider),
+  which needs a live display:
+
+  ```julia
+  explore(:torus; node=:falandays_base, n_agents=6)      # interactive swarm (needs GLMakie)
+  ```
+
+  On a headless machine, save static outputs with CairoMakie instead of opening a window.
+
+## The recording model
+
+A run is only as observable as what it recorded. `simulate` returns a **`SimResult`**
+(often bound to `sim`) — the recorded trace of a rollout, which the visualisation layer
+reads *off* the hot path. What gets kept is gated by **record channels**: pass
+`record=[…]` to select them, e.g. `record=[:effectors]` to keep the motor-output vector
+each tick. The engine's only coupling to visualisation is a small channel-gated,
+downsampling `Recorder`; `visualize`, `animate`, and `replay(sim)` all read the resulting
+`SimResult`, and a saved run directory can be loaded back with `replay(rundir)`.
 
 :::note[Not classical reservoir computing]
 Recurrent spiking pools read out by simple effectors — but weights **adapt online**
 (Falandays) or are **evolved** (compartmental), and there is **no trained readout**.
 :::
 
-*(Stub — to be expanded from `docs/README.md` + `docs/onboarding.md`.)*
+## Where to next
+
+<CardGrid>
+  <Card title="Concepts" icon="puzzle">
+    The ladder of collectives — nodes, reservoirs, bodies, agents, ensembles — and the
+    sensorimotor contract. [Read the ontology →](/concepts/)
+  </Card>
+  <Card title="Tooling" icon="setting">
+    The command-line verbs (`bench`, `profile`, `sweep`, `ablate`), their run
+    directories, and the per-project environment split. [Set up the tools →](/tooling/)
+  </Card>
+</CardGrid>

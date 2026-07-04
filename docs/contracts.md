@@ -32,13 +32,13 @@ and saturation at 0 or 1 means the raw score is outside the chosen floor/ceiling
 
 | task | raw score key | floor | ceiling | what raw score means |
 |---|---|---:|---:|---|
-| `:wall` | `:score` | 0.0 | 77.3 | distance over the scoring window minus collision penalty |
-| `:tracking` | `:score` | 0.0 | 1.0 | mean cosine alignment to the stimulus |
-| `:pong` | `:mean_align` | 0.33 | 0.972 | mean paddle-ball alignment |
-| `:pong_hitrate` | `:hit_rate` | 0.30 | 0.52 | fraction of return opportunities hit |
+| `:wall` | `:nav_score` | 0.763125 | 1.0 | `collision_free_rate * movement_gate`, bounded `[0, 1]` (collision-free navigation while moving) |
+| `:tracking` | `:track_score` | 0.0 | 1.0 | mean cosine alignment to the stimulus |
+| `:pong` | `:hit_rate` | 0.356 | 0.701 | fraction of return opportunities hit |
+| `:pong_hitrate` | `:hit_rate` | 0.356 | 0.701 | fraction of return opportunities hit (identical TaskSpec to `:pong`) |
 | `:cartpole` | `:score` | 0.0 | 1.0 | fraction of default ticks balanced |
 | `:cartpole_hard` | `:score` | 0.0 | 1.0 | fraction balanced under the hard variant |
-| `:cartpole_swingup` | `:mean_uprightness` | 0.02 | 1.0 | mean `(cos(theta)+1)/2` |
+| `:cartpole_swingup` | `:mean_uprightness` | 0.157 | 1.0 | mean `(cos(theta)+1)/2` |
 | `:cartpole_long` | `:score` | 0.0 | 1.0 | fraction balanced with the long pole |
 
 Base `:cartpole` reports survival as `step_count / default_ticks`; cartpole variants report the selected

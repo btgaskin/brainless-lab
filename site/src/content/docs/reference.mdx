@@ -9,7 +9,7 @@ Quick tables. `variants()` and `tasks()` are the live source of truth.
 
 | symbol | family | status |
 |---|---|---|
-| `:falandays_base` (`:falandays`) | Falandays | stable baseline (paper-faithful) |
+| `:falandays_base` (`:falandays`) | Falandays | stable baseline (authors-faithful) |
 | `:falandays_extended` | Falandays | base + noise + Watts–Strogatz + Dale |
 | `:falandays_noisy` / `_ablated` / `_hemispheric` / `_oosawa` / `_dendritic` / `_spatial` / `_delayed` | Falandays | experimental variants |
 | `:compartmental_dense` / `_structured` | CTRNN | evolved (required) |
@@ -30,10 +30,66 @@ perturbations), plus the compartmental `:reset_dendrites`, `:no_soma_back`,
 
 ```toml
 [sweep]     # id, mode = one_at_a_time | factorial, seeds = [...], max_cells
-[baseline]  # node, task, N, ticks — the canonical setup
+[baseline]  # node, task, N, ticks — the canonical setup (see below)
 [axes]      # "node.<p>" / "env.<p>" / "drive.<p>" / "task.<p>" / "ablation" / "seed" -> [values]
-[analytics] # measures = ["sigma_mr", "spectral_radius", "liveness", "regime", ...]
+[analytics] # measures = [...] — see the full set below
 ```
 
 See [Tooling](/tooling/) for the walkthrough and `sweep --list-axes <node> <task>` to
 discover what's tunable.
+
+### `[baseline]` keys — the canonical setup
+
+The `[baseline]` table fixes the setup that every axis then perturbs. It accepts a small
+set of canonical scalar keys plus any dotted axis key; the dotted keys and the `env.*` /
+`node.*` / `drive.*` knobs pass straight through to the corresponding `simulate(...)`
+kwargs (so anything a run accepts, a baseline can pin).
+
+Canonical scalar keys:
+
+| key | meaning |
+|---|---|
+| `node` | node preset symbol (default `falandays_base`) |
+| `task` | task symbol (default `wall`) |
+| `N` (alias `n_nodes`) | reservoir size |
+| `ticks` | rollout length |
+| `window` | metric / liveness window (defaults to `ticks`, or the task default for swarm tasks) |
+| `n_agents` | swarm population size (swarm/forage tasks) |
+| `seed_base` (alias `seed`) | base seed |
+| `body` / `drive` | body and drive preset symbols |
+| `ablation` | ablation symbol applied to the baseline |
+
+Common dotted pass-through knobs (forage / swarm):
+
+| key | meaning |
+|---|---|
+| `"env.vision_range"` | max conspecific/source vision distance |
+| `"env.source_gain"` | forage source bank gain |
+| `"env.conspecific_vision"` | whether agents see each other (`true` / `false`) |
+| `"env.capture_radius"` | forage capture radius |
+| `"env.sensory_noise"` | sensory noise level |
+
+### `[analytics] measures` — the full set
+
+`measures` selects which analytics are computed per cell (default
+`["sigma_mr", "spectral_radius", "liveness"]`). Valid names:
+
+| measure | what it records |
+|---|---|
+| `sigma_mr` | pooled branching ratio (MR) |
+| `sigma_mr_node` | per-agent reservoir branching |
+| `sigma_mr_agent` | agent-scale turn-event branching (per ensemble observable) |
+| `dist_to_source` | mean distance to forage source |
+| `forage_score` | foraging performance score |
+| `spectral_radius` | dominant recurrent-eigenvalue magnitude |
+| `susceptibility_node` | node-scale synchrony susceptibility |
+| `susceptibility_agent` | agent-scale polarization susceptibility |
+| `correlation_length` | velocity-fluctuation correlation length |
+| `contact_clusters` | contact-graph connected-component summaries |
+| `liveness` | run liveness (already in the base columns) |
+| `regime` | discrete swarm-regime label (+ polarization / milling / speed) |
+
+`contact_clusters` emits `cluster_n_components`, `cluster_largest_component_frac`, and
+`cluster_mean_component_size`; `regime` emits `regime_polarization`, `regime_milling`,
+and `regime_speed` alongside `regime`. The aliases `clusters`, `cluster_stats`, and
+`contact_graph_clusters` all canonicalize to `contact_clusters`.
