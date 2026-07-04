@@ -364,6 +364,7 @@ register_drive!(:oosawa, OosawaDrive)
 register_node!(:falandays, _falandays_native; genome_type=FalandaysParams)        # alias of :falandays_base
 register_node!(:falandays_base, _falandays_native; genome_type=FalandaysParams)
 register_node!(:falandays_noisy, _falandays_noisy_native; genome_type=FalandaysParams)
+register_node!(:falandays_extended, _falandays_extended_native; genome_type=FalandaysParams)
 register_node!(:falandays_ablated, _falandays_ablated_native; genome_type=FalandaysParams)
 register_node!(:falandays_hemispheric, _falandays_hemispheric_native; genome_type=FalandaysParams)
 register_node!(:falandays_oosawa, _falandays_oosawa_native; genome_type=FalandaysParams)

@@ -296,6 +296,24 @@ function _falandays_noisy_native(
     return NoisyInput(inner; sensory_noise=Float64(sensory_noise), seed=(seed === nothing ? 0 : Int(seed)))
 end
 
+# `:falandays_extended` — the paper's extended model: the base homeostatic reservoir
+# with sensory input noise, Watts–Strogatz small-world recurrent wiring, and Dale's
+# law (excitatory/inhibitory sign). Same neuron update as base; a richer substrate.
+function _falandays_extended_native(
+    n_nodes::Integer,
+    n_receptors_::Integer,
+    n_effectors_::Integer;
+    seed=nothing,
+    sensory_noise::Real=0.1,
+    topology=:watts_strogatz,
+    sign=:dale,
+    kwargs...,
+)
+    inner = _falandays_native(n_nodes, n_receptors_, n_effectors_;
+                              seed=seed, topology=topology, sign=sign, kwargs...)
+    return NoisyInput(inner; sensory_noise=Float64(sensory_noise), seed=(seed === nothing ? 0 : Int(seed)))
+end
+
 function _falandays_hemispheric_native(
     n_nodes::Integer,
     n_receptors_::Integer,

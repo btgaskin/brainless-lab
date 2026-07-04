@@ -69,4 +69,10 @@ include("test_run.jl")
     @test sigmoid(0.0) ≈ 0.5
     @test mapped_tau(-1000.0) >= TAU_MIN
     @test isfinite(mapped_tau(1000.0))
+
+    # :falandays_extended (base + sensory noise + Watts-Strogatz + Dale) builds and runs.
+    @test :falandays_extended in variants()
+    let ext = simulate(:wall; node=:falandays_extended, ticks=20, seed=0)
+        @test isfinite(ext.metrics.score)
+    end
 end

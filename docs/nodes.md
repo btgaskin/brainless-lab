@@ -34,6 +34,7 @@ variants, compartmental nodes, or evolution experiments.
 |---|---|---|
 | `:falandays_base` | **stable baseline** | the 2021 Falandays homeostatic reservoir; `:falandays` is an alias |
 | `:falandays_noisy` | experimental | + **sensory** input noise (`Uniform(+/-0.1)`, clip >= 0 -- perturbs the receptor vector) |
+| `:falandays_extended` | experimental | the paper's **extended** model: base + sensory noise + **Watts--Strogatz** small-world recurrent wiring + **Dale's law** (excitatory/inhibitory). Same neuron update as base; a richer substrate. The documented `base` vs `extended` contrast. |
 | `:falandays_ablated` | experimental | **target homeostasis frozen** (`lrate_targ=0`): target pinned at 1.0, threshold fixed at 2.0; weights still learn -- an ablation probe of the homeostatic mechanism |
 | `:falandays_hemispheric` | experimental | **two half-size reservoirs, contralateral wiring**: right sensors -> left effectors, left sensors -> right effectors; the hemispheres couple only through the body/world |
 | `:falandays_oosawa` | experimental | + **Oosawa membrane drive**: target-modulated stochastic membrane noise. `sigma = membrane_noise + noise_gain * max(0, 2T - acts)` is the noise amplitude, so exploration grows when a node is below threshold and vanishes at set-point when there is no constant floor; keeps a blind network alive |
