@@ -712,6 +712,7 @@ function _environment_config(m::TorusEnvironment)
         bounds=(0.0, size, 0.0, size),
         size=size,
         n_agents=length(m.bodies),
+        vision_range=m.config.vision_range,
     )
 end
 
@@ -722,6 +723,7 @@ function _environment_config(m::ForageEnvironment)
         bounds=(0.0, size, 0.0, size),
         size=size,
         n_agents=length(m.bodies),
+        vision_range=m.config.vision_range,
         source_position=m.source_position,
         source_gain=Float64(m.config.source_gain),
         signalling=Bool(m.config.signalling),

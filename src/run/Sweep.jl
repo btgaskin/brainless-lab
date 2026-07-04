@@ -2,7 +2,6 @@ import TOML
 
 const _SWEEP_MODES = Set{String}(("one_at_a_time", "factorial"))
 const _SWEEP_DEFAULT_MEASURES = ("sigma_mr", "spectral_radius", "liveness")
-const _SWEEP_NUMERIC_MEASURES = Set{String}(("score", "raw_score", "sigma_mr", "spectral_radius", "liveness"))
 const _SWEEP_SWARM_TASKS = Set{Symbol}((:torus, :swarm, :forage))
 const _SWEEP_GIF_1X1 = UInt8[
     0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00,
@@ -40,6 +39,29 @@ Base.@kwdef struct SweepAxisInfo
     default::Any = nothing
     range::String = ""
     description::String = ""
+end
+
+Base.@kwdef struct SweepCaptureOptions
+    group::String = "none"
+    groups::Dict{String,Vector{Dict{String,Any}}} = Dict{String,Vector{Dict{String,Any}}}()
+    gif::Bool = false
+    gif_framerate::Int = 20
+    gif_maxframes::Int = 120
+    timeseries::Bool = false
+    window::Int = 60
+    stride::Int = 30
+    n_shifts::Int = 20
+    seed::Int = 0
+end
+
+Base.@kwdef struct SweepColumnSchema
+    metric_header::Vector{String}
+    float_columns::Set{String}
+    int_columns::Set{String}
+    bool_columns::Set{String}
+    aggregate_columns::Vector{String}
+    measure_columns::Dict{String,Vector{String}}
+    ensemble_specs::Vector{NamedTuple}
 end
 
 function _axis_table(data)
@@ -246,7 +268,149 @@ end
 function _analytics_measures(data)
     analytics = haskey(data, "analytics") && data["analytics"] isa AbstractDict ? data["analytics"] : Dict{String,Any}()
     raw = get(analytics, "measures", collect(_SWEEP_DEFAULT_MEASURES))
-    return string.(collect(raw))
+    out = String[]
+    for measure in string.(collect(raw))
+        canonical = _canonical_measure_name(measure)
+        canonical in out || push!(out, canonical)
+    end
+    return out
+end
+
+function _canonical_measure_name(measure::AbstractString)
+    m = String(measure)
+    m in ("clusters", "cluster_stats", "contact_graph_clusters") && return "contact_clusters"
+    return m
+end
+
+function _default_ensemble_specs()
+    q85 = DEFAULT_ENSEMBLE_THRESHOLD
+    return [
+        (kind=:turn, threshold=q85, neighbor_radius=nothing, id=_analysis_observable_id(:turn, q85)),
+        (kind=:align, threshold=q85, neighbor_radius="vision_range", id=_analysis_observable_id(:align, q85)),
+        (kind=:speed, threshold=q85, neighbor_radius=nothing, id=_analysis_observable_id(:speed, q85)),
+        (kind=:graded, threshold=nothing, neighbor_radius=nothing, id=_analysis_observable_id(:graded, nothing)),
+    ]
+end
+
+function _ensemble_threshold(raw, kind::Symbol)
+    kind === :graded && raw === nothing && return nothing
+    raw === nothing && return DEFAULT_ENSEMBLE_THRESHOLD
+    raw isa AbstractDict && return _analysis_threshold_from_table(raw, :ensemble)
+    raw isa AbstractString && lowercase(String(raw)) in ("median", "adaptive") && return Symbol(lowercase(String(raw)))
+    raw isa Number && return Float64(raw)
+    return raw
+end
+
+function _ensemble_specs(data)
+    haskey(data, "ensemble") || return _default_ensemble_specs()
+    raw = data["ensemble"]
+    entries = raw isa AbstractVector ? raw : Any[raw]
+    specs = NamedTuple[]
+    for entry in entries
+        entry isa AbstractDict || throw(ArgumentError("[[ensemble]] entries must be TOML tables"))
+        kind = Symbol(get(entry, "kind", get(entry, :kind, "turn")))
+        kind in _ENSEMBLE_OBSERVABLE_KINDS ||
+            throw(ArgumentError("ensemble kind must be one of $(join(string.(_ENSEMBLE_OBSERVABLE_KINDS), ", "))"))
+        threshold = _ensemble_threshold(get(entry, "threshold", get(entry, :threshold, nothing)), kind)
+        radius = get(entry, "neighbor_radius", get(entry, :neighbor_radius, kind === :align ? "vision_range" : nothing))
+        id = string(get(entry, "id", get(entry, :id, _analysis_observable_id(kind, threshold))))
+        push!(specs, (kind=kind, threshold=threshold, neighbor_radius=radius, id=id))
+    end
+    return specs
+end
+
+function _group_entry_list(raw)
+    raw isa AbstractVector || return [Dict{String,Any}(string(k) => v for (k, v) in raw)]
+    out = Dict{String,Any}[]
+    for entry in raw
+        entry isa AbstractDict || throw(ArgumentError("capture group entries must be TOML tables"))
+        push!(out, Dict{String,Any}(string(k) => v for (k, v) in entry))
+    end
+    return out
+end
+
+function _capture_groups(raw)
+    raw isa AbstractDict || return Dict{String,Vector{Dict{String,Any}}}()
+    out = Dict{String,Vector{Dict{String,Any}}}()
+    for (name, spec) in raw
+        spec isa AbstractDict || spec isa AbstractVector ||
+            throw(ArgumentError("capture group '$(name)' must be a table or array of tables"))
+        out[lowercase(string(name))] = _group_entry_list(spec)
+    end
+    return out
+end
+
+function _capture_options(data, base::SweepBaseline)
+    table = haskey(data, "capture") && data["capture"] isa AbstractDict ? data["capture"] : Dict{String,Any}()
+    group = lowercase(string(get(table, "group", get(table, :group, "none"))))
+    capture_enabled = group != "none"
+    window_default = base.window === nothing ? max(Int(base.ticks), 1) : Int(base.window)
+    window = Int(get(table, "window", get(table, :window, window_default)))
+    stride = Int(get(table, "stride", get(table, :stride, max(1, fld(window, 2)))))
+    return SweepCaptureOptions(
+        group=group,
+        groups=_capture_groups(get(table, "groups", get(table, :groups, Dict{String,Any}()))),
+        gif=Bool(get(table, "gif", get(table, :gif, capture_enabled))),
+        gif_framerate=Int(get(table, "gif_framerate", get(table, :gif_framerate, 20))),
+        gif_maxframes=Int(get(table, "gif_maxframes", get(table, :gif_maxframes, 120))),
+        timeseries=Bool(get(table, "timeseries", get(table, :timeseries, capture_enabled))),
+        window=window,
+        stride=stride,
+        n_shifts=Int(get(table, "n_shifts", get(table, :n_shifts, capture_enabled ? 20 : 0))),
+        seed=Int(get(table, "seed", get(table, :seed, 0))),
+    )
+end
+
+function _measure_columns(measure::AbstractString, ensemble_specs)
+    measure == "sigma_mr" && return ["sigma_mr"]
+    measure == "sigma_mr_node" && return ["sigma_mr_node"]
+    measure == "sigma_mr_agent" && return ["sigma_mr_agent__$(spec.id)" for spec in ensemble_specs]
+    measure == "dist_to_source" && return ["dist_to_source"]
+    measure == "forage_score" && return ["forage_score"]
+    measure == "spectral_radius" && return ["spectral_radius"]
+    measure == "susceptibility_node" && return ["susceptibility_node"]
+    measure == "susceptibility_agent" && return ["susceptibility_agent"]
+    measure == "correlation_length" && return ["correlation_length"]
+    measure == "contact_clusters" && return ["cluster_n_components", "cluster_largest_component_frac", "cluster_mean_component_size"]
+    measure == "liveness" && return String[]
+    measure == "regime" && return ["regime", "regime_polarization", "regime_milling", "regime_speed"]
+    throw(ArgumentError("unknown analytics measure '$(measure)'"))
+end
+
+function _build_column_schema(measures, ensemble_specs)
+    base = ["seed", "score", "raw_score", "score_key", "alive", "liveness", "rate_mean", "rate_var"]
+    measure_columns = Dict{String,Vector{String}}()
+    dynamic = String[]
+    for measure in measures
+        cols = _measure_columns(measure, ensemble_specs)
+        measure_columns[measure] = cols
+        append!(dynamic, cols)
+    end
+    dynamic = unique(dynamic)
+    tail = ["warnings", "error", "notes"]
+    metric_header = vcat(base, dynamic, tail)
+
+    float_columns = Set{String}(["score", "raw_score", "liveness", "rate_mean", "rate_var"])
+    for measure in measures, col in get(measure_columns, measure, String[])
+        col == "regime" || push!(float_columns, col)
+    end
+    int_columns = Set{String}(["seed"])
+    bool_columns = Set{String}(["alive"])
+    aggregate_columns = ["score", "raw_score", "liveness", "rate_mean", "rate_var"]
+    for measure in measures, col in get(measure_columns, measure, String[])
+        (col == "regime" || startswith(col, "regime_")) && continue
+        col in aggregate_columns || push!(aggregate_columns, col)
+    end
+
+    return SweepColumnSchema(
+        metric_header=metric_header,
+        float_columns=float_columns,
+        int_columns=int_columns,
+        bool_columns=bool_columns,
+        aggregate_columns=aggregate_columns,
+        measure_columns=measure_columns,
+        ensemble_specs=ensemble_specs,
+    )
 end
 
 function _is_swarm_sweep(base::SweepBaseline)
@@ -562,8 +726,44 @@ end
 
 _sweep_done_path(cell_dir::AbstractString) = joinpath(cell_dir, "DONE")
 
-function _sweep_cell_complete(cell_dir::AbstractString)
-    return isfile(_sweep_done_path(cell_dir)) && isfile(joinpath(cell_dir, "metrics.csv"))
+function _capture_artifacts_complete(cell_dir::AbstractString, captured::Bool, capture::SweepCaptureOptions)
+    captured || return true
+    capture.timeseries && !isfile(joinpath(cell_dir, "criticality_timeseries.csv")) && return false
+    capture.gif && !isfile(joinpath(cell_dir, "representative.gif")) && return false
+    capture.n_shifts > 0 && !isfile(joinpath(cell_dir, "null_test.csv")) && return false
+    return true
+end
+
+function _sweep_cell_complete(cell_dir::AbstractString, captured::Bool, capture::SweepCaptureOptions)
+    return isfile(_sweep_done_path(cell_dir)) &&
+        isfile(joinpath(cell_dir, "metrics.csv")) &&
+        _capture_artifacts_complete(cell_dir, captured, capture)
+end
+
+function _values_match(actual, expected)
+    if expected isa AbstractVector || expected isa Tuple
+        return any(value -> _values_match(actual, value), expected)
+    elseif actual isa Number && expected isa Number
+        return Float64(actual) == Float64(expected)
+    end
+    return string(actual) == string(expected)
+end
+
+function _params_match(params, selector::AbstractDict)
+    for (key, expected) in selector
+        key_s = string(key)
+        haskey(params, key_s) || return false
+        _values_match(params[key_s], expected) || return false
+    end
+    return true
+end
+
+function _cell_captured(cell, capture::SweepCaptureOptions)
+    capture.group == "none" && return false
+    capture.group == "all" && return true
+    selectors = get(capture.groups, capture.group, Dict{String,Any}[])
+    isempty(selectors) && return false
+    return any(selector -> _params_match(cell["params"], selector), selectors)
 end
 
 function _write_sweep_done(cell_dir::AbstractString, cell_id::AbstractString)
@@ -598,7 +798,46 @@ function _baseline_toml(base::SweepBaseline)
     return out
 end
 
-function _write_manifest(path::AbstractString, id::AbstractString, base::SweepBaseline, seeds, measures, preview)
+function _threshold_toml(value)
+    value === nothing && return nothing
+    value === :median && return Dict{String,Any}("median" => true)
+    value === :adaptive && return Dict{String,Any}("median" => true)
+    if value isa Tuple && length(value) == 2 && value[1] === :quantile
+        return Dict{String,Any}("quantile" => Float64(value[2]))
+    elseif value isa Number
+        return Dict{String,Any}("fixed" => Float64(value))
+    end
+    return string(value)
+end
+
+function _ensemble_toml(specs)
+    out = Dict{String,Any}[]
+    for spec in specs
+        entry = Dict{String,Any}("kind" => string(spec.kind), "id" => spec.id)
+        threshold = _threshold_toml(spec.threshold)
+        threshold === nothing || (entry["threshold"] = threshold)
+        spec.neighbor_radius === nothing || (entry["neighbor_radius"] = spec.neighbor_radius)
+        push!(out, entry)
+    end
+    return out
+end
+
+function _capture_toml(capture::SweepCaptureOptions)
+    return Dict{String,Any}(
+        "group" => capture.group,
+        "groups" => capture.groups,
+        "gif" => capture.gif,
+        "gif_framerate" => capture.gif_framerate,
+        "gif_maxframes" => capture.gif_maxframes,
+        "timeseries" => capture.timeseries,
+        "window" => capture.window,
+        "stride" => capture.stride,
+        "n_shifts" => capture.n_shifts,
+        "seed" => capture.seed,
+    )
+end
+
+function _write_manifest(path::AbstractString, id::AbstractString, base::SweepBaseline, seeds, measures, preview, ensemble_specs, capture::SweepCaptureOptions)
     manifest = _manifest_header(:sweep)
     merge!(
         manifest,
@@ -610,6 +849,8 @@ function _write_manifest(path::AbstractString, id::AbstractString, base::SweepBa
                 "resolved" => [base.seed_base + seed for seed in seeds],
             ),
             "analytics" => Dict{String,Any}("measures" => collect(measures)),
+            "ensemble" => _ensemble_toml(ensemble_specs),
+            "capture" => _capture_toml(capture),
             "cost_preview" => preview,
             "baseline" => _baseline_toml(base),
         ),
@@ -620,7 +861,7 @@ function _write_manifest(path::AbstractString, id::AbstractString, base::SweepBa
     return path
 end
 
-function _write_resolved_config(path::AbstractString, id::AbstractString, mode::AbstractString, base::SweepBaseline, axes, seeds, measures, max_cells, max_rollouts)
+function _write_resolved_config(path::AbstractString, id::AbstractString, mode::AbstractString, base::SweepBaseline, axes, seeds, measures, max_cells, max_rollouts, ensemble_specs, capture::SweepCaptureOptions)
     data = Dict{String,Any}(
         "sweep" => Dict{String,Any}(
             "id" => id,
@@ -632,6 +873,8 @@ function _write_resolved_config(path::AbstractString, id::AbstractString, mode::
         "baseline" => _baseline_toml(base),
         "axes" => Dict{String,Any}(string(k) => v for (k, v) in axes),
         "analytics" => Dict{String,Any}("measures" => collect(measures)),
+        "ensemble" => _ensemble_toml(ensemble_specs),
+        "capture" => _capture_toml(capture),
     )
     open(path, "w") do io
         TOML.print(io, data)
@@ -639,14 +882,17 @@ function _write_resolved_config(path::AbstractString, id::AbstractString, mode::
     return path
 end
 
-function _record_channels_for_measures(measures)
+function _record_channels_for_measures(measures; capture::Bool=false)
     channels = Set{Symbol}((:spikes, :rate))
-    "spectral_radius" in measures && push!(channels, :spectral_radius)
+    ("spectral_radius" in measures || capture) && push!(channels, :spectral_radius)
     "regime" in measures && union!(channels, (:poses, :polarization, :milling))
+    if capture || any(measure -> measure in ("sigma_mr_agent", "dist_to_source", "susceptibility_agent", "correlation_length", "contact_clusters"), measures)
+        push!(channels, :poses)
+    end
     return Tuple(sort!(collect(channels); by=string))
 end
 
-function _simulation_kwargs(base::SweepBaseline, seed::Integer, measures)
+function _simulation_kwargs(base::SweepBaseline, seed::Integer, measures; capture::Bool=false)
     node_kwargs = copy(base.node_kwargs)
     for (key, value) in base.drive_kwargs
         node_kwargs[key] = value
@@ -659,7 +905,7 @@ function _simulation_kwargs(base::SweepBaseline, seed::Integer, measures)
         :window => base.window,
         :seed => Int(seed),
         :N => base.N,
-        :record => _record_channels_for_measures(measures),
+        :record => _record_channels_for_measures(measures; capture=capture),
         :every => 1,
         :node_kwargs => _kwargs_tuple(node_kwargs),
         :ablation => base.ablation,
@@ -698,15 +944,61 @@ function _sim_score(sim::SimResult)
     throw(ArgumentError("task :$(sim.task) has no normalized_score; use a swarm metric such as forage_score or polarization"))
 end
 
-function _measure_sigma_mr(sim::SimResult)
+function _sigma_mr_params(sim::SimResult)
     ticks = Int(sim.config.ticks)
     window = hasproperty(sim.config, :window) ? min(Int(sim.config.window), ticks) : ticks
     # Match the sweep score/liveness window discipline: drop the pre-window
     # warmup so online-learning switch-on transients do not enter sigma_mr.
     transient = max(ticks - window, 0)
     kmax = max(2, min(20, Int(floor(max(window, 1) / 3))))
+    return kmax, transient
+end
+
+function _measure_sigma_mr(sim::SimResult)
+    kmax, transient = _sigma_mr_params(sim)
     res = branching_ratio_mr(sim; kmax=kmax, transient=transient)
     return _finite_or_nan(res.m_mr)
+end
+
+function _measure_sigma_mr_node(sim::SimResult)
+    kmax, transient = _sigma_mr_params(sim)
+    res = branching_ratio_mr(sim; kmax=kmax, transient=transient, level=:node)
+    return _finite_or_nan(res.m_mr)
+end
+
+function _measure_sigma_mr_agent(sim::SimResult, spec)
+    kmax, transient = _sigma_mr_params(sim)
+    res = branching_ratio_mr(sim; kmax=kmax, transient=transient, level=:agent, observable=spec)
+    return _finite_or_nan(res.m_mr)
+end
+
+function _measure_dist_to_source(sim::SimResult)
+    sim.task == :forage || return NaN
+    hasproperty(sim.metrics, :mean_distance_to_source) || return NaN
+    return _finite_or_nan(sim.metrics.mean_distance_to_source)
+end
+
+function _measure_forage_score(sim::SimResult)
+    hasproperty(sim.metrics, :forage_score) || return NaN
+    return _finite_or_nan(sim.metrics.forage_score)
+end
+
+function _measure_susceptibility(sim::SimResult, level::Symbol)
+    res = susceptibility(sim; level=level)
+    return _finite_or_nan(res.susceptibility)
+end
+
+function _measure_correlation_length(sim::SimResult)
+    return _finite_or_nan(correlation_length(sim))
+end
+
+function _measure_contact_clusters(sim::SimResult)
+    res = contact_graph_clusters(sim)
+    return (
+        n_components=_finite_or_nan(res.n_components_mean),
+        largest_component_frac=_finite_or_nan(res.largest_component_frac_mean),
+        mean_component_size=_finite_or_nan(res.mean_component_size_mean),
+    )
 end
 
 function _measure_spectral_radius(sim::SimResult)
@@ -714,41 +1006,44 @@ function _measure_spectral_radius(sim::SimResult)
     return _finite_or_nan(res.mean)
 end
 
-function _failed_seed_row(seed::Integer, err)
-    message = sprint(showerror, err)
-    return Dict{String,Any}(
-        "seed" => Int(seed),
-        "score" => NaN,
-        "raw_score" => NaN,
-        "score_key" => "",
-        "alive" => false,
-        "liveness" => 0.0,
-        "rate_mean" => NaN,
-        "rate_var" => NaN,
-        "sigma_mr" => NaN,
-        "spectral_radius" => NaN,
-        "regime" => "",
-        "regime_polarization" => NaN,
-        "regime_milling" => NaN,
-        "regime_speed" => NaN,
-        "warnings" => "cell failed: $(message)",
-        "error" => message,
-        "notes" => "",
-    )
+function _default_seed_row(seed::Integer, schema::SweepColumnSchema)
+    row = Dict{String,Any}()
+    for key in schema.metric_header
+        if key in schema.float_columns
+            row[key] = NaN
+        elseif key in schema.int_columns
+            row[key] = key == "seed" ? Int(seed) : missing
+        elseif key in schema.bool_columns
+            row[key] = false
+        else
+            row[key] = ""
+        end
+    end
+    row["seed"] = Int(seed)
+    row["liveness"] = 0.0
+    return row
 end
 
-function _run_seed_metrics(base::SweepBaseline, seed::Integer, measures)
-    kwargs = _simulation_kwargs(base, seed, measures)
+function _failed_seed_row(seed::Integer, err, schema::SweepColumnSchema)
+    message = sprint(showerror, err)
+    row = _default_seed_row(seed, schema)
+    row["warnings"] = "cell failed: $(message)"
+    row["error"] = message
+    return row
+end
+
+function _run_seed_metrics(base::SweepBaseline, seed::Integer, measures, schema::SweepColumnSchema; captured::Bool=false)
+    kwargs = _simulation_kwargs(base, seed, measures; capture=captured)
     sim = try
         simulate(base.task; _kwargs_tuple(kwargs)...)
     catch err
-        return _failed_seed_row(seed, err), nothing
+        return _failed_seed_row(seed, err, schema), nothing
     end
 
     score, raw_score, score_key = try
         _sim_score(sim)
     catch err
-        return _failed_seed_row(seed, err), nothing
+        return _failed_seed_row(seed, err, schema), nothing
     end
     warnings = String[]
     notes = String.(getproperty(sim.config, :ablation_notes))
@@ -759,20 +1054,17 @@ function _run_seed_metrics(base::SweepBaseline, seed::Integer, measures)
         push!(warnings, "trained-required-but-untrained compartmental cell")
     end
 
-    row = Dict{String,Any}(
-        "seed" => Int(seed),
-        "score" => _finite_or_nan(score),
-        "raw_score" => _finite_or_nan(raw_score),
-        "score_key" => score_key,
-        "alive" => alive,
-        "liveness" => alive ? 1.0 : 0.0,
-        "rate_mean" => hasproperty(sim.metrics, :rate_mean) ? _finite_or_nan(sim.metrics.rate_mean) : NaN,
-        "rate_var" => hasproperty(sim.metrics, :rate_var) ? _finite_or_nan(sim.metrics.rate_var) : NaN,
-        "warnings" => "",
-        "error" => "",
-        "notes" => join(notes, " | "),
-        "regime" => "",
-    )
+    row = _default_seed_row(seed, schema)
+    row["score"] = _finite_or_nan(score)
+    row["raw_score"] = _finite_or_nan(raw_score)
+    row["score_key"] = score_key
+    row["alive"] = alive
+    row["liveness"] = alive ? 1.0 : 0.0
+    row["rate_mean"] = hasproperty(sim.metrics, :rate_mean) ? _finite_or_nan(sim.metrics.rate_mean) : NaN
+    row["rate_var"] = hasproperty(sim.metrics, :rate_var) ? _finite_or_nan(sim.metrics.rate_var) : NaN
+    row["warnings"] = ""
+    row["error"] = ""
+    row["notes"] = join(notes, " | ")
 
     for measure in measures
         if measure == "sigma_mr"
@@ -783,6 +1075,29 @@ function _run_seed_metrics(base::SweepBaseline, seed::Integer, measures)
                 row["sigma_mr"] = NaN
                 push!(warnings, "sigma_mr failed: $(sprint(showerror, err))")
             end
+        elseif measure == "sigma_mr_node"
+            try
+                row["sigma_mr_node"] = _measure_sigma_mr_node(sim)
+                isfinite(row["sigma_mr_node"]) || push!(warnings, "sigma_mr_node unavailable/non-finite")
+            catch err
+                row["sigma_mr_node"] = NaN
+                push!(warnings, "sigma_mr_node failed: $(sprint(showerror, err))")
+            end
+        elseif measure == "sigma_mr_agent"
+            for spec in schema.ensemble_specs
+                key = "sigma_mr_agent__$(spec.id)"
+                try
+                    row[key] = _measure_sigma_mr_agent(sim, spec)
+                    isfinite(row[key]) || push!(warnings, "$(key) unavailable/non-finite")
+                catch err
+                    row[key] = NaN
+                    push!(warnings, "$(key) failed: $(sprint(showerror, err))")
+                end
+            end
+        elseif measure == "dist_to_source"
+            row["dist_to_source"] = _measure_dist_to_source(sim)
+        elseif measure == "forage_score"
+            row["forage_score"] = _measure_forage_score(sim)
         elseif measure == "spectral_radius"
             try
                 row["spectral_radius"] = _measure_spectral_radius(sim)
@@ -790,6 +1105,39 @@ function _run_seed_metrics(base::SweepBaseline, seed::Integer, measures)
             catch err
                 row["spectral_radius"] = NaN
                 push!(warnings, "spectral_radius failed: $(sprint(showerror, err))")
+            end
+        elseif measure == "susceptibility_node"
+            try
+                row["susceptibility_node"] = _measure_susceptibility(sim, :node)
+            catch err
+                row["susceptibility_node"] = NaN
+                push!(warnings, "susceptibility_node failed: $(sprint(showerror, err))")
+            end
+        elseif measure == "susceptibility_agent"
+            try
+                row["susceptibility_agent"] = _measure_susceptibility(sim, :agent)
+            catch err
+                row["susceptibility_agent"] = NaN
+                push!(warnings, "susceptibility_agent failed: $(sprint(showerror, err))")
+            end
+        elseif measure == "correlation_length"
+            try
+                row["correlation_length"] = _measure_correlation_length(sim)
+            catch err
+                row["correlation_length"] = NaN
+                push!(warnings, "correlation_length failed: $(sprint(showerror, err))")
+            end
+        elseif measure == "contact_clusters"
+            try
+                clusters = _measure_contact_clusters(sim)
+                row["cluster_n_components"] = clusters.n_components
+                row["cluster_largest_component_frac"] = clusters.largest_component_frac
+                row["cluster_mean_component_size"] = clusters.mean_component_size
+            catch err
+                row["cluster_n_components"] = NaN
+                row["cluster_largest_component_frac"] = NaN
+                row["cluster_mean_component_size"] = NaN
+                push!(warnings, "contact_clusters failed: $(sprint(showerror, err))")
             end
         elseif measure == "liveness"
             row["liveness"] = alive ? 1.0 : 0.0
@@ -816,7 +1164,8 @@ function _run_seed_metrics(base::SweepBaseline, seed::Integer, measures)
     return row, sim
 end
 
-function _csv_header(rows)
+function _csv_header(rows, schema=nothing)
+    schema === nothing || return schema.metric_header
     fixed = ["seed", "score", "raw_score", "score_key", "alive", "liveness", "rate_mean", "rate_var", "sigma_mr", "spectral_radius", "regime", "regime_polarization", "regime_milling", "regime_speed", "warnings", "error", "notes"]
     extras = sort!(setdiff(unique(vcat([collect(keys(row)) for row in rows]...)), fixed))
     return vcat(fixed, extras)
@@ -866,21 +1215,26 @@ function _parse_csv_record(line::AbstractString)
     return fields
 end
 
-function _read_simple_csv(path::AbstractString)
+function _read_simple_csv(path::AbstractString, schema=nothing)
     lines = readlines(path)
     isempty(lines) && return Dict{String,Any}[]
     header = _parse_csv_record(lines[1])
+    float_columns = schema === nothing ?
+        Set{String}(("score", "raw_score", "liveness", "rate_mean", "rate_var", "sigma_mr", "spectral_radius", "regime_polarization", "regime_milling", "regime_speed")) :
+        schema.float_columns
+    int_columns = schema === nothing ? Set{String}(("seed",)) : schema.int_columns
+    bool_columns = schema === nothing ? Set{String}(("alive",)) : schema.bool_columns
     rows = Dict{String,Any}[]
     for line in lines[2:end]
         isempty(strip(line)) && continue
         values = _parse_csv_record(line)
         row = Dict{String,Any}()
         for (key, value) in zip(header, values)
-            if key in ("seed",)
+            if key in int_columns
                 row[key] = isempty(value) ? missing : parse(Int, value)
-            elseif key in ("alive",)
+            elseif key in bool_columns
                 row[key] = lowercase(value) == "true"
-            elseif key in ("score", "raw_score", "liveness", "rate_mean", "rate_var", "sigma_mr", "spectral_radius", "regime_polarization", "regime_milling", "regime_speed")
+            elseif key in float_columns
                 row[key] = isempty(value) ? NaN : parse(Float64, value)
             else
                 row[key] = value
@@ -923,7 +1277,7 @@ function _mode_string(vals)
     return first(sort!(collect(counts), by=x -> (-x[2], x[1])))[1]
 end
 
-function _aggregate_cell(cell_id, cell, rows, measures)
+function _aggregate_cell(cell_id, cell, rows, schema::SweepColumnSchema)
     out = Dict{String,Any}(
         "cell" => cell_id,
         "axis" => cell["axis"],
@@ -933,7 +1287,7 @@ function _aggregate_cell(cell_id, cell, rows, measures)
         "errors" => join(unique(filter(!isempty, string.(get.(rows, "error", "")))), " | "),
     )
 
-    for key in ("score", "raw_score", "liveness", "sigma_mr", "spectral_radius", "rate_mean", "rate_var")
+    for key in schema.aggregate_columns
         vals = _finite_values(rows, key)
         mean, std = _mean_std(vals)
         out["$(key)_mean"] = mean
@@ -944,6 +1298,193 @@ function _aggregate_cell(cell_id, cell, rows, measures)
     return out
 end
 
+function _capture_kmax(window::Integer)
+    return max(2, min(20, fld(max(Int(window), 12), 6)))
+end
+
+function _series_value(series, idx::Integer)
+    idx <= length(series) || return NaN
+    return _finite_or_nan(series[idx])
+end
+
+function _window_mean_for_centers(series::AbstractVector{<:Real}, centers::AbstractVector{<:Real}, window::Integer)
+    out = Vector{Float64}(undef, length(centers))
+    n = length(series)
+    @inbounds for idx in eachindex(centers)
+        start = max(1, round(Int, centers[idx] - 0.5 * (window - 1)))
+        stop = min(n, start + window - 1)
+        out[idx] = start <= n && stop >= start ? _analysis_finite_mean(@view series[start:stop]) : NaN
+    end
+    return out
+end
+
+function _spectral_radius_timeseries(sim::SimResult, centers, window::Integer)
+    try
+        sr = spectral_radius(sim)
+        series = sr.series isa AbstractMatrix ? _analysis_row_means(sr.series) : Float64.(sr.series)
+        return _window_mean_for_centers(series, centers, window)
+    catch
+        return fill(NaN, length(centers))
+    end
+end
+
+function _safe_windowed_branching(sim::SimResult; level::Symbol, window::Integer, stride::Integer, kmax::Integer, observable=nothing)
+    try
+        return branching_ratio_mr_windowed(sim; level=level, window=window, stride=stride, kmax=kmax, observable=observable)
+    catch
+        return Float64[], Float64[], Float64[], Int[]
+    end
+end
+
+function _safe_windowed_susceptibility(sim::SimResult, level::Symbol, window::Integer, stride::Integer)
+    try
+        return susceptibility_windowed(sim; level=level, window=window, stride=stride).susceptibility
+    catch
+        return Float64[]
+    end
+end
+
+function _safe_windowed_correlation(sim::SimResult, window::Integer, stride::Integer)
+    try
+        return correlation_length_windowed(sim; window=window, stride=stride).correlation_length
+    catch
+        return Float64[]
+    end
+end
+
+function _safe_windowed_clusters(sim::SimResult, window::Integer, stride::Integer)
+    try
+        return contact_graph_clusters_windowed(sim; window=window, stride=stride)
+    catch
+        return (n_components=Float64[], largest_component_frac=Float64[], mean_component_size=Float64[])
+    end
+end
+
+function _write_criticality_timeseries(path::AbstractString, sim::SimResult, schema::SweepColumnSchema, capture::SweepCaptureOptions)
+    window = capture.window
+    stride = capture.stride
+    kmax = _capture_kmax(window)
+    centers, m_node, r2_node, n_node =
+        _safe_windowed_branching(sim; level=:node, window=window, stride=stride, kmax=kmax)
+
+    agent_series = Dict{String,Any}()
+    for spec in schema.ensemble_specs
+        agent_series[spec.id] = _safe_windowed_branching(
+            sim;
+            level=:agent,
+            window=window,
+            stride=stride,
+            kmax=kmax,
+            observable=spec,
+        )
+    end
+
+    susc_node = _safe_windowed_susceptibility(sim, :node, window, stride)
+    susc_agent = _safe_windowed_susceptibility(sim, :agent, window, stride)
+    corr_len = _safe_windowed_correlation(sim, window, stride)
+    clusters = _safe_windowed_clusters(sim, window, stride)
+    dist = try
+        _window_mean_for_centers(distance_to_source(sim), centers, window)
+    catch
+        fill(NaN, length(centers))
+    end
+    rho = _spectral_radius_timeseries(sim, centers, window)
+
+    header = ["t_center", "m_node", "r2_node", "n_node"]
+    for spec in schema.ensemble_specs
+        push!(header, "m_agent__$(spec.id)")
+        push!(header, "r2_agent__$(spec.id)")
+        push!(header, "n_agent__$(spec.id)")
+    end
+    append!(header, ["susc_node", "susc_agent", "corr_len", "cluster_n_components", "cluster_largest_component_frac", "cluster_mean_component_size", "dist_to_source", "spectral_radius"])
+
+    rows = Dict{String,Any}[]
+    for idx in eachindex(centers)
+        row = Dict{String,Any}(
+            "t_center" => centers[idx],
+            "m_node" => _series_value(m_node, idx),
+            "r2_node" => _series_value(r2_node, idx),
+            "n_node" => idx <= length(n_node) ? n_node[idx] : 0,
+            "susc_node" => _series_value(susc_node, idx),
+            "susc_agent" => _series_value(susc_agent, idx),
+            "corr_len" => _series_value(corr_len, idx),
+            "cluster_n_components" => _series_value(clusters.n_components, idx),
+            "cluster_largest_component_frac" => _series_value(clusters.largest_component_frac, idx),
+            "cluster_mean_component_size" => _series_value(clusters.mean_component_size, idx),
+            "dist_to_source" => _series_value(dist, idx),
+            "spectral_radius" => _series_value(rho, idx),
+        )
+        for spec in schema.ensemble_specs
+            _, m_agent, r2_agent, n_agent = agent_series[spec.id]
+            row["m_agent__$(spec.id)"] = _series_value(m_agent, idx)
+            row["r2_agent__$(spec.id)"] = _series_value(r2_agent, idx)
+            row["n_agent__$(spec.id)"] = idx <= length(n_agent) ? n_agent[idx] : 0
+        end
+        push!(rows, row)
+    end
+    return _write_rows_csv(path, rows; header=header)
+end
+
+function _write_empty_csv(path::AbstractString, header)
+    open(path, "w") do io
+        println(io, join(header, ","))
+    end
+    return path
+end
+
+function _null_result_row(measure::AbstractString, result, n_shifts::Integer)
+    return Dict{String,Any}(
+        "measure" => measure,
+        "real" => _finite_or_nan(result.real),
+        "null_mean" => _finite_or_nan(result.null_mean),
+        "null_std" => _finite_or_nan(result.null_std),
+        "ratio" => _finite_or_nan(result.ratio),
+        "n_shifts" => Int(n_shifts),
+    )
+end
+
+function _write_null_test(path::AbstractString, sim::SimResult, schema::SweepColumnSchema, capture::SweepCaptureOptions, cell_index::Integer)
+    header = ["measure", "real", "null_mean", "null_std", "ratio", "n_shifts"]
+    capture.n_shifts <= 0 && return _write_empty_csv(path, header)
+
+    rows = Dict{String,Any}[]
+    seed = capture.seed + 1009 * Int(cell_index)
+    kmax = _capture_kmax(capture.window)
+    for spec in schema.ensemble_specs
+        rng = MersenneTwister(seed + length(rows))
+        measure_name = "sigma_mr_agent__$(spec.id)"
+        result = try
+            crossshift_null(
+                sim,
+                s -> branching_ratio_mr(s; level=:agent, kmax=kmax, observable=spec).m_mr;
+                n_shifts=capture.n_shifts,
+                rng=rng,
+            )
+        catch
+            (real=NaN, null_mean=NaN, null_std=NaN, ratio=NaN)
+        end
+        push!(rows, _null_result_row(measure_name, result, capture.n_shifts))
+    end
+
+    null_measures = (
+        "susceptibility_agent" => (s -> susceptibility(s; level=:agent).susceptibility),
+        "correlation_length" => (s -> correlation_length(s)),
+        "cluster_largest_component_frac" => (s -> contact_graph_clusters(s).largest_component_frac_mean),
+        "cluster_mean_component_size" => (s -> contact_graph_clusters(s).mean_component_size_mean),
+    )
+    for (name, fn) in null_measures
+        rng = MersenneTwister(seed + length(rows))
+        result = try
+            crossshift_null(sim, fn; n_shifts=capture.n_shifts, rng=rng)
+        catch
+            (real=NaN, null_mean=NaN, null_std=NaN, ratio=NaN)
+        end
+        push!(rows, _null_result_row(name, result, capture.n_shifts))
+    end
+
+    return _write_rows_csv(path, rows; header=header)
+end
+
 function _write_placeholder_gif(path::AbstractString)
     open(path, "w") do io
         write(io, _SWEEP_GIF_1X1)
@@ -951,15 +1492,15 @@ function _write_placeholder_gif(path::AbstractString)
     return path
 end
 
-function _try_write_representative_gif(path::AbstractString, sim::SimResult)
+function _try_write_representative_gif(path::AbstractString, sim::SimResult; framerate::Integer=20, maxframes::Integer=120)
     try
-        return animate(sim; path=path, maxframes=min(120, sim.config.ticks), framerate=20)
+        return animate(sim; path=path, maxframes=min(Int(maxframes), sim.config.ticks), framerate=Int(framerate), branching=false)
     catch
         return _write_placeholder_gif(path)
     end
 end
 
-function _write_cell_manifest(path::AbstractString, cell_id, cell, base::SweepBaseline, seeds)
+function _write_cell_manifest(path::AbstractString, cell_id, cell, base::SweepBaseline, seeds; captured::Bool=false)
     info = Dict{String,Any}(
         "cell" => cell_id,
         "axis" => string(cell["axis"]),
@@ -967,6 +1508,7 @@ function _write_cell_manifest(path::AbstractString, cell_id, cell, base::SweepBa
         "params" => Dict{String,Any}(string(k) => v for (k, v) in cell["params"]),
         "baseline" => _baseline_toml(base),
         "seeds" => collect(seeds),
+        "captured" => captured,
     )
     open(path, "w") do io
         TOML.print(io, info)
@@ -974,29 +1516,52 @@ function _write_cell_manifest(path::AbstractString, cell_id, cell, base::SweepBa
     return path
 end
 
-function _run_cell(cell_id, cell, seeds, measures, cell_dir)
+function _run_cell(cell_id, cell, seeds, measures, schema::SweepColumnSchema, cell_dir; captured::Bool=false, capture::SweepCaptureOptions=SweepCaptureOptions(), cell_index::Integer=1)
     mkpath(cell_dir)
     base = cell["baseline"]
     seed_values = [base.seed_base + seed for seed in seeds]
     representative = nothing
     rows = Dict{String,Any}[]
     for seed in seed_values
-        row, sim = _run_seed_metrics(base, seed, measures)
+        row, sim = _run_seed_metrics(base, seed, measures, schema; captured=captured)
         push!(rows, row)
         representative === nothing && sim !== nothing && (representative = sim)
     end
-    _write_rows_csv(joinpath(cell_dir, "metrics.csv"), rows)
-    _write_cell_manifest(joinpath(cell_dir, "manifest.toml"), cell_id, cell, base, seed_values)
-    representative === nothing || _try_write_representative_gif(joinpath(cell_dir, "representative.gif"), representative)
+    _write_rows_csv(joinpath(cell_dir, "metrics.csv"), rows; header=schema.metric_header)
+    _write_cell_manifest(joinpath(cell_dir, "manifest.toml"), cell_id, cell, base, seed_values; captured=captured)
+    if captured
+        if capture.timeseries
+            if representative === nothing
+                _write_empty_csv(joinpath(cell_dir, "criticality_timeseries.csv"), ["t_center"])
+            else
+                _write_criticality_timeseries(joinpath(cell_dir, "criticality_timeseries.csv"), representative, schema, capture)
+            end
+        end
+        if capture.n_shifts > 0
+            if representative === nothing
+                _write_empty_csv(joinpath(cell_dir, "null_test.csv"), ["measure", "real", "null_mean", "null_std", "ratio", "n_shifts"])
+            else
+                _write_null_test(joinpath(cell_dir, "null_test.csv"), representative, schema, capture, cell_index)
+            end
+        end
+        if capture.gif
+            representative === nothing ?
+                _write_placeholder_gif(joinpath(cell_dir, "representative.gif")) :
+                _try_write_representative_gif(
+                    joinpath(cell_dir, "representative.gif"),
+                    representative;
+                    framerate=capture.gif_framerate,
+                    maxframes=capture.gif_maxframes,
+                )
+        end
+    end
     _write_sweep_done(cell_dir, cell_id)
     return rows
 end
 
-function _results_header(measures)
+function _results_header(schema::SweepColumnSchema)
     header = ["cell", "axis", "value", "params", "n_seeds", "score_mean", "score_std", "raw_score_mean", "raw_score_std"]
-    reported = String["liveness", "rate_mean", "rate_var"]
-    "sigma_mr" in measures && push!(reported, "sigma_mr")
-    "spectral_radius" in measures && push!(reported, "spectral_radius")
+    reported = [col for col in schema.aggregate_columns if !(col in ("score", "raw_score"))]
     for measure in reported
         push!(header, "$(measure)_mean")
         push!(header, "$(measure)_std")
@@ -1005,8 +1570,8 @@ function _results_header(measures)
     return header
 end
 
-function _write_results_csv(path::AbstractString, rows, measures)
-    return _write_rows_csv(path, rows; header=_results_header(measures))
+function _write_results_csv(path::AbstractString, rows, schema::SweepColumnSchema)
+    return _write_rows_csv(path, rows; header=_results_header(schema))
 end
 
 function _figure_payload(rows, axis)
@@ -1130,7 +1695,7 @@ function _write_readme(path::AbstractString, id, base::SweepBaseline, rows, axis
             end
         end
         println(io)
-        println(io, "Representative GIFs use the first completed seed for each cell; if no Makie backend is loaded, a placeholder GIF is written and the numeric metrics remain authoritative.")
+        println(io, "Captured-cell GIFs use the first completed seed. If no Makie backend is loaded, a placeholder GIF is written and the numeric metrics remain authoritative.")
     end
     return path
 end
@@ -1143,6 +1708,9 @@ function _run_sweep_data(data, source_path::AbstractString; root=nothing, force=
     mode = _sweep_mode(data)
     seeds = _sweep_seeds(data)
     measures = _analytics_measures(data)
+    ensemble_specs = _ensemble_specs(data)
+    capture = _capture_options(data, base)
+    schema = _build_column_schema(measures, ensemble_specs)
     cells, axis_names, axis_values = _build_sweep_cells(base, axes, mode)
     max_cells = _sweep_max_cells(data)
     max_rollouts = _sweep_max_rollouts(data)
@@ -1159,19 +1727,20 @@ function _run_sweep_data(data, source_path::AbstractString; root=nothing, force=
     mkpath(sweep_root)
     mkpath(joinpath(sweep_root, "cells"))
 
-    _write_manifest(joinpath(sweep_root, "manifest.toml"), id, base, seeds, measures, preview)
-    _write_resolved_config(joinpath(sweep_root, resolved_config_filename()), id, mode, base, axes, seeds, measures, max_cells, max_rollouts)
+    _write_manifest(joinpath(sweep_root, "manifest.toml"), id, base, seeds, measures, preview, ensemble_specs, capture)
+    _write_resolved_config(joinpath(sweep_root, resolved_config_filename()), id, mode, base, axes, seeds, measures, max_cells, max_rollouts, ensemble_specs, capture)
 
     aggregate_rows = Dict{String,Any}[]
     cell_rows = Dict{String,Any}[]
     for (idx, cell) in enumerate(cells)
         cell_id = "cell_" * lpad(string(idx), 3, "0")
         cell_dir = joinpath(sweep_root, "cells", cell_id)
+        captured = _cell_captured(cell, capture)
         rows =
-            _sweep_cell_complete(cell_dir) ?
-            _read_simple_csv(joinpath(cell_dir, "metrics.csv")) :
-            _run_cell(cell_id, cell, seeds, measures, cell_dir)
-        aggregate = _aggregate_cell(cell_id, cell, rows, measures)
+            _sweep_cell_complete(cell_dir, captured, capture) ?
+            _read_simple_csv(joinpath(cell_dir, "metrics.csv"), schema) :
+            _run_cell(cell_id, cell, seeds, measures, schema, cell_dir; captured=captured, capture=capture, cell_index=idx)
+        aggregate = _aggregate_cell(cell_id, cell, rows, schema)
         aggregate["result_path"] = cell_dir
         push!(aggregate_rows, aggregate)
         push!(cell_rows, Dict{String,Any}(
@@ -1179,11 +1748,12 @@ function _run_sweep_data(data, source_path::AbstractString; root=nothing, force=
             "params" => cell["params"],
             "result_path" => cell_dir,
             "best_fitness" => aggregate["score_mean"],
+            "captured" => captured,
         ))
     end
 
     results_path = joinpath(sweep_root, "results.csv")
-    _write_results_csv(results_path, aggregate_rows, measures)
+    _write_results_csv(results_path, aggregate_rows, schema)
     _write_axis_figures(joinpath(sweep_root, "figures"), aggregate_rows, axis_names)
     _write_readme(joinpath(sweep_root, "README.md"), id, base, aggregate_rows, axis_names, preview, measures)
 
