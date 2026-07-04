@@ -1,7 +1,7 @@
 # Onboarding
 
-BrainlessLab has one root package plus two separate utility projects. Instantiate each project in the
-directory where you use it; `bench/` and `demo/` do not share the root environment automatically.
+BrainlessLab has one root package plus separate utility projects. Instantiate each project in the
+directory where you use it; `bench/` and `profile/` do not share the root environment automatically.
 
 ## Root package
 
@@ -23,21 +23,29 @@ visualize(sim)
 
 Use `CairoMakie` for static figures. Use `GLMakie` if you want `explore(...)` interactive windows.
 
-## Demo project
+## Profile project
 
-From `brainless-lab/demo`:
+From `brainless-lab/profile`:
 
 ```bash
 julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.instantiate()'
-julia --project=. run.jl --list
-julia --project=. run.jl wall --save
+julia --project=. run.jl falandays_base --seeds 2
 ```
 
-For live windows, add `GLMakie` in the demo project:
+The profile tool characterizes one node and writes `metrics.csv`, figures,
+GIFs, manifest, and a signature README under `profile/runs/`.
+
+## Sweep and ablation runner
+
+From the root package:
 
 ```bash
-julia --project=. -e 'using Pkg; Pkg.add("GLMakie")'
+julia --project=. sweep/run.jl configs/sweep_falandays_wall.toml
+julia --project=. sweep/run.jl ablate falandays_base wall
 ```
+
+Sweep and ablation outputs use the same run-dir convention: manifest,
+`results.csv`, per-cell metrics/GIFs, figures, and a README callout.
 
 ## Benchmark project
 

@@ -1,6 +1,9 @@
 # BrainlessLab core benchmark
 
-This is a self-contained benchmark project for comparing registered BrainlessLab neuron variants across registered tasks. It keeps the parent library lean: heavy plotting and statistics dependencies live here.
+This is the cross-node comparison tool for BrainlessLab. `bench` runs a roster
+of registered neuron variants across a task grid, ranks them by normalized
+score, and reports baseline-relative statistics. Use `profile/` when you want
+to characterize one node in depth rather than compare nodes.
 
 Setup from `brainless-lab/bench`:
 
@@ -27,7 +30,17 @@ Run outputs are written to:
 
     bench/runs/<UTCstamp>_<shortgit>_<id>/
 
-Each run contains resolved configuration, a provenance manifest, raw per-trial CSV, summary CSV, nonparametric statistics JSON, Markdown report, plots, and per-cell score/artifact directories.
+Each run is a timestamped run directory with:
+
+- `manifest.toml` -- git SHA, Julia/package versions, seeds, and resolved grid metadata.
+- `config.resolved.toml` -- resolved benchmark configuration.
+- `summary.csv` -- per-neuron x task summaries used for ranking.
+- `results_raw.csv` -- raw per-trial scores.
+- `stats.json` -- omnibus, pairwise, and baseline-relative nonparametric tests.
+- `figures/*.png` -- house-palette heatmap and per-task comparison bars.
+- `cells/<neuron>__<task>/` -- per-cell scores, representative figure, and best/representative/worst GIFs when enabled.
+- `README.md` -- headline ranking callout for the run.
+- `report.md` -- expanded Markdown statistical report.
 
 Compare two or more completed benchmark runs:
 

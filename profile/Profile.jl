@@ -3,7 +3,8 @@ module NodeProfile
 using BrainlessLab
 using Statistics: mean, std
 using Printf: @sprintf
-using Base64: base64encode
+import Dates
+import Random
 import CairoMakie
 import TOML
 
@@ -16,6 +17,50 @@ export node_profile, DEFAULT_TASKS, CANONICAL_N
 # Single-agent (agent-environment) tasks only -- :torus is multi-agent and is
 # not a fit for a per-node branching-ratio profile.
 const DEFAULT_TASKS = (:wall, :tracking, :pong, :cartpole, :cartpole_hard, :cartpole_swingup, :cartpole_long)
+
+const _PROFILE_GIF_1X1 = UInt8[
+    0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00,
+    0x00, 0xfb, 0xfa, 0xf7, 0x2f, 0x6f, 0x5e, 0x21, 0xf9, 0x04, 0x01, 0x00,
+    0x00, 0x00, 0x00, 0x2c, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00,
+    0x00, 0x02, 0x02, 0x44, 0x01, 0x00, 0x3b,
+]
+
+_repo_root() = normpath(joinpath(@__DIR__, ".."))
+
+function _pad2(x)
+    return lpad(string(Int(x)), 2, '0')
+end
+
+function _timestamp_utc()
+    t = Dates.now(Dates.UTC)
+    return string(
+        Dates.year(t),
+        _pad2(Dates.month(t)),
+        _pad2(Dates.day(t)),
+        "T",
+        _pad2(Dates.hour(t)),
+        _pad2(Dates.minute(t)),
+        _pad2(Dates.second(t)),
+        "Z",
+    )
+end
+
+function _sanitize_path_part(value)
+    return replace(string(value), r"[^A-Za-z0-9_.+-]" => "_")
+end
+
+function _git_sha_full()
+    try
+        return readchomp(Cmd(`git rev-parse HEAD`; dir=_repo_root()))
+    catch
+        return "unknown"
+    end
+end
+
+function _short_git(sha::AbstractString=_git_sha_full())
+    sha == "unknown" && return "nogit"
+    return sha[1:min(8, lastindex(sha))]
+end
 
 # The 2024 Falandays case-study author sizes for the tasks they used; the
 # BrainlessLab-only cartpole family has no paper-canonical size.
@@ -40,6 +85,106 @@ const CANONICAL_NOTE = Dict{Symbol,String}(
     :cartpole_swingup  => "not paper-canonical -- BrainlessLab task; N chosen for this profile",
     :cartpole_long     => "not paper-canonical -- BrainlessLab task; N chosen for this profile",
 )
+
+_profile_family(node::Symbol) = startswith(String(node), "compartmental") ? :compartmental : :falandays
+
+function _profile_run_id(node_sym::Symbol, tasks, n_seeds::Integer)
+    parts = vcat([String(node_sym), string(Int(n_seeds))], String.(collect(tasks)))
+    return _sanitize_path_part(join(parts, "_")) * "_" * string(Random.rand(UInt32), base=16, pad=8)
+end
+
+function _make_run_dir(node_sym::Symbol, tasks, n_seeds::Integer; out_root::AbstractString, out_dir=nothing)
+    if out_dir !== nothing
+        dir = String(out_dir)
+        mkpath(dir)
+        return (dir=dir, timestamp_utc=_timestamp_utc(), git_sha=_git_sha_full(), short_git=_short_git(), run_id=basename(dir))
+    end
+
+    stamp = _timestamp_utc()
+    sha = _git_sha_full()
+    run_id = _profile_run_id(node_sym, tasks, n_seeds)
+    base = joinpath(out_root, _sanitize_path_part(node_sym), "$(stamp)_$(_short_git(sha))_$(run_id)")
+    dir = base
+    suffix = 2
+    while isdir(dir)
+        dir = "$(base)_$(suffix)"
+        suffix += 1
+    end
+    mkpath(dir)
+    return (dir=dir, timestamp_utc=stamp, git_sha=sha, short_git=_short_git(sha), run_id=run_id)
+end
+
+function _tool_package_versions(project_dir::AbstractString)
+    out = Dict{String,String}()
+    project_path = joinpath(project_dir, "Project.toml")
+    isfile(project_path) || return out
+
+    try
+        project = TOML.parsefile(project_path)
+        direct = Set(keys(get(project, "deps", Dict{String,Any}())))
+        manifest_path = joinpath(project_dir, "Manifest.toml")
+        if !isfile(manifest_path)
+            for name in direct
+                out[name] = "unknown"
+            end
+            return out
+        end
+
+        manifest = TOML.parsefile(manifest_path)
+        deps = get(manifest, "deps", Dict{String,Any}())
+        for name in direct
+            entries = get(deps, name, nothing)
+            if entries === nothing
+                out[name] = "unknown"
+            else
+                entry = entries isa AbstractVector ? first(entries) : entries
+                out[name] = string(get(entry, "version", "stdlib"))
+            end
+        end
+    catch err
+        out["error"] = sprint(showerror, err)
+    end
+    return out
+end
+
+function _profile_run_config(node_sym::Symbol, tasks, n_seeds::Integer)
+    return BrainlessLab.resolve(BrainlessLab.RunConfig(
+        run=BrainlessLab.RunSection(
+            name="profile_$(node_sym)",
+            runner=:fixed,
+            seed_base=1,
+            suite_seed_base=100_001,
+            profile=:none,
+        ),
+        model=BrainlessLab.ModelSection(
+            family=_profile_family(node_sym),
+            node=node_sym,
+        ),
+        task=BrainlessLab.TaskSection(
+            train=Tuple(Symbol.(collect(tasks))),
+            suite=Tuple(Symbol.(collect(tasks))),
+            aggregator=:mean,
+        ),
+        evolve=BrainlessLab.EvolveSection(
+            generations=1,
+            popsize=2,
+            k_trials=max(1, Int(n_seeds)),
+            suite_every=0,
+            k_suite=0,
+            cma_seed=1,
+            threaded=false,
+        ),
+    ))
+end
+
+function _profile_seed_manifest(n_seeds::Integer)
+    return Dict{String,Any}(
+        "seed_base" => 1,
+        "resolved" => collect(1:Int(n_seeds)),
+        "scheme" => "profile seed = 1:n_seeds independently for each task",
+        "seeds_per_task" => Int(n_seeds),
+    )
+end
 
 # Curated short prose mirroring docs/tasks.md, for the per-task cards.
 const TASK_PROSE = Dict{Symbol,NamedTuple{(:encoding, :decode, :scoring),NTuple{3,String}}}(
@@ -95,6 +240,37 @@ end
 function _nanstd(xs)
     f = _finite(xs)
     length(f) < 2 ? NaN : std(f)
+end
+
+function _finite_or_nan(value)
+    value === nothing && return NaN
+    value isa Real || return NaN
+    x = Float64(value)
+    return isfinite(x) ? x : NaN
+end
+
+function _csv_cell(value)
+    value === nothing && return ""
+    value isa Missing && return ""
+    if value isa AbstractFloat && !isfinite(value)
+        return ""
+    end
+    text = value isa Symbol ? String(value) : string(value)
+    if occursin("\"", text) || occursin(",", text) || occursin("\n", text) || occursin("\r", text)
+        return "\"" * replace(text, "\"" => "\"\"") * "\""
+    end
+    return text
+end
+
+function _write_csv(path::AbstractString, header, rows)
+    mkpath(dirname(path))
+    open(path, "w") do io
+        println(io, join(_csv_cell.(header), ","))
+        for row in rows
+            println(io, join((_csv_cell(get(row, key, "")) for key in header), ","))
+        end
+    end
+    return path
 end
 
 """
@@ -343,14 +519,6 @@ function _target_error_figure(target_error; title::String="")
     return fig
 end
 
-function _fig_to_data_uri(fig)
-    path = tempname() * ".png"
-    CairoMakie.save(path, fig)
-    bytes = read(path)
-    rm(path; force=true)
-    return "data:image/png;base64," * base64encode(bytes)
-end
-
 # ---------------------------------------------------------------------------
 # Core: run n_seeds rollouts per task, seed-average branching ratio & score.
 # ---------------------------------------------------------------------------
@@ -375,21 +543,49 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
 
     per_tick_series = Vector{Vector{Float64}}(undef, n_seeds)
     sigmas = Vector{Float64}(undef, n_seeds)
+    sigma_mr = Vector{Float64}(undef, n_seeds)
     scores = Vector{Float64}(undef, n_seeds)
+    liveness_values = Vector{Float64}(undef, n_seeds)
+    rate_means = Vector{Float64}(undef, n_seeds)
+    rate_vars = Vector{Float64}(undef, n_seeds)
+    avalanche_tau = Vector{Float64}(undef, n_seeds)
+    avalanche_alpha = Vector{Float64}(undef, n_seeds)
+    avalanche_gamma_fit = Vector{Float64}(undef, n_seeds)
+    avalanche_gamma_pred = Vector{Float64}(undef, n_seeds)
+    avalanche_counts = Vector{Float64}(undef, n_seeds)
     # Situated chart uses a single representative run (seed 1): its per-tick σ
     # and the full factor(t) series, kept time-ordered (NOT pooled). We also keep
-    # the seed-1 SimResult itself, to render the behaviour + σ(t) MP4.
+    # the seed-1 SimResult itself, to render the behaviour + σ(t) GIF.
     seed1_factor = Dict{Symbol,Vector{Float64}}()
     seed1_sim = nothing
     seed1_target_error = nothing
 
     for s in 1:n_seeds
-        record_channels = s == 1 ? (:rate, :scene, :poses, :acts, :targets) : (:rate, :scene, :poses)
+        record_channels = s == 1 ? (:spikes, :rate, :scene, :poses, :acts, :targets) : (:spikes, :rate, :scene, :poses)
         sim = simulate(task; node=node_sym, n_nodes=N, seed=s, record=record_channels)
         br = branching_ratio(sim)
         per_tick_series[s] = br.per_tick
         sigmas[s] = br.sigma
+        sigma_mr[s] = try
+            kmax = max(2, min(20, Int(floor(ticks / 3))))
+            _finite_or_nan(branching_ratio_mr(sim; kmax=kmax, transient=0).m_mr)
+        catch
+            NaN
+        end
         scores[s] = Float64(sim.metrics.score)
+        liveness_values[s] = hasproperty(sim.metrics, :alive) && Bool(sim.metrics.alive) ? 1.0 : 0.0
+        rate_means[s] = hasproperty(sim.metrics, :rate_mean) ? _finite_or_nan(sim.metrics.rate_mean) : NaN
+        rate_vars[s] = hasproperty(sim.metrics, :rate_var) ? _finite_or_nan(sim.metrics.rate_var) : NaN
+        aval = try
+            avalanches(sim)
+        catch
+            nothing
+        end
+        avalanche_tau[s] = aval === nothing ? NaN : _finite_or_nan(aval.tau)
+        avalanche_alpha[s] = aval === nothing ? NaN : _finite_or_nan(aval.alpha)
+        avalanche_gamma_fit[s] = aval === nothing ? NaN : _finite_or_nan(aval.gamma_fit)
+        avalanche_gamma_pred[s] = aval === nothing ? NaN : _finite_or_nan(aval.gamma_pred)
+        avalanche_counts[s] = aval === nothing ? NaN : _finite_or_nan(aval.n_avalanches)
 
         if s == 1
             seed1_sim = sim
@@ -460,10 +656,24 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
         sigma_mean=_nanmean(sigmas),
         sigma_std=_nanstd(sigmas),
         sigmas=sigmas,
+        sigma_mr_mean=_nanmean(sigma_mr),
+        sigma_mr_std=_nanstd(sigma_mr),
+        sigma_mr=sigma_mr,
         score_mean=_nanmean(scores),
         score_std=_nanstd(scores),
         score_norm_mean=_nanmean(normalized_score.(Ref(task_spec), scores)),
         scores=scores,
+        liveness=_nanmean(liveness_values),
+        alive_rate=_nanmean(liveness_values),
+        rate_mean=_nanmean(rate_means),
+        rate_var=_nanmean(rate_vars),
+        avalanche_tau=_nanmean(avalanche_tau),
+        avalanche_tau_std=_nanstd(avalanche_tau),
+        avalanche_alpha=_nanmean(avalanche_alpha),
+        avalanche_alpha_std=_nanstd(avalanche_alpha),
+        avalanche_gamma_fit=_nanmean(avalanche_gamma_fit),
+        avalanche_gamma_pred=_nanmean(avalanche_gamma_pred),
+        avalanche_n=_nanmean(avalanche_counts),
         factor_data=factor_data,
         spectral_x=spectral_x,
         spectral_mean=spectral_mean,
@@ -474,340 +684,266 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
     )
 end
 
-# ---------------------------------------------------------------------------
-# HTML rendering
-# ---------------------------------------------------------------------------
-
-function _git_sha()
-    try
-        root = normpath(joinpath(@__DIR__, ".."))
-        sha = readchomp(Cmd(`git rev-parse --short HEAD`; dir=root))
-        dirty = !isempty(readchomp(Cmd(`git status --porcelain`; dir=root)))
-        return sha * (dirty ? " (dirty)" : "")
-    catch
-        return "unknown"
-    end
-end
-
 _fmt(x; digits=3) = isnan(x) ? "n/a" : @sprintf("%.*f", digits, x)
 
-const _CSS = """
-:root {
-  --bg:            #fbfaf7;
-  --bg-alt:        #f2efe8;
-  --ink:           #24282b;
-  --ink-soft:      #52585d;
-  --ink-faint:     #82898f;
-  --rule:          #dedad0;
-  --accent:        #2f6f5e;
-  --accent-soft:   #e5efe9;
-  --accent-ink:    #1f4b3f;
-  --amber:         #9c6b1f;
-  --amber-soft:    #f6ecd8;
-  --card-bg:       #ffffff;
-  --shadow:        0 1px 2px rgba(30,30,25,0.06), 0 6px 20px -12px rgba(30,30,25,0.18);
-  --radius:        10px;
-  --maxw:          960px;
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0; background: var(--bg); color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  line-height: 1.6; font-size: 16px; -webkit-font-smoothing: antialiased;
-}
-h1, h2, h3, h4 {
-  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
-  color: var(--ink); line-height: 1.25; font-weight: 600;
-}
-code, .mono { font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace; font-size: 0.9em; }
-code { background: var(--bg-alt); border: 1px solid var(--rule); border-radius: 4px; padding: 0.1em 0.4em; color: var(--accent-ink); }
-main { max-width: var(--maxw); margin: 0 auto; padding: 3rem 1.5rem 5rem; }
-header.hero { padding-bottom: 2rem; border-bottom: 1px solid var(--rule); margin-bottom: 2.5rem; }
-header.hero .kicker {
-  display: inline-block; font-size: 0.72rem; letter-spacing: 0.09em; text-transform: uppercase;
-  color: var(--accent-ink); background: var(--accent-soft); border-radius: 999px; padding: 0.3rem 0.75rem;
-  margin-bottom: 1rem; font-weight: 600;
-}
-header.hero h1 { font-size: 2.2rem; margin: 0 0 0.6rem; }
-header.hero .sub { font-size: 1.05rem; color: var(--ink-soft); max-width: 46em; margin-bottom: 1rem; }
-.meta { font-size: 0.85rem; color: var(--ink-faint); }
-.meta .mono { color: var(--ink-soft); }
-section { margin-bottom: 3rem; }
-section h2 { font-size: 1.5rem; border-bottom: 1px solid var(--rule); padding-bottom: 0.5rem; margin-bottom: 1.1rem; }
-section h3 { font-size: 1.15rem; color: var(--accent-ink); margin: 1.6rem 0 0.6rem; }
-p { color: var(--ink-soft); }
-table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.5rem; font-size: 0.9rem; background: var(--card-bg); box-shadow: var(--shadow); border-radius: var(--radius); overflow: hidden; }
-th, td { text-align: left; padding: 0.55rem 0.8rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
-th { background: var(--bg-alt); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); }
-tr:last-child td { border-bottom: none; }
-.table-scroll { overflow-x: auto; }
-.card {
-  background: var(--card-bg); border: 1px solid var(--rule); border-radius: var(--radius);
-  padding: 1.4rem 1.5rem; box-shadow: var(--shadow); margin-bottom: 1.8rem;
-}
-.card h3 { margin-top: 0; }
-.badge {
-  display: inline-block; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.03em;
-  text-transform: uppercase; padding: 0.15rem 0.5rem; border-radius: 999px;
-}
-.badge-ok { background: var(--accent-soft); color: var(--accent-ink); }
-.badge-warn { background: var(--amber-soft); color: var(--amber); }
-.stat-row { display: flex; gap: 2rem; flex-wrap: wrap; margin: 1rem 0 1.2rem; }
-.stat { min-width: 160px; }
-.stat .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-faint); }
-.stat .value { font-family: "SFMono-Regular", Menlo, Consolas, monospace; font-size: 1.15rem; color: var(--ink); margin-top: 0.15rem; }
-.stat .value .pm { color: var(--ink-faint); font-size: 0.85em; }
-figure { margin: 1rem 0 0; }
-figure img { max-width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 8px; background: #fff; }
-figcaption { font-size: 0.78rem; color: var(--ink-faint); margin-top: 0.5rem; }
-.callout {
-  background: var(--card-bg); border: 1px solid var(--rule); border-left: 4px solid var(--accent);
-  border-radius: 8px; padding: 1rem 1.25rem; margin: 1.2rem 0;
-}
-footer { max-width: var(--maxw); margin: 3rem auto 0; padding: 1.5rem; border-top: 1px solid var(--rule); font-size: 0.83rem; color: var(--ink-faint); }
-footer code { font-size: 0.95em; }
-"""
-
-function _params_table(p::FalandaysParams)
-    rows = [
-        ("leak", p.leak, "membrane leak per tick (0.75 retained)"),
-        ("threshold_mult", p.threshold_mult, "firing threshold T&prime; = threshold_mult &middot; T"),
-        ("targ_min", p.targ_min, "homeostatic target floor T"),
-        ("lrate_wmat", p.lrate_wmat, "online weight-learning rate"),
-        ("lrate_targ", p.lrate_targ, "online target-learning rate"),
-        ("input_weight", p.input_weight, "shared input (receptor &rarr; node) weight"),
-        ("weight_init_std", p.weight_init_std, "recurrent weight init std, W&#8320; ~ N(0, weight_init_std)"),
-    ]
-    io = IOBuffer()
-    println(io, "<table><thead><tr><th>parameter</th><th>value</th><th>meaning</th></tr></thead><tbody>")
-    for (name, val, note) in rows
-        println(io, "<tr><td><code>$name</code></td><td class=\"mono\">$(_fmt(Float64(val); digits=4))</td><td>$note</td></tr>")
-    end
-    println(io, "</tbody></table>")
-    return String(take!(io))
+function _metric_row(res)
+    spectral_start = isempty(res.spectral_mean) ? NaN : first(res.spectral_mean)
+    spectral_end = isempty(res.spectral_mean) ? NaN : last(res.spectral_mean)
+    return Dict{String,Any}(
+        "task" => String(res.task),
+        "n_nodes" => res.n_nodes,
+        "ticks" => res.ticks,
+        "n_seeds" => res.n_seeds,
+        "score_mean" => res.score_mean,
+        "score_std" => res.score_std,
+        "score_norm_mean" => res.score_norm_mean,
+        "sigma" => res.sigma_mean,
+        "sigma_std" => res.sigma_std,
+        "sigma_mr" => res.sigma_mr_mean,
+        "sigma_mr_std" => res.sigma_mr_std,
+        "spectral_radius" => spectral_end,
+        "spectral_radius_start" => spectral_start,
+        "spectral_radius_end" => spectral_end,
+        "liveness" => res.liveness,
+        "alive_rate" => res.alive_rate,
+        "rate_mean" => res.rate_mean,
+        "rate_var" => res.rate_var,
+        "avalanche_tau" => res.avalanche_tau,
+        "avalanche_tau_std" => res.avalanche_tau_std,
+        "avalanche_alpha" => res.avalanche_alpha,
+        "avalanche_alpha_std" => res.avalanche_alpha_std,
+        "avalanche_gamma_fit" => res.avalanche_gamma_fit,
+        "avalanche_gamma_pred" => res.avalanche_gamma_pred,
+        "avalanche_n" => res.avalanche_n,
+    )
 end
 
-function _task_card(res, task_note::String, mp4_name::AbstractString="")
-    prose = get(TASK_PROSE, res.task, (encoding="--", decode="--", scoring="--"))
-    plot_uri = _fig_to_data_uri(_branching_figure(res.seed_mean, res.seed_lo, res.seed_hi; title=string(res.task)))
-    live = res.sigma_mean >= 0.85 ? ("<span class=\"badge badge-ok\">self-sustaining</span>") :
-           (isnan(res.sigma_mean) ? "<span class=\"badge badge-warn\">no activity</span>" :
-            "<span class=\"badge badge-warn\">subcritical / decaying</span>")
-    io = IOBuffer()
-    println(io, "<div class=\"card\">")
-    println(io, "<h3 id=\"task-$(res.task)\"><code>:$(res.task)</code> $live</h3>")
-    println(io, "<table><thead><tr><th>N</th><th>R</th><th>E</th><th>ticks</th><th>sensory encoding</th><th>effector decode</th></tr></thead><tbody>")
-    println(io, "<tr><td class=\"mono\">$(res.n_nodes)<br><span style=\"color:var(--ink-faint);font-size:0.78em\">$task_note</span></td>",
-                 "<td class=\"mono\">$(res.n_receptors)</td><td class=\"mono\">$(res.n_effectors)</td>",
-                 "<td class=\"mono\">$(res.ticks)</td><td>$(prose.encoding)</td><td>$(prose.decode)</td></tr>")
-    println(io, "</tbody></table>")
-    println(io, "<div class=\"stat-row\">")
-    println(io, "<div class=\"stat\"><div class=\"label\">mean score ($(prose.scoring))</div>",
-                 "<div class=\"value\">$(_fmt(res.score_mean)) <span class=\"pm\">&plusmn; $(_fmt(res.score_std))</span></div></div>")
-    println(io, "<div class=\"stat\"><div class=\"label\">normalized score</div>",
-                 "<div class=\"value\">$(_fmt(res.score_norm_mean))</div></div>")
-    println(io, "<div class=\"stat\"><div class=\"label\">mean branching &sigma;&#770;</div>",
-                 "<div class=\"value\">$(_fmt(res.sigma_mean)) <span class=\"pm\">&plusmn; $(_fmt(res.sigma_std))</span></div></div>")
-    println(io, "</div>")
+function _write_metrics_csv(path::AbstractString, results)
+    header = [
+        "task", "n_nodes", "ticks", "n_seeds",
+        "score_mean", "score_std", "score_norm_mean",
+        "sigma", "sigma_std", "sigma_mr", "sigma_mr_std",
+        "spectral_radius", "spectral_radius_start", "spectral_radius_end",
+        "liveness", "alive_rate", "rate_mean", "rate_var",
+        "avalanche_tau", "avalanche_tau_std", "avalanche_alpha", "avalanche_alpha_std",
+        "avalanche_gamma_fit", "avalanche_gamma_pred", "avalanche_n",
+    ]
+    return _write_csv(path, header, [_metric_row(res) for res in results])
+end
 
-    # Behaviour + branching-ratio MP4 (seed 1): the task animation with the σ(t)
-    # trace below -- a swept marker and the current σ printed per frame.
-    if !isempty(mp4_name)
-        println(io, "<figure><video src=\"$mp4_name\" controls loop muted playsinline style=\"max-width:100%\"></video>")
-        println(io, "<figcaption>Behaviour + branching ratio, one run (seed 1): the task animation (top) with the ",
-                     "per-tick branching ratio &sigma;(t) below &mdash; the red marker sweeps in sync with the frame, ",
-                     "the dashed line marks &sigma;=1, and the current &sigma; is printed on each frame. One frame per ",
-                     "simulation tick.</figcaption></figure>")
+function _save_profile_figure(path::AbstractString, fig)
+    mkpath(dirname(path))
+    Base.invokelatest(CairoMakie.save, path, fig)
+    return path
+end
+
+function _write_profile_figures(figures_dir::AbstractString, results)
+    mkpath(figures_dir)
+    paths = String[]
+    for res in results
+        task = _sanitize_path_part(res.task)
+        push!(paths, _save_profile_figure(
+            joinpath(figures_dir, "$(task)_branching.png"),
+            _branching_figure(res.seed_mean, res.seed_lo, res.seed_hi; title=string(res.task)),
+        ))
+        if !isempty(res.spectral_mean)
+            push!(paths, _save_profile_figure(
+                joinpath(figures_dir, "$(task)_spectral_radius.png"),
+                _spectral_figure(res.spectral_x, res.spectral_mean, res.spectral_lo, res.spectral_hi; title="$(res.task) - spectral radius rho(W)"),
+            ))
+        end
+        if res.target_error !== nothing
+            push!(paths, _save_profile_figure(
+                joinpath(figures_dir, "$(task)_target_error.png"),
+                _target_error_figure(res.target_error; title="$(res.task) - per-node distance to target"),
+            ))
+        end
+        for fd in res.factor_data
+            push!(paths, _save_profile_figure(
+                joinpath(figures_dir, "$(task)_situated_$(String(fd.sym)).png"),
+                _situated_figure(fd.sigma, fd.factor, fd.label; title="Situated: branching sigma and $(fd.label)"),
+            ))
+        end
     end
+    return paths
+end
 
-    println(io, "<figure><img src=\"$plot_uri\" alt=\"branching ratio over time for :$(res.task)\">")
-    println(io, "<figcaption>Seed-mean &sigma;(t) (teal line) &plusmn;1 std across $(res.n_seeds) seeds (shaded band); dashed amber line marks &sigma;=1, the self-sustaining/critical reference.</figcaption></figure>")
-
-    # Spectral radius ρ(W) over time -- the weight reorganization homeostasis
-    # drives, which the rate-pinned branching ratio can't show. Gated: rendered
-    # only for nodes with a learned recurrent matrix (series non-empty).
-    if !isempty(res.spectral_mean)
-        s0 = first(res.spectral_mean); s1 = last(res.spectral_mean)
-        stride = length(res.spectral_x) >= 2 ? (res.spectral_x[2] - res.spectral_x[1]) : res.ticks
-        suri = _fig_to_data_uri(_spectral_figure(res.spectral_x, res.spectral_mean, res.spectral_lo, res.spectral_hi; title="$(res.task) — spectral radius ρ(W)"))
-        println(io, "<figure><img src=\"$suri\" alt=\"spectral radius over time for :$(res.task)\">")
-        println(io, "<figcaption>Seed-mean spectral radius &rho;(W) &mdash; the largest |eigenvalue| of the learned recurrent ",
-                     "matrix, sampled every $(stride) ticks over the run (amber line, &plusmn;1 std band across $(res.n_seeds) seeds). ",
-                     "It tracks the weight reorganization the homeostatic learning drives (branching, rate-pinned, does not): ",
-                     "for <code>falandays_base</code> &rho;(W) falls over the run as <code>W -= error/N</code> shrinks the ",
-                     "recurrent weights &mdash; here $(_fmt(s0; digits=2)) &rarr; $(_fmt(s1; digits=2)).</figcaption></figure>")
+function _write_placeholder_gif(path::AbstractString)
+    mkpath(dirname(path))
+    open(path, "w") do io
+        write(io, _PROFILE_GIF_1X1)
     end
+    return path
+end
 
-    # Falandays-family nodes expose homeostatic targets. Compartmental nodes do
-    # not, so the analysis is absent and this panel is skipped.
-    if res.target_error !== nothing
-        turi = _fig_to_data_uri(_target_error_figure(res.target_error; title="$(res.task) — per-node distance to target"))
-        println(io, "<figure><img src=\"$turi\" alt=\"per-node distance to target over time for :$(res.task)\">")
-        println(io, "<figcaption>Representative run (seed 1): mean <code>|act - T|</code> across nodes (teal) ",
-                     "with the across-node interquartile band, plus the final-tick node distribution. ",
-                     "This is the primary per-node homeostatic workload signal because Falandays weight-update ",
-                     "magnitude scales with <code>|error|</code>.</figcaption></figure>")
+function _write_profile_gifs(gifs_dir::AbstractString, node_sym::Symbol, results; gif_ticks::Integer=400, gif_fps::Integer=20)
+    mkpath(gifs_dir)
+    out = Dict{Symbol,String}()
+    for res in results
+        vticks = min(res.ticks, Int(gif_ticks))
+        path = joinpath(gifs_dir, "$(res.task).gif")
+        try
+            vsim = simulate(res.task; node=node_sym, n_nodes=res.n_nodes, seed=1,
+                            record=(:rate, :scene, :poses), ticks=vticks)
+            Base.invokelatest(BrainlessLab.animate, vsim; path=path, branching=true,
+                              framerate=Int(gif_fps), maxframes=vticks)
+        catch err
+            @warn "profile GIF render failed; writing placeholder" task=res.task exception=(err, catch_backtrace())
+            _write_placeholder_gif(path)
+        end
+        out[res.task] = relpath(path, dirname(gifs_dir))
     end
+    return out
+end
 
-    # Additional panel(s): SITUATED per-run chart -- branching σ(t) and the
-    # registered per-task performance factor(t) over shared time, from a single
-    # representative run (seed 1). Gated by the task-scoped analysis registry --
-    # tasks with no registered factor (the cartpole family) get none.
-    for fd in res.factor_data
-        title = "Situated: branching σ and $(fd.label) — one run (seed 1)"
-        uri = _fig_to_data_uri(_situated_figure(fd.sigma, fd.factor, fd.label; title=title))
-        println(io, "<figure><img src=\"$uri\" alt=\"situated branching σ and $(fd.label) over time for :$(res.task)\">")
-        println(io, "<figcaption>A single representative run (seed 1): <b>top</b> = branching ratio &sigma;(t) ",
-                     "(dashed amber line marks &sigma;=1); <b>bottom</b> = <b>$(fd.label)</b> ",
-                     "(the registered <code>:$(fd.sym)</code> performance factor) over the same ticks. ",
-                     "Panels share the time axis &mdash; read vertically: does &sigma; move as the agent's ",
-                     "situation (e.g. nearing a wall) changes?</figcaption></figure>")
+function _write_profile_manifest(path::AbstractString, node_sym::Symbol, tasks, n_seeds::Integer, canonical_N, run_info)
+    cfg = _profile_run_config(node_sym, tasks, n_seeds)
+    manifest = BrainlessLab.capture_manifest(cfg; seeds=_profile_seed_manifest(n_seeds))
+    manifest["manifest_version"] = "profile-v1"
+    manifest["tool"] = "profile"
+    manifest["timestamp_utc"] = run_info.timestamp_utc
+    manifest["run_id"] = run_info.run_id
+    manifest["short_git"] = run_info.short_git
+    manifest["profile"] = Dict{String,Any}(
+        "job" => "single-node characterization",
+        "node" => String(node_sym),
+        "tasks" => String.(collect(tasks)),
+        "n_seeds" => Int(n_seeds),
+        "canonical_N" => Dict{String,Any}(String(k) => v for (k, v) in canonical_N),
+        "output_shape" => "manifest.toml + profile.resolved.toml + metrics.csv + figures/*.png + gifs/*.gif + README.md; optional report.html behind report=true",
+    )
+    manifest["tool_packages"] = _tool_package_versions(@__DIR__)
+    open(path, "w") do io
+        TOML.print(io, manifest)
     end
-    println(io, "</div>")
-    return String(take!(io))
+    return path
+end
+
+function _write_profile_config(path::AbstractString, node_sym::Symbol, tasks, n_seeds::Integer, canonical_N; gifs::Bool, report::Bool)
+    data = Dict{String,Any}(
+        "profile" => Dict{String,Any}(
+            "node" => String(node_sym),
+            "tasks" => String.(collect(tasks)),
+            "n_seeds" => Int(n_seeds),
+            "gifs" => gifs,
+            "report" => report,
+            "canonical_N" => Dict{String,Any}(String(k) => v for (k, v) in canonical_N),
+        ),
+    )
+    open(path, "w") do io
+        TOML.print(io, data)
+    end
+    return path
+end
+
+function _signature_values(results)
+    scores = [res.score_norm_mean for res in results]
+    sigma = [res.sigma_mr_mean for res in results]
+    live = [res.liveness for res in results]
+    return (
+        score=_nanmean(scores),
+        sigma_mr=_nanmean(sigma),
+        liveness=_nanmean(live),
+    )
+end
+
+function _write_profile_readme(path::AbstractString, node_sym::Symbol, results; report_path=nothing)
+    sig = _signature_values(results)
+    open(path, "w") do io
+        println(io, "# Profile `:$(node_sym)`")
+        println(io)
+        println(io, "> Signature: mean normalized score $(_fmt(sig.score)), sigma_mr $(_fmt(sig.sigma_mr)), liveness $(_fmt(sig.liveness)) across $(length(results)) task(s).")
+        println(io)
+        println(io, "Job: single-node characterization. This is the full analytic suite plus representative behaviour, not a cross-node ranking.")
+        println(io)
+        println(io, "Primary outputs:")
+        println(io, "- `metrics.csv` -- per-task score, branching, spectral, liveness, rate, and avalanche metrics.")
+        println(io, "- `figures/` -- house-palette per-task panels.")
+        println(io, "- `gifs/` -- representative behaviour GIF per task.")
+        println(io, "- `manifest.toml` -- git, Julia/package versions, seed scheme, and resolved profile metadata.")
+        report_path === nothing || println(io, "- `$(basename(report_path))` -- opt-in HTML stub; CSV/figures/GIF remain authoritative.")
+        println(io)
+        println(io, "## Per-task Summary")
+        println(io)
+        println(io, "| task | score_norm | sigma_mr | spectral_radius | liveness | avalanche_tau |")
+        println(io, "|---|---:|---:|---:|---:|---:|")
+        for res in results
+            spectral = isempty(res.spectral_mean) ? NaN : last(res.spectral_mean)
+            println(io, "| `:$(res.task)` | $(_fmt(res.score_norm_mean)) | $(_fmt(res.sigma_mr_mean)) | $(_fmt(spectral)) | $(_fmt(res.liveness)) | $(_fmt(res.avalanche_tau)) |")
+        end
+        println(io)
+        println(io, "HTML is intentionally off by default; the old rich report has been reduced to an opt-in stub and may be revived later.")
+    end
+    return path
+end
+
+function _write_html_stub(path::AbstractString, node_sym::Symbol, results)
+    open(path, "w") do io
+        println(io, "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">")
+        println(io, "<title>$(node_sym) profile</title></head><body>")
+        println(io, "<h1>Profile <code>:$(node_sym)</code></h1>")
+        println(io, "<p>HTML output is opt-in and secondary. Use <code>metrics.csv</code>, <code>figures/</code>, <code>gifs/</code>, and <code>README.md</code> as the primary profile outputs.</p>")
+        println(io, "<ul>")
+        for res in results
+            println(io, "<li><code>:$(res.task)</code>: score_norm=$(_fmt(res.score_norm_mean)), sigma_mr=$(_fmt(res.sigma_mr_mean)), liveness=$(_fmt(res.liveness))</li>")
+        end
+        println(io, "</ul>")
+        println(io, "<p>This stub keeps the report hook available for a future revived HTML profile.</p>")
+        println(io, "</body></html>")
+    end
+    return path
 end
 
 """
     node_profile(node_sym=:falandays_base; tasks=DEFAULT_TASKS, n_seeds=8,
-                 out_dir=joinpath(@__DIR__, "output", string(node_sym)),
-                 canonical_N=CANONICAL_N)
+                 out_root=joinpath(@__DIR__, "runs"), out_dir=nothing,
+                 canonical_N=CANONICAL_N, gifs=true, report=false)
 
-Build a per-node profile HTML report for `node_sym`: for each task in
-`tasks`, run `n_seeds` rollouts at the task's canonical N, compute the
-per-tick branching ratio (`branching_ratio`) and task score, seed-average
-them, and render a self-contained HTML report (embedded PNG plots, no CDN)
-to `out_dir/index.html`. Returns the output file path.
+Build a timestamped per-node characterization run directory for `node_sym`.
+For each task, run `n_seeds` rollouts at the task's canonical N, write
+`metrics.csv`, house-palette PNG panels in `figures/`, a representative
+behaviour GIF per task in `gifs/`, `manifest.toml`, `profile.resolved.toml`,
+and a short `README.md`. HTML is off by default; `report=true` writes only an
+opt-in stub so the old rich report can be revived later. Returns a NamedTuple
+with the run directory and primary artifact paths.
 """
 function node_profile(
     node_sym::Symbol=:falandays_base;
     tasks=DEFAULT_TASKS,
     n_seeds::Integer=8,
-    out_dir::AbstractString=joinpath(@__DIR__, "output", string(node_sym)),
+    out_root::AbstractString=joinpath(@__DIR__, "runs"),
+    out_dir=nothing,
     canonical_N=CANONICAL_N,
-    render_videos::Bool=true,
-    video_ticks::Integer=400,
-    video_fps::Integer=60,
+    gifs::Bool=true,
+    report::Bool=false,
+    gif_ticks::Integer=400,
+    gif_fps::Integer=20,
 )
-    mkpath(out_dir)
-
-    params = FalandaysParams()
-    code_default_N = try
-        BrainlessLab._default_node_count(node_sym)
-    catch
-        100
-    end
-
+    render_gifs = Bool(gifs)
+    run_info = _make_run_dir(node_sym, tasks, n_seeds; out_root=out_root, out_dir=out_dir)
+    run_dir = run_info.dir
     results = [task_profile(node_sym, t; n_seeds=n_seeds, canonical_N=canonical_N) for t in tasks]
 
-    # Per-task behaviour + branching-ratio MP4 (seed 1), capped to a watchable window
-    # (video_ticks) so the per-tick render stays fast. Written to files (too big to embed)
-    # and referenced from the HTML via <video>. maxframes = vticks keeps it one frame/tick.
-    mp4_by_task = Dict{Symbol,String}()
-    if render_videos
-        for res in results
-            vticks = min(res.ticks, Int(video_ticks))
-            vsim = simulate(res.task; node=node_sym, n_nodes=res.n_nodes, seed=1,
-                            record=(:rate, :scene, :poses), ticks=vticks)
-            mp4 = "$(res.task).mp4"
-            try
-                Base.invokelatest(BrainlessLab.animate, vsim; path=joinpath(out_dir, mp4),
-                                  branching=true, framerate=Int(video_fps), maxframes=vticks)
-                mp4_by_task[res.task] = mp4
-            catch err
-                @warn "profile video render failed for $(res.task)" exception = (err, catch_backtrace())
-            end
-        end
-    end
+    metrics_path = _write_metrics_csv(joinpath(run_dir, "metrics.csv"), results)
+    figures = _write_profile_figures(joinpath(run_dir, "figures"), results)
+    gif_paths = render_gifs ?
+        _write_profile_gifs(joinpath(run_dir, "gifs"), node_sym, results; gif_ticks=gif_ticks, gif_fps=gif_fps) :
+        Dict{Symbol,String}()
+    manifest_path = _write_profile_manifest(joinpath(run_dir, "manifest.toml"), node_sym, tasks, n_seeds, canonical_N, run_info)
+    config_path = _write_profile_config(joinpath(run_dir, "profile.resolved.toml"), node_sym, tasks, n_seeds, canonical_N; gifs=render_gifs, report=report)
+    report_path = report ? _write_html_stub(joinpath(run_dir, "report.html"), node_sym, results) : nothing
+    readme_path = _write_profile_readme(joinpath(run_dir, "README.md"), node_sym, results; report_path=report_path)
 
-    io = IOBuffer()
-    println(io, "<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\">")
-    println(io, "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">")
-    println(io, "<title>$(node_sym) &mdash; node profile</title>")
-    println(io, "<style>", _CSS, "</style></head><body><main>")
-
-    # --- header -------------------------------------------------------
-    println(io, "<header class=\"hero\">")
-    println(io, "<span class=\"kicker\">BrainlessLab.jl &middot; per-node profile</span>")
-    println(io, "<h1><code>$(node_sym)</code></h1>")
-    println(io, "<p class=\"sub\">The 2021 Falandays homeostatic leaky-integrate-and-fire reservoir, run untrained ",
-                 "(default parameters, fresh random wiring per seed) across ", length(tasks),
-                 " single-agent (agent&ndash;environment) tasks, with per-tick population branching ratio ",
-                 "&sigma;(t) as the criticality diagnostic.</p>")
-    println(io, "<p class=\"meta\">n_seeds = <span class=\"mono\">$n_seeds</span> per task &middot; ",
-                 "git SHA <span class=\"mono\">$(_git_sha())</span> &middot; generated ",
-                 Base.Libc.strftime("%Y-%m-%d %H:%M", time()), "</p>")
-    println(io, "</header>")
-
-    # --- node structure & initialization -------------------------------
-    println(io, "<section id=\"structure\"><h2>Node structure &amp; initialization</h2>")
-    println(io, "<p>Each node is a homeostatic leaky integrate-and-fire unit with an online-learned target ",
-                 "and recurrent weight matrix. Per node: a homeostatic target <code>T</code> (floor ",
-                 "<code>targ_min</code>) and firing threshold <code>T&prime; = threshold_mult &middot; T</code>; ",
-                 "membrane activation leaks at rate <code>leak</code> each tick (<code>1-leak</code> retained), ",
-                 "integrating receptor-weighted input and recurrent input from the previous tick's spikes. ",
-                 "Recurrent wiring is Bernoulli at <code>link_p &asymp; 0.1</code> with no self-connections; ",
-                 "initial recurrent weights are drawn <code>W&#8320; ~ N(0, weight_init_std)</code>. Online ",
-                 "homeostatic learning runs every tick during the rollout: <code>W -= error/N</code> (mean over ",
-                 "active presynaptic nodes) and <code>T += lrate_targ &middot; error</code>, where ",
-                 "<code>error = act - T</code>. Because the model self-organizes online, it is fair to run ",
-                 "<strong>untrained</strong>: default parameters plus a fresh random wiring, weight init, and ",
-                 "noise stream <strong>per seed</strong>. Every task below is scored as a seed-average over ",
-                 "$n_seeds independently-wired seeds.</p>")
-    println(io, _params_table(params))
-    println(io, "<p class=\"meta\">The code's own <code>simulate</code> default reservoir size for ",
-                 "<code>:$node_sym</code> (no explicit <code>n_nodes</code>) is <span class=\"mono\">$code_default_N</span> ",
-                 "&mdash; a &ldquo;standard setup&rdquo; convenience default, distinct from the task-specific ",
-                 "canonical sizes used for the profile below.</p>")
-    println(io, "</section>")
-
-    # --- per-task sections ----------------------------------------------
-    println(io, "<section id=\"tasks\"><h2>Per-task branching-ratio profile</h2>")
-    println(io, "<p>Each task card carries the branching ratio <strong>over time</strong> (seed-mean &sigma;(t) ",
-                 "with a &plusmn;1 std band). Where the task registers a per-tick <strong>performance factor</strong> ",
-                 "in the task-scoped analysis registry (<code>task_analyses(task)</code>), a <strong>situated</strong> ",
-                 "panel shows &mdash; for a single representative run (seed 1) &mdash; branching &sigma;(t) and that ",
-                 "factor(t) as two time-aligned, x-linked panels. Reading vertically asks ",
-                 "<em>does &sigma; move as the agent moves through its environment &mdash; when heading error grows, when it ",
-                 "nears a wall, when the ball pulls away from the paddle?</em> (This keeps time, which a pooled scatter ",
-                 "would have thrown away.) Tasks with no registered factor (the cartpole family) show only the over-time panel.</p>")
-    println(io, "<p>Each card also carries <strong>spectral radius &rho;(W) over time</strong> &mdash; the largest ",
-                 "|eigenvalue| of the learned recurrent matrix, sampled over the run (a separate coarse, downsample-only ",
-                 "rollout, since eigenvalues are expensive). It tracks the <em>weight reorganization</em> the homeostatic ",
-                 "learning drives, which the branching ratio cannot: branching is rate-pinned by homeostasis, whereas ",
-                 "&rho;(W) reveals the underlying recurrent scale. For <code>falandays_base</code> &rho;(W) <strong>falls</strong> ",
-                 "over the run as <code>W -= error/N</code> shrinks the recurrent weights. The panel is gated on availability ",
-                 "&mdash; nodes without a learned recurrent matrix (e.g. compartmental) produce an empty series and no panel.</p>")
-    for res in results
-        note = get(CANONICAL_NOTE, res.task, "")
-        println(io, _task_card(res, note, get(mp4_by_task, res.task, "")))
-    end
-    println(io, "</section>")
-
-    # --- methods footer ---------------------------------------------------
-    println(io, "<footer>")
-    println(io, "<p><strong>Branching ratio.</strong> Population firing rate <code>A(t)</code> is the mean ",
-                 "spike rate across nodes at tick <code>t</code> (the recorded <code>:rate</code> channel). ",
-                 "Per-tick branching ratio <code>&sigma;(t) = A(t+1)/A(t)</code> (undefined / <code>NaN</code> ",
-                 "when <code>A(t)=0</code>). The mean-field summary is the least-squares estimate ",
-                 "<code>&sigma;&#770; = &Sigma; A<sub>t</sub>A<sub>t+1</sub> / &Sigma; A<sub>t</sub>&sup2;</code> ",
-                 "(sum over ticks with <code>A(t)&gt;0</code>). <code>&sigma;&#770;&asymp;1</code> indicates ",
-                 "self-sustaining/critical dynamics; <code>&lt;1</code> subcritical/decaying; <code>&gt;1</code> ",
-                 "supercritical/growing.</p>")
-    println(io, "<p><strong>Setup.</strong> n_seeds = $n_seeds per task; ticks = each task's default tick count; ",
-                 "seed varies wiring topology, weight init, and the model's noise stream. Canonical N is the ",
-                 "2024 Falandays case-study author size per task where it exists (wall/tracking = 200, ",
-                 "pong/pong_hitrate = 500); the cartpole family has no paper-canonical size and uses N=200 here, ",
-                 "labeled not-paper-canonical. This is a <strong>single-agent (agent&ndash;environment)</strong> ",
-                 "profile; <code>:torus</code> (multi-agent) is not included.</p>")
-    println(io, "</footer>")
-
-    println(io, "</main></body></html>")
-
-    out_path = joinpath(out_dir, "index.html")
-    open(out_path, "w") do f
-        write(f, String(take!(io)))
-    end
-    return out_path
+    return (
+        dir=run_dir,
+        metrics=metrics_path,
+        figures=figures,
+        gifs=gif_paths,
+        manifest=manifest_path,
+        config=config_path,
+        readme=readme_path,
+        report=report_path,
+    )
 end
 
 end # module

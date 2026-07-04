@@ -6,7 +6,7 @@ what is stable, and how they connect.
 
 ## Contents
 
-- **[onboarding.md](onboarding.md)** -- short setup guide for the root package, `demo/`, and `bench/`.
+- **[onboarding.md](onboarding.md)** -- short setup guide for the root package and the separate tooling projects.
 - **[nodes.md](nodes.md)** -- node types and variants, including the paper-faithful Falandays baseline.
 - **[tasks.md](tasks.md)** -- the tasks and their **input/output (receptor/effector) mappings** -- what each
   task senses, what it acts with, how the counts are set and linked.
@@ -72,5 +72,16 @@ visualize(sim)
 explore(:torus; node=:falandays_base, n_agents=6)         # interactive swarm (needs GLMakie)
 ```
 
-Tooling: `demo/` (turnkey behaviour GIFs), `bench/` (statistical neuron x task benchmark). See the top-level
-[README](../README.md) and [onboarding.md](onboarding.md).
+## Tooling
+
+The command-line tooling has four verbs. `bench/` compares a roster of nodes
+across tasks and writes a timestamped run directory with `summary.csv`,
+`results_raw.csv`, baseline-relative statistics, house-palette figures, per-cell
+GIFs, and a ranking README. `profile/` characterizes one node with the full
+analytic suite and representative behaviour, writing `metrics.csv`, per-task
+figures, GIFs, manifest, and a signature README; HTML is opt-in only.
+`sweep/run.jl` perturbs parameter axes and writes `results.csv`, per-cell
+metrics/GIFs, figures, manifest, and callouts. `sweep/run.jl ablate` runs the
+same sweep-shaped output over registered ablations.
+
+See the top-level [README](../README.md) and [onboarding.md](onboarding.md).

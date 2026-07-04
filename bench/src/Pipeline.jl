@@ -18,6 +18,31 @@ export BenchConfig,
 
 const RECORD_CHANNELS = [:spikes, :rate, :poses, :polarization, :milling, :scene]
 
+const _PAPER = CairoMakie.RGBf(BrainlessLab.BL_PAPER...)
+const _INK = CairoMakie.RGBf(BrainlessLab.BL_INK...)
+const _INKSOFT = CairoMakie.RGBf(BrainlessLab.BL_INKSOFT...)
+const _GRID = CairoMakie.RGBf(BrainlessLab.BL_GRID...)
+const _TEAL = CairoMakie.RGBf(BrainlessLab.BL_TEAL...)
+const _AMBER = CairoMakie.RGBf(BrainlessLab.BL_AMBER...)
+const _BRAND_RAMP = CairoMakie.cgrad([_PAPER, _TEAL, _INK])
+
+_bench_figure(size) = CairoMakie.Figure(size=size, backgroundcolor=_PAPER)
+
+function _style_axis!(ax)
+    ax.backgroundcolor = _PAPER
+    ax.xgridcolor = (_GRID, 0.9);  ax.ygridcolor = (_GRID, 0.9)
+    ax.xgridwidth = 0.8;           ax.ygridwidth = 0.8
+    ax.topspinevisible = false;    ax.rightspinevisible = false
+    ax.leftspinecolor = _GRID;     ax.bottomspinecolor = _GRID
+    ax.xtickcolor = _GRID;         ax.ytickcolor = _GRID
+    ax.xticklabelcolor = _INKSOFT; ax.yticklabelcolor = _INKSOFT
+    ax.xlabelcolor = _INKSOFT;     ax.ylabelcolor = _INKSOFT
+    ax.xticklabelsize = 11;        ax.yticklabelsize = 11
+    ax.titlecolor = _INK;          ax.titlesize = 15
+    ax.titlealign = :left;         ax.titlegap = 8
+    return ax
+end
+
 const PANELS = Dict(
     :wall => [:raster, :rate, :trajectory],
     :tracking => [:raster, :rate],
@@ -180,6 +205,7 @@ end
 
 _is_falandays(neuron::Symbol) = startswith(String(neuron), "falandays")
 _is_compartmental(neuron::Symbol) = startswith(String(neuron), "compartmental")
+_model_family(neuron::Symbol) = _is_compartmental(neuron) ? :compartmental : :falandays
 
 function _default_model(neuron::Symbol)
     _is_falandays(neuron) && return BrainlessLab.FalandaysParams()
@@ -437,8 +463,8 @@ function _summary_lookup(summaries)
 end
 
 function _write_plots(run_dir::AbstractString, cfg::BenchConfig, summaries)
-    plots_dir = joinpath(run_dir, "plots")
-    mkpath(plots_dir)
+    figures_dir = joinpath(run_dir, "figures")
+    mkpath(figures_dir)
     lookup = _summary_lookup(summaries)
 
     z = Matrix{Float64}(undef, length(cfg.tasks), length(cfg.neurons))
@@ -449,7 +475,7 @@ function _write_plots(run_dir::AbstractString, cfg::BenchConfig, summaries)
         end
     end
 
-    heatmap_fig = CairoMakie.Figure(size=(max(700, 110 * length(cfg.tasks) + 220), max(420, 28 * length(cfg.neurons) + 140)))
+    heatmap_fig = _bench_figure((max(700, 110 * length(cfg.tasks) + 220), max(420, 28 * length(cfg.neurons) + 140)))
     heatmap_ax = CairoMakie.Axis(
         heatmap_fig[1, 1];
         xlabel="task",
@@ -458,9 +484,10 @@ function _write_plots(run_dir::AbstractString, cfg::BenchConfig, summaries)
         yticks=(collect(1:length(cfg.neurons)), String.(cfg.neurons)),
         xticklabelrotation=pi / 4,
     )
-    hm = CairoMakie.heatmap!(heatmap_ax, collect(1:length(cfg.tasks)), collect(1:length(cfg.neurons)), z; colormap=:viridis)
-    CairoMakie.Colorbar(heatmap_fig[1, 2], hm; label="mean normalized score")
-    Base.invokelatest(CairoMakie.save, joinpath(plots_dir, "heatmap.png"), heatmap_fig)
+    _style_axis!(heatmap_ax)
+    hm = CairoMakie.heatmap!(heatmap_ax, collect(1:length(cfg.tasks)), collect(1:length(cfg.neurons)), z; colormap=_BRAND_RAMP)
+    CairoMakie.Colorbar(heatmap_fig[1, 2], hm; label="mean normalized score", labelcolor=_INKSOFT, ticklabelcolor=_INKSOFT)
+    Base.invokelatest(CairoMakie.save, joinpath(figures_dir, "heatmap.png"), heatmap_fig)
 
     for task in cfg.tasks
         rows = [lookup[(neuron, task)] for neuron in cfg.neurons]
@@ -469,7 +496,7 @@ function _write_plots(run_dir::AbstractString, cfg::BenchConfig, summaries)
         lows = [max(0.0, Float64(row.mean) - Float64(row.ci_lo)) for row in rows]
         highs = [max(0.0, Float64(row.ci_hi) - Float64(row.mean)) for row in rows]
 
-        fig = CairoMakie.Figure(size=(max(760, 95 * length(rows) + 220), 460))
+        fig = _bench_figure((max(760, 95 * length(rows) + 220), 460))
         ax = CairoMakie.Axis(
             fig[1, 1];
             xlabel="neuron",
@@ -478,13 +505,15 @@ function _write_plots(run_dir::AbstractString, cfg::BenchConfig, summaries)
             xticks=(xs, String.(cfg.neurons)),
             xticklabelrotation=pi / 4,
         )
-        CairoMakie.barplot!(ax, xs, means; color=:steelblue)
-        CairoMakie.errorbars!(ax, xs, means, lows, highs; color=:black, whiskerwidth=8)
+        _style_axis!(ax)
+        CairoMakie.barplot!(ax, xs, means; color=_TEAL)
+        CairoMakie.errorbars!(ax, xs, means, lows, highs; color=_INK, whiskerwidth=8)
+        CairoMakie.hlines!(ax, [0.0]; color=(_AMBER, 0.45), linewidth=1.0)
         CairoMakie.ylims!(ax, 0.0, max(1.0, 1.08 * _finite_max(vcat(means, means .+ highs))))
-        Base.invokelatest(CairoMakie.save, joinpath(plots_dir, "$(String(task))_bars.png"), fig)
+        Base.invokelatest(CairoMakie.save, joinpath(figures_dir, "$(String(task))_bars.png"), fig)
     end
 
-    return plots_dir
+    return figures_dir
 end
 
 function _task_groups(cfg::BenchConfig, rows::Vector{TrialRow}, task::Symbol)
@@ -709,6 +738,81 @@ function _run_id(cfg::BenchConfig)
     return Store.text_tag(join(parts, "|"); n=8)
 end
 
+function _tool_package_versions(project_dir::AbstractString)
+    out = Dict{String,String}()
+    project_path = joinpath(project_dir, "Project.toml")
+    isfile(project_path) || return out
+
+    try
+        project = TOML.parsefile(project_path)
+        direct = Set(keys(get(project, "deps", Dict{String,Any}())))
+        manifest_path = joinpath(project_dir, "Manifest.toml")
+        if !isfile(manifest_path)
+            for name in direct
+                out[name] = "unknown"
+            end
+            return out
+        end
+
+        manifest = TOML.parsefile(manifest_path)
+        deps = get(manifest, "deps", Dict{String,Any}())
+        for name in direct
+            entries = get(deps, name, nothing)
+            if entries === nothing
+                out[name] = "unknown"
+            else
+                entry = entries isa AbstractVector ? first(entries) : entries
+                out[name] = string(get(entry, "version", "stdlib"))
+            end
+        end
+    catch err
+        out["error"] = sprint(showerror, err)
+    end
+    return out
+end
+
+function _manifest_run_config(cfg::BenchConfig)
+    return BrainlessLab.resolve(BrainlessLab.RunConfig(
+        run=BrainlessLab.RunSection(
+            name="bench_grid",
+            runner=:fixed,
+            seed_base=cfg.seed_base,
+            suite_seed_base=cfg.seed_base + 100_000,
+            profile=:none,
+        ),
+        model=BrainlessLab.ModelSection(
+            family=_model_family(cfg.baseline),
+            node=cfg.baseline,
+        ),
+        task=BrainlessLab.TaskSection(
+            train=Tuple(cfg.tasks),
+            suite=Tuple(cfg.tasks),
+            aggregator=:mean,
+            N=cfg.n_nodes,
+            ticks=cfg.ticks,
+            window=cfg.ticks,
+        ),
+        evolve=BrainlessLab.EvolveSection(
+            generations=1,
+            popsize=2,
+            k_trials=max(1, cfg.n_trials),
+            suite_every=0,
+            k_suite=0,
+            cma_seed=cfg.seed_base,
+            threaded=false,
+        ),
+    ))
+end
+
+function _seed_manifest(cfg::BenchConfig)
+    return Dict{String,Any}(
+        "seed_base" => cfg.seed_base,
+        "trials_per_cell" => cfg.n_trials,
+        "resolved" => [cfg.seed_base + trial for trial in 1:cfg.n_trials],
+        "scheme" => "bench eval_seed = seed_base + trial_index for every neuron x task cell",
+    )
+end
+
 function _make_run_dir(cfg::BenchConfig, out_root::AbstractString)
     git = Store.git_sha(Store.repo_root())
     short = Store.short_git(git)
@@ -726,24 +830,85 @@ function _make_run_dir(cfg::BenchConfig, out_root::AbstractString)
 end
 
 function _manifest_dict(cfg::BenchConfig, run_info)
-    return Dict{String,Any}(
-        "timestamp_utc" => run_info.timestamp_utc,
-        "git_sha" => run_info.git_sha,
-        "short_git" => run_info.short_git,
-        "run_id" => run_info.run_id,
-        "julia_version" => string(VERSION),
-        "hostname" => Store.hostname(),
-        "seed_base" => cfg.seed_base,
-        "eval_seeds" => [cfg.seed_base + i for i in 1:cfg.n_trials],
-        "n_trials" => cfg.n_trials,
-        "n_nodes" => cfg.n_nodes,
-        "ticks" => cfg.ticks,
-        "baseline" => String(cfg.baseline),
-        "alpha" => cfg.alpha,
-        "gifs" => cfg.gifs,
-        "neurons" => String.(cfg.neurons),
-        "tasks" => String.(cfg.tasks),
+    manifest = BrainlessLab.capture_manifest(_manifest_run_config(cfg); seeds=_seed_manifest(cfg))
+    manifest["manifest_version"] = "bench-v1"
+    manifest["tool"] = "bench"
+    manifest["timestamp_utc"] = run_info.timestamp_utc
+    manifest["run_id"] = run_info.run_id
+    manifest["short_git"] = run_info.short_git
+    manifest["bench"] = merge(
+        _config_dict(cfg),
+        Dict{String,Any}(
+            "job" => "cross-node comparison",
+            "output_shape" => "manifest.toml + config.resolved.toml + summary.csv + results_raw.csv + stats.json + figures/*.png + cells/*/{scores.csv,figure.png,*.gif} + README.md",
+        ),
     )
+    manifest["tool_packages"] = _tool_package_versions(Store.bench_dir())
+    return manifest
+end
+
+function _overall_ranking(cfg::BenchConfig, summaries)
+    lookup = _summary_lookup(summaries)
+    rows = NamedTuple[]
+    for neuron in cfg.neurons
+        values = Float64[]
+        for task in cfg.tasks
+            row = lookup[(neuron, task)]
+            isfinite(Float64(row.mean)) && push!(values, Float64(row.mean))
+        end
+        push!(rows, (
+            neuron=neuron,
+            mean=isempty(values) ? NaN : Statistics.mean(values),
+            n_tasks=length(values),
+        ))
+    end
+    return sort(rows; by=row -> (isfinite(row.mean) ? row.mean : -Inf), rev=true)
+end
+
+function _write_readme(path::AbstractString, cfg::BenchConfig, summaries, stats_data)
+    ranking = _overall_ranking(cfg, summaries)
+    top = isempty(ranking) ? nothing : first(ranking)
+    flagged = [row for row in summaries if !isempty(row.flagged)]
+
+    open(path, "w") do io
+        println(io, "# Benchmark run")
+        println(io)
+        if top === nothing || !isfinite(top.mean)
+            println(io, "> Ranking: no finite benchmark scores were produced.")
+        else
+            println(io, "> Ranking: `:$(top.neuron)` leads across $(top.n_tasks) task(s) with mean normalized score $(_fmt(top.mean)).")
+        end
+        println(io)
+        println(io, "Job: cross-node comparison. Scores are baseline-relative/statistical evidence inputs, not a single-node analytic profile.")
+        println(io)
+        println(io, "Primary outputs:")
+        println(io, "- `summary.csv` -- per-neuron x task summary statistics.")
+        println(io, "- `results_raw.csv` -- raw per-trial scores.")
+        println(io, "- `stats.json` -- omnibus, pairwise, and baseline-relative nonparametric tests.")
+        println(io, "- `figures/` -- house-palette comparison heatmap and task bars.")
+        println(io, "- `cells/` -- per-cell scores, representative figure, and best/representative/worst GIFs when enabled.")
+        println(io)
+        println(io, "## Overall Ranking")
+        println(io)
+        println(io, "| rank | neuron | mean normalized score | tasks |")
+        println(io, "|---:|---|---:|---:|")
+        for (i, row) in enumerate(ranking)
+            println(io, "| $(i) | `:$(row.neuron)` | $(_fmt(row.mean)) | $(row.n_tasks) |")
+        end
+        println(io)
+        println(io, "Baseline: `:$(cfg.baseline)`; alpha = $(cfg.alpha); trials per cell = $(cfg.n_trials).")
+        println(io)
+        println(io, "Flagged cells: $(length(flagged)).")
+        if !isempty(flagged)
+            println(io)
+            println(io, "| neuron | task | flag |")
+            println(io, "|---|---|---|")
+            for row in flagged
+                println(io, "| `:$(row.neuron)` | `:$(row.task)` | $(row.flagged) |")
+            end
+        end
+    end
+    return path
 end
 
 function run_benchmark(cfg::BenchConfig; out_root::AbstractString=joinpath(Store.bench_dir(), "runs"))
@@ -782,6 +947,7 @@ function run_benchmark(cfg::BenchConfig; out_root::AbstractString=joinpath(Store
 
     _write_plots(run_dir, cfg, summaries)
     _write_report(joinpath(run_dir, "report.md"), cfg, summaries, stats_data)
+    _write_readme(joinpath(run_dir, "README.md"), cfg, summaries, stats_data)
 
     return (dir=run_dir, summaries=summaries, stats=stats_data)
 end

@@ -52,48 +52,35 @@ julia> visualize(sim)                                          # spike raster + 
 The compute core does **not** depend on Makie -- `simulate` runs headless. Plot methods load
 automatically (a package extension) once you load a Makie backend (`CairoMakie` for static
 figures, `GLMakie` for interactive windows). See [docs/onboarding.md](docs/onboarding.md)
-for the root, `demo/`, and `bench/` setup split.
+for the root package and tooling-project setup split.
 
 ---
 
-## Demo (with visualisation)
+## Tooling run directories
 
-A turnkey runner for showing the standard Falandays models on the standard tasks lives in
-[`demo/`](demo/).
+The command-line tools write timestamped run directories with the same primary
+shape: `manifest.toml`, resolved settings, CSV outputs, house-palette figures,
+behaviour GIFs where relevant, and a short run README.
 
-**Setup (once):**
+- `bench/` compares a roster of nodes across tasks. It writes `summary.csv`,
+  `results_raw.csv`, baseline-relative statistics, comparison figures,
+  per-cell GIFs, and a ranking README.
+- `profile/` characterizes one node in depth. It writes `metrics.csv`,
+  per-task analytic figures, one representative GIF per task, and a signature
+  README. HTML is off by default and available only as an opt-in stub.
+- `sweep/run.jl` perturbs parameter axes and writes `results.csv`, per-cell
+  metrics/GIFs, figures, manifest, and callouts.
+- `sweep/run.jl ablate NODE TASK` runs the same sweep-shaped output over
+  registered ablations.
+
+Quick commands:
 
 ```bash
-cd brainless-lab/demo
-julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.add(["CairoMakie","TOML"]); Pkg.instantiate()'
-# for the live interactive window, also:
-julia --project=. -e 'using Pkg; Pkg.add("GLMakie")'
+(cd bench && julia --project=. run.jl --neurons falandays_base,compartmental_structured --tasks wall,pong)
+(cd profile && julia --project=. run.jl falandays_base)
+julia --project=. sweep/run.jl configs/sweep_falandays_wall.toml
+julia --project=. sweep/run.jl ablate falandays_base wall
 ```
-
-**Run it:**
-
-```bash
-julia --project=. run.jl --list                       # list tasks and node variants
-julia --project=. run.jl wall                         # interactive window (Play / Step / speed)
-julia --project=. run.jl wall --save                  # archive a run dir (figure + GIF + config)
-julia --project=. run.jl pong --node falandays_oosawa --save
-julia --project=. run.jl torus --n-agents 6 --save    # multi-agent swarm
-julia --project=. run.jl cartpole_swingup --save
-```
-
-- **`--save`** -> archives a **timestamped run directory** under `demo/runs/<task>/fixed/<UTC>_<git>_<id>/`
-  containing `config.resolved.toml`, `manifest.toml` (git SHA, Julia + package versions, seeds),
-  `metrics.toml`, `figure.png` (static panels), and `activity.gif` (the rollout animation). Headless,
-  any task. Add `--no-gif` to skip the slower animation.
-- **no flag** -> opens a **live GLMakie window** with Play / Step / speed controls (needs
-  `GLMakie` and a display).
-
-Flags: `--node <name>` · `--ticks <n>` · `--seed <n>` · `--n-agents <n>` · `--no-gif` · `--out <runs-root>`.
-
-The figure is a spike raster + firing-rate trace + trajectory/swarm; the GIF (`activity.gif`)
-plays the **actual task behaviour** -- every task animates: tracking shows the eye chasing the
-stimulus, pong the ball + paddle, cartpole the cart + pole, wall/torus the agent moving -- with
-a marker sweeping the firing-rate timeline.
 
 ---
 
@@ -245,5 +232,8 @@ src/drivers/ rollout, SepCMA + EvolveRunner, Fixed/Plastic, threaded harness
 src/run/     TOML config, profiles, manifest, artifacts, sweeps
 src/api/     simulate / explore / visualize / replay
 ext/         BrainlessLabMakieExt  (viz -- never on the compute path)
-demo/        run.jl demo runner   ·   examples/   ·   test/
+bench/       cross-node comparison tool
+profile/     single-node characterization tool
+sweep/       parameter and ablation sweep runner
+examples/    runnable examples and templates   ·   test/
 ```
