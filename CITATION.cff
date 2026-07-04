@@ -1,0 +1,50 @@
+cff-version: 1.2.0
+message: >-
+  If you use BrainlessLab, please cite this software, and also cite the
+  original Falandays et al. work that the :falandays_base model reimplements.
+title: BrainlessLab.jl
+abstract: >-
+  An extensible Julia lab for "brainless" cognition — behaviour that emerges
+  from collectives of simple neuron-like nodes — built around an authors-faithful
+  reimplementation of the Falandays et al. homeostatic spiking reservoir.
+type: software
+authors:
+  - given-names: Polyphony
+    family-names: Bruna
+  - given-names: Benjamin
+    family-names: Gaskin
+  - given-names: Ian
+    family-names: Jackson
+  - given-names: William
+    family-names: O'Hearn
+version: 0.0.1
+date-released: "2026-07-04"
+license: MIT
+keywords:
+  - reservoir computing
+  - homeostatic plasticity
+  - spiking neural networks
+  - collective behaviour
+  - artificial life
+  - diverse intelligences
+references:
+  - type: article
+    title: >-
+      A potential mechanism for Gibsonian resonance: behavioral entrainment
+      emerges from local homeostasis in an unsupervised reservoir network
+    authors:
+      - given-names: J. Benjamin
+        family-names: Falandays
+      - given-names: Jeffrey
+        family-names: Yoshimi
+      - given-names: William H.
+        family-names: Warren
+      - given-names: Michael J.
+        family-names: Spivey
+    journal: Cognitive Neurodynamics
+    year: 2024
+    volume: 18
+    issue: 4
+    start: 1811
+    end: 1834
+    doi: 10.1007/s11571-023-09988-2

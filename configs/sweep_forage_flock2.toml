@@ -1,0 +1,65 @@
+# Informed-minority regime, scaled up: 100 agents, 3000 ticks (longer run + more
+# agents), arena 30, vision_range 4 held. Denser coupling network (~5-6 neighbours
+# each) so the blind majority can track the informed ~6% minority; more time to
+# aggregate. Collective vs individual; null test on the collective cell (watch
+# whether the contact-graph cluster signal strengthens beyond z~2).
+# Run with:
+#   julia --project=. sweep/run.jl configs/sweep_forage_flock2.toml
+
+[sweep]
+id = "forage_flock2"
+mode = "one_at_a_time"
+seeds = [0, 1, 2, 3]
+max_cells = 200
+max_rollouts = 80
+
+[baseline]
+node = "falandays_base"
+task = "forage"
+N = 100
+n_agents = 100
+ticks = 3000
+window = 3000
+"env.space_size" = 30.0
+"env.vision_range" = 4.0
+"env.source_gain" = 1.0
+"env.capture_radius" = 1.0
+"env.sensory_noise" = 0.05
+
+[axes]
+"env.conspecific_vision" = [true, false]
+
+[analytics]
+measures = [
+  "sigma_mr", "sigma_mr_node", "sigma_mr_agent", "dist_to_source",
+  "susceptibility_node", "susceptibility_agent", "correlation_length",
+  "contact_clusters", "spectral_radius", "liveness", "regime",
+]
+
+[capture]
+group = "collective"
+timeseries = true
+gif = false
+window = 400
+stride = 100
+n_shifts = 30
+seed = 4242
+
+[capture.groups.collective]
+"env.conspecific_vision" = true
+
+[[ensemble]]
+kind = "turn"
+threshold = { quantile = 0.85 }
+
+[[ensemble]]
+kind = "align"
+threshold = { quantile = 0.85 }
+neighbor_radius = "vision_range"
+
+[[ensemble]]
+kind = "speed"
+threshold = { quantile = 0.85 }
+
+[[ensemble]]
+kind = "graded"

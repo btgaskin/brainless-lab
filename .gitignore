@@ -21,3 +21,6 @@ examples/output/
 /reviews/
 /site/node_modules/
 /site/dist/
+
+# Internal development notes — kept local, not part of the public repo
+/dev/

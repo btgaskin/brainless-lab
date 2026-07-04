@@ -1,0 +1,141 @@
+---
+title: The collective
+description: How one abstraction scales from a single agent to a dyad to an N-agent swarm — what couples the agents, and what the collective-level order parameters mean.
+---
+
+A single-agent task and a twelve-agent swarm are the **same object at different `N`**.
+Both are an [`Ensemble`](/concepts/) — a population of `Agent`s in an Environment — and
+both are driven by the *identical* `step!(ensemble)`. A single-agent task is an ensemble
+of **one**; a **dyad** is `n_agents=2`; a **swarm** is `n_agents=N`. Nothing in the tick
+loop branches on the count.
+
+```julia
+simulate(:torus;  node=:falandays_base, n_agents=2)    # dyad
+simulate(:torus;  node=:falandays_base, n_agents=12)   # swarm
+simulate(:forage; node=:falandays_base, n_agents=12)   # social/blind source foraging
+explore(:torus;   node=:falandays_base, n_agents=6)    # interactive (needs GLMakie)
+```
+
+This is the [ladder](/concepts/) — "nodes within a reservoir, agents within an ensemble" —
+taken one rung up: each agent *is* a reservoir-in-a-body, and the collective is the
+population of them. `falandays_base` stays the stable baseline node; the torus/VEN swarm
+is the experimental platform built *around* that baseline, not a change to it.
+
+## One machine, 1 to N
+
+The scale-freedom is the whole point. `observe` computes every agent's percept from the
+*current* world **before** anyone moves; `step!` advances each reservoir; `actuate!`
+commits all motions after. A synchronous, local update with no within-tick
+order-dependence — and no code path that knows whether it is running one agent or a
+hundred. Going from a dyad to a swarm is a single integer.
+
+<p class="bl-source">Source: <code>src/world/Ensemble.jl</code> (<code>Ensemble</code>, <code>step!</code>), <code>src/world/Torus.jl</code> (periodic geometry).</p>
+
+## What couples the agents: vision
+
+By default there is **no explicit interaction term** — no alignment force, no attraction
+potential. Agents influence each other *only by being seen*. Agent A's bearing sensors
+light up when agent B falls inside a sensor cone within `vision_range`; that drives A's
+reservoir, which drives A's motion, which changes what B sees. So:
+
+- the **sensor geometry is the interaction topology** — the coupling graph is whatever
+  the [receptor/effector contract](/receptors-effectors/) draws;
+- `vision_range` sets how coupling **decays with distance** — neighbours beyond it are
+  invisible, so the coupling dilutes as the swarm disperses and re-forms as it clusters;
+- collective order is therefore **emergent, not imposed**.
+
+`physical_coupling` is an opt-in flag for collision resolution, but the default swarm
+coupling path is purely visual. The one relaxation worth naming: the `VENBody` normalises
+its receptor vector by its sum when activity is nonzero.
+
+## The bodies
+
+The body is what makes an agent *couplable*. Single-agent tasks use a `PassthroughBody` —
+the environment already speaks the reservoir's `(R, E)`, so the body is a pass-through. The
+swarm uses **`VENBody`**, which *manufactures* receptors from bearing vision and reads its
+effectors as movement kinematics: vision in, kinematics out. Its receptor/effector geometry
+(the 62→64 conspecific bank, the 128-wide forage bank, the three VEN kinematic effectors) is
+the [Environments & Tasks](/environments-tasks/) contract — that is where the coupling
+topology is literally specified, so it lives there rather than being repeated here.
+
+## The torus environment
+
+`TorusEnvironment` is a periodic 2-D world — every distance, centroid, and neighbour test
+is torus-aware (wrap-around). Its knobs shape the coupling:
+
+- **`sensory_noise`** (default `0.1`) — additive noise on each bearing sensor;
+- **`vision_range`** — the coupling cutoff (above);
+- **torus size** — the arena the population disperses across;
+- optional **visual / physical coupling flags**.
+
+<p class="bl-source">Source: <code>src/world/Torus.jl</code> (<code>Torus</code>, wrap-aware distance), <code>src/world/Environments.jl</code> (<code>TorusEnvironment</code>).</p>
+
+## Foraging as a coupling experiment
+
+`:forage` turns the swarm into a controlled test of *whether the coupling helps*. It adds
+one stationary **source**, sampled from the same rollout RNG as the initial agent poses,
+and gives every agent a **second** bearing-vision bank (source vision, weighted by
+`source_gain`) alongside the conspecific bank. The manipulation is one flag:
+
+```julia
+simulate(:forage; node=:falandays_base, n_agents=12, conspecific_vision=true)   # social
+simulate(:forage; node=:falandays_base, n_agents=12, conspecific_vision=false)  # blind
+```
+
+`conspecific_vision=false` **zeros the conspecific bank and disables inter-agent collision
+resolution**, while preserving the population size and the source bank. So the *blind* run
+is the same `N` agents solving the same source-finding problem with the coupling switched
+off — the clean control for "do agents use each other's presence as a guide?" The scored
+answer lives in [Environments & Tasks](/environments-tasks/) and its metrics in
+[Analysis](/analysis/).
+
+## Collective order parameters
+
+A swarm is read through **collective metrics**, not a single normalized task score. The two
+order parameters:
+
+**Polarization** $P$ — heading alignment, $0$ disordered to $1$ all-aligned. It is the
+magnitude of the mean heading unit vector:
+
+$$
+P = \left\lVert \frac{1}{N}\sum_{i} e^{i\theta_i} \right\rVert .
+$$
+
+**Milling** $M$ — rotational/circling order about the (torus-aware) circular centroid. With
+$\hat{r}_i$ the unit vector from centroid to agent $i$ and $\hat{u}_i = (\cos\theta_i, \sin\theta_i)$
+its heading, $M$ is the mean tangential (cross-product) component:
+
+$$
+M = \left| \frac{1}{N}\sum_{i} \big(\hat{r}_i \times \hat{u}_i\big) \right| .
+$$
+
+High $P$ with low $M$ is a directed flock; low $P$ with high $M$ is a rotating mill. The
+remaining reads are **cohesion** (mean nearest-neighbour and pairwise distance — spatial
+spread on the torus), **input stability** (cosine similarity of recent sensory-input
+histories), and **liveness** (a firing-rate sanity check on the population activity window).
+Forage runs add `mean_distance_to_source`, `frac_within_capture`, `time_to_first_arrival`,
+and a bounded `forage_score` alongside $P$ and $M$.
+
+The behaviour GIF for `:torus` animates all agents with heading arrows and live $P$/$M$. For
+the full analytic suite — susceptibility, correlation length, contact-graph clusters, and how
+each order parameter is read *at the swept sample size* — see [Analysis](/analysis/); this
+page names the metrics, that page defines and cautions them.
+
+<p class="bl-source">Source: <code>src/world/Metrics.jl</code> (<code>polarization</code>, <code>milling</code>, cohesion), <code>src/world/Environments.jl</code> (<code>ForageEnvironment</code>).</p>
+
+## Validation
+
+The single-agent-as-ensemble-of-one path *and* the dyad/torus path are Float64
+oracle-validated against the numpy v0.2 `multi_agent_episode` fixtures. That is
+implementation **bit-fidelity** to the v0.2 reference — it does **not** make the torus/VEN
+extension part of the 2021 Falandays paper baseline.
+
+## Status and next
+
+- **Done** — n-agent / dyad simulation, the collective metrics, behaviour GIFs.
+- **Planned** — deeper collective science: flocking/milling regimes, predator–prey,
+  coupling/criticality sweeps, evolving collectives. The abstractions support it; the
+  experiments sit beyond the stable baseline.
+- **Planned** — tunable/evolvable vision *geometry*. Since the geometry **is** the coupling
+  (see [Environments & Tasks](/environments-tasks/)), evolving it is evolving the interaction
+  topology itself.

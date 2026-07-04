@@ -48,7 +48,8 @@ local: a node aggregates only its own afferents.
 The 2021 Falandays paper's equation 5 lost its numeric coefficient in a copy/paste
 (as did the connection-probability symbols). BrainlessLab resolves it by following the
 **authors' own code**: `:falandays_base` is validated against dumped trajectories from
-the authors' Julia construction (`test/fixtures/authors_*.jld2`), with $\eta_W = 0.1$.
+a faithful Julia reconstruction of the authors' construction (`test/oracle/authors_falandays.jl`,
+fixtures `test/fixtures/authors_*.jld2`), with $\eta_W = 0.1$.
 So "authors-faithful" here means *faithful to the authors' reference*, the paper's
 ambiguity stated rather than guessed. (The older numpy v0.2 fixtures remain only as
 legacy regression coverage — v0.2 has documented departures.)
@@ -70,7 +71,9 @@ built on.
     ```
   </TabItem>
   <TabItem label=":falandays_extended">
-    The paper's **extended** model: the same neuron with a richer substrate —
+    The paper's **extended** architecture (experimental — validated against the v0.2
+    numpy reference, not the authors' bit-parity fixtures): the same neuron with a
+    richer substrate —
 
     - **sensory input noise** ($\text{Uniform}(\pm 0.1)$ on the receptor vector),
     - **Watts–Strogatz** small-world recurrent wiring,
@@ -136,3 +139,17 @@ thermotaxis, and it is what lets an untrained reservoir keep acting on the wall,
 tracking demos when sensory drive alone would let it fall silent.
 
 <p class="bl-source">Source: <code>src/nodes/Drives.jl</code> (<code>apply_drive!(::OosawaDrive, …)</code>). See also <a href="/nodes/neurons/">Neurons</a> for where this sits among the neuron features modelled here.</p>
+
+## Reference
+
+The model reimplemented here as `:falandays_base` is from:
+
+> J. Benjamin Falandays, Jeffrey Yoshimi, William H. Warren, and Michael J. Spivey.
+> "A potential mechanism for Gibsonian resonance: behavioral entrainment emerges from local
+> homeostasis in an unsupervised reservoir network." *Cognitive Neurodynamics* **18**(4),
+> 1811–1834 (2024). [doi:10.1007/s11571-023-09988-2](https://doi.org/10.1007/s11571-023-09988-2)
+
+BrainlessLab is an independent reimplementation and extension; it is not affiliated with or
+endorsed by the original authors. "Authors-faithful" refers to bit-fidelity against a
+reconstruction of the authors' code (see the fidelity note above), not to paper-fidelity for
+every component.

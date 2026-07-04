@@ -54,6 +54,7 @@ Keep the two separate:
 - **`pack_params` / `unpack_params` / `paramdim`** — evolvable parameters an optimizer stores and mutates (the genome).
 - **`snapshot_state` / `load_state!`** — transient runtime state (activations, learned weights, buffers) for replay/reset.
 
-A ready-to-copy skeleton lives in `examples/templates/new_project/`.
+A ready-to-copy skeleton lives in `examples/templates/new_project/`. See
+[Contracts](/contracts/) for the full participant-facing contract each `register_*!` implies.
 
-<p class="bl-source">Source: <code>src/core/Registry.jl</code>, <code>docs/contracts.md</code>, <code>examples/templates/new_project/</code>.</p>
+<p class="bl-source">Source: <code>src/core/Registry.jl</code>, <code>src/core/Interfaces.jl</code>, <code>examples/templates/new_project/</code>.</p>

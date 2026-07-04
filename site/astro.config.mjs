@@ -10,7 +10,7 @@ import tailwindcss from '@tailwindcss/vite';
 // Math: remark-math (source) -> rehype-katex (render); KaTeX CSS is pulled in via
 // customCss below. The interactive Falandays demo mounts as a React island.
 export default defineConfig({
-  site: 'https://brainlesslab.dev', // TODO: set the real deploy URL
+  site: 'https://brainless-lab.pages.dev',
   vite: { plugins: [tailwindcss()] },
   markdown: {
     remarkPlugins: [remarkMath],
@@ -57,9 +57,13 @@ export default defineConfig({
           ],
         },
         { label: 'Environments & Tasks', slug: 'environments-tasks' },
+        { label: 'The collective', slug: 'collective' },
+        { label: 'Receptors & Effectors', slug: 'receptors-effectors' },
         { label: 'Analysis', slug: 'analysis' },
+        { label: 'Evolution', slug: 'evolution' },
         { label: 'Tooling', slug: 'tooling' },
         { label: 'Extending it', slug: 'extending' },
+        { label: 'Contracts', slug: 'contracts' },
         {
           label: 'Notes',
           items: [

@@ -1,0 +1,68 @@
+# Does a small Oosawa drive rescue the blind followers in the informed-minority
+# flock? Base blind agents DIE here (§5f); the drive's deficit-modulated noise is
+# designed for exactly this starved condition. Test whether drive keeps them alive
+# AND still able to follow the informed minority (between base=dies and
+# extended=self-sufficient). Flock geometry: 40 agents (unsaturated), arena 30,
+# range 4, N=100, 3000 ticks. Factorial drive x vision; drive=0.0 ~= no drive.
+# Run with:
+#   julia --project=. sweep/run.jl configs/sweep_forage_flock_drive.toml
+
+[sweep]
+id = "forage_flock_drive"
+mode = "factorial"
+seeds = [0, 1, 2, 3]
+max_cells = 200
+max_rollouts = 80
+
+[baseline]
+node = "falandays_base"
+task = "forage"
+N = 100
+n_agents = 40
+ticks = 3000
+window = 3000
+"env.space_size" = 30.0
+"env.vision_range" = 4.0
+"env.source_gain" = 1.0
+"env.capture_radius" = 1.0
+"env.sensory_noise" = 0.05
+
+[axes]
+"drive.noise_gain" = [0.0, 0.25]
+"env.conspecific_vision" = [true, false]
+
+[analytics]
+measures = [
+  "sigma_mr", "sigma_mr_node", "sigma_mr_agent", "dist_to_source",
+  "susceptibility_node", "susceptibility_agent", "correlation_length",
+  "contact_clusters", "spectral_radius", "liveness", "regime",
+]
+
+[capture]
+group = "drive_collective"
+timeseries = true
+gif = false
+window = 400
+stride = 100
+n_shifts = 30
+seed = 4242
+
+[capture.groups.drive_collective]
+"drive.noise_gain" = 0.25
+"env.conspecific_vision" = true
+
+[[ensemble]]
+kind = "turn"
+threshold = { quantile = 0.85 }
+
+[[ensemble]]
+kind = "align"
+threshold = { quantile = 0.85 }
+neighbor_radius = "vision_range"
+
+[[ensemble]]
+kind = "speed"
+threshold = { quantile = 0.85 }
+
+[[ensemble]]
+kind = "graded"

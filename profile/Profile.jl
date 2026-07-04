@@ -186,7 +186,7 @@ function _profile_seed_manifest(n_seeds::Integer)
     )
 end
 
-# Curated short prose mirroring docs/tasks.md, for the per-task cards.
+# Curated short prose mirroring the Environments & Tasks docs page, for the per-task cards.
 const TASK_PROSE = Dict{Symbol,NamedTuple{(:encoding, :decode, :scoring),NTuple{3,String}}}(
     :wall => (
         encoding = "two ray-cast distance sensors at &plusmn;45&deg; to the nearest wall; c = 1 &minus; d/d_max, d_max = &radic;(2&middot;15&sup2;), clamped to (&epsilon;, 1]",

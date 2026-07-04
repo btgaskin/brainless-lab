@@ -130,8 +130,10 @@ Benchmark artifacts are written under `bench/runs/` and include resolved config,
 
 ## Read More
 
-- `../../../docs/README.md`
-- `../../../docs/nodes.md`
-- `../../../docs/tasks.md`
-- `../../../docs/receptors-effectors.md`
+The docs live in the Astro/Starlight site (<https://brainless-lab.pages.dev>, or `cd site && bun run dev`):
+
+- [Nodes — overview](https://brainless-lab.pages.dev/nodes/overview/)
+- [Environments & Tasks](https://brainless-lab.pages.dev/environments-tasks/)
+- [Receptors & Effectors](https://brainless-lab.pages.dev/receptors-effectors/)
+- [Extending it](https://brainless-lab.pages.dev/extending/)
 - `../../../bench/README.md`

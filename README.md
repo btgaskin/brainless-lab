@@ -4,7 +4,7 @@
 
 <p align="center">
   <em>Behaviour from collectives of simple neuron-like nodes &mdash; brainless cognition.</em><br>
-  <a href="https://brainlesslab.dev"><strong>Documentation &amp; outputs</strong></a> &middot;
+  <a href="https://brainless-lab.pages.dev"><strong>Documentation &amp; outputs</strong></a> &middot;
   a <a href="https://disi.org">Diverse Intelligences Summer Institute</a> 2026 (Geneva NY) project<br>
   Polyphony Bruna &middot; Benjamin Gaskin &middot; Ian Jackson &middot; William O'Hearn
 </p>
@@ -24,10 +24,17 @@ The 2021 authors-faithful baseline is `:falandays_base` with the original consta
 also contains documented experimental departures, so numpy fidelity should not be read as
 paper fidelity for every platform component.
 
-**Documentation:** see [`docs/`](docs/README.md) -- [onboarding](docs/onboarding.md),
-[nodes & variants](docs/nodes.md), [tasks & I/O mappings](docs/tasks.md),
-[contracts](docs/contracts.md), [receptors & effectors](docs/receptors-effectors.md),
-[the collective](docs/collective.md), [evolution](docs/evolution.md).
+**Documentation:** the full docs live in the Astro/Starlight site under [`site/`](site/),
+published at <https://brainless-lab.pages.dev> (run locally with `cd site && bun run dev`). Key pages:
+[introduction](https://brainless-lab.pages.dev/introduction/),
+[nodes & variants](https://brainless-lab.pages.dev/nodes/overview/),
+[environments & tasks](https://brainless-lab.pages.dev/environments-tasks/),
+[the collective](https://brainless-lab.pages.dev/collective/),
+[receptors & effectors](https://brainless-lab.pages.dev/receptors-effectors/),
+[analysis](https://brainless-lab.pages.dev/analysis/),
+[evolution](https://brainless-lab.pages.dev/evolution/),
+[contracts](https://brainless-lab.pages.dev/contracts/),
+[reference](https://brainless-lab.pages.dev/reference/).
 
 ---
 
@@ -42,7 +49,7 @@ experiment.
 **Experimental platform:** everything around that baseline is for experiments and is still
 in flux: the compartmental/CTRNN nodes, the evolution layer, the swarm/VEN extensions, and
 the SORN reference node, the Falandays variants beyond base (`:falandays_noisy`,
-`:falandays_ablated`, `:falandays_hemispheric`, `:falandays_oosawa`,
+`:falandays_extended`, `:falandays_ablated`, `:falandays_hemispheric`, `:falandays_oosawa`,
 `:falandays_spatial`, `:falandays_delayed`, `:falandays_dendritic`). These pieces are useful testbed surfaces,
 but they should not be described as the 2021 paper model.
 
@@ -63,8 +70,9 @@ julia> visualize(sim)                                          # spike raster + 
 
 The compute core does **not** depend on Makie -- `simulate` runs headless. Plot methods load
 automatically (a package extension) once you load a Makie backend (`CairoMakie` for static
-figures, `GLMakie` for interactive windows). See [docs/onboarding.md](docs/onboarding.md)
-for the root package and tooling-project setup split.
+figures, `GLMakie` for interactive windows). See the
+[Introduction](https://brainless-lab.pages.dev/introduction/) for the root package and
+tooling-project setup split.
 
 `explore(...)` opens a live GLMakie display. On SSH/headless machines, use saved static
 outputs instead (`visualize`/`animate` with CairoMakie, or the CLI `--save` paths where
@@ -127,6 +135,7 @@ The registered high-level variants are:
 | --- | --- | --- |
 | `:falandays_base` | **stable baseline** | Base Falandays homeostatic spiking reservoir, authors-faithful to the 2021 model. `:falandays` is an alias. |
 | `:falandays_noisy` | experimental | Base reservoir wrapped with sensory input noise (`Uniform(+/-0.1)`, clip >= 0 -- the v0.2 body formula). |
+| `:falandays_extended` | experimental | The paper's **extended** architecture (validated against the v0.2 numpy reference, not the authors' bit-parity fixtures): base + sensory noise + Watts--Strogatz small-world recurrent wiring + Dale's law (excitatory/inhibitory). Same neuron update as base; a richer substrate -- the documented `base` vs `extended` contrast. |
 | `:falandays_ablated` | experimental | Target homeostasis frozen (`lrate_targ=0`): target pinned at 1.0, threshold fixed at 2.0; weights still learn. |
 | `:falandays_hemispheric` | experimental | Two half-size reservoirs, contralateral wiring (right sensors -> left effectors, left -> right). |
 | `:falandays_oosawa` | experimental | Oosawa endogenous membrane drive (pure target-modulated, stays active when blind). |
@@ -150,7 +159,8 @@ decode consumes **3 effectors** for heading and forward acceleration. `:forage` 
 3-effector VEN decode with **128 receptors**: 64 conspecific-vision inputs plus 64 source-vision
 inputs, scored by bounded `forage_score` and source-arrival metrics. `tasks()` lists them all.
 
-See [docs/tasks.md](docs/tasks.md) and [docs/contracts.md](docs/contracts.md) before comparing
+See [Environments & Tasks](https://brainless-lab.pages.dev/environments-tasks/) and
+[Contracts](https://brainless-lab.pages.dev/contracts/) before comparing
 results across tasks, because effectors and scores are intentionally non-uniform.
 
 ---
@@ -237,7 +247,7 @@ simulate(:wall; node=:mynode, ticks=100)
 The same `register_*!` pattern applies to tasks (`register_task!` + a `TaskSpec`), drives
 (`<: Drive` + `apply_drive!`), bodies, metrics, ablations/interventions, views, and
 optimizers (`<: AbstractEvolutionStrategy` with `ask`/`tell!`/`result`). See
-[docs/contracts.md](docs/contracts.md) for the node/extension contract and the
+[Contracts](https://brainless-lab.pages.dev/contracts/) for the node/extension contract and the
 `pack_params`/`snapshot_state` split.
 
 ## Examples & notebooks
@@ -267,6 +277,28 @@ src/api/     simulate / explore / visualize / replay
 ext/         BrainlessLabMakieExt  (viz -- never on the compute path)
 bench/       cross-node comparison tool
 profile/     single-node characterization tool
-sweep/       parameter and ablation sweep runner
+sweep/       parameter and ablation sweep runner   ·   calibration/  score-anchor report
+configs/     sweep/experiment TOML configs
 examples/    runnable examples and templates   ·   test/
+site/        Astro/Starlight docs + outputs site (the docs live here)
+skills/      Claude Code skills (julia, brainless-lab)
 ```
+
+## Acknowledgements & prior art
+
+The stable baseline (`:falandays_base`) is an independent, authors-faithful reimplementation of
+the homeostatic spiking reservoir from:
+
+> J. Benjamin Falandays, Jeffrey Yoshimi, William H. Warren, and Michael J. Spivey.
+> "A potential mechanism for Gibsonian resonance: behavioral entrainment emerges from local
+> homeostasis in an unsupervised reservoir network." *Cognitive Neurodynamics* **18**(4),
+> 1811–1834 (2024). [doi:10.1007/s11571-023-09988-2](https://doi.org/10.1007/s11571-023-09988-2)
+
+BrainlessLab is not affiliated with or endorsed by the original authors. "Authors-faithful" means
+bit-fidelity to a reconstruction of the authors' code (guarded by the `test/fixtures/authors_*.jld2`
+fixtures), **not** paper-fidelity for every component — the experimental variants and platform layers
+are our own construction. See [`CITATION.cff`](CITATION.cff) to cite this software.
+
+## License
+
+[MIT](LICENSE) © 2026 the BrainlessLab authors.

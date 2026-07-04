@@ -1,0 +1,109 @@
+---
+title: Contracts
+description: The participant-facing rules you rely on to read results and implement the interface — non-uniform effectors, bounded scores, and the genotype/state split.
+---
+
+Three rules survive contact with every task: **effectors don't mean the same thing
+across tasks**, **raw scores aren't comparable across tasks**, and **evolvable parameters
+stay separate from runtime state**. This page is the contract you lean on when reading a
+run or writing a node — not a how-to. To *add* a part, see [Extending it](/extending/); for
+preset/task/ablation tables and the sweep schema, see the [Reference](/reference/).
+
+## Effectors are non-uniform
+
+Every reservoir emits an effector vector $E$, but each task/body **decodes it
+differently**. Channel 1 in Pong is not the same physical quantity as channel 1 in
+cartpole or torus. See [Environments & Tasks](/environments-tasks/) for the per-task $R$/$E$
+widths; here is how each body reads the vector:
+
+| task / body | E | decode |
+|---|---:|---|
+| `:wall` | 2 | differential wheel speeds. `eL`, `eR` clamped to $[0,1]$; speed $(e_L+e_R)/2$, heading change $e_R-e_L$; a wall hit forces a random ±45° turn with no translation. |
+| `:tracking` | 2 | eye-rotation command. Eye heading changes by $10(e_1-e_2)$° per tick as the stimulus advances separately. |
+| `:pong`, `:pong_hitrate` | 2 | paddle vote. Paddle moves $100(e_1-e_2)$, clamped to range. |
+| `:cartpole` (+ `_hard`/`_swingup`/`_long`) | 2 | binary force vote. $e_1 \ge e_2 \Rightarrow$ negative force, else positive. Variants change force/bounds/initial state, not the interface. |
+| `:torus` / `VENBody` | 3 | VEN kinematics. $e_3$ drives forward acceleration; $e_2-e_1$ drives heading acceleration; speed and heading rate are damped/capped by `VENParams`. |
+
+<p class="bl-source">Source: <code>src/tasks/Tasks.jl</code>, <code>src/world/Body.jl</code>.</p>
+
+## `normalized_score` is bounded, not comparable
+
+`normalized_score(task, raw_score)` is the per-task transform `rollout`, `evolve`, and the
+benchmark use to make fitness comparable enough for optimizer bookkeeping:
+
+$$
+\operatorname{clamp}\!\left(\frac{\text{raw} - \text{floor}}{\text{ceiling} - \text{floor}},\, 0,\, 1\right)
+$$
+
+It is **not a universal physical unit**. Saturation at 0 or 1 means the raw score fell
+outside the chosen floor/ceiling — the value is pinned, not meaningfully equal across tasks.
+
+| task | raw key | floor | ceiling | raw score means |
+|---|---|---:|---:|---|
+| `:wall` | `:nav_score` | 0.763 | 1.0 | `collision_free_rate * movement_gate` (collision-free navigation while moving) |
+| `:tracking` | `:track_score` | 0.0 | 1.0 | mean cosine alignment to the stimulus |
+| `:pong` / `:pong_hitrate` | `:hit_rate` | 0.356 | 0.701 | fraction of return opportunities hit (identical `TaskSpec`) |
+| `:cartpole` | `:score` | 0.0 | 1.0 | survival, `step_count / default_ticks` |
+| `:cartpole_hard` | `:score` | 0.0 | 1.0 | fraction balanced, hard variant |
+| `:cartpole_swingup` | `:mean_uprightness` | 0.157 | 1.0 | mean $(\cos\theta + 1)/2$ |
+| `:cartpole_long` | `:score` | 0.0 | 1.0 | fraction balanced, long pole |
+
+Base `:cartpole` reports survival; the variants report a window score
+(`balanced_fraction` or `mean_uprightness`). Both normalize onto $[0,1]$, but the raw
+meanings differ. `:torus` is a registered swarm symbol, **not** a `TaskSpec` with a
+floor/ceiling — read torus runs through collective metrics instead.
+
+<p class="bl-source">Source: <code>src/tasks/Tasks.jl</code> (<code>normalized_score</code>), <code>src/tasks/Scoring.jl</code> (floor/ceiling).</p>
+
+## Ensemble metrics
+
+`rollout!(collective, ticks; window)` returns the task/env metrics plus liveness
+diagnostics:
+
+- **`score`** — task-specific raw scalar from single-agent envs; meaning depends on the
+  table above. Normalize before any cross-task comparison.
+- **`polarization`** — heading alignment: length of the mean unit heading vector. `0`
+  disordered, `1` fully aligned.
+- **`milling`** — absolute mean rotational order about the centroid; high means agents
+  circle the group center.
+- **`liveness`** — reservoir-activity sanity check over the window: `rate_mean`,
+  `rate_var`, `total_spikes_window`, `alive`. `alive` requires $0.01 < \text{rate\_mean} < 0.99$,
+  nonzero variance, and enough spikes.
+
+Swarm runs also report mean nearest-neighbour distance, mean pairwise distance, cohesion
+(`nearest + pairwise`), and input stability.
+
+<p class="bl-source">Source: <code>src/world/Ensemble.jl</code>, <code>src/world/Metrics.jl</code>.</p>
+
+## Node & extension contract
+
+A high-level node constructor must accept `(n_nodes, n_receptors, n_effectors; seed=0, kwargs...)`
+and return a `Reservoir` implementing:
+
+```julia
+step!(r, receptors)      # advance one tick, return spikes/rates
+effectors(r, spikes)     # map spikes/rates to an E-vector of length n_effectors(r)
+reset!(r)                # reset runtime state
+n_receptors(r)
+n_effectors(r)
+```
+
+Because you're adding *methods* to BrainlessLab's generics, **`import`** them — `using`
+alone won't attach your methods and `simulate` won't dispatch to your node:
+
+```julia
+import BrainlessLab: step!, effectors, reset!, n_receptors, n_effectors
+```
+
+Keep genotype and runtime state separate — do not hide state inside `pack_params`, and do
+not expect `snapshot_state` to define the search space:
+
+- **`pack_params` / `unpack_params` / `paramdim`** — evolvable parameters an optimizer
+  stores, mutates, and reloads as a genome.
+- **`snapshot_state` / `load_state!`** — transient state (membrane activations, learned
+  weights, spike buffers, noise index, compartment voltages) for replay/reset.
+
+The full node contract and a copy-ready skeleton live in [Extending it](/extending/) and
+[Nodes overview](/nodes/overview/).
+
+<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>.</p>

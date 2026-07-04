@@ -1,0 +1,114 @@
+---
+title: Evolution
+description: How fixed-weight nodes are evolved — the sep-CMA-ES optimizer, fitness aggregation, the tagged genotype store, and what a short readiness run buys.
+---
+
+Some nodes learn online and run as-is; others have **emergent weights with no
+plasticity** and mean nothing until they are **evolved**. This page covers the
+optimizer, how fitness is computed, and how evolved genomes are stored and traced.
+
+Evolution is **experimental** — the platform *around* the stable Falandays baseline,
+not part of it. `:falandays_base` with default 2021 constants is the settled,
+authors-faithful model; evolving its 7 control parameters is an optional experiment.
+The compartmental / CTRNN nodes are our own construction and **must** be evolved,
+because their weights *are* the genotype — an untrained one is random noise.
+
+## Who needs evolving
+
+| family | online plasticity | evolution |
+|---|---|---|
+| Falandays base (`:falandays_base`, alias `:falandays`) | yes | **optional** — the settled baseline is the default 2021 constants |
+| Falandays variants (`:falandays_noisy`, `:falandays_ablated`, `:falandays_hemispheric`, `:falandays_oosawa`) | yes; target homeostasis off in `:falandays_ablated` | **optional / experimental** — useful perturbations, not the authors-faithful baseline |
+| Compartmental (`:compartmental_dense`, `:compartmental_structured`) | no | **required** — untrained weights are random; only an evolved genome is a fair test |
+
+See [Nodes — overview](/nodes/overview/) for the families and their default benchmark prep.
+
+## The optimizer
+
+A hand-rolled **separable CMA-ES** (diagonal covariance), validated to ~1e-6 against
+pycma. It minimizes $\text{loss} = -\text{fitness}$.
+
+- **Initialization** — `find_alive_centroid` sweeps random genomes and starts CMA from
+  one that is alive on at least two seeds, avoiding a dead region of a non-plastic
+  genome space. For Falandays models the default start vector is
+  `pack_params(FalandaysParams())`.
+- **Population** — sep-CMA default $\lambda \approx 4 + \lfloor 3 \ln n \rfloor$ for
+  genome dim $n$ (about 20 for the 220-dim structured genome); raise it (e.g. 32) to
+  explore more on short runs.
+- **Common random numbers** — every candidate in a generation is evaluated on the
+  *same* trial seeds, $\text{wiring\_seed\_base} + \text{gen} \cdot 10007 + i$, so
+  within-generation comparisons are fair.
+
+<p class="bl-source">Source: <code>src/drivers/Evolve.jl</code> (<code>SepCMA</code>, <code>find_alive_centroid</code>, <code>EvolveRunner</code>).</p>
+
+## Fitness
+
+Per candidate, **per train task**: run `k_trials` rollouts at distinct CRN seeds and take
+the **mean** of their normalized scores. Then aggregate **across tasks** with the
+`aggregator`:
+
+- `:min` (default) — worst-case over tasks; rewards a genome good on *every* task.
+- `:mean` — average over tasks.
+
+The per-seed step is always a mean; `:min`/`:mean` acts only *across tasks*. For
+single-task training (the common case) the across-task step is a no-op, so fitness is
+just the mean over the `k_trials` seeds. Normalized score is the task's `TaskSpec`
+floor/ceiling transform clamped to $[0,1]$; see
+[Contracts](/contracts/) for the exact mapping and why scores are not comparable across tasks.
+
+## Training workflow & the genotype store
+
+`bench/train.jl` evolves one `(neuron, task)` and writes a tagged store entry:
+
+```bash
+cd bench
+julia --project=. -t 8 train.jl compartmental_structured wall \
+    --generations 20 --popsize 32 --k-trials 8 --N 200 --sigma0 2.5
+```
+
+Output:
+
+- `bench/genomes/<neuron>__<task>/genome.jld2` — the evolved weight / parameter vector.
+- `bench/genomes/<neuron>__<task>/train_manifest.toml` — git SHA, neuron, task, seed,
+  generations, popsize, `k_trials`, `N`, ticks, `sigma0`, **`best_fitness`**, timestamp,
+  and a content-hash **`tag`** identifying the run.
+
+The [benchmark](/tooling/) then loads these for `:trained` cells, copies the genome +
+provenance into each cell's output, and records `prep = trained:<tag>` — so every
+reported number is traceable to the exact weights and the run that produced them. A cell
+that needs training but has no stored genome is run untrained and **flagged**.
+
+<p class="bl-source">Source: <code>bench/train.jl</code> (the entrypoint), <code>bench/src/Store.jl</code> (genome + manifest store), <code>bench/run.jl</code> (trained-cell loading and flagging).</p>
+
+## A worked readiness run
+
+`compartmental_structured`, 20 generations, $\lambda = 32$, fitness = mean over 8 CRN
+trials (single task), N=200, alive-centroid init:
+
+| task | evolved best fitness | untrained baseline |
+|---|---:|---:|
+| wall | **0.728** | ~0 |
+| tracking | 0.523 | ~0 / negative |
+| pong | 0.327 | ≈ floor (0.33) |
+| cartpole | 0.043 | ~0 |
+| cartpole_swingup | 0.109 | ~0 |
+
+**Reading it:** the loop works — wall went from a dead 0 to a competent ~0.73 avoider,
+and tracking made real progress. But **20 generations on a 220-dim genome is a short
+probe** — pong sits at its floor and cartpole / swing-up barely moved. Competent agents
+on the hard control tasks need hundreds of generations, and pong likely wants the author
+size N=500. The machinery is ready; the budget here was deliberately small.
+
+## Open design points
+
+Flagged for a dedicated design pass:
+
+1. **Statistical honesty** — a trained cell currently uses one evolved genome over
+   *n* eval-seeds (evaluation variance only). The fair version runs *K* independent
+   evolution runs per cell (search variance) and reports the distribution.
+2. **Specialist vs generalist** — train per-`(neuron, task)` vs one genome on a task suite.
+3. **Ergonomics** — `train --all`, training profiles (quick / standard / thorough),
+   resumable, parallel.
+4. **Store management** — list / inspect / supersede / best-of-*K* genomes.
+5. **Co-evolving morphology** — extend the genome with the bounded sensor/effector layout
+   (see [Receptors & Effectors](/receptors-effectors/) for the receptor/effector contract).
