@@ -19,7 +19,14 @@ let
         seed=42,
         n_agents=4,
         n_nodes=12,
-        vision_range=15.0,
+        # Default torus space_size=15.0 => max possible torus distance is
+        # ~10.6 (size/sqrt(2)); vision_range=15.0 made every agent mutually
+        # visible regardless of position, which pinned contact_graph_clusters
+        # at n_components=1/largest_frac=1.0 for every tick (verified: no
+        # variation at all, not just a washed-out average). 4.5 was checked
+        # empirically to give a genuinely varying cluster signal (2-3
+        # components / 0.5-0.75 largest fraction) across this run.
+        vision_range=4.5,
         sensory_noise=0.0,
         record=(:spikes, :rate, :poses, :spectral_radius, :polarization, :milling),
     )

@@ -10,6 +10,18 @@ function _crossshift_measure_value(value)
     throw(ArgumentError("crossshift_null measure_fn must return a number or a known scalar analysis NamedTuple"))
 end
 
+# Channels recorded per-agent (one value/vector/tuple per agent per tick) that
+# _crossshift_channel knows how to shift. :polarization/:milling are handled
+# separately (dropped, not shifted -- they're whole-ensemble scalars with no
+# per-agent decomposition, and downstream analyses recompute them from the
+# already-shifted :poses). Any OTHER recorded channel (e.g. :scene, or a
+# future addition) is neither in this set nor known-global, so it is left
+# unshifted and _crossshift_surrogate warns rather than silently passing it
+# through -- a measure_fn that reads such a channel would otherwise get a
+# surrogate that looks nulled but silently isn't.
+const _CROSSSHIFT_PER_AGENT_CHANNELS = (:poses, :rate, :rates, :spikes, :effectors, :percepts, :sensors, :spectral_radius)
+const _CROSSSHIFT_GLOBAL_CHANNELS = (:polarization, :milling)
+
 function _crossshift_n_agents(sim::SimResult)
     for channel in (:poses, :rate, :spikes)
         raw = getchannel(sim.recorder, channel)
@@ -66,11 +78,12 @@ end
 function _crossshift_surrogate(sim::SimResult, shifts::AbstractVector{<:Integer}, n_agents::Integer)
     shifted_channels = Dict{Symbol,Vector{Any}}()
     for (channel, raw) in sim.recorder.channels
-        if channel in (:polarization, :milling)
+        if channel in _CROSSSHIFT_GLOBAL_CHANNELS
             continue
-        elseif channel in (:poses, :rate, :spikes)
+        elseif channel in _CROSSSHIFT_PER_AGENT_CHANNELS
             shifted_channels[channel] = _crossshift_channel(raw, shifts, n_agents)
         else
+            @warn "crossshift_null does not know how to cross-shift channel; leaving it unshifted -- any measure_fn that depends on it will not get a valid null" channel
             shifted_channels[channel] = copy(raw)
         end
     end
