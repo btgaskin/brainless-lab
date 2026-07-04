@@ -28,6 +28,7 @@ include("world/Body.jl")
 include("world/Morphology.jl")
 include("nodes/SpikeHistory.jl")
 include("nodes/Falandays.jl")
+include("nodes/Dendritic.jl")
 include("nodes/SORN.jl")
 include("nodes/Spatial.jl")
 include("nodes/Delays.jl")
@@ -170,7 +171,12 @@ export FalandaysParams,
     next_noise!,
     reset_noise!,
     noise_index,
-    falandays_oosawa
+    falandays_oosawa,
+    DendriticModel,
+    DendriticConnectome,
+    DendriticConnState,
+    DendriticNodeState,
+    DendriticReservoir
 
 export AbstractCompartmental,
     DenseCompartmental,
@@ -369,6 +375,7 @@ register_node!(:falandays_extended, _falandays_extended_native; genome_type=Fala
 register_node!(:falandays_ablated, _falandays_ablated_native; genome_type=FalandaysParams)
 register_node!(:falandays_hemispheric, _falandays_hemispheric_native; genome_type=FalandaysParams)
 register_node!(:falandays_oosawa, _falandays_oosawa_native; genome_type=FalandaysParams)
+register_node!(:falandays_dendritic, _falandays_dendritic_native; genome_type=FalandaysParams)
 register_node!(:falandays_spatial, _falandays_spatial_native; genome_type=FalandaysParams)
 register_node!(:falandays_delayed, _falandays_delayed_native; genome_type=FalandaysParams)
 register_node!(:sorn, _sorn_native; genome_type=SORNParams)

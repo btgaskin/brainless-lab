@@ -28,6 +28,7 @@ const _DEFAULT_RECORD_CHANNELS = (:spikes, :rate, :poses, :polarization, :millin
 const _NODE_DEFAULT_N = Dict{Symbol,Int}(
     :falandays => 100,
     :falandays_oosawa => 100,
+    :falandays_dendritic => 100,
     :falandays_spatial => 100,
     :falandays_delayed => 100,
     :compartmental_dense => 60,
@@ -277,6 +278,44 @@ function _falandays_oosawa_native(
         Int(n_effectors_);
         seed=seed,
         drive=drive,
+        _kwargs_tuple(options)...,
+    )
+end
+
+# `:falandays_dendritic` — the homeostatic Falandays neuron with per-dendrite
+# eligibility-tag plasticity and a logistic endogenous drive (port of v0.2's
+# `DendriticReservoir`). Distinct from the biophysical `compartmental_*` nodes.
+# `dend_drive` defaults active so dendritic spikes occur and widen the plastic
+# gate; `eligibility_only=true` keeps the soma behaving like the base node.
+function _falandays_dendritic_native(
+    n_nodes::Integer,
+    n_receptors_::Integer,
+    n_effectors_::Integer;
+    seed=nothing,
+    n_dendrites::Integer=4,
+    soma_drive::Real=0.0,
+    dend_drive::Real=0.6,
+    drive_floor::Real=0.0,
+    drive_d0::Real=1.0,
+    drive_w::Real=0.4,
+    dend_threshold::Real=1.0,
+    eligibility_only::Bool=true,
+    kwargs...,
+)
+    options = _kwdict(kwargs)
+    return DendriticReservoir(
+        Int(n_nodes),
+        Int(n_receptors_),
+        Int(n_effectors_);
+        seed=seed,
+        n_dendrites=Int(n_dendrites),
+        soma_drive=Float64(soma_drive),
+        dend_drive=Float64(dend_drive),
+        drive_floor=Float64(drive_floor),
+        drive_d0=Float64(drive_d0),
+        drive_w=Float64(drive_w),
+        dend_threshold=Float64(dend_threshold),
+        eligibility_only=Bool(eligibility_only),
         _kwargs_tuple(options)...,
     )
 end

@@ -569,7 +569,11 @@ function load_state!(r::FalandaysReservoir, state)
     return r
 end
 
-function falandays_oosawa(args...; membrane_noise::Real=0.0, noise_gain::Real=0.0, kwargs...)
+# Convenience constructor for the Oosawa variant. `noise_gain` defaults to 0.8 —
+# the same active preset as the registered `:falandays_oosawa` node
+# (`_falandays_oosawa_native`) — so the variant means one thing however it is
+# built. Pass `noise_gain=0.0` explicitly for an inert (NoDrive-equivalent) drive.
+function falandays_oosawa(args...; membrane_noise::Real=0.0, noise_gain::Real=0.8, kwargs...)
     return FalandaysReservoir(
         args...;
         drive=OosawaDrive(membrane_noise=Float64(membrane_noise), noise_gain=Float64(noise_gain)),

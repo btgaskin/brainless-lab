@@ -3,6 +3,7 @@ using Test
 
 include("testutils.jl")
 include("test_falandays.jl")
+include("test_dendritic.jl")
 include("test_sorn.jl")
 include("test_spatial.jl")
 include("test_delays.jl")
