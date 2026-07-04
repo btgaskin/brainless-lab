@@ -86,6 +86,31 @@ _sim_rng(seed) = seed === nothing ? MersenneTwister() : MersenneTwister(Int(seed
 
 _default_node_count(node::Symbol) = get(_NODE_DEFAULT_N, node, 100)
 
+const _FALANDAYS_BASE_ALIASES = Set{Symbol}((:falandays, :falandays_base))
+const _FALANDAYS_NATIVE_COMPAT_NODES = Set{Symbol}((
+    :falandays,
+    :falandays_base,
+    :falandays_noisy,
+    :falandays_extended,
+    :falandays_ablated,
+    :falandays_oosawa,
+))
+
+_falandays_config_key(task::Symbol) = task === :pong_hitrate ? :pong : task
+_has_falandays_paper_config(task::Symbol) = haskey(FALANDAYS_PAPER_CONFIG, _falandays_config_key(task))
+
+function _default_node_count(node::Symbol, task::Symbol, is_swarm::Bool)
+    if !is_swarm && node in _FALANDAYS_BASE_ALIASES && _has_falandays_paper_config(task)
+        return falandays_paper_config(_falandays_config_key(task)).nnodes
+    end
+    return _default_node_count(node)
+end
+
+function _setdefault!(options::Dict{Symbol,Any}, key::Symbol, value)
+    haskey(options, key) || (options[key] = value)
+    return options
+end
+
 const _FALANDAYS_PARAM_KEYS = Set(fieldnames(FalandaysParams))
 const _DRIVE_PARAM_KEYS = Set{Symbol}((:membrane_noise, :noise_gain))
 
@@ -230,11 +255,62 @@ function _apply_postbuild_ablation!(reservoir::Reservoir, sym::Symbol)
     return reservoir
 end
 
-function _resolve_n_nodes!(node::Symbol, explicit_n_nodes, node_kwargs::Dict{Symbol,Any})
+function _resolve_n_nodes!(
+    node::Symbol,
+    task::Symbol,
+    explicit_n_nodes,
+    node_kwargs::Dict{Symbol,Any},
+    is_swarm::Bool,
+)
     node_kw_n = haskey(node_kwargs, :n_nodes) ? pop!(node_kwargs, :n_nodes) : nothing
     explicit_n_nodes !== nothing && return Int(explicit_n_nodes)
     node_kw_n !== nothing && return Int(node_kw_n)
-    return _default_node_count(node)
+    return _default_node_count(node, task, is_swarm)
+end
+
+function _apply_falandays_task_defaults!(
+    task::Symbol,
+    node::Symbol,
+    is_swarm::Bool,
+    node_kwargs::Dict{Symbol,Any},
+    env_kwargs::Dict{Symbol,Any},
+)
+    (!is_swarm && node in _FALANDAYS_BASE_ALIASES && _has_falandays_paper_config(task)) || return nothing
+
+    cfg = falandays_paper_config(_falandays_config_key(task))
+    if !haskey(node_kwargs, :params)
+        _setdefault!(node_kwargs, :lrate_wmat, cfg.lrate_wmat)
+        _setdefault!(node_kwargs, :lrate_targ, cfg.lrate_targ)
+        _setdefault!(node_kwargs, :input_amp, cfg.input_amp)
+    end
+    _setdefault!(node_kwargs, :weight_init_mode, cfg.weight_init_mode)
+    _setdefault!(node_kwargs, :rectify, false)
+    _setdefault!(node_kwargs, :topology, :bernoulli)
+    _setdefault!(node_kwargs, :repair_masks, false)
+
+    if cfg.task === :wall
+        if haskey(node_kwargs, :sensory_noise)
+            env_kwargs[:sensory_noise] = pop!(node_kwargs, :sensory_noise)
+        end
+        if haskey(node_kwargs, :clip_sensory_noise)
+            env_kwargs[:clip_sensory_noise] = pop!(node_kwargs, :clip_sensory_noise)
+        end
+        _setdefault!(env_kwargs, :sensory_noise, cfg.sensory_noise)
+        _setdefault!(env_kwargs, :clip_sensory_noise, cfg.clip_sensory_noise)
+    end
+    return nothing
+end
+
+function _preserve_swarm_falandays_defaults!(
+    node::Symbol,
+    is_swarm::Bool,
+    node_kwargs::Dict{Symbol,Any},
+)
+    (is_swarm && node in _FALANDAYS_NATIVE_COMPAT_NODES) || return nothing
+    _setdefault!(node_kwargs, :weight_init_mode, :legacy_normal)
+    _setdefault!(node_kwargs, :repair_masks, true)
+    _setdefault!(node_kwargs, :rectify, true)
+    return nothing
 end
 
 function _falandays_native(n_nodes::Integer, n_receptors_::Integer, n_effectors_::Integer; seed=nothing, kwargs...)
@@ -828,7 +904,7 @@ function _build_ensemble(task::Symbol, node::Symbol; ticks=nothing, seed=0, reco
         haskey(options, :N) ? pop!(options, :N) :
         nothing
     window_arg = haskey(options, :window) ? pop!(options, :window) : nothing
-    env_kwargs = haskey(options, :env_kwargs) ? pop!(options, :env_kwargs) : NamedTuple()
+    env_kwargs = _merge_kwdicts(haskey(options, :env_kwargs) ? pop!(options, :env_kwargs) : NamedTuple())
     node_kwargs = haskey(options, :node_kwargs) ? pop!(options, :node_kwargs) : NamedTuple()
     body = haskey(options, :body) ? pop!(options, :body) : nothing
     ablation_arg = haskey(options, :ablation) ? pop!(options, :ablation) : nothing
@@ -845,9 +921,11 @@ function _build_ensemble(task::Symbol, node::Symbol; ticks=nothing, seed=0, reco
 
     node_kwargs = _merge_kwdicts(node_kwargs, options)
     swarm_options = _merge_kwdicts(swarm_kwargs)
+    _apply_falandays_task_defaults!(task, node, is_swarm, node_kwargs, env_kwargs)
+    _preserve_swarm_falandays_defaults!(node, is_swarm, node_kwargs)
     ablation_sym = _prepare_ablation_options!(node, task, is_swarm, node_kwargs, swarm_options, ablation_arg)
     ablation_notes = _ablation_notes(ablation_sym, node, task, is_swarm)
-    n_nodes = _resolve_n_nodes!(node, explicit_n_nodes, node_kwargs)
+    n_nodes = _resolve_n_nodes!(node, task, explicit_n_nodes, node_kwargs, is_swarm)
 
     node_ctor = resolve_node(node)
 

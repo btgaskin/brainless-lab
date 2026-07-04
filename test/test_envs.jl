@@ -125,11 +125,92 @@ function _assert_env_replay(name)
     @info "environment oracle parity" name max_sensor max_state
 end
 
-@testset "TaskWorld oracle parity" begin
-    for name in ("wall", "tracking", "pong", "cartpole")
+@testset "TaskWorld legacy fixture parity" begin
+    for name in ("cartpole",)
         @testset "$name" begin
             _assert_env_replay(name)
         end
+    end
+end
+
+function _expected_sensor_value(box::WallBox, angle::Real)
+    dx = cos(Float64(angle))
+    dy = sin(Float64(angle))
+    origin_x = box.x + box.r * dx
+    origin_y = box.y + box.r * dy
+    candidates = Float64[]
+    if abs(dx) > 1e-12
+        for wall_x in (0.0, box.size)
+            t = (wall_x - origin_x) / dx
+            if t >= -1e-12
+                y_hit = origin_y + t * dy
+                -1e-12 <= y_hit <= box.size + 1e-12 && push!(candidates, max(0.0, t))
+            end
+        end
+    end
+    if abs(dy) > 1e-12
+        for wall_y in (0.0, box.size)
+            t = (wall_y - origin_y) / dy
+            if t >= -1e-12
+                x_hit = origin_x + t * dx
+                -1e-12 <= x_hit <= box.size + 1e-12 && push!(candidates, max(0.0, t))
+            end
+        end
+    end
+    return 1.0 - minimum(candidates) / box.dist_max
+end
+
+@testset "Authors-faithful wall/tracking/pong defaults" begin
+    @testset "wall motor, collision, sensors, start" begin
+        wall = WallEnv(; rng=RecordedDraws(Float64[]))
+        @test wall.box.x == 7.5
+        @test wall.box.y == 7.5
+        @test wall.box.theta == pi / 2.0
+
+        moved = WallBox(; rng=RecordedDraws(Float64[]), x=7.5, y=7.5, theta=0.0)
+        step!(moved, 0.0, 1.0)
+        @test moved.x ≈ 8.0 atol=ENV_ATOL
+        @test moved.y ≈ 7.5 atol=ENV_ATOL
+        @test moved.theta ≈ 1.0 atol=ENV_ATOL
+
+        collided = WallBox(; rng=RecordedDraws([1.0]), x=14.4, y=7.5, theta=0.0)
+        step!(collided, 1.0, 1.0)
+        @test collided.x ≈ 14.5 atol=ENV_ATOL
+        @test collided.y ≈ 7.5 atol=ENV_ATOL
+        @test collided.theta ≈ pi / 4.0 atol=ENV_ATOL
+        @test collided.collisions == 1
+        @test only(collided.translations) ≈ 0.1 atol=ENV_ATOL
+
+        sensed = WallBox(; rng=RecordedDraws(Float64[]), x=7.5, y=7.5, theta=0.0)
+        sensors = sense(sensed; clip=false)
+        @test sensors[1] ≈ _expected_sensor_value(sensed, pi / 4.0) atol=ENV_ATOL
+        @test sensors[1] > 1.0 - (15.0 / sqrt(2.0)) / sensed.dist_max
+    end
+
+    @testset "tracking sensor flat top" begin
+        tracking = TrackingEnv(; rng=RecordedDraws(Float64[]))
+        sensors = sense(tracking)
+        @test sensors[33] == 1.0
+        @test exp(-(4.0^2) / 10.0) < 0.21
+    end
+
+    @testset "pong catch zone and hit-rate score" begin
+        pong = PongEnv(; rng=RecordedDraws([250.0, 1.0]))
+        pong.ball_x = pong.paddle_x + pong.ball_r + pong.ball_speed
+        pong.ball_y = pong.paddle_y + pong.paddle_h / 2.0 + pong.ball_r
+        pong.vx = -pong.ball_speed
+        pong.vy = 0.0
+        step!(pong, [0.0, 0.0])
+        @test only(pong.hit_flags) == 1
+        @test only(pong.miss_flags) == 0
+
+        pong.hit_flags = [1, 0, 0]
+        pong.miss_flags = [0, 1, 1]
+        pong.align_flags = [0.1, 0.2, 1.0]
+        m = metrics(pong, 1)
+        @test m.hit_rate ≈ 1 / 3 atol=ENV_ATOL
+        @test m.score === m.hit_rate
+        @test PONG_TASK.score_key === :hit_rate
     end
 end
 

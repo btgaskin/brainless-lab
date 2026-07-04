@@ -44,6 +44,7 @@ include("tasks/Tasks.jl")
 include("world/Environments.jl")
 include("world/Ensemble.jl")
 include("world/Metrics.jl")
+include("api/paper_config.jl")
 include("api/Highlevel.jl")
 include("analysis/ActivityLevels.jl")
 include("analysis/Branching.jl")
@@ -236,7 +237,10 @@ export TaskSpec,
     CARTPOLE_SWINGUP_TASK,
     CARTPOLE_LONG_TASK,
     make_env,
-    normalized_score
+    normalized_score,
+    FalandaysPaperTaskConfig,
+    FALANDAYS_PAPER_CONFIG,
+    falandays_paper_config
 
 export Agent,
     Ensemble,

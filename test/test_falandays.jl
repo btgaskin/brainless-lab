@@ -75,7 +75,7 @@ end
 
 function _assert_replay(name)
     path = _fixture_path(name)
-    isfile(path) || error("missing fixture $path; run test/oracle/gen_falandays_fixtures.py from the v0.2 directory")
+    isfile(path) || error("missing legacy v0.2 fixture $path; run test/oracle/gen_falandays_fixtures.py from the v0.2 directory")
     data = npzread(path)
     reservoir = _build_reservoir(name, data)
 
@@ -106,7 +106,7 @@ function _assert_replay(name)
     @test near_margin >= 0
 end
 
-@testset "Falandays oracle parity" begin
+@testset "Legacy v0.2 Falandays fixture parity" begin
     for name in ("base", "oosawa", "dale")
         @testset "$name" begin
             _assert_replay(name)

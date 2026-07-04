@@ -366,13 +366,58 @@ function _ensure_unsigned_degree!(recurrent_mask::BitMatrix, input_mask::BitMatr
     return input_mask
 end
 
+function _normalize_weight_init_mode(mode)
+    sym = Symbol(mode)
+    sym === :normal && return :legacy_normal
+    if sym in (:excitatory, :pong_mixed, :legacy_normal)
+        return sym
+    end
+    throw(ArgumentError("unknown Falandays weight_init_mode :$sym"))
+end
+
+_faithful_unsigned_mode(axis, mode::Symbol) =
+    !(axis isa Dale) && mode in (:excitatory, :pong_mixed)
+
+function _initial_falandays_wmat(
+    rng::AbstractRNG,
+    recurrent_mask::BitMatrix,
+    axis,
+    params::FalandaysParams,
+    input_amp::Real,
+    weight_init_mode::Symbol,
+)
+    n_nodes = size(recurrent_mask, 1)
+    if axis isa Dale
+        weights = 1.0 .+ 0.2 .* randn(rng, n_nodes, n_nodes)
+        @inbounds for j in 1:n_nodes, i in 1:n_nodes
+            if weights[i, j] < 0.0
+                weights[i, j] = 0.0
+            end
+        end
+        return Float64.(recurrent_mask) .* weights
+    elseif weight_init_mode === :excitatory
+        return Float64.(recurrent_mask) .* (Float64(input_amp) .+ 0.1 .* randn(rng, n_nodes, n_nodes))
+    elseif weight_init_mode === :pong_mixed
+        inhibitory = rand(rng, n_nodes, n_nodes) .< 0.25
+        neg_weights = -1.0 .+ 0.1 .* randn(rng, n_nodes, n_nodes)
+        zero_weights = 0.2 .* randn(rng, n_nodes, n_nodes)
+        weights = ifelse.(inhibitory, neg_weights, zero_weights)
+        return Float64.(recurrent_mask) .* weights
+    elseif weight_init_mode === :legacy_normal
+        return Float64.(recurrent_mask) .* (params.weight_init_std .* randn(rng, n_nodes, n_nodes))
+    end
+    throw(ArgumentError("unknown Falandays weight_init_mode :$weight_init_mode"))
+end
+
 function FalandaysReservoir(
     n_nodes::Integer,
     n_receptors_::Integer,
     n_effectors_::Integer;
     params=FalandaysParams(),
     seed=nothing,
+    input_amp=nothing,
     input_weight=nothing,
+    weight_init_mode=:excitatory,
     link_p::Real=0.1,
     drive=NoDrive(),
     sign=Unsigned(),
@@ -381,6 +426,7 @@ function FalandaysReservoir(
     topology=nothing,
     inhibitory_frac::Real=0.25,
     sw_beta::Real=0.1,
+    repair_masks=nothing,
 )
     n_nodes = Int(n_nodes)
     n_receptors_ = Int(n_receptors_)
@@ -395,8 +441,11 @@ function FalandaysReservoir(
 
     rng = _rng_from_seed(seed)
     axis = _native_axis(sign, n_nodes, rng, inhibitory_frac)
-    rectify = rectify === nothing ? !(axis isa Dale) : Bool(rectify)
+    weight_init_mode = _normalize_weight_init_mode(weight_init_mode)
+    rectify = rectify === nothing ? false : Bool(rectify)
     topology = topology === nothing ? (axis isa Dale ? :watts_strogatz : :bernoulli) : topology
+    repair_masks =
+        repair_masks === nothing ? !_faithful_unsigned_mode(axis, weight_init_mode) : Bool(repair_masks)
 
     recurrent_mask =
         topology == :watts_strogatz ?
@@ -408,26 +457,19 @@ function FalandaysReservoir(
     input_mask = bernoulli_mask(n_receptors_, n_nodes, link_p, rng; diagonal=true)
     output_mask = bernoulli_mask(n_nodes, n_effectors_, link_p, rng; diagonal=true)
 
-    if !(axis isa Dale)
+    if repair_masks && !(axis isa Dale)
         _ensure_unsigned_degree!(recurrent_mask, input_mask, rng)
     end
-    _ensure_output_mask!(output_mask, rng)
+    repair_masks && _ensure_output_mask!(output_mask, rng)
 
-    input_weight = input_weight === nothing ? params.input_weight : Float64(input_weight)
+    if input_amp !== nothing && input_weight !== nothing
+        throw(ArgumentError("pass only one of input_amp or input_weight"))
+    end
+    input_weight = input_amp !== nothing ? Float64(input_amp) :
+        input_weight === nothing ? params.input_weight : Float64(input_weight)
     input_wmat = input_weight .* Float64.(input_mask)
     output_wmat = Float64.(output_mask)
-
-    if axis isa Dale
-        weights = 1.0 .+ 0.2 .* randn(rng, n_nodes, n_nodes)
-        @inbounds for j in 1:n_nodes, i in 1:n_nodes
-            if weights[i, j] < 0.0
-                weights[i, j] = 0.0
-            end
-        end
-        wmat0 = Float64.(recurrent_mask) .* weights
-    else
-        wmat0 = Float64.(recurrent_mask) .* (params.weight_init_std .* randn(rng, n_nodes, n_nodes))
-    end
+    wmat0 = _initial_falandays_wmat(rng, recurrent_mask, axis, params, input_weight, weight_init_mode)
 
     source = noise_source === nothing ? _noise_source_from_seed(seed) : noise_source
 
