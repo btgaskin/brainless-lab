@@ -34,11 +34,13 @@ export interface FalandaysParams {
   targetFloor: number;
   /** Scales receptor current into the reservoir. Per-task in the paper; repo uses one shared value. */
   inputWeight: number;
-  /** Std of the N(0,std) recurrent weight initialization. Paper/repo default 1.0. */
+  /** Recurrent initialization used by the common Falandays task defaults. */
+  weightInitMode: 'excitatory' | 'pongMixed' | 'legacyNormal';
+  /** Std of the legacy N(0,std) recurrent weight initialization. */
   weightInitStd: number;
   /** Bernoulli connectivity probability for recurrent/input/output wiring. Repo default 0.1. */
   linkP: number;
-  /** Clip negative activations to 0 before the spike check (repo default true). */
+  /** Clip negative activations to 0 before the spike check. Authors' common-task default is false. */
   rectify: boolean;
   /**
    * Independent toggles beyond what the repo exposes (repo has one combined
@@ -57,9 +59,10 @@ export const DEFAULT_PARAMS: FalandaysParams = {
   thresholdMult: 2.0,
   targetFloor: 1.0,
   inputWeight: 1.875,
+  weightInitMode: 'excitatory',
   weightInitStd: 1.0,
   linkP: 0.1,
-  rectify: true,
+  rectify: false,
   learnWeights: true,
   learnTargets: true,
 };

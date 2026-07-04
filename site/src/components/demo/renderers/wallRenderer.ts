@@ -88,9 +88,11 @@ export class WallRenderer implements Renderer<WallSnapshot> {
     ctx.lineWidth = 1.5;
     for (const off of [Math.PI / 4, -Math.PI / 4]) {
       const a = snap.headingRad + off;
+      const sx = ax + Math.cos(a) * agentR;
+      const sy = ay + Math.sin(a) * agentR;
       ctx.beginPath();
-      ctx.moveTo(ax, ay);
-      ctx.lineTo(ax + Math.cos(a) * scale * 3, ay + Math.sin(a) * scale * 3);
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + Math.cos(a) * scale * 3, sy + Math.sin(a) * scale * 3);
       ctx.stroke();
     }
 

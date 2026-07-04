@@ -6,6 +6,7 @@ export interface ReadoutStripProps {
   nNodes: number;
   effectorOutputs: number[];
   tick: number;
+  taskScore?: { label: string; value: number };
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -18,7 +19,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 /** Live numbers, updated at a throttled rate (~10Hz in the real loop), never per-frame. */
-export function ReadoutStrip({ meanActivation, meanAbsError, meanTarget, spikeCount, nNodes, effectorOutputs, tick }: ReadoutStripProps) {
+export function ReadoutStrip({ meanActivation, meanAbsError, meanTarget, spikeCount, nNodes, effectorOutputs, tick, taskScore }: ReadoutStripProps) {
   return (
     <div className="flex flex-wrap gap-6 border-t border-grid bg-card px-4 py-3">
       <Stat label="tick" value={String(tick)} />
@@ -27,6 +28,7 @@ export function ReadoutStrip({ meanActivation, meanAbsError, meanTarget, spikeCo
       <Stat label="mean target" value={meanTarget.toFixed(3)} />
       <Stat label="spiking" value={`${spikeCount} / ${nNodes}`} />
       <Stat label="effectors" value={effectorOutputs.map((e) => e.toFixed(2)).join(', ')} />
+      {taskScore ? <Stat label={taskScore.label} value={taskScore.value.toFixed(3)} /> : null}
     </div>
   );
 }
