@@ -1,0 +1,16 @@
+---
+title: Nodes — overview
+description: The node families — Falandays (plastic), compartmental (evolved), SORN (experimental).
+---
+
+A **node** is the neuron model that fills a reservoir. Every node satisfies the same
+contract — `step!(r, R) → spikes`, `effectors(r, spikes) → E`, `reset!`,
+`n_receptors`, `n_effectors` — so any registered node builds for any task's dimensions.
+
+| Family | Plasticity | Prepared how |
+|---|---|---|
+| **Falandays** ([base vs extended](/nodes/falandays/)) | online homeostatic | fair **untrained** |
+| **Compartmental / CTRNN** | none (evolved fixed weights) | must be **evolved** |
+| **`:sorn`** (experimental) | STDP + intrinsic + normalisation | fair untrained |
+
+*(Stub — full family detail to be ported from `docs/nodes.md`.)*

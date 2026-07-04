@@ -1,0 +1,60 @@
+/* BrainlessLab visual identity — the same warm editorial palette as the figures
+   (src/viz/Style.jl): warm paper, teal accent, amber, ink. Overrides Starlight's
+   theme variables for both light and dark. */
+
+:root {
+  /* Brand palette */
+  --bl-paper: #fbfaf7;
+  --bl-ink: #24282b;
+  --bl-ink-soft: #52585d;
+  --bl-grid: #dedad0;
+  --bl-teal: #2f6f5e;
+  --bl-teal-ink: #1f4b3f;
+  --bl-amber: #9c6b1f;
+
+  /* Starlight accent = teal */
+  --sl-color-accent-low: #e5efe9;
+  --sl-color-accent: #2f6f5e;
+  --sl-color-accent-high: #1f4b3f;
+
+  /* Serif display headings to match the docs aesthetic */
+  --sl-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+}
+
+/* Light theme surfaces */
+:root[data-theme='light'] {
+  --sl-color-bg: var(--bl-paper);
+  --sl-color-bg-sidebar: #f2efe8;
+  --sl-color-bg-nav: var(--bl-paper);
+  --sl-color-text: var(--bl-ink);
+  --sl-color-text-accent: var(--bl-teal-ink);
+  --sl-color-gray-6: var(--bl-grid);
+  --sl-color-hairline: var(--bl-grid);
+}
+
+/* Dark theme: keep teal accent, warm-neutral ink surfaces */
+:root[data-theme='dark'] {
+  --sl-color-accent-low: #133128;
+  --sl-color-accent: #4f9f89;
+  --sl-color-accent-high: #cfe6dd;
+}
+
+/* Editorial serif for page + section headings */
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3,
+.content-panel h1 {
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* A "Source" callout linking a doc concept to its Julia implementation */
+.bl-source {
+  border-left: 3px solid var(--bl-teal);
+  background: color-mix(in srgb, var(--bl-teal) 6%, transparent);
+  padding: 0.5rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.9em;
+}
+.bl-source code { color: var(--bl-teal-ink); }

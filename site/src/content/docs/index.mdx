@@ -1,0 +1,51 @@
+---
+title: BrainlessLab
+description: Behaviour from collectives of simple neuron-like nodes — brainless cognition. A Diverse Intelligences Summer Institute 2026 project.
+template: splash
+hero:
+  tagline: Behaviour that emerges from collectives of simple neuron-like nodes — no homunculus, no hand-wired control. The same abstraction at every scale.
+  image:
+    file: ../../assets/brainless-lab.png
+  actions:
+    - text: Get started
+      link: /introduction/
+      icon: right-arrow
+    - text: The concepts
+      link: /concepts/
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+import FalandaysDemo from '../../components/FalandaysDemo.tsx';
+
+<FalandaysDemo client:load />
+
+## Two ways in
+
+<CardGrid>
+  <Card title="Cellular cognition" icon="seti:julia">
+    What can a single node design do? Test — and **evolve** — new neuron models
+    within a strict locality constraint, and look for general self-organising
+    competence. You **benchmark** node designs across tasks.
+  </Card>
+  <Card title="Collective intelligence" icon="puzzle">
+    What dynamics emerge in the collective — read both as a **network**
+    (nodes-in-a-reservoir) and a **multi-agent system** (agents-in-an-ensemble)?
+    You **profile** and **sweep** to map the dynamics.
+  </Card>
+</CardGrid>
+
+The two meet in the **cross-level analysis**: the same dynamical signatures —
+criticality, order, information flow — measured at the node scale and the agent
+scale, and asked whether they covary.
+
+:::note[Reservoir-computing *spirit*, not classical reservoir computing]
+These are recurrent spiking node-networks read out by simple effectors — but the
+Falandays weights **learn online**, the compartmental weights are **evolved**, and
+there is **no trained linear readout**. The name is a nod, not a claim.
+:::
+
+---
+
+A product of the **[Diverse Intelligences Summer Institute](https://disi.org) 2026**,
+Geneva NY — **Polyphony Bruna · Benjamin Gaskin · Ian Jackson · William O'Hearn**.

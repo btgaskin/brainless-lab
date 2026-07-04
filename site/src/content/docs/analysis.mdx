@@ -1,0 +1,19 @@
+---
+title: Analysis
+description: The analytic suite — criticality, collective, cross-level, and information measures, with equations and code references.
+---
+
+Every measure here will carry its **equation**, a one-line interpretation, and a
+**Source** callout to its Julia implementation. The suite spans three scales.
+
+- **Node-level** — branching ratio (the subsampling-robust MR estimator), avalanche size/duration exponents + the crackling-noise relation, spectral radius $\rho(W)$, per-node distance-to-target.
+- **Collective-level** — polarization, milling, cohesion, swarm regime, correlation length.
+- **Cross-level** — the *same* estimators computed at the node scale and the agent scale (agent-scale activity = per-tick turn-event counts), so node-vs-agent covariation is a plot; plus susceptibility, Fano factor, participation ratio at both levels.
+- **Information** — transfer entropy, within the node network and between agents.
+
+:::note
+A homeostatically rate-pinned $\sigma \approx 1$ is not by itself criticality — so
+$\sigma$ and $\rho(W)$ are shown together.
+:::
+
+*(Stub — each measure to get its own equation + code ref, authored from the sources in `src/analysis/`.)*

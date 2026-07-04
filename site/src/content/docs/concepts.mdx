@@ -1,0 +1,63 @@
+---
+title: Concepts — the ladder
+description: The core ontology of BrainlessLab — a ladder of collectives, the same abstraction at every scale.
+---
+
+BrainlessLab is a **ladder of collectives**: the same idea — a *population of locally
+coupled units* — appears at two scales, and everything else hangs off that spine.
+
+```text
+NodeModel → Reservoir → Body → Agent → Environment → Ensemble → Runner → Run
+             ▲ nodes in            ▲ a reservoir     ▲ agents in
+               a reservoir           in a body         a world
+```
+
+## The rungs
+
+- **Node / `NodeModel`** — the atomic neuron-like unit and its (evolvable) parameters. A Falandays node is a homeostatic leaky-integrate-and-fire unit.
+- **Reservoir** — a *population of nodes* + wiring (a `Connectome`) + dynamic state. The contract is `step!(r, R) → spikes`.
+- **Body** — the sensorimotor morphology: it turns a percept into receptor currents and effector outputs into actuation (`PassthroughBody` for single-agent tasks, `VENBody` for the swarm).
+- **Agent** — a reservoir *inside* a body.
+- **Environment** — the world the agent(s) live in: a `TaskEnvironment` (wrapping a single-agent `TaskWorld` like `WallEnv`) or a `TorusEnvironment` / `ForageEnvironment` for the swarm. The contract is `observe` / `actuate!`.
+- **Ensemble** — a *population of agents* in an Environment.
+- **Runner** — how it is executed over time: `Fixed`, `Plastic`, or `Evolve`, producing a recorded `Run`.
+
+## What is an Ensemble, exactly?
+
+An **`Ensemble` is a population of 1…N Agents in an Environment** — *not* necessarily
+many. A single-agent task is an **ensemble of one**, driven by the *identical*
+`step!(ensemble)` as a twelve-agent swarm:
+
+```julia
+simulate(:wall;   node=:falandays_base)              # ensemble of one
+simulate(:forage; node=:falandays_base, n_agents=12) # a swarm
+```
+
+That uniformity is the point: the single agent and the swarm are the same object at
+different `N`. The name is the **scale-free container** — "nodes within a reservoir,
+agents within an ensemble" made literal.
+
+<p class="bl-source">Source: <code>src/world/Ensemble.jl</code> — <code>Ensemble{E,A,B}</code> and <code>step!(::Ensemble)</code>.</p>
+
+## The sensorimotor contract
+
+Each tick, for every agent, the same pipeline runs — perceive first, then all move:
+
+```text
+percept ─receptors(body,·)→ R ─step!(reservoir,R)→ spikes
+        ─effectors(reservoir,·)→ E ─motor(body,·)→ actuation
+```
+
+`observe` computes every agent's percept from the *current* world **before** any agent
+moves, and `actuate!` commits all motions after. So there is no within-tick
+order-dependence — a synchronous, local update.
+
+## Locality & self-organisation (the core limit)
+
+The non-negotiable commitment: **local, self-organising, no homunculus.**
+
+- **Within a node**, coupling is "local without space" — at the level of dendrites and synapses, never a global signal.
+- **Between agents**, coupling is *only through the environment* — on the torus, agents influence each other purely by being **seen** (their sensor geometry *is* the interaction topology). There is no explicit alignment or attraction term; collective order is emergent.
+
+The two deliberate relaxations are opt-in and documented: physical collision
+resolution, and the within-agent normalisation of the receptor vector.

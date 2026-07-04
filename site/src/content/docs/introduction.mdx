@@ -1,0 +1,37 @@
+---
+title: Introduction
+description: What BrainlessLab is, the two angles, and a two-line quickstart.
+---
+
+BrainlessLab is an extensible Julia lab for **"brainless" cognition** — behaviour that
+emerges from collectives of simple neuron-like nodes, with no homunculus and no
+hand-wired control. It is a Diverse Intelligences Summer Institute 2026 project, built
+as infrastructure for others to run experiments.
+
+Two angles run through it: **cellular cognition** (test/evolve node designs, benchmark
+their self-organising competence) and **collective intelligence** (profile and sweep
+the dynamics, at the network *and* multi-agent scales). See [Concepts](/concepts/) for
+the ontology.
+
+## Quickstart
+
+```julia
+pkg> dev .            # from the brainless-lab/ directory
+pkg> add CairoMakie   # a Makie backend, for plotting
+
+using BrainlessLab, CairoMakie
+sim = simulate(:wall; node=:falandays_base, ticks=300)
+visualize(sim)
+```
+
+The compute core is Makie-free; plots load via a package extension when a backend is
+present. Use `--project=.` (an isolated environment) for `demo`/`bench`/`profile`/`sweep`.
+For `explore(...)` interactive windows you need `GLMakie` and a display; on a headless
+machine use the `--save` / CairoMakie path instead.
+
+:::note[Not classical reservoir computing]
+Recurrent spiking pools read out by simple effectors — but weights **adapt online**
+(Falandays) or are **evolved** (compartmental), and there is **no trained readout**.
+:::
+
+*(Stub — to be expanded from `docs/README.md` + `docs/onboarding.md`.)*

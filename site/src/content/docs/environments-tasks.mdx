@@ -1,0 +1,13 @@
+---
+title: Environments & Tasks
+description: Single-agent tasks and the swarm — their receptor/effector contracts and scoring.
+---
+
+The **task** fixes the `Environment` and the `(n_receptors, n_effectors)` the whole
+stack is built to. Single-agent tasks use a `PassthroughBody` over a `TaskWorld`; the
+swarm uses `VENBody` in a `TorusEnvironment` / `ForageEnvironment`.
+
+- **Single-agent**: `:wall`, `:tracking`, `:pong`, `:cartpole` (+ variants) — read as a normalized task score. Effector semantics are intentionally non-uniform per task.
+- **Swarm**: `:torus`, and `:forage` — a source seen via a second visual bank, with a **social-vs-blind** condition (agents that can see each other vs the same number that cannot). Read through swarm metrics.
+
+*(Stub — to be ported from `docs/tasks.md`, `docs/contracts.md`, `docs/collective.md`.)*

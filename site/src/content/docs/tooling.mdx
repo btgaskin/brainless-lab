@@ -1,0 +1,15 @@
+---
+title: Tooling
+description: The four verbs — benchmark, profile, sweep, ablate — and their outputs.
+---
+
+Four verbs, each with a distinct job and a standardized timestamped run-dir
+(`manifest.toml` + CSVs + figures in the house palette + behaviour GIFs + a README
+callout).
+
+- **`benchmark`** — one neuron vs the roster; **compare** performance *(the cellular-cognition workflow)*.
+- **`profile`** — one neuron, in-depth: the full analytic suite + behaviour GIF; **characterize** *(the collective-intelligence workflow)*.
+- **`sweep <config.toml>`** — **perturb** parameters and measure signatures across cells. Namespaced axes (`node.`/`env.`/`drive.`/`task.`/`ablation`/`seed`), one-at-a-time (default) or factorial, a cost preview + `max_cells` guard, and per-axis breakdown figures (score, σ, liveness vs the knob). `sweep --list-axes` shows what's tunable.
+- **`ablate <node> <task>`** — a config-free preset: baseline vs each registered ablation (`freeze_plasticity`, `zero_recurrent`, `clamp_target`, `disable_vision`).
+
+*(Stub — the sweep config walkthrough + example run-dirs to be authored here.)*

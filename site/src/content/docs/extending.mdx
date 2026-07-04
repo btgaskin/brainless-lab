@@ -1,0 +1,24 @@
+---
+title: Extending it
+description: Add your own node, task, metric, drive, or ablation — without forking.
+---
+
+Every surface has a registry: register a part under a symbol, then reference it. To add
+a node, implement the contract and `import` the generics (so your methods land on
+BrainlessLab's functions):
+
+```julia
+import BrainlessLab: step!, effectors, reset!, n_receptors, n_effectors
+
+struct MyNode <: Reservoir  # ... end
+
+register_node!(:mynode, (n, r, e; seed=0, kwargs...) -> MyNode(...);
+               genome_type = MyNodeParams)   # so evolve() can find its genome
+simulate(:wall; node=:mynode)
+```
+
+The same `register_*!` pattern applies to tasks, drives, bodies, metrics, analyses,
+ablations, views, and optimizers. Keep evolvable parameters (`pack_params`) separate
+from runtime state (`snapshot_state`).
+
+*(Stub — the full extension contract + the `examples/templates/new_project` walkthrough to be ported from `docs/contracts.md`.)*

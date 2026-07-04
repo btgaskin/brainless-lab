@@ -1,0 +1,99 @@
+---
+title: "Falandays: base vs extended"
+description: The homeostatic spiking reservoir — its exact update and learning equations, and the base-vs-extended contrast.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import FalandaysDemo from '../../../components/FalandaysDemo.tsx';
+
+The **Falandays** node is a homeostatic, online-plastic leaky-integrate-and-fire unit.
+A reservoir of them **learns during the rollout** — which is why it is *fair to run
+untrained*: behaviour self-organises with no outer optimiser. Two presets share the
+exact same neuron update and differ only in their **substrate**.
+
+<FalandaysDemo client:load />
+
+## The update (per node $i$, per tick)
+
+The membrane potential leaks, then integrates input and recurrent current:
+
+$$
+a_i \;\leftarrow\; a_i\,(1-\lambda) \;+\; \underbrace{\textstyle\sum_r W^{\text{in}}_{ri}\,R_r}_{\text{input}} \;+\; \underbrace{\textstyle\sum_j W_{ji}\,s^{\text{prev}}_j}_{\text{recurrent}}
+$$
+
+with leak $\lambda = 0.25$. A node fires when it crosses its threshold
+$T'_i = \mu\,T_i$ (multiplier $\mu = 2$), and **resets by subtraction**:
+
+$$
+s_i = \mathbb{1}\!\left[a_i \ge \mu T_i\right], \qquad a_i \leftarrow a_i - \mu T_i \ \text{ if } s_i = 1 .
+$$
+
+## Homeostatic learning (each tick)
+
+The **error** is the post-spike distance from set-point, $e_i = a_i - T_i$. Two local
+updates drive the node toward homeostasis:
+
+$$
+\Delta W_{ij} = -\,\frac{e_j}{N^{\text{act}}_j}\,\eta_W \ \text{ over active presynaptic } i, \qquad
+T_i \leftarrow \max\!\big(T_{\min},\; T_i + \eta_T\, e_i\big)
+$$
+
+The weight error is shared over $N^{\text{act}}_j$, the number of *currently active*
+presynaptic inputs to $j$ ($\eta_W = 0.1$, $\eta_T = 0.01$, $T_{\min}=1$). Both are
+local: a node aggregates only its own afferents.
+
+<p class="bl-source">Source: the membrane update, threshold, and spike in <code>src/nodes/Falandays.jl</code> (<code>step!</code>); the homeostatic rules in <code>src/nodes/Axes.jl</code> (<code>learn!</code>, <code>_update_targets!</code>).</p>
+
+:::caution[Paper fidelity]
+The 2021 Falandays paper's equation 5 lost its numeric coefficient in a copy/paste
+(as did the connection-probability symbols). BrainlessLab uses $\eta_W = 0.1$ from the
+numpy reference it is bit-exact with — so "paper-faithful" here means *faithful to the
+implemented reference*, with the ambiguity stated rather than guessed.
+:::
+
+## base vs extended
+
+Same neuron, same equations — the difference is the **substrate** the reservoir is
+built on.
+
+<Tabs>
+  <TabItem label=":falandays_base">
+    The plain paper model: **Bernoulli** recurrent wiring, **unsigned** weights, no
+    sensory noise. Input-driven homeostatic reservoir. The settled, paper-faithful
+    baseline.
+
+    ```julia
+    simulate(:wall; node=:falandays_base, ticks=300)
+    ```
+  </TabItem>
+  <TabItem label=":falandays_extended">
+    The paper's **extended** model: the same neuron with a richer substrate —
+
+    - **sensory input noise** ($\text{Uniform}(\pm 0.1)$ on the receptor vector),
+    - **Watts–Strogatz** small-world recurrent wiring,
+    - **Dale's law** — each node is fixed excitatory or inhibitory.
+
+    ```julia
+    simulate(:wall; node=:falandays_extended, ticks=300)
+    ```
+  </TabItem>
+</Tabs>
+
+The base constants: $\lambda=0.25$, $\eta_W=0.1$, $\eta_T=0.01$, $\mu=2$, $T_{\min}=1$,
+input weight $1.875$, weight-init std $1$ — the 7-scalar evolvable genome.
+
+## The Oosawa drive (a variant, for contrast)
+
+`:falandays_oosawa` is *not* a substrate change — it adds a term to the update: a
+**target-gated membrane noise** that keeps a blind network alive by variance, not by
+deterministic self-excitation.
+
+$$
+a_i \leftarrow a_i + \eta_i\,\sigma_i, \qquad \sigma_i = \text{noise}_0 + g\cdot\max\!\big(0,\; \mu T_i - a_i\big),\quad \eta_i \sim \mathcal N(0,1)
+$$
+
+When a node sits below its firing threshold (starved), $\sigma_i$ grows and it keeps
+randomly crossing threshold; at set-point $\sigma_i \to \text{noise}_0$. So `oosawa`
+belongs on a *dynamics* page, not the base↔extended substrate contrast.
+
+<p class="bl-source">Source: <code>src/nodes/Drives.jl</code> (<code>apply_drive!(::OosawaDrive, …)</code>).</p>
