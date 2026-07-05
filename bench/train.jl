@@ -1,5 +1,21 @@
 #!/usr/bin/env julia
 
+# Re-exec with a higher thread count so independent rollouts spread across
+# cores. Unlike the other entry scripts' `-t auto` (measured only 4 threads on
+# this 10-core box), default to a fixed floor of 8 -- override with
+# BRAINLESSLAB_THREADS, or pin JULIA_NUM_THREADS yourself to skip this.
+if Threads.nthreads() == 1 &&
+   !haskey(ENV, "JULIA_NUM_THREADS") &&
+   get(ENV, "BRAINLESSLAB_AUTOTHREADS", "1") != "0"
+    n = get(ENV, "BRAINLESSLAB_THREADS", "8")
+    _cmd = addenv(
+        `$(Base.julia_cmd()) --threads=$(n) --project=$(Base.active_project()) $(abspath(PROGRAM_FILE)) $(ARGS)`,
+        "BRAINLESSLAB_AUTOTHREADS" => "0",
+    )
+    _proc = run(ignorestatus(_cmd))
+    exit(_proc.exitcode)
+end
+
 include("Benchmark.jl")
 
 using .Benchmark

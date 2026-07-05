@@ -27,6 +27,8 @@ include("test_replay.jl")
 include("test_examples.jl")
 include("test_sepcma.jl")
 include("test_evolve.jl")
+include("test_multiobjective.jl")
+include("test_qualitydiversity.jl")
 include("test_sweep.jl")
 include("test_run.jl")
 

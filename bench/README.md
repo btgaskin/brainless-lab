@@ -30,6 +30,29 @@ Stored genomes are written to:
     bench/genomes/<neuron>__<task>/genome.jld2
     bench/genomes/<neuron>__<task>/train_manifest.toml
 
+Train one generalist genome across all core tasks at once with NSGA-II
+(multi-objective -- each task is a separate maximized objective, never
+scalarized into a single fitness number):
+
+    julia --project=. train_moo.jl
+
+The Pareto-front member with the highest mean objective is saved identically
+under every task cell:
+
+    bench/genomes/compartmental_structured_nsga__<task>/genome.jld2
+    bench/genomes/compartmental_structured_nsga__<task>/train_manifest.toml
+
+Train one generalist genome with CMA-ME (quality-diversity -- a MAP-Elites
+archive keyed by discretized per-task scores, filled by sep-CMA-ES
+"improvement emitters"):
+
+    julia --project=. train_qd.jl
+
+The highest-quality archive elite is saved identically under every task cell:
+
+    bench/genomes/compartmental_structured_cmame__<task>/genome.jld2
+    bench/genomes/compartmental_structured_cmame__<task>/train_manifest.toml
+
 Run outputs are written to:
 
     bench/runs/<UTCstamp>_<shortgit>_<id>/

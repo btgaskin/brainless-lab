@@ -63,6 +63,8 @@ include("drivers/Driver.jl")
 include("tasks/Calibration.jl")
 include("drivers/Parallel.jl")
 include("drivers/Evolve.jl")
+include("drivers/MultiObjective.jl")
+include("drivers/QualityDiversity.jl")
 include("drivers/Fixed.jl")
 include("drivers/Plastic.jl")
 include("run/Config.jl")
@@ -361,7 +363,10 @@ export SepCMA,
     PlasticRunner,
     rollout,
     evolve,
-    find_alive_centroid
+    find_alive_centroid,
+    nsga2,
+    cma_me,
+    MEArchive
 
 export RunConfig,
     read_config,
@@ -419,6 +424,11 @@ register_node!(:falandays_delayed, _falandays_delayed_native; genome_type=Faland
 register_node!(:sorn, _sorn_native; genome_type=SORNParams)
 register_node!(:compartmental_dense, _compartmental_dense_native; genome_type=DenseCompartmental)
 register_node!(:compartmental_structured, _compartmental_structured_native; genome_type=StructuredCompartmental)
+# Bench roster aliases for compartmental_structured genomes found by the NSGA-II /
+# CMA-ME multi-task drivers (identical dynamics/genome_type; only the trained
+# genome bench loads differs) -- see bench/train_moo.jl / bench/train_qd.jl.
+register_node!(:compartmental_structured_nsga, _compartmental_structured_native; genome_type=StructuredCompartmental)
+register_node!(:compartmental_structured_cmame, _compartmental_structured_native; genome_type=StructuredCompartmental)
 register_node!(:null_random, NullRandomReservoir)
 
 register_task!(:wall, WALL_TASK)
