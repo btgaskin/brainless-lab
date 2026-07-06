@@ -520,10 +520,10 @@ end
 function metrics(env::CartPoleEnv, window::Integer=default_window(env))
     return (
         name="cartpole",
-        score=Float64(env.step_count / default_ticks(env)),
+        score=Float64(env.step_count / window),
         steps_balanced=env.step_count,
         ticks=env.step_count,
-        fell=env.done && env.step_count < default_ticks(env),
+        fell=env.done && env.step_count < window,
         xy_path=nothing,
     )
 end
