@@ -85,8 +85,30 @@ built on.
   </TabItem>
 </Tabs>
 
-The base constants: $\lambda=0.25$, $\eta_W=0.1$, $\eta_T=0.01$, $\mu=2$, $T_{\min}=1$,
-input weight $1.875$, weight-init std $1$ — the 7-scalar evolvable genome.
+The 7-scalar evolvable genome's own defaults: $\lambda=0.25$, $\eta_W=0.1$, $\eta_T=0.01$,
+$\mu=2$, $T_{\min}=1$, input weight $1.875$, weight-init std $1$. These are what you get
+off-task (evolution, or any task with no registered paper config) — **not** what
+`:falandays_base` actually runs with on `:wall`/`:tracking`/`:pong`. For those three,
+`simulate` injects the task's own authors-faithful constants
+(`falandays_paper_config(task)`, checked directly against the original authors' Julia
+source, not just the numpy port): e.g. on `:wall`, $\eta_W=1.0$ and input weight $4.0$
+(not $0.1$/$1.875$) — $\eta_W$ is task-dependent ($1.0$ for wall/tracking/pong, $0.10$ for
+the collective condition) per a since-corrected bug in the authors' own code (their
+commit `ba56475`: an earlier `.01` "was actually not being applied" and the true rate was
+$1.0$). See `falandays_paper_config(:wall)` (and `:tracking`/`:pong`/`:collective`) for the
+full per-task table.
+
+The injection is **single-agent-only**: `:wall`/`:tracking`/`:pong` get it, but a swarm run
+— `simulate(:torus; node=:falandays_base, ...)` or `simulate(:forage; node=:falandays_base, ...)`
+— does not, even though a `:collective` entry exists in that table. `:collective` is the
+authors' recorded swarm constants for reference (and for anyone composing them by hand); it
+is not read by `simulate` today, so a swarm `:falandays_base` run gets the plain
+off-task defaults above, not $\eta_W=0.10$. Note also that `:collective`'s
+`weight_init_mode` (`:collective_dale_smallworld`) isn't one of the three modes
+`FalandaysReservoir` actually implements (`:excitatory`, `:pong_mixed`, `:legacy_normal`) —
+replicating the authors' swarm condition faithfully means composing the equivalent
+axes yourself (`sign=:dale`, `topology=:watts_strogatz`, plus the table's `input_amp`/`lrate_wmat`),
+not passing that mode value directly.
 
 ## The Oosawa drive (a variant, for contrast)
 

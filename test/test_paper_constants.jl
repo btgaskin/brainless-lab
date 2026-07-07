@@ -11,9 +11,9 @@ using Test
     @test wall.lrate_wmat == 1.0
     @test wall.lrate_targ == 0.01
     @test wall.weight_init_mode === :excitatory
-    @test wall.sensory_noise == 0.1
-    @test wall.sensory_noise_assumption
-    @test !wall.clip_sensory_noise
+    @test wall.sensory_noise == 0.0
+    @test !wall.sensory_noise_assumption
+    @test wall.clip_sensory_noise
 
     tracking = falandays_paper_config(:tracking)
     @test tracking.nnodes == 200
@@ -81,20 +81,20 @@ end
     wall_setup = BrainlessLab._build_ensemble(:wall, :falandays; ticks=1, seed=10, record=Symbol[])
     wall_env = wall_setup.ensemble.environment.world
     @test wall_env isa WallEnv
-    @test wall_env.sensory_noise == 0.1
-    @test wall_env.clip_sensory_noise == false
+    @test wall_env.sensory_noise == 0.0
+    @test wall_env.clip_sensory_noise == true
 
-    quiet_wall = BrainlessLab._build_ensemble(
+    noisy_wall = BrainlessLab._build_ensemble(
         :wall,
         :falandays;
         ticks=1,
         seed=10,
         record=Symbol[],
-        sensory_noise=0.0,
-        clip_sensory_noise=true,
+        sensory_noise=0.1,
+        clip_sensory_noise=false,
     ).ensemble.environment.world
-    @test quiet_wall.sensory_noise == 0.0
-    @test quiet_wall.clip_sensory_noise == true
+    @test noisy_wall.sensory_noise == 0.1
+    @test noisy_wall.clip_sensory_noise == false
 
     override = BrainlessLab._build_ensemble(
         :wall,

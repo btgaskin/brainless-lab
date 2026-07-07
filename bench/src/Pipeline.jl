@@ -53,13 +53,22 @@ const PANELS = Dict(
     :cartpole_swingup => [:raster, :rate],
     :cartpole_long => [:raster, :rate],
     :torus => [:raster, :rate, :swarm],
+    :forage => [:raster, :rate, :swarm],
 )
+
+# `rollout()` (the scoring path for every other task) asserts on a single-agent
+# TaskSpec and cannot build a swarm ensemble. `:forage` is a swarm task but IS
+# registered with a normalized score (`normalized_forage_score`, floor/ceiling
+# in src/tasks/Tasks.jl); `:torus` has no such score, so it stays out of bench.
+const _BENCH_SWARM_TASKS = Set{Symbol}((:forage,))
+_is_swarm_bench_task(task::Symbol) = task in _BENCH_SWARM_TASKS
 
 Base.@kwdef struct BenchConfig
     neurons::Vector{Symbol}
     tasks::Vector{Symbol}
     n_trials::Int
     n_nodes::Int
+    n_agents::Int
     ticks::Int
     seed_base::Int
     baseline::Symbol
@@ -178,6 +187,7 @@ function read_bench_config(path::AbstractString=default_config_path();
         tasks=tasks,
         n_trials=Int(_get(data, "n_trials", 20)),
         n_nodes=Int(_get(data, "n_nodes", 120)),
+        n_agents=Int(_get(data, "n_agents", 8)),
         ticks=Int(_get(data, "ticks", 300)),
         seed_base=Int(_get(data, "seed_base", 1000)),
         baseline=Symbol(_get(data, "baseline", "falandays_base")),
@@ -194,6 +204,7 @@ function _config_dict(cfg::BenchConfig)
         "tasks" => String.(cfg.tasks),
         "n_trials" => cfg.n_trials,
         "n_nodes" => cfg.n_nodes,
+        "n_agents" => cfg.n_agents,
         "ticks" => cfg.ticks,
         "seed_base" => cfg.seed_base,
         "baseline" => String(cfg.baseline),
@@ -207,11 +218,34 @@ _is_falandays(neuron::Symbol) = startswith(String(neuron), "falandays")
 _is_compartmental(neuron::Symbol) = startswith(String(neuron), "compartmental")
 _model_family(neuron::Symbol) = _is_compartmental(neuron) ? :compartmental : :falandays
 
-function _default_model(neuron::Symbol)
+function _default_model(neuron::Symbol, task::Symbol)
+    # `simulate(task; node=:falandays_base)` injects the task's authors-faithful
+    # paper-config constants (lrate_wmat, lrate_targ, input_amp -- see
+    # src/api/paper_config.jl / _apply_falandays_task_defaults!) for
+    # :falandays/:falandays_base only, on tasks with a registered paper config
+    # (wall/tracking/pong). `rollout()` (used below) is given an explicit model
+    # and never applies that injection itself, so without this, the "untrained"
+    # falandays_base cell -- bench's DEFAULT baseline -- would silently run with
+    # generic FalandaysParams() (e.g. lrate_wmat=0.1 instead of wall's 1.0)
+    # rather than what a user actually gets from plain `simulate()`.
+    if neuron in (:falandays, :falandays_base) && BrainlessLab._has_falandays_paper_config(task)
+        cfg = BrainlessLab.falandays_paper_config(BrainlessLab._falandays_config_key(task))
+        return BrainlessLab.FalandaysParams(lrate_wmat=cfg.lrate_wmat, lrate_targ=cfg.lrate_targ, input_weight=cfg.input_amp)
+    end
     _is_falandays(neuron) && return BrainlessLab.FalandaysParams()
     neuron == :compartmental_dense && return zeros(Float64, BrainlessLab.paramdim(BrainlessLab.DenseCompartmental))
     neuron == :compartmental_structured && return zeros(Float64, BrainlessLab.paramdim(BrainlessLab.StructuredCompartmental))
-    return BrainlessLab.FalandaysParams()
+    # Any other node family: build its default genome from its own registered
+    # genome_type rather than assuming Falandays. Nodes with no genome_type
+    # (e.g. :null_random) never consult this value (see _node_kwargs_for_model),
+    # so the FalandaysParams() fallback there is dead but harmless.
+    try
+        genome_T = BrainlessLab.genome_type(neuron)
+        return genome_T()
+    catch e
+        e isa ArgumentError || rethrow()
+        return BrainlessLab.FalandaysParams()
+    end
 end
 
 function _genome_kwargs(neuron::Symbol, genome)
@@ -236,8 +270,10 @@ function _cell_meta(cfg::BenchConfig, neuron::Symbol, task::Symbol)
 end
 
 function _run_cell(cfg::BenchConfig, meta::CellMeta)
+    _is_swarm_bench_task(meta.task) && return _run_swarm_cell(cfg, meta)
+
     task_spec = BrainlessLab.resolve_task(meta.task)
-    model = meta.prep == :trained ? meta.genome : _default_model(meta.neuron)
+    model = meta.prep == :trained ? meta.genome : _default_model(meta.neuron, meta.task)
 
     rows = BrainlessLab.parallel_map(1:cfg.n_trials) do trial
         seed = cfg.seed_base + trial
@@ -260,6 +296,55 @@ function _run_cell(cfg::BenchConfig, meta::CellMeta)
             Float64(out.norm_score),
             Bool(out.alive),
             Float64(out.rate_mean),
+        )
+    end
+
+    return rows
+end
+
+_forage_raw_score(sim) = hasproperty(sim.metrics, :forage_score) ? Float64(sim.metrics.forage_score) : NaN
+_swarm_alive(sim) = hasproperty(sim.metrics, :alive) ? Bool(sim.metrics.alive) : true
+_swarm_rate_mean(sim) = hasproperty(sim.metrics, :rate_mean) ? Float64(sim.metrics.rate_mean) : NaN
+
+function _swarm_normalized_score(task::Symbol, raw::Real)
+    isnan(raw) && return NaN
+    task === :forage && return Float64(BrainlessLab.normalized_forage_score(raw))
+    throw(ArgumentError("no normalized score defined for swarm bench task :$(task)"))
+end
+
+# `simulate()` -- not `rollout()` -- builds a swarm ensemble, so a forage cell is
+# scored by driving simulate() directly and reading the task's own registered
+# metric off `sim.metrics`, rather than through the single-agent rollout() path
+# above. `_node_kwargs_for_model` is the same dispatcher rollout() uses
+# internally, so a genome (trained or the untrained default) is threaded into
+# the node identically to every other task -- no per-neuron special-casing here.
+function _run_swarm_cell(cfg::BenchConfig, meta::CellMeta)
+    model = meta.prep == :trained ? meta.genome : _default_model(meta.neuron, meta.task)
+    node_kwargs = BrainlessLab._node_kwargs_for_model(meta.neuron, model)
+
+    rows = BrainlessLab.parallel_map(1:cfg.n_trials) do trial
+        seed = cfg.seed_base + trial
+        sim = BrainlessLab.simulate(
+            meta.task;
+            node=meta.neuron,
+            n_agents=cfg.n_agents,
+            n_nodes=cfg.n_nodes,
+            ticks=cfg.ticks,
+            seed=seed,
+            node_kwargs=node_kwargs,
+        )
+        raw = _forage_raw_score(sim)
+        return TrialRow(
+            meta.neuron,
+            meta.task,
+            trial,
+            seed,
+            meta.prep,
+            meta.flagged,
+            raw,
+            _swarm_normalized_score(meta.task, raw),
+            _swarm_alive(sim),
+            _swarm_rate_mean(sim),
         )
     end
 
@@ -398,6 +483,8 @@ function _simulate_kwargs(meta::CellMeta, cfg::BenchConfig, seed::Integer)
         :ticks => cfg.ticks,
         :record => RECORD_CHANNELS,
     )
+
+    _is_swarm_bench_task(meta.task) && (kwargs[:n_agents] = cfg.n_agents)
 
     if meta.prep == :trained && meta.genome !== nothing
         for (key, value) in _genome_kwargs(meta.neuron, meta.genome)
@@ -722,6 +809,9 @@ function _write_report(path::AbstractString, cfg::BenchConfig, summaries, stats_
         println(io)
         println(io, "## Caveat")
         println(io, "Falandays-family cells default to untrained online-plastic rollouts, where wiring is seeded per trial and learning occurs during the rollout. Compartmental or other non-plastic cells default to trained genomes because untrained weights are not a meaningful fair baseline. If a trained-required genome was missing, the cell was run with the untrained fallback and flagged.")
+        if any(_is_swarm_bench_task, cfg.tasks)
+            println(io, "Swarm tasks (`:forage`) are scored by driving `simulate` directly rather than the single-agent `rollout` path, with `n_agents = $(cfg.n_agents)` agents per trial; `:falandays_base`/`:falandays` do **not** receive the authors' single-agent paper-config injection here (that injection is single-agent-only in `simulate` itself), so its forage cell runs with plain `FalandaysParams()` defaults, not a swarm-specific authors' constant.")
+        end
     end
 
     return path
@@ -731,7 +821,7 @@ function _run_id(cfg::BenchConfig)
     parts = String[]
     append!(parts, String.(cfg.neurons))
     append!(parts, String.(cfg.tasks))
-    append!(parts, string.([cfg.n_trials, cfg.n_nodes, cfg.ticks, cfg.seed_base, cfg.alpha, cfg.gifs]))
+    append!(parts, string.([cfg.n_trials, cfg.n_nodes, cfg.n_agents, cfg.ticks, cfg.seed_base, cfg.alpha, cfg.gifs]))
     append!(parts, [String(cfg.baseline)])
     for pair in sort(collect(cfg.prep); by=pair -> String(pair.first))
         push!(parts, "$(String(pair.first))=$(String(pair.second))")
@@ -773,6 +863,15 @@ function _tool_package_versions(project_dir::AbstractString)
 end
 
 function _manifest_run_config(cfg::BenchConfig)
+    # RunConfig/resolve (the shared run/ manifest schema) only represents
+    # single-agent TaskSpec tasks, so a swarm task like :forage can't appear in
+    # its task.train/.suite. That's fine: the true task list (forage included)
+    # is already recorded verbatim in manifest["bench"]["tasks"] via
+    # _config_dict below -- this RunConfig snapshot is just the shared-schema
+    # provenance section, not the source of truth for what was benchmarked.
+    single_agent_tasks = [task for task in cfg.tasks if !_is_swarm_bench_task(task)]
+    manifest_tasks = isempty(single_agent_tasks) ? [:wall] : single_agent_tasks
+
     return BrainlessLab.resolve(BrainlessLab.RunConfig(
         run=BrainlessLab.RunSection(
             name="bench_grid",
@@ -786,8 +885,8 @@ function _manifest_run_config(cfg::BenchConfig)
             node=cfg.baseline,
         ),
         task=BrainlessLab.TaskSection(
-            train=Tuple(cfg.tasks),
-            suite=Tuple(cfg.tasks),
+            train=Tuple(manifest_tasks),
+            suite=Tuple(manifest_tasks),
             aggregator=:mean,
             N=cfg.n_nodes,
             ticks=cfg.ticks,
@@ -846,12 +945,12 @@ function _manifest_dict(cfg::BenchConfig, run_info)
     return manifest
 end
 
-function _overall_ranking(cfg::BenchConfig, summaries)
+function _overall_ranking(summaries, neurons, tasks_)
     lookup = _summary_lookup(summaries)
     rows = NamedTuple[]
-    for neuron in cfg.neurons
+    for neuron in neurons
         values = Float64[]
-        for task in cfg.tasks
+        for task in tasks_
             row = lookup[(neuron, task)]
             isfinite(Float64(row.mean)) && push!(values, Float64(row.mean))
         end
@@ -864,18 +963,31 @@ function _overall_ranking(cfg::BenchConfig, summaries)
     return sort(rows; by=row -> (isfinite(row.mean) ? row.mean : -Inf), rev=true)
 end
 
+# A single-agent normalized score and a multi-agent/ensemble one (:forage) are
+# not the same quantity -- one scores an individual sensorimotor behavior, the
+# other a collective outcome shared across n_agents. Blending them into one
+# "mean across all tasks" ranking silently averages apples with oranges, so the
+# overall ranking is reported once per group instead of once for cfg.tasks.
 function _write_readme(path::AbstractString, cfg::BenchConfig, summaries, stats_data)
-    ranking = _overall_ranking(cfg, summaries)
-    top = isempty(ranking) ? nothing : first(ranking)
+    single_tasks = [task for task in cfg.tasks if !_is_swarm_bench_task(task)]
+    multi_tasks = [task for task in cfg.tasks if _is_swarm_bench_task(task)]
+    groups = NamedTuple[]
+    isempty(single_tasks) || push!(groups, (label="Single-Agent Tasks", tasks=single_tasks))
+    isempty(multi_tasks) || push!(groups, (label="Multi-Agent / Ensemble Tasks", tasks=multi_tasks))
+
     flagged = [row for row in summaries if !isempty(row.flagged)]
 
     open(path, "w") do io
         println(io, "# Benchmark run")
         println(io)
-        if top === nothing || !isfinite(top.mean)
-            println(io, "> Ranking: no finite benchmark scores were produced.")
-        else
-            println(io, "> Ranking: `:$(top.neuron)` leads across $(top.n_tasks) task(s) with mean normalized score $(_fmt(top.mean)).")
+        for group in groups
+            ranking = _overall_ranking(summaries, cfg.neurons, group.tasks)
+            top = isempty(ranking) ? nothing : first(ranking)
+            if top === nothing || !isfinite(top.mean)
+                println(io, "> $(group.label) ranking: no finite benchmark scores were produced.")
+            else
+                println(io, "> $(group.label) ranking: `:$(top.neuron)` leads across $(top.n_tasks) task(s) with mean normalized score $(_fmt(top.mean)).")
+            end
         end
         println(io)
         println(io, "Job: cross-node comparison. Scores are baseline-relative/statistical evidence inputs, not a single-node analytic profile.")
@@ -886,13 +998,17 @@ function _write_readme(path::AbstractString, cfg::BenchConfig, summaries, stats_
         println(io, "- `stats.json` -- omnibus, pairwise, and baseline-relative nonparametric tests.")
         println(io, "- `figures/` -- house-palette comparison heatmap and task bars.")
         println(io, "- `cells/` -- per-cell scores, representative figure, and best/representative/worst GIFs when enabled.")
-        println(io)
-        println(io, "## Overall Ranking")
-        println(io)
-        println(io, "| rank | neuron | mean normalized score | tasks |")
-        println(io, "|---:|---|---:|---:|")
-        for (i, row) in enumerate(ranking)
-            println(io, "| $(i) | `:$(row.neuron)` | $(_fmt(row.mean)) | $(row.n_tasks) |")
+
+        for group in groups
+            ranking = _overall_ranking(summaries, cfg.neurons, group.tasks)
+            println(io)
+            println(io, "## Overall Ranking — $(group.label)")
+            println(io)
+            println(io, "| rank | neuron | mean normalized score | tasks |")
+            println(io, "|---:|---|---:|---:|")
+            for (i, row) in enumerate(ranking)
+                println(io, "| $(i) | `:$(row.neuron)` | $(_fmt(row.mean)) | $(row.n_tasks) |")
+            end
         end
         println(io)
         println(io, "Baseline: `:$(cfg.baseline)`; alpha = $(cfg.alpha); trials per cell = $(cfg.n_trials).")

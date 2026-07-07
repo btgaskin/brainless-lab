@@ -70,6 +70,32 @@ cells connect more readily. → `:falandays_delayed` gives per-edge conduction d
 kernel. `:falandays_hemispheric` uses that embedding for two contralaterally-wired
 half-brains.
 
+**Connection kernel.** `kernel=:exp` (default, $p(d) = p_0 e^{-d/\lambda}$) or
+`kernel=:power_law` ($p(d) = p_0/(1+d/d_0)^\alpha$ — bounded at $p_0$ as $d\to0$, no
+singularity, and a heavier tail than the exponential for $d \gg d_0$, i.e. more
+long-range connections at a given density). Applies to both node families.
+
+**Effector wiring.** By default (`effector_wiring=:bernoulli`) node-effector links are a
+flat `Bernoulli(link_p)`, independent of geometry. `effector_wiring=:spatial` anchors
+effectors in the same metric space (mirrored left/right for `:falandays_hemispheric`, so
+laterality is preserved) and draws their connection probability from the same kernel as
+recurrent wiring — a real effector, not just a node, has a location.
+
+**Hemispheric integration.** `callosum_density` sets the probability of a bidirectional
+homotopic cross-hemisphere recurrent link per node pair (`0.0` = fully isolated
+hemispheres); it is a flat coin flip, independent of `kernel`, and stacks with the
+within-hemisphere kernel-based wiring. `contralateral` (default `true`) controls whether
+receptor/effector wiring crosses the midline (as in real cortex) or stays same-side.
+
+```julia
+simulate(:wall; node=:falandays_spatial,
+    node_kwargs=(kernel=:power_law, alpha=2.0, d0=0.3, effector_wiring=:spatial))
+simulate(:wall; node=:falandays_hemispheric,
+    node_kwargs=(kernel=:power_law, callosum_density=0.25, contralateral=true))
+```
+
+<p class="bl-source">Source: <code>src/nodes/Spatial.jl</code> (<code>PowerLawKernel</code>, <code>build_spatial_connectome</code>, <code>build_hemispheric_connectome</code>); sweep axes: <code>node.kernel</code>, <code>node.p0</code>, <code>node.lambda</code>/<code>node.d0</code>/<code>node.alpha</code>, <code>node.effector_wiring</code>, <code>node.callosum_density</code>, <code>node.contralateral</code>.</p>
+
 ## Endogenous / spontaneous activity
 
 Some cells generate spikes with no external input at all — a metabolically-powered,

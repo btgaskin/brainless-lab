@@ -524,6 +524,19 @@ function sweepable_axes(node=:falandays_base, task=:wall)
         push!(out, SweepAxisInfo(path="node.link_p", default=0.1, range="0.0..1.0", description="random recurrent/input/output graph density"))
         push!(out, SweepAxisInfo(path="drive.noise_gain", default=0.0, range=">= 0", description="Oosawa target-deficit membrane noise gain"))
         push!(out, SweepAxisInfo(path="drive.membrane_noise", default=0.0, range=">= 0", description="Oosawa constant membrane noise floor"))
+        if node_sym === :falandays_spatial || node_sym === :falandays_hemispheric
+            push!(out, SweepAxisInfo(path="node.kernel", default="exp", range="exp|power_law", description="spatial connection-probability decay kernel"))
+            push!(out, SweepAxisInfo(path="node.p0", default=0.5, range="0.0..1.0", description="kernel connection probability at distance 0"))
+            push!(out, SweepAxisInfo(path="node.lambda", default=0.3, range="> 0", description="exponential kernel length scale (kernel=exp)"))
+            push!(out, SweepAxisInfo(path="node.d0", default=0.3, range="> 0", description="power-law kernel reference length scale (kernel=power_law)"))
+            push!(out, SweepAxisInfo(path="node.alpha", default=2.0, range="> 0", description="power-law kernel decay exponent (kernel=power_law)"))
+            push!(out, SweepAxisInfo(path="node.extent", default=1.0, range="> 0", description="metric space side length"))
+            push!(out, SweepAxisInfo(path="node.effector_wiring", default="bernoulli", range="bernoulli|spatial", description="node-effector wiring: flat Bernoulli(link_p) or kernel distance-decay"))
+        end
+        if node_sym === :falandays_hemispheric
+            push!(out, SweepAxisInfo(path="node.callosum_density", default=0.0, range="0.0..1.0", description="cross-hemisphere homotopic recurrent link probability"))
+            push!(out, SweepAxisInfo(path="node.contralateral", default=true, range="true|false", description="contralateral vs ipsilateral body/region wiring"))
+        end
     elseif _is_compartmental_node(node_sym)
         push!(out, SweepAxisInfo(path="node.raw_scale", default=0.25, range=">= 0", description="random compartmental genome scale"))
         push!(out, SweepAxisInfo(path="node.link_p", default=0.1, range="0.0..1.0", description="compartmental recurrent graph density"))
@@ -1814,7 +1827,15 @@ function _write_readme(path::AbstractString, id, base::SweepBaseline, rows, axis
         println(io, "Note: `sigma_mr` and `spectral_radius` should be read together. Falandays' sigma can be partly homeostatically rate-pinned, so rho(W) is the complementary read.")
         println(io)
         println(io, "## Callouts")
-        for axis in axis_names
+        # `row["axis"]` is the per-cell grouping key, not `axis_names`: in
+        # one_at_a_time mode it's each individual swept axis (matches
+        # axis_names 1:1), but in factorial mode every cell shares one
+        # joined key (`join(axis_names, "+")`, see _build_sweep_cells) since
+        # every cell varies all axes jointly. Iterate the keys actually
+        # present in `rows` so factorial sweeps get a real (combined-axis)
+        # callout instead of a false "no completed cells" per individual name.
+        callout_axes = sort!(unique(string(row["axis"]) for row in rows))
+        for axis in callout_axes
             row = get(best, axis, nothing)
             if row === nothing
                 println(io, "- `$(axis)`: no completed cells")

@@ -82,3 +82,64 @@ end
     @test ca.embedding.node_pos == cb.embedding.node_pos
     @test ca.regions == cb.regions
 end
+
+@testset "Power-law spatial kernel" begin
+    k = PowerLawKernel(0.5, 0.3, 2.0)
+    @test connection_prob(k, 0.0) == 0.5
+    @test connection_prob(k, 1.0) < connection_prob(k, 0.0)
+    @test connection_prob(k, 0.5) > connection_prob(k, 5.0)
+    @test connection_prob(k, 1e6) >= 0.0
+
+    @test_throws ArgumentError BrainlessLab._spatial_kernel(:bogus, 0.5, 0.3, 0.3, 2.0)
+    @test BrainlessLab._spatial_kernel(:exp, 0.5, 0.3, 0.3, 2.0) isa ExpKernel
+    @test BrainlessLab._spatial_kernel(:power_law, 0.5, 0.3, 0.3, 2.0) isa PowerLawKernel
+
+    space = MetricSpace(SVector(0.0, 0.0), SVector(1.0, 1.0))
+    rule = SpatialRule(space, PowerLawKernel(0.9, 0.3, 1.5), 0.1, 1.0)
+    c1 = build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11))
+    c2 = build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11))
+    @test c1.recurrent_mask == c2.recurrent_mask
+    @test isempty(c1.embedding.effector_anchor)
+
+    c_spatial_eff = build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11); effector_wiring=:spatial)
+    @test length(c_spatial_eff.embedding.effector_anchor) == 2
+    @test_throws ArgumentError build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11); effector_wiring=:bogus)
+
+    sim = simulate(:wall; node=:falandays_spatial, ticks=30, seed=1,
+        node_kwargs=(kernel=:power_law, d0=0.3, alpha=2.0, effector_wiring=:spatial))
+    @test isfinite(Float64(sim.metrics.score))
+end
+
+@testset "Hemispheric power-law kernel + spatial effector wiring" begin
+    params = FalandaysParams()
+    build_test_connectome(N=8, R=4, E=4; seed=13, kwargs...) =
+        build_hemispheric_connectome(
+            N,
+            R,
+            E;
+            rng=MersenneTwister(seed),
+            weight_init_std=params.weight_init_std,
+            input_weight=params.input_weight,
+            kwargs...,
+        )
+
+    c = build_test_connectome(9, 4, 4; kernel=:power_law, d0=0.3, alpha=1.5, p0=1.0, link_p=0.5)
+    @test isempty(c.embedding.effector_anchor)
+
+    c_spatial_eff = build_test_connectome(9, 4, 4; kernel=:power_law, d0=0.3, alpha=1.5, effector_wiring=:spatial)
+    @test length(c_spatial_eff.embedding.effector_anchor) == 4
+
+    ca = build_test_connectome(8, 4, 4; seed=23, kernel=:power_law, d0=0.3, alpha=1.5, effector_wiring=:spatial, callosum_density=0.5)
+    cb = build_test_connectome(8, 4, 4; seed=23, kernel=:power_law, d0=0.3, alpha=1.5, effector_wiring=:spatial, callosum_density=0.5)
+    @test ca.output_mask == cb.output_mask
+    @test ca.embedding.effector_anchor == cb.embedding.effector_anchor
+
+    @test_throws ArgumentError build_test_connectome(8, 4, 4; kernel=:bogus)
+    @test_throws ArgumentError build_test_connectome(8, 4, 4; effector_wiring=:bogus)
+
+    for cd in (0.0, 0.5, 1.0)
+        sim = simulate(:wall; node=:falandays_hemispheric, ticks=30, seed=1,
+            node_kwargs=(kernel=:power_law, d0=0.3, alpha=1.5, effector_wiring=:spatial, callosum_density=cd))
+        @test isfinite(Float64(sim.metrics.score))
+    end
+end

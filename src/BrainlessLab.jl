@@ -39,6 +39,8 @@ include("nodes/Wiring.jl")
 include("nodes/CompartmentalReservoir.jl")
 include("nodes/Interventions.jl")
 include("nodes/NullRandom.jl")
+include("nodes/HomeostaticFlow.jl")
+include("nodes/HomeostaticFlowV2.jl")
 include("envs/WallBox.jl")
 include("envs/Envs.jl")
 include("envs/CartPoleVariants.jl")
@@ -157,6 +159,7 @@ export FalandaysParams,
     MetricSpace,
     Embedding,
     ExpKernel,
+    PowerLawKernel,
     connection_prob,
     SpatialRule,
     SpatialConnectome,
@@ -216,6 +219,9 @@ export AbstractCompartmental,
     HILL_RESET
 
 export NullRandomReservoir
+
+export HomeostaticFlowParams, HomeostaticFlowReservoir
+export HomeostaticFlowV2Params, HomeostaticFlowV2Reservoir
 
 export TaskWorld,
     RecordedDraws,
@@ -430,6 +436,8 @@ register_node!(:compartmental_structured, _compartmental_structured_native; geno
 register_node!(:compartmental_structured_nsga, _compartmental_structured_native; genome_type=StructuredCompartmental)
 register_node!(:compartmental_structured_cmame, _compartmental_structured_native; genome_type=StructuredCompartmental)
 register_node!(:null_random, NullRandomReservoir)
+register_node!(:homeostatic_flow, HomeostaticFlowReservoir; genome_type=HomeostaticFlowParams)
+register_node!(:homeostatic_flow_v2, HomeostaticFlowV2Reservoir; genome_type=HomeostaticFlowV2Params)
 
 register_task!(:wall, WALL_TASK)
 register_task!(:tracking, TRACKING_TASK)

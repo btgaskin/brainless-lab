@@ -1,0 +1,36 @@
+# Falandays-base spatialised with a bounded power-law connection kernel
+# (p(d) = p0 / (1 + d/d0)^alpha) for BOTH node-node (recurrent) and
+# effector-node wiring (`node.effector_wiring = "spatial"` -- otherwise
+# effector wiring stays flat Bernoulli(link_p), unaffected by the kernel).
+# Topology density (link_p) and space size (extent) held fixed; sweeps the
+# power-law's own shape (alpha, d0) and its peak probability (p0).
+#
+# Run with:
+#   julia --project=. sweep/run.jl configs/sweep_spatial_powerlaw.toml
+
+[sweep]
+id = "spatial_powerlaw"
+mode = "factorial"
+seeds = [0, 1, 2, 3]
+max_cells = 100
+max_rollouts = 400
+
+[baseline]
+node = "falandays_spatial"
+task = "wall"
+N = 100
+ticks = 1000
+window = 200
+"node.kernel" = "power_law"
+"node.effector_wiring" = "spatial"
+"node.link_p" = 0.1
+"node.extent" = 1.0
+
+[axes]
+"node.alpha" = [0.5, 1.0, 2.0, 3.0]
+"node.d0" = [0.1, 0.3, 0.5]
+"node.p0" = [0.3, 0.5, 0.8]
+
+[analytics]
+measures = ["sigma_mr", "spectral_radius", "liveness"]
+viable_threshold = 0.5

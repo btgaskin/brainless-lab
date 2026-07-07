@@ -14,6 +14,17 @@ Base.@kwdef struct FalandaysPaperTaskConfig
     source::String = ""
 end
 
+# Every numeric constant below was checked directly against the original
+# Falandays et al. Julia source (`resources/ReservoirModel_followups/Julia/`
+# in the neural-cognition workspace, sibling to this repo) -- not against the
+# in-house v0.2 numpy reimplementation, which has since been found to disagree
+# with the authors' code in at least one place (its `wall` input weight is
+# 2.0; the authors' `BraitenbergAgent.jl` sets `input_amp = 4`, matching this
+# table). `lrate_wmat = 1.0` for the single-agent tasks is author-confirmed,
+# not just source-read: see commit ba56475 in that repo ("Corrected a
+# misleading declaration of the learning rate for weights" -- Ben Falandays,
+# 2023-03-08), which fixes an earlier .01 that "was actually not being
+# applied" to the true effective rate of 1.0.
 const FALANDAYS_PAPER_CONFIG = Dict{Symbol,FalandaysPaperTaskConfig}(
     :wall => FalandaysPaperTaskConfig(
         task=:wall,
@@ -21,9 +32,13 @@ const FALANDAYS_PAPER_CONFIG = Dict{Symbol,FalandaysPaperTaskConfig}(
         input_amp=4.0,
         lrate_wmat=1.0,
         lrate_targ=0.01,
-        sensory_noise=0.1,
-        sensory_noise_assumption=true,
-        clip_sensory_noise=false,
+        # `BraitenbergAgent.jl` hardcodes `global noise = 0`; the base-condition
+        # figures (`Figs/hits_base.pdf`, `spikes_base.pdf`, ...) are noiseless,
+        # with noise a separately labeled experimental condition
+        # (`hits_noise.pdf`, `spikes_noise.pdf`) rather than the baseline. The
+        # previous 0.1 default here was an unconfirmed assumption; reverted to
+        # the source's noiseless baseline.
+        sensory_noise=0.0,
         weight_init_mode=:excitatory,
         movement_amp=10.0,
         arena="15x15 non-periodic box",

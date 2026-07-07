@@ -1,0 +1,40 @@
+# Falandays-base tracking: joint viability scan over the core homeostatic
+# learning-rule / node-behavior parameters (leak, recurrent + target learning
+# rates, threshold multiplier), topology (task.N, node.link_p) and task
+# difficulty (env.stim_speed_rad) held fixed at the tracking-paper baseline.
+#
+# factorial mode (not one_at_a_time): cells are the full cross-product of the
+# axes below, so frac_viable in results.csv/README is a genuine reading of
+# "what fraction of the sampled *joint* core-parameter space tracks viably"
+# (normalized track_score >= analytics.viable_threshold), not just per-axis
+# sensitivity around one baseline point.
+#
+# Run with:
+#   julia --project=. sweep/run.jl configs/sweep_tracking_falandays_core.toml
+
+[sweep]
+id = "tracking_falandays_core"
+mode = "factorial"
+seeds = [0, 1, 2, 3]
+max_cells = 100
+max_rollouts = 400
+
+[baseline]
+node = "falandays_base"
+task = "tracking"
+N = 200
+ticks = 2000
+# Settled-tail score window: track_score is mean gaze-cosine, depressed by the
+# switch-on transient and the periodic (every-720-tick) stimulus reversals.
+window = 300
+"node.input_weight" = 0.75
+
+[axes]
+"node.leak" = [0.1, 0.25, 0.4]
+"node.lrate_wmat" = [0.5, 1.0, 1.5]
+"node.lrate_targ" = [0.0, 0.01, 0.02]
+"node.threshold_mult" = [1.5, 2.0, 2.5]
+
+[analytics]
+measures = ["sigma_mr", "spectral_radius", "liveness"]
+viable_threshold = 0.5
