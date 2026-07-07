@@ -234,6 +234,25 @@ function _record_ensemble!(rec::Recorder, c::Ensemble, bodies, percepts, spikes,
     return rec
 end
 
+# Run a reservoir for one environment step, applying its temporal-averaging
+# window (`windowing`/`temporal_window`). `SteppedWindow` (the default) runs
+# `step!` K times holding the afferent `R` and mean-reduces the spike outputs;
+# `IntrinsicWindow` nodes own their sub-stepping internally, so `step!` is called
+# once. At K == 1 (every existing node/task default) this is a single bare
+# `step!` — behavior identical to before this seam existed.
+step_window!(r::Reservoir, R) = _step_window!(windowing(r), r, R, temporal_window(r))
+
+_step_window!(::IntrinsicWindow, r::Reservoir, R, K::Int) = step!(r, R)
+
+function _step_window!(::SteppedWindow, r::Reservoir, R, K::Int)
+    K <= 1 && return step!(r, R)
+    acc = step!(r, R)
+    @inbounds for _ in 2:K
+        acc = acc .+ step!(r, R)
+    end
+    return acc ./ K
+end
+
 function step!(c::Ensemble)
     bodies = _agent_bodies(c)
     percepts = observe(c.environment, bodies)
@@ -247,7 +266,7 @@ function step!(c::Ensemble)
     @inbounds for i in eachindex(c.agents)
         agent = c.agents[i]
         R = receptors(agent.body, percepts[i])
-        s = step!(agent.reservoir, R)
+        s = step_window!(agent.reservoir, R)
         E = effectors(agent.reservoir, s)
         spikes[i] = s
         rates[i] = _spike_rate(s)

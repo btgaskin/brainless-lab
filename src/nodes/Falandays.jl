@@ -140,7 +140,12 @@ struct FalandaysModel{D<:Drive,S} <: NodeModel
     drive::D
     sign::S
     rectify::Bool
+    substeps::Int   # reservoir ticks per env step (temporal window K); 1 == legacy single-tick
 end
+
+# Legacy positional constructor (pre-substeps): default the window to 1.
+FalandaysModel(params::FalandaysParams, drive::Drive, sign, rectify::Bool) =
+    FalandaysModel(params, drive, sign, rectify, 1)
 
 struct DenseConnectome <: FalandaysConnectome
     recurrent_mask::BitMatrix
@@ -184,6 +189,11 @@ const FalandaysReservoir = ReservoirInstance{<:FalandaysModel, <:FalandaysConnec
 # tick), so it declares OnlinePlasticity — the base default is NoPlasticity.
 plasticity(::FalandaysReservoir) = OnlinePlasticity()
 
+# Falandays stays a single-tick map (SteppedWindow, the default); the framework
+# runs `step!` `substeps` times per env step and mean-reduces. `substeps=1`
+# reproduces the legacy one-tick-per-env-step readout exactly.
+temporal_window(r::FalandaysReservoir) = getfield(getfield(r, :model), :substeps)
+
 function Base.getproperty(r::FalandaysReservoir, s::Symbol)
     if s === :model
         return getfield(r, :model)
@@ -203,7 +213,7 @@ function Base.getproperty(r::FalandaysReservoir, s::Symbol)
         return getfield(getfield(r, :conn), :wmat)
     elseif s === :recurrent_mask || s === :input_wmat || s === :output_mask || s === :wmat0
         return getfield(getfield(r, :connectome), s)
-    elseif s === :params || s === :drive || s === :sign || s === :rectify
+    elseif s === :params || s === :drive || s === :sign || s === :rectify || s === :substeps
         return getfield(getfield(r, :model), s)
     elseif s === :n_receptors
         return n_receptors(getfield(r, :io))
@@ -302,7 +312,9 @@ function FalandaysReservoir(;
     wmat0,
     noise_source=nothing,
     rectify::Bool=true,
+    substeps::Integer=1,
 )
+    substeps >= 1 || throw(ArgumentError("substeps must be >= 1, got $(substeps)"))
     params = _as_falandays_params(params)
     input_wmat = _float_matrix(input_wmat, "input_wmat")
     wmat0 = _float_matrix(wmat0, "wmat0")
@@ -323,7 +335,7 @@ function FalandaysReservoir(;
     prev_spikes = zeros(Float64, n_nodes)
 
     return ReservoirInstance(
-        FalandaysModel(params, _resolve_drive_instance(drive), axis, rectify),
+        FalandaysModel(params, _resolve_drive_instance(drive), axis, rectify, Int(substeps)),
         DenseConnectome(recurrent_mask, input_wmat, output_mask, wmat0_copy),
         FalandaysConnState(wmat),
         FalandaysNodeState(acts, targets, spikes, errors, prev_spikes, source),
@@ -427,6 +439,7 @@ function FalandaysReservoir(
     inhibitory_frac::Real=0.25,
     sw_beta::Real=0.1,
     repair_masks=nothing,
+    substeps::Integer=1,
 )
     n_nodes = Int(n_nodes)
     n_receptors_ = Int(n_receptors_)
@@ -483,6 +496,7 @@ function FalandaysReservoir(
         wmat0=wmat0,
         noise_source=source,
         rectify=rectify,
+        substeps=substeps,
     )
 end
 

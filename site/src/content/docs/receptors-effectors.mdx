@@ -69,28 +69,36 @@ the stable clocking for `:falandays_base` (see [Falandays](/nodes/falandays/)).
 **Where it bites:** fast tasks with a sensitive readout — **Pong** above all (fast ball,
 jittery single-tick paddle command) — and small-$N$ runs.
 
-**Built so far (CTRNN only):** the compartmental nodes already implement integration
-sub-stepping — `CompartmentalReservoir(...; substeps=k)`, **default 5**
-($\text{dt}_\text{sub} = \text{dt}/5 = 0.2$), holding the afferent across sub-steps and
-reporting the per-node spike *rate* over the window; `substeps=1` reproduces the
-single-step oracle. This is the CTRNN's *internal-integration* version of the knob.
+**`substeps` (K) — now built for every node family.** The window is a first-class
+trait ([`WindowTrait`](/nodes/overview/)): `IntrinsicWindow` nodes own their sub-stepping
+inside `step!` (the compartmental CTRNNs — `CompartmentalReservoir(...; substeps=k)`,
+**default 5**, $\text{dt}_\text{sub}=\text{dt}/5$, holding the afferent and reporting the
+per-node spike *rate*); `SteppedWindow` nodes are single-tick maps that the framework loops
+K times per env step, holding the afferent and mean-reducing the spikes. **Falandays is
+now `SteppedWindow`** — `simulate(...; node=:falandays_base, node_kwargs=(substeps=K,))` (or
+the `node.substeps` sweep axis). `substeps=1` (the default for every existing node/task) is
+byte-identical to the previous single-tick readout.
 
-:::caution[Planned — readout-side timing knobs]
-For the Falandays nodes the readout-side levers are **not yet built**. All default to
-today's 1-tick/step behaviour:
+Empirically this matters exactly where the single-tick readout is jittery: at N=200 the
+Falandays baseline improves on **tracking** (≈0.28 → ≈0.80 from K=1 to K=5) and **pong**
+(≈0.63 → ≈0.88), the tasks flagged below. It does **not** rescue cartpole — that task's
+gap is sensorimotor (velocity-receptor scaling / bang-bang decode), not temporal averaging.
+
+:::caution[Planned — the other readout-side timing knobs]
+`substeps` above is built; the remaining levers still default to today's behaviour and
+belong to the [spec refactor](#planned-the-spec-refactor) below:
 
 | knob | default | meaning |
 |---|---:|---|
-| `substeps` (K) | 1 | reservoir ticks per env step; accumulate spikes over K → $E = \text{mean}$. Smoothest, but freezes the env during the window. |
-| `input_encoding` | `:graded` | `:graded` (current value) vs `:poisson` / `:regular` (spike train at rate ∝ value over the window). |
+| `input_encoding` | `:graded` | `:graded` (current value, held across the window) vs `:poisson` / `:regular` (spike train at rate ∝ value over the window). |
 | `output_window` (W) | 1 | moving-average the effector over the last W env-steps — cheap, does not freeze the env, lags by ≈W. |
 
-For Pong the env-preserving options (`output_window`, or a small `substeps`) beat a large
-`substeps` that would freeze the ball. These belong to the same per-task spec as the
-sensor/effector layout below.
+For Pong the env-preserving `output_window` (or a small `substeps`) beats a large `substeps`
+that would freeze the ball. These belong to the same per-task spec as the sensor/effector
+layout below.
 :::
 
-<p class="bl-source">Source: <code>src/nodes/CompartmentalReservoir.jl</code> (<code>substeps</code>, <code>dt_sub</code>, per-sub-step integration).</p>
+<p class="bl-source">Source: <code>src/core/Traits.jl</code> (<code>WindowTrait</code>, <code>windowing</code>, <code>temporal_window</code>), <code>src/world/Ensemble.jl</code> (<code>step_window!</code>), <code>src/nodes/CompartmentalReservoir.jl</code> / <code>src/nodes/Falandays.jl</code> (<code>substeps</code>).</p>
 
 ## Planned: the spec refactor
 
