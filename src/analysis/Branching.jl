@@ -326,9 +326,13 @@ function _branching_drive_series(sim::SimResult, drive)
     drive === nothing && return nothing
     if drive === :distance_to_source || drive === :distance || drive == "distance_to_source" || drive == "distance"
         return distance_to_source(sim)
+    elseif drive === :object_in_view || drive == "object_in_view"
+        return object_in_view(sim)
+    elseif drive === :heading_error || drive == "heading_error"
+        return heading_error(sim)
     end
     drive isa AbstractVector{<:Real} && return drive
-    throw(ArgumentError("branching_ratio_mr_windowed drive must be nothing, :distance_to_source, or a numeric vector"))
+    throw(ArgumentError("branching_ratio_mr_windowed drive must be nothing, :distance_to_source, :object_in_view, :heading_error, or a numeric vector"))
 end
 
 function _branching_windowed_vector(pop::AbstractVector{<:Real}; window::Integer, stride::Integer, kmax::Integer, min_r2::Real)
@@ -442,4 +446,71 @@ function branching_ratio_mr_windowed(
     pop = _analysis_row_sums(activity.events)
     driver === nothing || (pop = _analysis_residualize_series(pop, driver))
     return _branching_windowed_vector(pop; window=window, stride=stride, kmax=kmax, min_r2=min_r2)
+end
+
+"""
+    branching_ratio_mr_conditioned(sim; condition=:object_in_view, window=200, stride=window,
+        kmax=20, in_view_frac=0.5, min_r2=0.0)
+
+Split the windowed pooled MR branching estimate by a per-tick `condition` series
+(a symbol resolved via the drive machinery — `:object_in_view` / `:heading_error`
+/ `:distance_to_source` — or a numeric vector) and contrast the two regimes. A
+window counts as "in condition" when the mean of `condition` over its ticks is at
+least `in_view_frac`. Returns `(; condition, window, stride, m_in, m_out, m_diff,
+n_in, n_out)`.
+
+This is the honest form of "branching ratio *while the object is being tracked*"
+(PJ's request): each window's MR fit stays over contiguous ticks, so the estimate
+is never corrupted by concatenating non-adjacent in-view samples. Read `m_diff`
+beside `spectral_radius(sim)` — the Falandays homeostat pins the rate, so a
+near-1 `m` may be rate-pinned rather than emergent, and the difference should be
+checked against a phase-aware null (see `temporal_null`).
+"""
+function branching_ratio_mr_conditioned(
+    sim::SimResult;
+    condition=:object_in_view,
+    window::Integer=200,
+    stride::Integer=window,
+    kmax::Integer=20,
+    in_view_frac::Real=0.5,
+    min_r2::Real=0.0,
+)
+    window = Int(window)
+    stride = Int(stride)
+    cond = _branching_drive_series(sim, condition)
+    cond === nothing &&
+        throw(ArgumentError("branching_ratio_mr_conditioned needs a condition series, got nothing"))
+
+    centers, m_series, _r2, _n = branching_ratio_mr_windowed(
+        sim; level=:pooled, window=window, stride=stride, kmax=kmax, min_r2=min_r2,
+    )
+    starts = _branching_window_starts(length(cond), window, stride)
+
+    in_ms = Float64[]
+    out_ms = Float64[]
+    n = min(length(starts), length(m_series))
+    @inbounds for idx in 1:n
+        isfinite(m_series[idx]) || continue
+        start = starts[idx]
+        stop = start + window - 1
+        frac = _series_mean(@view cond[start:stop])
+        if frac >= Float64(in_view_frac)
+            push!(in_ms, m_series[idx])
+        else
+            push!(out_ms, m_series[idx])
+        end
+    end
+
+    m_in = _analysis_finite_mean(in_ms)
+    m_out = _analysis_finite_mean(out_ms)
+    return (;
+        condition = condition isa Union{Symbol,AbstractString} ? Symbol(condition) : :custom,
+        window,
+        stride,
+        m_in,
+        m_out,
+        m_diff = m_in - m_out,
+        n_in = length(in_ms),
+        n_out = length(out_ms),
+    )
 end

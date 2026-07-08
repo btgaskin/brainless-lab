@@ -2,7 +2,7 @@ function _crossshift_measure_value(value)
     if value isa Number
         return Float64(value)
     elseif value isa NamedTuple
-        for key in (:m_mr, :susceptibility, :correlation_length, :largest_component_frac_mean, :mean_component_size_mean, :n_components_mean)
+        for key in (:m_mr, :m_diff, :susceptibility, :correlation_length, :largest_component_frac_mean, :mean_component_size_mean, :n_components_mean)
             haskey(value, key) || continue
             return _crossshift_measure_value(getproperty(value, key))
         end
@@ -127,6 +127,63 @@ function crossshift_null(sim::SimResult, measure_fn; n_shifts::Integer, rng::Abs
         Float64(v) for v in parallel_map(shift_draws; threaded=threaded) do shifts
             surrogate = _crossshift_surrogate(sim, shifts, n_agents)
             _crossshift_measure_value(measure_fn(surrogate))
+        end
+    ]
+
+    null_mean = _analysis_finite_mean(null_values)
+    null_std = _analysis_finite_std(null_values)
+    ratio = isfinite(real_value) && isfinite(null_mean) && null_mean != 0.0 ? real_value / null_mean : NaN
+    return (real=real_value, null_mean=null_mean, null_std=null_std, ratio=ratio)
+end
+
+function _circshift_condition(condition::AbstractVector{<:Real}, shift::Integer)
+    nt = length(condition)
+    out = Vector{Float64}(undef, nt)
+    s = Int(shift)
+    @inbounds for t in 1:nt
+        out[t] = Float64(condition[mod1(t - s, nt)])
+    end
+    return out
+end
+
+"""
+    temporal_null(sim, condition, measure_fn; n_shifts, rng, threaded=true)
+
+Within-network (single-agent) null for a drive-CONDITIONED statistic. Each
+surrogate circularly shifts the per-tick `condition` series by a random offset,
+destroying its phase alignment with the network's own dynamics while preserving
+the condition's marginal distribution and periodic power spectrum *exactly*.
+
+This is the null to use — not `crossshift_null` — when the claim is within a
+single reservoir (e.g. "branching differs while the object is in view"), and
+especially when the task carries a periodic stimulus (the tracking direction
+flips every 720 ticks) that would otherwise make any two stimulus-locked signals
+look coupled. The shift is applied to the *condition*, not to the rate series
+whose branching is measured, so it is genuinely destructive here — unlike
+circularly shifting a lone branching series, which is a no-op.
+
+`measure_fn(sim, condition)` must return a number or a scalar analysis NamedTuple
+(e.g. `branching_ratio_mr_conditioned`'s `m_diff`). Returns
+`(real, null_mean, null_std, ratio)`; `ratio` near 1 ⇒ the conditioning effect is
+indistinguishable from a phase-shuffled stimulus.
+"""
+function temporal_null(sim::SimResult, condition::AbstractVector{<:Real}, measure_fn; n_shifts::Integer, rng::AbstractRNG, threaded::Bool=true)
+    n = Int(n_shifts)
+    n >= 1 || throw(ArgumentError("temporal_null needs n_shifts >= 1"))
+    nt = length(condition)
+    nt >= 2 || throw(ArgumentError("temporal_null needs a condition series of length >= 2"))
+
+    real_value = _crossshift_measure_value(measure_fn(sim, condition))
+
+    # Draw shifts up front for seed-determinism, then fan the recomputations out.
+    shift_draws = Vector{Int}(undef, n)
+    for i in 1:n
+        shift_draws[i] = rand(rng, 1:(nt - 1))
+    end
+    null_values = Float64[
+        Float64(v) for v in parallel_map(shift_draws; threaded=threaded) do shift
+            surrogate = _circshift_condition(condition, shift)
+            _crossshift_measure_value(measure_fn(sim, surrogate))
         end
     ]
 

@@ -78,6 +78,32 @@ function heading_error(sim::SimResult)
 end
 
 """
+    object_in_view(sim; threshold=0.5)
+
+Per-tick indicator (`1.0`/`0.0`) of whether the tracked stimulus is currently
+exciting the sensor bank — the strongest receptor activation on the tick is at or
+above `threshold`. Requires the `:percepts` channel. Aligned to the `:rate` grid,
+so it is directly usable as a `drive`/condition series for
+`branching_ratio_mr_windowed` — i.e. "branching while the object is in view" vs
+while the agent drifts without stimulus.
+
+Task-agnostic in mechanism (any receptor task), but registered for `:tracking`,
+where the receptors saturate to `1.0` within a few degrees of a sensor.
+"""
+function object_in_view(sim::SimResult; threshold::Real=0.5)
+    raw = getchannel(sim.recorder, :percepts)
+    isempty(raw) && throw(ArgumentError("object_in_view needs the :percepts channel recorded; run simulate(...; record=(:rate, :percepts))"))
+
+    out = Vector{Float64}(undef, length(raw))
+    @inbounds for t in eachindex(raw)
+        vals = _analysis_numeric_vector(raw[t], :object_in_view, t)
+        peak = isempty(vals) ? 0.0 : maximum(vals)
+        out[t] = peak >= threshold ? 1.0 : 0.0
+    end
+    return out
+end
+
+"""
     ball_paddle_distance(sim)
 
 Compute the per-tick absolute vertical distance between the ball and paddle.

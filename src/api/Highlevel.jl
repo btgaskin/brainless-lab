@@ -255,6 +255,41 @@ function _apply_postbuild_ablation!(reservoir::Reservoir, sym::Symbol)
     return reservoir
 end
 
+# Verbs that `_apply_postbuild_ablation!` can apply to a live reservoir, and hence
+# that a mid-rollout intervention schedule may reference. (Compartmental tick verbs
+# such as :reset_dendrites go through a different, node-specific hook.)
+const _MIDROLLOUT_VERBS = (:freeze_plasticity, :clamp_target, :zero_recurrent)
+
+_intervention_tick_verb(item::Pair) = (item.first, item.second)
+_intervention_tick_verb(item::Tuple) = (item[1], item[2])
+function _intervention_tick_verb(item::NamedTuple)
+    hasproperty(item, :tick) ||
+        throw(ArgumentError("intervention entry $(item) needs a :tick field"))
+    verb = hasproperty(item, :verb) ? item.verb :
+           hasproperty(item, :ablation) ? item.ablation :
+           throw(ArgumentError("intervention entry $(item) needs a :verb field"))
+    return (item.tick, verb)
+end
+
+# Resolve the user-facing `interventions=[(tick=1800, verb=:freeze_plasticity)]`
+# kwarg into a validated, tick-sorted `Vector{Tuple{Int,Symbol}}` (or `nothing`).
+function _resolve_intervention_schedule(arg)
+    arg === nothing && return nothing
+    entries = Tuple{Int,Symbol}[]
+    for item in arg
+        tick, verb = _intervention_tick_verb(item)
+        verb_sym = Symbol(verb)
+        verb_sym in _MIDROLLOUT_VERBS ||
+            throw(ArgumentError("unknown mid-rollout intervention verb :$(verb_sym); supported: $(_MIDROLLOUT_VERBS)"))
+        Int(tick) >= 1 ||
+            throw(ArgumentError("intervention tick must be >= 1, got $(tick)"))
+        push!(entries, (Int(tick), verb_sym))
+    end
+    isempty(entries) && return nothing
+    sort!(entries; by=first)
+    return entries
+end
+
 function _resolve_n_nodes!(
     node::Symbol,
     task::Symbol,
@@ -891,6 +926,7 @@ function _simulation_config(
     n_nodes::Integer,
     ablation::Symbol=:none,
     ablation_notes=(),
+    interventions=nothing,
 )
     return (
         ticks=Int(ticks),
@@ -904,6 +940,7 @@ function _simulation_config(
         network=_network_snapshot(c.agents[1].reservoir),
         ablation=ablation,
         ablation_notes=Tuple(ablation_notes),
+        interventions=interventions === nothing ? () : Tuple(interventions),
     )
 end
 
@@ -922,6 +959,8 @@ function _build_ensemble(task::Symbol, node::Symbol; ticks=nothing, seed=0, reco
     node_kwargs = haskey(options, :node_kwargs) ? pop!(options, :node_kwargs) : NamedTuple()
     body = haskey(options, :body) ? pop!(options, :body) : nothing
     ablation_arg = haskey(options, :ablation) ? pop!(options, :ablation) : nothing
+    interventions_arg = haskey(options, :interventions) ? pop!(options, :interventions) : nothing
+    intervention_schedule = _resolve_intervention_schedule(interventions_arg)
 
     swarm_kwargs =
         haskey(options, :swarm_kwargs) ? pop!(options, :swarm_kwargs) :
@@ -977,6 +1016,7 @@ function _build_ensemble(task::Symbol, node::Symbol; ticks=nothing, seed=0, reco
             n_nodes=n_nodes,
             ablation=ablation_sym,
             ablation_notes=Tuple(ablation_notes),
+            interventions=intervention_schedule,
         )
     end
 
@@ -1013,6 +1053,7 @@ function _build_ensemble(task::Symbol, node::Symbol; ticks=nothing, seed=0, reco
         n_nodes=n_nodes,
         ablation=ablation_sym,
         ablation_notes=Tuple(ablation_notes),
+        interventions=intervention_schedule,
     )
 end
 
@@ -1021,11 +1062,16 @@ end
 
 Run a single-agent task such as `:wall`, `:tracking`, `:pong`, or `:cartpole`,
 or run a swarm with `simulate(:torus; node=:falandays, n_agents=5)`.
+
+Pass `interventions=[(tick=1800, verb=:freeze_plasticity)]` to apply a live-reservoir
+verb (`:freeze_plasticity`, `:clamp_target`, or `:zero_recurrent`) at a chosen tick
+(inclusive) — e.g. to freeze plasticity after the network self-organizes and test
+whether the learned structure persists without ongoing adaptation.
 """
 function simulate(task::Symbol; node=:falandays, ticks=nothing, seed=0, record=_DEFAULT_RECORD_CHANNELS, every::Integer=1, metrics=nothing, kwargs...)
     node_sym = Symbol(node)
     setup = _build_ensemble(task, node_sym; ticks=ticks, seed=seed, record=record, every=every, kwargs...)
-    result_metrics = rollout!(setup.ensemble, setup.ticks; window=setup.window, metrics=metrics)
+    result_metrics = rollout!(setup.ensemble, setup.ticks; window=setup.window, metrics=metrics, interventions=setup.interventions)
     config = _simulation_config(
         setup.ensemble;
         ticks=setup.ticks,
@@ -1036,6 +1082,7 @@ function simulate(task::Symbol; node=:falandays, ticks=nothing, seed=0, record=_
         n_nodes=setup.n_nodes,
         ablation=setup.ablation,
         ablation_notes=setup.ablation_notes,
+        interventions=setup.interventions,
     )
     return SimResult(setup.recorder, result_metrics, setup.task, setup.node, config)
 end
