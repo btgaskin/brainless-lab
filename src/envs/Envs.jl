@@ -135,21 +135,42 @@ mutable struct TrackingEnv{R} <: TaskWorld
     eye_offsets_deg::NTuple{2,Float64}
     sensor_offsets_deg::Vector{Float64}
     stim_speed_rad::Float64
+    movement_amp::Float64
+    theta0::Float64
+    phi0::Float64
+    direction0::Float64
 end
 
-function TrackingEnv(; rng=Random.default_rng(), stim_speed_rad::Real=deg2rad(1.0))
+function TrackingEnv(;
+    rng=Random.default_rng(),
+    stim_speed_rad::Real=deg2rad(1.0),
+    movement_amp::Real=10.0,
+    eye_offset_deg::Real=30.0,
+    sensor_offsets_deg::AbstractVector{<:Real}=collect(-60.0:4.0:60.0),
+    randomize_start::Bool=false,
+    theta0=nothing,
+    phi0=nothing,
+    direction0=nothing,
+)
+    th0 = theta0 !== nothing ? Float64(theta0) : (randomize_start ? 2pi * rand(rng) : pi / 2.0)
+    ph0 = phi0 !== nothing ? Float64(phi0) : (randomize_start ? 2pi * rand(rng) : 0.0)
+    dir0 = direction0 !== nothing ? Float64(direction0) : (randomize_start ? (rand(rng, Bool) ? 1.0 : -1.0) : 1.0)
     return TrackingEnv(
         rng,
-        pi / 2.0,
-        0.0,
-        1.0,
+        th0,
+        ph0,
+        dir0,
         0,
         Float64[],
         Float64[],
         Float64[],
-        (30.0, -30.0),
-        collect(-60.0:4.0:60.0),
+        (Float64(eye_offset_deg), -Float64(eye_offset_deg)),
+        collect(Float64, sensor_offsets_deg),
         Float64(stim_speed_rad),
+        Float64(movement_amp),
+        th0,
+        ph0,
+        dir0,
     )
 end
 
@@ -183,7 +204,7 @@ end
 
 function step!(env::TrackingEnv, effectors)
     e = _bounded_effectors(effectors, n_effectors(env))
-    dtheta_deg = 10.0 * (e[1] - e[2])
+    dtheta_deg = env.movement_amp * (e[1] - e[2])
     env.theta = _wrap_rad(env.theta + deg2rad(dtheta_deg))
 
     env.phi = _wrap_rad(env.phi + env.direction * env.stim_speed_rad)
@@ -200,9 +221,9 @@ function step!(env::TrackingEnv, effectors)
 end
 
 function reset!(env::TrackingEnv)
-    env.theta = pi / 2.0
-    env.phi = 0.0
-    env.direction = 1.0
+    env.theta = env.theta0
+    env.phi = env.phi0
+    env.direction = env.direction0
     env.tick = 0
     empty!(env.error_history)
     empty!(env.heading_history)
