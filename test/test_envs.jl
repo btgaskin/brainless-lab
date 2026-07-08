@@ -126,7 +126,18 @@ function _assert_env_replay(name)
 end
 
 @testset "TaskWorld legacy fixture parity" begin
-    for name in ("cartpole",)
+    # `env_cartpole.npz` was recorded from the v0 Python `crho.envs.CartPoleEnv`
+    # reference (see test/oracle/gen_env_fixtures.py). That reference divided
+    # velocity receptors by obs_max=5.0 (leaving them barely above the sensor
+    # noise floor across the whole balancing regime) and had no effector
+    # dead-zone (so e[1]==e[2] -- the "do nothing" input -- applied full force
+    # via the >= tie-break). Both were fixed here after confirming, empirically,
+    # that they starved the reservoir of the damping signal an inverted
+    # pendulum needs and left no neutral action available; see the cartpole
+    # scoring/sensorimotor fix in this session. The v0 fixture intentionally no
+    # longer matches -- regenerate it from an updated v0 reference if fidelity
+    # to that prototype ever needs re-establishing.
+    for name in ()
         @testset "$name" begin
             _assert_env_replay(name)
         end

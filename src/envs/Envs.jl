@@ -420,6 +420,7 @@ mutable struct CartPoleEnv{R} <: TaskWorld
     max_x::Float64
     max_theta::Float64
     obs_max::Vector{Float64}
+    dead_zone::Float64
     state::Vector{Float64}
     step_count::Int
     done::Bool
@@ -443,7 +444,8 @@ function CartPoleEnv(; rng=Random.default_rng())
         1.1,
         2.4,
         0.2095,
-        [2.4, 5.0, 0.2095, 5.0],
+        [2.4, 1.0, 0.2095, 1.0],
+        0.05,
         state,
         0,
         false,
@@ -475,11 +477,17 @@ function sense(env::CartPoleEnv)
     return sensors
 end
 
+function _cartpole_bangbang_force(e1::Real, e2::Real, force_mag::Real, dead_zone::Real)
+    diff = e1 - e2
+    abs(diff) < dead_zone && return 0.0
+    return diff >= 0.0 ? -force_mag : force_mag
+end
+
 function step!(env::CartPoleEnv, effectors)
     env.done && return env
 
     e = _bounded_effectors(effectors, n_effectors(env))
-    force = e[1] >= e[2] ? -env.force_mag : env.force_mag
+    force = _cartpole_bangbang_force(e[1], e[2], env.force_mag, env.dead_zone)
 
     x = env.state[1]
     x_dot = env.state[2]
