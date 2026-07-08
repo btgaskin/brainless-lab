@@ -9,6 +9,21 @@ using .ExpHarness, .ExpRegistry
 using BrainlessLab
 using Statistics
 
+const TRACKING_RUN_MEASURE_KEYS = (
+    :track_score,
+    :mean_abs_error_deg,
+    :frac_within_30deg,
+    :mean_err,
+    :m_mr,
+    :rho,
+    :rate_mean,
+    :rate_var,
+    :rate_sat,
+    :nte_mean,
+    :nte_p90,
+    :nte_settle,
+)
+
 const TRACKING_PARAM_BASELINE = (
     leak=0.25,
     lrate_targ=0.01,
@@ -55,7 +70,7 @@ function _simulate_tracking(axis, value, seed::Integer; ticks::Integer, nnodes::
         N=Int(nnodes),
         ticks=Int(ticks),
         seed=Int(seed),
-        record=(:rate, :scene, :spectral_radius),
+        record=(:rate, :scene, :spectral_radius, :acts, :targets),
         spectral_every=50,
         env_kwargs=merge((randomize_start=true,), env_override),
         node_override...,
@@ -69,18 +84,146 @@ function _simulate_tracking_baseline(seed::Integer; ticks::Integer, nnodes::Inte
         N=Int(nnodes),
         ticks=Int(ticks),
         seed=Int(seed),
-        record=(:rate, :scene, :spectral_radius),
+        record=(:rate, :scene, :spectral_radius, :acts, :targets),
         spectral_every=50,
         env_kwargs=(randomize_start=true,),
     )
 end
 
-function _rate_mean(sim, warmup::Integer)
-    if hasproperty(sim.metrics, :rate_mean)
-        return Float64(sim.metrics.rate_mean)
+function _finite_mean(values)
+    total = 0.0
+    count = 0
+    for value in values
+        x = Float64(value)
+        if isfinite(x)
+            total += x
+            count += 1
+        end
     end
+    return count == 0 ? NaN : total / count
+end
+
+function _finite_std(values)
+    count = 0
+    μ = 0.0
+    m2 = 0.0
+    for value in values
+        x = Float64(value)
+        if isfinite(x)
+            count += 1
+            δ = x - μ
+            μ += δ / count
+            m2 += δ * (x - μ)
+        end
+    end
+    count == 0 && return NaN
+    count == 1 && return 0.0
+    return sqrt(m2 / (count - 1))
+end
+
+function _finite_population_var(values)
+    count = 0
+    μ = 0.0
+    m2 = 0.0
+    for value in values
+        x = Float64(value)
+        if isfinite(x)
+            count += 1
+            δ = x - μ
+            μ += δ / count
+            m2 += δ * (x - μ)
+        end
+    end
+    return count == 0 ? NaN : m2 / count
+end
+
+function _finite_quantile(values, q::Real)
+    finite = Float64[]
+    for value in values
+        x = Float64(value)
+        isfinite(x) && push!(finite, x)
+    end
+    return isempty(finite) ? NaN : quantile(finite, q)
+end
+
+function _finite_fraction_gt(values, threshold::Real)
+    count = 0
+    passing = 0
+    threshold_f = Float64(threshold)
+    for value in values
+        x = Float64(value)
+        if isfinite(x)
+            count += 1
+            passing += x > threshold_f ? 1 : 0
+        end
+    end
+    return count == 0 ? NaN : passing / count
+end
+
+function _post_range(len::Integer, warmup::Integer, name::Symbol)
+    len_i = Int(len)
+    warmup_i = Int(warmup)
+    0 <= warmup_i < len_i ||
+        throw(ArgumentError("$(name) needs 0 <= warmup < number of samples; got warmup=$(warmup_i), samples=$(len_i)"))
+    return (warmup_i + 1):len_i
+end
+
+function measure_tracking_run(sim; warmup)::NamedTuple
+    warmup_i = Int(warmup)
+    err = heading_error(sim)
+    post = _post_range(length(err), warmup_i, :measure_tracking_run)
+
+    cos_sum = 0.0
+    abs_deg_sum = 0.0
+    err_sum = 0.0
+    within = 0
+    cutoff = deg2rad(30.0)
+    @inbounds for i in post
+        e = Float64(err[i])
+        cos_sum += cos(e)
+        abs_deg_sum += rad2deg(e)
+        err_sum += e
+        within += e <= cutoff ? 1 : 0
+    end
+    npost = length(post)
+
     rates = BrainlessLab._analysis_population_rate_series(sim, :x)
-    return mean(@view rates[(Int(warmup) + 1):length(rates)])
+    rate_post = _post_range(length(rates), warmup_i, :measure_tracking_run_rate)
+    rate_mean = _finite_mean(@view rates[rate_post])
+    rate_var = _finite_population_var(@view rates[rate_post])
+    rate_sat = mean(x -> Float64(x) >= 0.99, @view rates[rate_post])
+
+    target = node_target_error(sim)
+    nte_post_cols = _post_range(size(target.per_node_error, 2), warmup_i, :measure_tracking_run_node_target_error)
+    nte_post = @view target.per_node_error[:, nte_post_cols]
+    nte_mean = _finite_mean(nte_post)
+
+    node_time_mean = Vector{Float64}(undef, size(nte_post, 1))
+    @inbounds for node_i in axes(nte_post, 1)
+        node_time_mean[node_i] = _finite_mean(@view nte_post[node_i, :])
+    end
+    nte_p90 = _finite_quantile(node_time_mean, 0.9)
+
+    mean_over_nodes = @view target.mean_over_nodes[nte_post_cols]
+    quarter = max(1, fld(length(mean_over_nodes), 4))
+    first_q = _finite_mean(@view mean_over_nodes[1:quarter])
+    last_q = _finite_mean(@view mean_over_nodes[(length(mean_over_nodes) - quarter + 1):length(mean_over_nodes)])
+    nte_settle = isfinite(first_q) && first_q != 0.0 ? last_q / first_q : NaN
+
+    return (;
+        track_score=cos_sum / npost,
+        mean_abs_error_deg=abs_deg_sum / npost,
+        frac_within_30deg=within / npost,
+        mean_err=err_sum / npost,
+        m_mr=branching_ratio_mr(sim; transient=warmup_i).m_mr,
+        rho=spectral_radius(sim).mean,
+        rate_mean=rate_mean,
+        rate_var=rate_var,
+        rate_sat=rate_sat,
+        nte_mean=nte_mean,
+        nte_p90=nte_p90,
+        nte_settle=nte_settle,
+    )
 end
 
 function _branching_window_params(ticks::Integer)
@@ -99,10 +242,9 @@ function _run_axis(axis, seeds::Vector{Int}; ticks::Integer, warmup::Integer, nn
     branch_t = [Float64(start + 0.5 * (branch_window - 1)) for start in branch_starts]
     nwin = length(branch_t)
 
-    mean_err = Matrix{Float64}(undef, nvalues, nseeds)
-    m_mr = similar(mean_err)
-    rho = similar(mean_err)
-    rate = similar(mean_err)
+    measures = NamedTuple{TRACKING_RUN_MEASURE_KEYS}(
+        map(_ -> Matrix{Float64}(undef, nvalues, nseeds), TRACKING_RUN_MEASURE_KEYS),
+    )
     heading_ts = Array{Float64}(undef, nvalues, nseeds, length(sample_ticks))
     branch_ts = fill(NaN, nvalues, nseeds, nwin)
 
@@ -112,10 +254,10 @@ function _run_axis(axis, seeds::Vector{Int}; ticks::Integer, warmup::Integer, nn
             seed = seeds[si]
             sim = _simulate_tracking(axis, value, seed; ticks=ticks, nnodes=nnodes)
             err_ts = heading_error(sim)
-            mean_err[vi, si] = mean(@view err_ts[(Int(warmup) + 1):length(err_ts)])
-            m_mr[vi, si] = branching_ratio_mr(sim; transient=warmup).m_mr
-            rho[vi, si] = spectral_radius(sim).mean
-            rate[vi, si] = _rate_mean(sim, warmup)
+            run_measure = measure_tracking_run(sim; warmup=warmup)
+            for key in TRACKING_RUN_MEASURE_KEYS
+                getproperty(measures, key)[vi, si] = getproperty(run_measure, key)
+            end
             @views heading_ts[vi, si, :] .= err_ts[sample_ticks]
 
             if nwin > 0
@@ -133,7 +275,19 @@ function _run_axis(axis, seeds::Vector{Int}; ticks::Integer, warmup::Integer, nn
         end
     end
 
-    agg(mat) = (mean=vec(mean(mat; dims=2)), sd=vec(std(mat; dims=2)), per_seed=[vec(mat[vi, :]) for vi in axes(mat, 1)])
+    agg(mat) = (
+        mean=[_finite_mean(view(mat, vi, :)) for vi in axes(mat, 1)],
+        sd=[_finite_std(view(mat, vi, :)) for vi in axes(mat, 1)],
+        per_seed=[vec(mat[vi, :]) for vi in axes(mat, 1)],
+    )
+    measure_aggs = NamedTuple{TRACKING_RUN_MEASURE_KEYS}(
+        map(key -> agg(getproperty(measures, key)), TRACKING_RUN_MEASURE_KEYS),
+    )
+    frac_within = measures.frac_within_30deg
+    frac_viable = [
+        _finite_fraction_gt(view(frac_within, vi, :), 0.25)
+        for vi in axes(frac_within, 1)
+    ]
     heading_per_value = Vector{Vector{Float64}}(undef, nvalues)
     for vi in 1:nvalues
         series = zeros(Float64, length(sample_ticks))
@@ -163,10 +317,9 @@ function _run_axis(axis, seeds::Vector{Int}; ticks::Integer, warmup::Integer, nn
         branching_per_value[vi] = series
     end
     return (;
-        mean_err=agg(mean_err),
-        m_mr=agg(m_mr),
-        rho=agg(rho),
-        rate=agg(rate),
+        measure_aggs...,
+        rate=measure_aggs.rate_mean,
+        frac_viable=frac_viable,
         heading=(; t=sample_ticks, per_value=heading_per_value),
         branching=(; t=branch_t, per_value=branching_per_value),
     )
@@ -207,10 +360,20 @@ function _sweep_json(axis, result)
     return _jstr(axis.name) * ":{" *
            "\"kind\":$(_jstr(axis.kind))," *
            "\"values\":$(_jarr(axis.values))," *
+           "\"track_score\":$(_metric_json(result.track_score))," *
+           "\"mean_abs_error_deg\":$(_metric_json(result.mean_abs_error_deg))," *
+           "\"frac_within_30deg\":$(_metric_json(result.frac_within_30deg))," *
            "\"mean_err\":$(_metric_json(result.mean_err))," *
            "\"m_mr\":$(_metric_json(result.m_mr))," *
            "\"rho\":$(_metric_json(result.rho))," *
            "\"rate\":$(_metric_json(result.rate))," *
+           "\"rate_mean\":$(_metric_json(result.rate_mean))," *
+           "\"rate_var\":$(_metric_json(result.rate_var))," *
+           "\"rate_sat\":$(_metric_json(result.rate_sat))," *
+           "\"nte_mean\":$(_metric_json(result.nte_mean))," *
+           "\"nte_p90\":$(_metric_json(result.nte_p90))," *
+           "\"nte_settle\":$(_metric_json(result.nte_settle))," *
+           "\"frac_viable\":$(_jarr(result.frac_viable))," *
            "\"timeseries\":{\"heading\":{\"t\":$(_jarr(result.heading.t)),\"per_value\":$heading_per_value}," *
            "\"branching\":{\"t\":$(_jarr(result.branching.t)),\"per_value\":$branching_per_value}}" *
            "}"
