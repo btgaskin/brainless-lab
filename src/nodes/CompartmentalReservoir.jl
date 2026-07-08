@@ -503,3 +503,10 @@ function load_state!(r::CompartmentalReservoir, state)
 end
 
 plasticity(::CompartmentalReservoir) = NoPlasticity()
+
+# The compartmental node integrates its own `substeps` sub-steps inside a single
+# `step!` (holding the afferent, reporting the mean spike rate), so it owns its
+# window — the framework must not loop it. `temporal_window` reports the count
+# for introspection/sweeps but is not used to drive looping.
+windowing(::CompartmentalReservoir) = IntrinsicWindow()
+temporal_window(r::CompartmentalReservoir) = getfield(getfield(r, :model), :substeps)

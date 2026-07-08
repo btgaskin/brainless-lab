@@ -131,7 +131,12 @@ export PlasticityTrait,
     HeteroDelay,
     spatiality,
     delaykind,
-    plasticity
+    plasticity,
+    WindowTrait,
+    IntrinsicWindow,
+    SteppedWindow,
+    windowing,
+    temporal_window
 
 export sigmoid,
     softplus,
