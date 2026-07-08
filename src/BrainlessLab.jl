@@ -298,12 +298,14 @@ export Agent,
     assemble_inputs,
     assemble_forage_inputs,
     sense_agents,
+    sense_agents_coloured,
     sense_source,
     liveness,
     polarization,
     milling,
     mean_pairwise_distance,
     mean_nearest_neighbor_distance,
+    segregation,
     input_stability,
     swarm_metrics,
     forage_metrics
@@ -462,6 +464,7 @@ register_metric!(:polarization, polarization)
 register_metric!(:milling, milling)
 register_metric!(:mean_pairwise_distance, mean_pairwise_distance)
 register_metric!(:mean_nearest_neighbor_distance, mean_nearest_neighbor_distance)
+register_metric!(:segregation, segregation)
 register_metric!(:input_stability, input_stability)
 register_metric!(:swarm_metrics, swarm_metrics)
 register_metric!(:forage_metrics, forage_metrics)

@@ -768,6 +768,8 @@ function _make_swarm_ensemble(
         norm_mode=config.norm_mode,
         norm_sigma=config.norm_sigma,
         conspecific_gain=config.conspecific_gain,
+        n_colours=config.n_colours,
+        colour_sensing=config.colour_sensing,
     )
     ven_body = PassthroughBody(morphology)
     spec = portspec(morphology)
@@ -816,6 +818,9 @@ function _environment_config(m::TorusEnvironment)
         size=size,
         n_agents=length(m.positions),
         vision_range=m.config.vision_range,
+        n_colours=Int(m.config.n_colours),
+        colour_sensing=Bool(m.config.colour_sensing),
+        colours=copy(m.colours),
     )
 end
 
@@ -838,6 +843,9 @@ function _environment_config(m::ForageEnvironment)
         signal_gain=Float64(m.config.signal_gain),
         capture_radius=Float64(m.config.capture_radius),
         conspecific_vision=Bool(m.config.conspecific_vision),
+        n_colours=Int(m.config.n_colours),
+        colour_sensing=Bool(m.config.colour_sensing),
+        colours=copy(m.colours),
     )
 end
 
@@ -889,6 +897,9 @@ const _SWARM_ENVIRONMENT_KWARGS = Set{Symbol}((
     :signal_range,
     :signal_gain,
     :capture_radius,
+    :n_colours,
+    :colour_sensing,
+    :colours,
     :ven,
     :record_inputs,
 ))

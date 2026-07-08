@@ -71,6 +71,13 @@ Base.@kwdef struct SwarmConfig
     n_dendrites::Int = 4
     soma_drive::Float64 = 0.0
     dend_drive::Float64 = 0.0
+    # Colour-tagged sensing: split the conspecific bearing bank into one selective
+    # copy per colour. `colours` is an explicit per-agent 0-based assignment;
+    # nothing => balanced interleaved split (0,1,...,n_colours-1,0,...). The
+    # defaults (n_colours=1, colour_sensing=false) are a pure no-op.
+    n_colours::Int = 1
+    colour_sensing::Bool = false
+    colours::Union{Nothing,Vector{Int}} = nothing
 end
 
 # Per-agent physical state lives on the environment as index-addressed arrays
@@ -79,6 +86,7 @@ end
 mutable struct TorusEnvironment{R<:AbstractRNG} <: AbstractTorusEnvironment
     torus::Torus
     config::SwarmConfig
+    colours::Vector{Int}
     positions::Vector{NTuple{2,Float64}}
     headings::Vector{Float64}
     speeds::Vector{Float64}
@@ -96,6 +104,7 @@ end
 mutable struct ForageEnvironment{R<:AbstractRNG} <: AbstractTorusEnvironment
     torus::Torus
     config::SwarmConfig
+    colours::Vector{Int}
     source_position::NTuple{2,Float64}
     positions::Vector{NTuple{2,Float64}}
     headings::Vector{Float64}
@@ -140,6 +149,25 @@ function _resolve_n_lookouts(config::SwarmConfig, n_agents::Integer)
     0 <= k <= Int(n_agents) ||
         throw(ArgumentError("n_lookouts must be in 0:n_agents (got $(k) for $(n_agents) agents)"))
     return k
+end
+
+# Per-agent colour tag (0-based). Explicit `config.colours` (one entry per agent)
+# else a balanced interleaved split (agent i -> (i-1) mod n_colours), so a mixed
+# start is the natural null for the segregation metric.
+function _resolve_colours(config::SwarmConfig, n::Integer)
+    n_ = Int(n)
+    nc = Int(config.n_colours)
+    nc >= 1 || throw(ArgumentError("n_colours must be >= 1 (got $(nc))"))
+    explicit = config.colours
+    if explicit !== nothing
+        cols = Int[Int(c) for c in explicit]
+        length(cols) == n_ ||
+            throw(ArgumentError("config.colours must have one entry per agent (got $(length(cols)) for $(n_) agents)"))
+        all(c -> 0 <= c < nc, cols) ||
+            throw(ArgumentError("config.colours entries must be in 0:$(nc - 1) (n_colours=$(nc)); an out-of-range colour would be invisible to every colour bank"))
+        return cols
+    end
+    return Int[mod(i - 1, nc) for i in 1:n_]
 end
 
 # Per-agent source_gain from the lookout mask: first k agents see the source.
@@ -232,6 +260,7 @@ function _make_torus_environment(torus::Torus, config::SwarmConfig, positions, h
     return TorusEnvironment(
         torus,
         config,
+        _resolve_colours(config, n),
         pos,
         heads,
         zeros(Float64, n),
@@ -302,6 +331,7 @@ function _make_forage_environment(torus::Torus, config::SwarmConfig, positions, 
     return ForageEnvironment(
         torus,
         config,
+        _resolve_colours(config, n),
         source_pos,
         pos,
         heads,
@@ -392,7 +422,25 @@ function _require_torus_width(m::AbstractTorusEnvironment, bodies)
 end
 
 function _conspecific_sensors(m::AbstractTorusEnvironment, i::Integer)
+    nb = length(m.sens_angles_rad)
     if m.visual_coupling && m.config.conspecific_vision
+        if m.config.colour_sensing
+            return sense_agents_coloured(
+                m.positions[i],
+                m.headings[i],
+                m.positions,
+                m.colours,
+                Int(i),
+                m.config.ven.agent_radius,
+                m.torus,
+                m.sens_angles_rad,
+                m.config.sens_agent_dist,
+                m.sensory_noise,
+                m.rng;
+                n_colours=m.config.n_colours,
+                vision_range=m.config.vision_range,
+            )
+        end
         return sense_agents(
             m.positions[i],
             m.headings[i],
@@ -407,7 +455,8 @@ function _conspecific_sensors(m::AbstractTorusEnvironment, i::Integer)
             vision_range=m.config.vision_range,
         )
     end
-    return zeros(Float64, length(m.sens_angles_rad))
+    # Blind: zeros wide enough for the (possibly coloured) conspecific layout.
+    return m.config.colour_sensing ? zeros(Float64, max(1, Int(m.config.n_colours)) * nb) : zeros(Float64, nb)
 end
 
 # observe returns the fully-encoded reservoir inputs (so the per-agent source_gain
@@ -426,6 +475,8 @@ function observe(m::TorusEnvironment, bodies)
             norm_mode=m.config.norm_mode,
             norm_sigma=m.config.norm_sigma,
             gain=m.config.conspecific_gain,
+            n_colours=m.config.n_colours,
+            colour_sensing=m.config.colour_sensing,
         )
     end
 
@@ -460,12 +511,17 @@ function observe(m::ForageEnvironment, bodies)
             norm_mode=m.config.norm_mode,
             norm_sigma=m.config.norm_sigma,
             conspecific_gain=m.config.conspecific_gain,
+            n_colours=m.config.n_colours,
+            colour_sensing=m.config.colour_sensing,
         )
     end
 
     if m.config.signalling
         signal_range = Float64(m.config.signal_range)
         signal_gain = Float64(m.config.signal_gain)
+        # The acoustic receptor sits at the start of the source region, which the
+        # coloured conspecific layout can shift off the hardcoded index 65.
+        acoustic_idx = _ven_acoustic_index(m.config.colour_sensing, m.config.n_colours)
         @inbounds for i in 1:n
             intensity = 0.0
             pos_i = m.positions[i]
@@ -474,7 +530,7 @@ function observe(m::ForageEnvironment, bodies)
                 d = tdistance(m.torus, pos_i, m.positions[j])
                 intensity += m.last_signal[j] * exp(-d / signal_range)
             end
-            inputs[i][VEN_ACOUSTIC_RECEPTOR_INDEX] = signal_gain * clamp(intensity, 0.0, 1.0)
+            inputs[i][acoustic_idx] = signal_gain * clamp(intensity, 0.0, 1.0)
         end
     end
 

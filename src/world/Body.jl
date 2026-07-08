@@ -14,6 +14,17 @@ const VEN_BANK_RECEPTORS = 64
 const VEN_FORAGE_RECEPTORS = 2 * VEN_BANK_RECEPTORS
 const VEN_ACOUSTIC_RECEPTOR_INDEX = VEN_BANK_RECEPTORS + 1
 
+# Conspecific receptor-bank width. Colour sensing lays out one 62-wide bearing
+# bank per colour behind the 2 reserved leads (2 + C*62); colour-blind keeps the
+# single 64-wide bank. C == 1 colour_sensing reproduces the colour-blind width.
+_ven_conspecific_width(colour_sensing::Bool, n_colours::Integer) =
+    colour_sensing ? (2 + Int(n_colours) * VEN_BEARING_SENSOR_COUNT) : VEN_BANK_RECEPTORS
+
+# The acoustic/source region starts right after the conspecific bank(s). Under
+# colour this replaces the hardcoded index 65 (VEN_ACOUSTIC_RECEPTOR_INDEX).
+_ven_acoustic_index(colour_sensing::Bool, n_colours::Integer) =
+    _ven_conspecific_width(colour_sensing, n_colours) + 1
+
 # The VEN swarm agent is now stateless: per-agent physical state (position,
 # heading, speed, heading-rate) and per-agent source_gain live on the
 # environment as index-addressed arrays (see TorusEnvironment / ForageEnvironment),
@@ -98,8 +109,21 @@ function _normalize_bank!(bank::AbstractVector{Float64}, mode::Symbol, sigma::Re
     return bank
 end
 
-function assemble_inputs(sens_agents_vec, sensory_scaling::Bool=true; norm_mode=nothing, norm_sigma::Real=1.0, gain::Real=1.0)
+function assemble_inputs(
+    sens_agents_vec,
+    sensory_scaling::Bool=true;
+    norm_mode=nothing,
+    norm_sigma::Real=1.0,
+    gain::Real=1.0,
+    n_colours::Integer=1,
+    colour_sensing::Bool=false,
+)
     sens = _ven_float_vector(sens_agents_vec)
+
+    if colour_sensing
+        return _assemble_coloured_inputs(sens, sensory_scaling, norm_mode, norm_sigma, gain, Int(n_colours))
+    end
+
     length(sens) == VEN_BEARING_SENSOR_COUNT ||
         throw(DimensionMismatch("bearing vision requires $(VEN_BEARING_SENSOR_COUNT) sensors, got $(length(sens))"))
 
@@ -112,6 +136,26 @@ function assemble_inputs(sens_agents_vec, sensory_scaling::Bool=true; norm_mode=
     return inputs
 end
 
+# Colour layout: 2 reserved leads followed by C independent 62-wide bearing banks.
+# Each bank is normalised on its own (same mode/sigma) and gained independently,
+# so the colour banks project through independent random input weights downstream.
+function _assemble_coloured_inputs(sens::Vector{Float64}, sensory_scaling::Bool, norm_mode, norm_sigma::Real, gain::Real, n_colours::Int)
+    nb = VEN_BEARING_SENSOR_COUNT
+    length(sens) == n_colours * nb ||
+        throw(DimensionMismatch("coloured bearing vision requires $(n_colours * nb) sensors ($(n_colours)×$(nb)), got $(length(sens))"))
+
+    inputs = zeros(Float64, 2 + n_colours * nb)
+    mode = _resolve_norm_mode(sensory_scaling, norm_mode)
+    g = Float64(gain)
+    @inbounds for c in 1:n_colours
+        dst = @view inputs[(2 + (c - 1) * nb + 1):(2 + c * nb)]
+        copyto!(dst, @view sens[((c - 1) * nb + 1):(c * nb)])
+        _normalize_bank!(dst, mode, norm_sigma)
+        g == 1.0 || (dst .*= g)
+    end
+    return inputs
+end
+
 function assemble_forage_inputs(
     conspecific_sens_vec,
     source_sens_vec,
@@ -120,17 +164,30 @@ function assemble_forage_inputs(
     norm_mode=nothing,
     norm_sigma::Real=1.0,
     conspecific_gain::Real=1.0,
+    n_colours::Integer=1,
+    colour_sensing::Bool=false,
 )
     source_sens = _ven_float_vector(source_sens_vec)
     length(source_sens) == VEN_BEARING_SENSOR_COUNT ||
         throw(DimensionMismatch("source vision requires $(VEN_BEARING_SENSOR_COUNT) sensors, got $(length(source_sens))"))
 
-    inputs = zeros(Float64, VEN_FORAGE_RECEPTORS)
-    # Only the conspecific bank is normalised; the source bank stays raw×gain (its
-    # un-normalised intensity gradient is what makes lone source-seeking work).
-    conspecific_bank = assemble_inputs(conspecific_sens_vec, sensory_scaling; norm_mode=norm_mode, norm_sigma=norm_sigma, gain=conspecific_gain)
-    copyto!(@view(inputs[1:VEN_BANK_RECEPTORS]), conspecific_bank)
-    @views inputs[(VEN_BANK_RECEPTORS + 3):VEN_FORAGE_RECEPTORS] .= Float64(source_gain) .* source_sens
+    # Only the conspecific bank(s) are normalised; the source bank stays raw×gain
+    # (its un-normalised intensity gradient is what makes lone source-seeking work).
+    # The source bank stays SINGLE — the food is one uncoloured target — and is
+    # laid out right after the conspecific region (2 reserved leads + 62 bearings).
+    conspecific_bank = assemble_inputs(
+        conspecific_sens_vec,
+        sensory_scaling;
+        norm_mode=norm_mode,
+        norm_sigma=norm_sigma,
+        gain=conspecific_gain,
+        n_colours=n_colours,
+        colour_sensing=colour_sensing,
+    )
+    consp_w = length(conspecific_bank)
+    inputs = zeros(Float64, consp_w + VEN_BANK_RECEPTORS)
+    copyto!(@view(inputs[1:consp_w]), conspecific_bank)
+    @views inputs[(consp_w + 3):(consp_w + VEN_BANK_RECEPTORS)] .= Float64(source_gain) .* source_sens
     return inputs
 end
 
@@ -293,6 +350,70 @@ function sense_agents(
     end
 
     return _sense_acts_from_intersections(intersections, max_d, sens_agent_dist, sensory_noise, rng)
+end
+
+"""
+    sense_agents_coloured(pos, heading, positions, colours, skip, agent_radius, torus, sens_angles_rad, sens_agent_dist, sensory_noise, rng; n_colours, vision_range)
+
+Colour-selective bearing-cone vision. Returns `n_colours` stacked 62-wide bearing
+banks (concatenated to `n_colours * 62`). Bank `c` (0-based) runs the identical
+geometry as [`sense_agents`](@ref) but only over neighbours whose colour equals
+`c`. The sensing agent is never told its own colour — it only ever appears on
+other agents' banks (self-exclusion via `skip`).
+
+Pre-noise invariant: a sensor ray reports the nearer of the colours it strikes,
+so the elementwise `max` over the colour banks reproduces the colour-blind
+`sense_agents` bank exactly.
+"""
+function sense_agents_coloured(
+    pos,
+    heading::Real,
+    positions::AbstractVector,
+    colours::AbstractVector,
+    skip::Integer,
+    agent_radius::Real,
+    torus::Torus,
+    sens_angles_rad=SENS_ANGLES_RAD,
+    sens_agent_dist::Real=0,
+    sensory_noise::Real=0,
+    rng=nothing;
+    n_colours::Integer=1,
+    vision_range=nothing,
+)
+    length(colours) == length(positions) ||
+        throw(DimensionMismatch("colours ($(length(colours))) must match positions ($(length(positions)))"))
+    nc = Int(n_colours)
+    nc >= 1 || throw(ArgumentError("n_colours must be at least 1"))
+
+    sensor_angles = Float64.(vec(collect(sens_angles_rad))) .+ Float64(heading)
+    max_d = max_dist(torus)
+    nb = length(sensor_angles)
+    skip_i = Int(skip)
+
+    out = zeros(Float64, nc * nb)
+    intersections = Vector{Float64}(undef, nb)
+    @inbounds for c in 0:(nc - 1)
+        fill!(intersections, max_d)
+        for j in eachindex(positions)
+            j == skip_i && continue
+            Int(colours[j]) == c || continue
+            done = _accumulate_circular_target!(
+                intersections,
+                sensor_angles,
+                pos,
+                positions[j],
+                agent_radius,
+                torus,
+                max_d;
+                vision_range=vision_range,
+            )
+            done && break
+        end
+        acts = _sense_acts_from_intersections(intersections, max_d, sens_agent_dist, sensory_noise, rng)
+        copyto!(@view(out[(c * nb + 1):((c + 1) * nb)]), acts)
+    end
+
+    return out
 end
 
 """

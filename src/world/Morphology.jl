@@ -74,6 +74,8 @@ Base.@kwdef struct VENMorphology <: Morphology
     norm_mode::Union{Nothing,Symbol} = nothing   # nothing -> derive from sensory_scaling
     norm_sigma::Float64 = 1.0                     # semi-saturation constant for :divisive
     conspecific_gain::Float64 = 1.0               # post-normalisation gain on the conspecific bank
+    n_colours::Int = 1                            # colour-selective conspecific banks (>=1)
+    colour_sensing::Bool = false                  # false => single colour-blind bank (default no-op)
 end
 
 const VEN_MORPHOLOGY = VENMorphology()
@@ -97,36 +99,57 @@ PassthroughBody() = PassthroughBody(_PASSTHROUGH_BODY_MORPHOLOGY)
 
 n_receptors(m::PassthroughMorphology) = m.n_receptors
 n_effectors(m::PassthroughMorphology) = m.n_effectors
-n_receptors(m::VENMorphology) = m.source_bank ? VEN_FORAGE_RECEPTORS : VEN_BANK_RECEPTORS
+function n_receptors(m::VENMorphology)
+    consp = _ven_conspecific_width(m.colour_sensing, m.n_colours)
+    return m.source_bank ? consp + VEN_BANK_RECEPTORS : consp
+end
 n_effectors(m::VENMorphology) = m.signalling ? 4 : 3
 
 function portspec(m::PassthroughMorphology)::PortSpec
     return PortSpec(n_receptors(m), n_effectors(m))
 end
 
-function _ven_base_receptor_ports()
-    out = Vector{Port{_VEN_RECEPTOR_PLACEMENT}}(undef, VEN_BANK_RECEPTORS)
+# Conspecific receptor ports: 2 reserved leads followed by the bearing bank(s).
+# Colour-blind (default) keeps the flat `bearing_<i>` names so the layout is a
+# pure no-op; colour sensing lays out per-colour `conspecific_c<k>_bearing_<i>`.
+function _ven_base_receptor_ports(n_colours::Int=1, colour_sensing::Bool=false)
+    consp = _ven_conspecific_width(colour_sensing, n_colours)
+    out = Vector{Port{_VEN_RECEPTOR_PLACEMENT}}(undef, consp)
     out[1] = Port{_VEN_RECEPTOR_PLACEMENT}(:reserved_1, NO_PLACEMENT)
     out[2] = Port{_VEN_RECEPTOR_PLACEMENT}(:reserved_2, NO_PLACEMENT)
-    @inbounds for i in eachindex(SENS_ANGLES_DEG)
-        out[i + 2] = Port{_VEN_RECEPTOR_PLACEMENT}(Symbol("bearing_", i), Float64(SENS_ANGLES_DEG[i]))
+    if colour_sensing
+        @inbounds for c in 0:(n_colours - 1)
+            base = 2 + c * VEN_BEARING_SENSOR_COUNT
+            for i in eachindex(SENS_ANGLES_DEG)
+                out[base + i] = Port{_VEN_RECEPTOR_PLACEMENT}(
+                    Symbol("conspecific_c", c, "_bearing_", i),
+                    Float64(SENS_ANGLES_DEG[i]),
+                )
+            end
+        end
+    else
+        @inbounds for i in eachindex(SENS_ANGLES_DEG)
+            out[i + 2] = Port{_VEN_RECEPTOR_PLACEMENT}(Symbol("bearing_", i), Float64(SENS_ANGLES_DEG[i]))
+        end
     end
     return out
 end
 
-function _ven_receptor_ports(source_bank::Bool=false, signalling::Bool=false)
-    base = _ven_base_receptor_ports()
+function _ven_receptor_ports(source_bank::Bool=false, signalling::Bool=false, n_colours::Int=1, colour_sensing::Bool=false)
+    base = _ven_base_receptor_ports(n_colours, colour_sensing)
     source_bank || return base
 
-    out = Vector{Port{_VEN_RECEPTOR_PLACEMENT}}(undef, VEN_FORAGE_RECEPTORS)
-    copyto!(out, 1, base, 1, VEN_BANK_RECEPTORS)
-    out[VEN_ACOUSTIC_RECEPTOR_INDEX] = Port{_VEN_RECEPTOR_PLACEMENT}(
+    consp = length(base)
+    acoustic_idx = consp + 1  # start of the (single, uncoloured) source region
+    out = Vector{Port{_VEN_RECEPTOR_PLACEMENT}}(undef, consp + VEN_BANK_RECEPTORS)
+    copyto!(out, 1, base, 1, consp)
+    out[acoustic_idx] = Port{_VEN_RECEPTOR_PLACEMENT}(
         signalling ? :acoustic : :source_reserved_1,
         NO_PLACEMENT,
     )
-    out[VEN_BANK_RECEPTORS + 2] = Port{_VEN_RECEPTOR_PLACEMENT}(:source_reserved_2, NO_PLACEMENT)
+    out[consp + 2] = Port{_VEN_RECEPTOR_PLACEMENT}(:source_reserved_2, NO_PLACEMENT)
     @inbounds for i in eachindex(SENS_ANGLES_DEG)
-        out[VEN_BANK_RECEPTORS + i + 2] =
+        out[consp + i + 2] =
             Port{_VEN_RECEPTOR_PLACEMENT}(Symbol("source_bearing_", i), Float64(SENS_ANGLES_DEG[i]))
     end
     return out
@@ -146,7 +169,7 @@ function portspec(m::VENMorphology)::PortSpec
     return PortSpec(
         n_receptors(m),
         n_effectors(m),
-        _ven_receptor_ports(m.source_bank, m.signalling),
+        _ven_receptor_ports(m.source_bank, m.signalling, m.n_colours, m.colour_sensing),
         _ven_effector_ports(m.signalling),
     )
 end
@@ -158,29 +181,40 @@ decode_effectors(::PassthroughMorphology, e) = e
 
 function encode_receptors(m::VENMorphology, percept)
     vals = _ven_float_vector(percept)
+    # Already-encoded input (observe emits the full receptor layout, incl. coloured).
+    length(vals) == n_receptors(m) && return copy(vals)
+
+    nb = VEN_BEARING_SENSOR_COUNT
+    consp_raw = m.colour_sensing ? m.n_colours * nb : nb  # raw conspecific-sensor width
     if m.source_bank
-        if length(vals) == VEN_FORAGE_RECEPTORS
-            return copy(vals)
-        elseif length(vals) == 2 * VEN_BEARING_SENSOR_COUNT
+        if length(vals) == consp_raw + nb
             return assemble_forage_inputs(
-                @view(vals[1:VEN_BEARING_SENSOR_COUNT]),
-                @view(vals[(VEN_BEARING_SENSOR_COUNT + 1):(2 * VEN_BEARING_SENSOR_COUNT)]),
+                @view(vals[1:consp_raw]),
+                @view(vals[(consp_raw + 1):(consp_raw + nb)]),
                 m.sensory_scaling;
                 source_gain=m.source_gain,
                 norm_mode=m.norm_mode,
                 norm_sigma=m.norm_sigma,
                 conspecific_gain=m.conspecific_gain,
+                n_colours=m.n_colours,
+                colour_sensing=m.colour_sensing,
             )
         end
-        throw(DimensionMismatch("forage VENBody percept must have length $(2 * VEN_BEARING_SENSOR_COUNT) or $(VEN_FORAGE_RECEPTORS), got $(length(vals))"))
+        throw(DimensionMismatch("forage VEN percept must have length $(consp_raw + nb) or $(n_receptors(m)), got $(length(vals))"))
     else
-        if length(vals) == VEN_BANK_RECEPTORS
-            return copy(vals)
-        elseif length(vals) == VEN_BEARING_SENSOR_COUNT
-            return assemble_inputs(vals, m.sensory_scaling; norm_mode=m.norm_mode, norm_sigma=m.norm_sigma, gain=m.conspecific_gain)
+        if length(vals) == consp_raw
+            return assemble_inputs(
+                vals,
+                m.sensory_scaling;
+                norm_mode=m.norm_mode,
+                norm_sigma=m.norm_sigma,
+                gain=m.conspecific_gain,
+                n_colours=m.n_colours,
+                colour_sensing=m.colour_sensing,
+            )
         end
     end
-    throw(DimensionMismatch("VENBody percept must have length $(VEN_BEARING_SENSOR_COUNT) or $(VEN_BANK_RECEPTORS), got $(length(vals))"))
+    throw(DimensionMismatch("VEN percept must have length $(consp_raw) or $(n_receptors(m)), got $(length(vals))"))
 end
 
 decode_effectors(::VENMorphology, e) = _ven_output_acts(e)

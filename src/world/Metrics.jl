@@ -182,6 +182,91 @@ function mean_nearest_neighbor_distance(positions, torus::Torus)
     return _mean(distances)
 end
 
+"""
+    segregation(positions, colours, torus)
+
+Colour assortativity of a single snapshot. Returns
+`(; same_dist, cross_dist, assortativity)` where `assortativity =
+(cross_dist - same_dist) / (cross_dist + same_dist)` in [-1, 1]: `>0` means
+same-colour agents sit closer than cross-colour (colour-sorted), `~0` means
+well-mixed, `<0` means anti-sorted. The colour-blind run (colours still assigned
+but `colour_sensing=false`) is the natural ~chance null.
+"""
+function segregation(positions, colours, torus::Torus)
+    pos = _positions_matrix(positions)
+    cols = Int[Int(c) for c in vec(collect(colours))]
+    n = size(pos, 1)
+    length(cols) == n ||
+        throw(DimensionMismatch("colour count $(length(cols)) does not match position count $(n)"))
+
+    same_total = 0.0
+    same_count = 0
+    cross_total = 0.0
+    cross_count = 0
+    @inbounds for i in 1:n
+        for j in (i + 1):n
+            d = tdistance(torus, (pos[i, 1], pos[i, 2]), (pos[j, 1], pos[j, 2]))
+            if cols[i] == cols[j]
+                same_total += d
+                same_count += 1
+            else
+                cross_total += d
+                cross_count += 1
+            end
+        end
+    end
+
+    same_d = same_count == 0 ? 0.0 : same_total / same_count
+    cross_d = cross_count == 0 ? 0.0 : cross_total / cross_count
+    # Assortativity is only defined when BOTH within- and cross-colour pairs exist.
+    # With one colour class (e.g. the default n_colours=1) there are no cross pairs,
+    # so return neutral 0.0 rather than the spurious -1/+1 the ratio would give.
+    denom = same_d + cross_d
+    assortativity = (same_count > 0 && cross_count > 0 && denom > 0.0) ?
+        (cross_d - same_d) / denom : 0.0
+    return (same_dist=Float64(same_d), cross_dist=Float64(cross_d), assortativity=Float64(assortativity))
+end
+
+_empty_segregation() = (same_dist=0.0, cross_dist=0.0, assortativity=0.0)
+
+"""
+    segregation(m::AbstractTorusEnvironment, window)
+
+Window-averaged colour assortativity over the last `window` recorded poses, using
+the per-agent `m.colours`. Registered as the `:segregation` swarm metric.
+"""
+function segregation(m::AbstractTorusEnvironment, window::Integer)
+    window = Int(window)
+    if window <= 0 || isempty(m.history) || any(isempty, m.history)
+        return _empty_segregation()
+    end
+
+    steps = min(window, minimum(length, m.history))
+    steps <= 0 && return _empty_segregation()
+
+    n_agents = length(m.history)
+    same = Float64[]
+    cross = Float64[]
+    assort = Float64[]
+    positions = zeros(Float64, n_agents, 2)
+    for k in 1:steps
+        @inbounds for i in 1:n_agents
+            hist = m.history[i]
+            pose = hist[length(hist) - steps + k]
+            positions[i, 1] = pose[1]
+            positions[i, 2] = pose[2]
+        end
+        snap = segregation(positions, m.colours, m.torus)
+        push!(same, snap.same_dist)
+        push!(cross, snap.cross_dist)
+        push!(assort, snap.assortativity)
+    end
+
+    return (same_dist=_mean(same), cross_dist=_mean(cross), assortativity=_mean(assort))
+end
+
+segregation(c::Ensemble, window::Integer) = segregation(c.environment, Int(window))
+
 function _input_histories(input_history)
     input_history === nothing && return nothing
 
