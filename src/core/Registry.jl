@@ -3,6 +3,7 @@ const TASKS = Dict{Symbol,Any}()
 const DRIVES = Dict{Symbol,Any}()
 const BODIES = Dict{Symbol,Any}()
 const MOTORS = Dict{Symbol,Any}()
+const SENSORS = Dict{Symbol,Any}()
 const METRICS = Dict{Symbol,Any}()
 const ANALYSES = Dict{Symbol,Any}()
 const VIEWS = Dict{Symbol,Any}()
@@ -120,6 +121,21 @@ register_motor!(sym::Symbol, T) = _register!(MOTORS, "motor", sym, T)
 Resolve a registered motor symbol to its constructor or concrete type.
 """
 resolve_motor(sym::Symbol)::Any = _resolve(MOTORS, "motor", sym)
+
+"""
+    register_sensor!(sym, T)
+
+Register a sensor (perception-geometry) spec constructor or concrete type under
+`sym`.
+"""
+register_sensor!(sym::Symbol, T) = _register!(SENSORS, "sensor", sym, T)
+
+"""
+    resolve_sensor(sym)
+
+Resolve a registered sensor symbol to its constructor or concrete type.
+"""
+resolve_sensor(sym::Symbol)::Any = _resolve(SENSORS, "sensor", sym)
 
 """
     register_metric!(sym, T)

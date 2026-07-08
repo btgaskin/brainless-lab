@@ -25,6 +25,7 @@ include("viz/Views.jl")
 include("nodes/Drives.jl")
 include("nodes/Axes.jl")
 include("world/Torus.jl")
+include("world/Sensor.jl")
 include("world/Body.jl")
 include("world/Motor.jl")
 include("world/Morphology.jl")
@@ -291,6 +292,11 @@ export Agent,
     KinematicMotor,
     readout,
     motor,
+    SensorSpec,
+    BearingSensor,
+    bearing_eyes,
+    n_sensors,
+    paramspace,
     VEN_ACOUSTIC_RECEPTOR_INDEX,
     VENMorphology,
     Port,
@@ -324,6 +330,8 @@ export register_node!,
     resolve_body,
     register_motor!,
     resolve_motor,
+    register_sensor!,
+    resolve_sensor,
     register_metric!,
     resolve_metric,
     register_analysis!,
@@ -467,6 +475,8 @@ register_task!(:forage, :forage)
 register_body!(:passthrough, PassthroughBody)
 
 register_motor!(:ven_kinematics, KinematicMotor)
+
+register_sensor!(:bearing_cone, BearingSensor)
 
 register_metric!(:polarization, polarization)
 register_metric!(:milling, milling)

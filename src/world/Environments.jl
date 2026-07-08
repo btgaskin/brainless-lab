@@ -69,6 +69,12 @@ Base.@kwdef struct SwarmConfig
     # plain SwarmConfig field.
     motor::KinematicMotor = KinematicMotor()
     agent_radius::Float64 = 0.5
+    # Perception geometry (which rays + how an intersection becomes an activation)
+    # lives on the SensorSpec, mirroring the motor. The default BearingSensor is the
+    # byte-identical no-op (historical 62-ray fan, :binary encoding). The legacy
+    # sens_agent_dist knob still selects the encoding: a non-zero value forces the
+    # graded (1 - d/max_d) map — see `_resolve_encoding`.
+    sensor::SensorSpec = BEARING_DEFAULT
     node_params::Any = nothing
     seed::Int = 0
     record_inputs::Bool = true
@@ -274,7 +280,7 @@ function _make_torus_environment(torus::Torus, config::SwarmConfig, positions, h
         Bool(config.physical_coupling),
         Float64(config.sensory_noise),
         rng,
-        copy(SENS_ANGLES_RAD),
+        angles_rad(config.sensor),
         history,
         input_history,
         nothing,
@@ -348,7 +354,7 @@ function _make_forage_environment(torus::Torus, config::SwarmConfig, positions, 
         Bool(config.physical_coupling),
         Float64(config.sensory_noise),
         rng,
-        copy(SENS_ANGLES_RAD),
+        angles_rad(config.sensor),
         history,
         input_history,
         nothing,
@@ -426,9 +432,19 @@ function _require_torus_width(m::AbstractTorusEnvironment, bodies)
     return nothing
 end
 
+# Effective sense-cone encoding. The canonical source is `config.sensor.encoding`;
+# the legacy `sens_agent_dist` knob still works — a non-zero value forces :graded
+# (its historical meaning), mirroring how `_resolve_norm_mode` honours the legacy
+# `sensory_scaling` flag. The default (sens_agent_dist=0, default sensor) is :binary.
+function _resolve_encoding(config::SwarmConfig)
+    config.sens_agent_dist != 0 && return :graded
+    return encoding(config.sensor)
+end
+
 function _conspecific_sensors(m::AbstractTorusEnvironment, i::Integer)
     nb = length(m.sens_angles_rad)
     if m.visual_coupling && m.config.conspecific_vision
+        enc = _resolve_encoding(m.config)
         if m.config.colour_sensing
             return sense_agents_coloured(
                 m.positions[i],
@@ -439,7 +455,7 @@ function _conspecific_sensors(m::AbstractTorusEnvironment, i::Integer)
                 m.config.agent_radius,
                 m.torus,
                 m.sens_angles_rad,
-                m.config.sens_agent_dist,
+                enc,
                 m.sensory_noise,
                 m.rng;
                 n_colours=m.config.n_colours,
@@ -454,7 +470,7 @@ function _conspecific_sensors(m::AbstractTorusEnvironment, i::Integer)
             m.config.agent_radius,
             m.torus,
             m.sens_angles_rad,
-            m.config.sens_agent_dist,
+            enc,
             m.sensory_noise,
             m.rng;
             vision_range=m.config.vision_range,
@@ -472,6 +488,7 @@ function observe(m::TorusEnvironment, bodies)
     n = length(m.positions)
     inputs = Vector{Vector{Float64}}(undef, n)
 
+    nb = length(m.sens_angles_rad)
     @inbounds for i in 1:n
         sens = _conspecific_sensors(m, i)
         inputs[i] = assemble_inputs(
@@ -482,6 +499,7 @@ function observe(m::TorusEnvironment, bodies)
             gain=m.config.conspecific_gain,
             n_colours=m.config.n_colours,
             colour_sensing=m.config.colour_sensing,
+            n_sensors=nb,
         )
     end
 
@@ -493,6 +511,7 @@ function observe(m::ForageEnvironment, bodies)
     _require_torus_width(m, bodies)
     n = length(m.positions)
     inputs = Vector{Vector{Float64}}(undef, n)
+    nb = length(m.sens_angles_rad)
 
     @inbounds for i in 1:n
         conspecific = _conspecific_sensors(m, i)
@@ -502,7 +521,7 @@ function observe(m::ForageEnvironment, bodies)
             m.source_position,
             m.torus,
             m.sens_angles_rad,
-            m.config.sens_agent_dist,
+            _resolve_encoding(m.config),
             m.sensory_noise,
             m.rng;
             vision_range=m.config.vision_range,
@@ -518,6 +537,7 @@ function observe(m::ForageEnvironment, bodies)
             conspecific_gain=m.config.conspecific_gain,
             n_colours=m.config.n_colours,
             colour_sensing=m.config.colour_sensing,
+            n_sensors=nb,
         )
     end
 
@@ -525,8 +545,9 @@ function observe(m::ForageEnvironment, bodies)
         signal_range = Float64(m.config.signal_range)
         signal_gain = Float64(m.config.signal_gain)
         # The acoustic receptor sits at the start of the source region, which the
-        # coloured conspecific layout can shift off the hardcoded index 65.
-        acoustic_idx = _ven_acoustic_index(m.config.colour_sensing, m.config.n_colours)
+        # coloured conspecific layout (and a non-default sensor ray count) can shift
+        # off the hardcoded index 65.
+        acoustic_idx = _ven_acoustic_index(m.config.colour_sensing, m.config.n_colours; n_sensors=nb)
         @inbounds for i in 1:n
             intensity = 0.0
             pos_i = m.positions[i]
