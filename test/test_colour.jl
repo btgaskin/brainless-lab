@@ -44,10 +44,9 @@ end
 
 @testset "max over colour banks == colour-blind bank (pre-noise)" begin
     torus = Torus(15.0)
-    params = VENParams(agent_radius=0.5)
     positions = [(5.0, 5.0), (7.0, 6.0), (4.0, 8.0), (8.0, 4.5)]
     colours = [0, 0, 1, 1]
-    r = params.agent_radius
+    r = 0.5
 
     for sens_agent_dist in (0, 1)
         blind = sense_agents(positions[1], 0.3, positions, 1, r, torus, _ANG, sens_agent_dist, 0.0, MersenneTwister(0))

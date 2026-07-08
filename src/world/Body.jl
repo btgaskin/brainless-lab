@@ -29,15 +29,10 @@ _ven_acoustic_index(colour_sensing::Bool, n_colours::Integer) =
 # heading, speed, heading-rate) and per-agent source_gain live on the
 # environment as index-addressed arrays (see TorusEnvironment / ForageEnvironment),
 # and the body is a `PassthroughBody{VENMorphology}` (defined in Morphology.jl).
-# VENParams are the uniform kinematic constants, carried on SwarmConfig.ven.
-Base.@kwdef struct VENParams
-    top_speed::Float64 = 0.2
-    accel_time::Float64 = 5.0
-    top_heading_rate::Float64 = pi / 8.0
-    h_accel_time::Float64 = 5.0
-    dt::Float64 = 1.0
-    agent_radius::Float64 = 0.5
-end
+# The uniform kinematic constants and the effector-decode scheme now live on a
+# `KinematicMotor` (see Motor.jl), carried on the body and on SwarmConfig.motor;
+# `agent_radius` is a SwarmConfig field. The shared kinematic helpers below stay
+# here because both `Motor.jl` and the environments consume them.
 
 velocity_hat(heading::Real) = (Float64(cos(heading)), Float64(sin(heading)))
 
@@ -53,35 +48,8 @@ end
 
 ven_emitted_signal(e) = length(e) >= 4 ? clamp(Float64(e[4]), 0.0, 1.0) : 0.0
 
-"""
-    integrate_motion(pos, heading, speed, heading_rate, e, params, torus)
-
-Advance one VEN agent's kinematics for a single tick. Pure: returns the updated
-`(pos, heading, speed, heading_rate)` from the current state and clamped effector
-vector `e`. Same differential drive as before; state is threaded rather than
-mutated on a body (the environment owns the arrays).
-"""
-function integrate_motion(pos, heading::Real, speed::Real, heading_rate::Real, e, params::VENParams, torus::Torus)
-    output_acts = _ven_output_acts(e)
-    dt = Float64(params.dt)
-
-    max_a = params.top_speed / params.accel_time
-    fric_a = max_a / params.top_speed
-    accel = output_acts[3] * max_a
-    speed = Float64(speed) + (accel - fric_a * Float64(speed)) * dt
-
-    max_ha = params.top_heading_rate / params.h_accel_time
-    fric_h = max_ha / params.top_heading_rate
-    h_accel = (output_acts[2] - output_acts[1]) * max_ha
-    heading_rate = Float64(heading_rate) + (h_accel - fric_h * Float64(heading_rate)) * dt
-    heading = mod(Float64(heading) + heading_rate * dt, _TWO_PI)
-
-    x = pos[1] + speed * cos(heading) * dt
-    y = pos[2] + speed * sin(heading) * dt
-    new_pos = wrap(torus, x, y)
-
-    return (new_pos, heading, speed, heading_rate)
-end
+# `integrate_motion(::KinematicMotor, ...)` (the agent kinematics) now lives in
+# Motor.jl, dispatched on the motor so alternative command maps can be swapped in.
 
 # Resolve the effective bank-normalisation mode. `nothing` derives it from the
 # legacy `sensory_scaling` flag so existing callers/fixtures are unchanged.

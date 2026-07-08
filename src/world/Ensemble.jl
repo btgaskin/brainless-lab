@@ -248,6 +248,31 @@ function _step_window!(::SteppedWindow, r::Reservoir, R, K::Int)
     return acc ./ K
 end
 
+# Falandays readout specialization for the graded schemes (the default and the
+# spike-based schemes fall through to `effectors`, as does every other reservoir).
+# Both graded schemes re-express the reservoir's own graded internal state through
+# the SAME `effectors` projection used for spikes, so the readout stays a
+# memoryless, bias-free re-expression of the node's output — no leaky integrator,
+# no threshold-on-turn, no baked heading. `:graded_state` substitutes the
+# distance-to-threshold `acts ./ (targets · threshold_mult)` for the binary spike;
+# `:graded_deviation` the signed homeostatic error `acts .- targets`. Lives here
+# (not Motor.jl) because it dispatches on the node type, defined after Motor.jl.
+function readout(m::Motor, r::FalandaysReservoir, spikes)
+    scheme = m.readout
+    if scheme === :graded_state
+        return effectors(r, activations(r) ./ (r.targets .* r.params.threshold_mult))
+    elseif scheme === :graded_deviation
+        return effectors(r, activations(r) .- r.targets)
+    end
+    return effectors(r, spikes)
+end
+
+# Wrapped Falandays variants (:falandays_noisy / :falandays_extended) are
+# NoisyInput{<:Reservoir} wrappers, not FalandaysReservoir; delegate the readout to
+# the inner reservoir so the graded schemes work across the whole Falandays family
+# (mirrors NoisyInput's transparent effectors/getproperty forwarding).
+readout(m::Motor, w::NoisyInput, spikes) = readout(m, getfield(w, :inner), spikes)
+
 function step!(c::Ensemble)
     bodies = _agent_bodies(c)
     percepts = observe(c.environment, bodies)
@@ -262,7 +287,7 @@ function step!(c::Ensemble)
         agent = c.agents[i]
         R = receptors(agent.body, percepts[i])
         s = step_window!(agent.reservoir, R)
-        E = effectors(agent.reservoir, s)
+        E = readout(motor(agent.body), agent.reservoir, s)
         spikes[i] = s
         rates[i] = _spike_rate(s)
         Es[i] = decode_effectors(agent.body, E)

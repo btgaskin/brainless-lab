@@ -80,7 +80,7 @@ end
     @test n_effectors(agent.reservoir) == 3
 
     torus = Torus(10.0)
-    params = VENParams(agent_radius=0.5)
+    agent_radius = 0.5
     positions = [(4.0, 5.0), (4.2, 5.0)]
     config = SwarmConfig(
         n_agents=2,
@@ -91,7 +91,7 @@ end
         source_position=(5.0, 5.0),
         source_gain=2.0,
         capture_radius=0.5,
-        ven=params,
+        agent_radius=agent_radius,
     )
     environment = ForageEnvironment(torus, positions; config=config, rng=MersenneTwister(7))
 
@@ -107,7 +107,7 @@ end
     actuate!(environment, bodies, [zeros(3), zeros(3)])
     after = copy(environment.positions)
     @test after != before                                # collision resolution separates them
-    @test tdistance(torus, after[1], after[2]) >= 2.0 * params.agent_radius - 1e-9
+    @test tdistance(torus, after[1], after[2]) >= 2.0 * agent_radius - 1e-9
 end
 
 @testset "Forage seeded determinism" begin

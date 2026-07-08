@@ -63,7 +63,12 @@ Base.@kwdef struct SwarmConfig
     signal_range::Float64 = 3.0
     signal_gain::Float64 = 1.0
     capture_radius::Float64 = 1.0
-    ven::VENParams = VENParams()
+    # The uniform kinematic constants + effector-decode scheme live on the motor;
+    # the default KinematicMotor is the byte-identical no-op. agent_radius (the
+    # per-agent collision/vision radius, formerly VENParams.agent_radius) is a
+    # plain SwarmConfig field.
+    motor::KinematicMotor = KinematicMotor()
+    agent_radius::Float64 = 0.5
     node_params::Any = nothing
     seed::Int = 0
     record_inputs::Bool = true
@@ -229,7 +234,7 @@ function _sample_states(config::SwarmConfig, torus::Torus, rng::AbstractRNG)
     Int(config.n_agents) >= 1 || throw(ArgumentError("n_agents must be at least 1"))
     positions = NTuple{2,Float64}[]
     headings = Float64[]
-    min_separation = 2.0 * config.ven.agent_radius + 0.2
+    min_separation = 2.0 * config.agent_radius + 0.2
     for _ in 1:config.n_agents
         pos = _sample_open_position(rng, torus, config, positions, min_separation)
         push!(positions, pos)
@@ -431,7 +436,7 @@ function _conspecific_sensors(m::AbstractTorusEnvironment, i::Integer)
                 m.positions,
                 m.colours,
                 Int(i),
-                m.config.ven.agent_radius,
+                m.config.agent_radius,
                 m.torus,
                 m.sens_angles_rad,
                 m.config.sens_agent_dist,
@@ -446,7 +451,7 @@ function _conspecific_sensors(m::AbstractTorusEnvironment, i::Integer)
             m.headings[i],
             m.positions,
             Int(i),
-            m.config.ven.agent_radius,
+            m.config.agent_radius,
             m.torus,
             m.sens_angles_rad,
             m.config.sens_agent_dist,
@@ -548,7 +553,7 @@ end
 function _resolve_collisions!(m::AbstractTorusEnvironment)
     m.physical_coupling || return nothing
 
-    radius = Float64(m.config.ven.agent_radius)
+    radius = Float64(m.config.agent_radius)
     min_d = 2.0 * radius
     n = length(m.positions)
 
@@ -613,10 +618,9 @@ function actuate!(m::AbstractTorusEnvironment, bodies, Es)
     length(Es) == n ||
         throw(DimensionMismatch("expected one effector vector per agent"))
 
-    params = m.config.ven
     @inbounds for i in 1:n
         new_pos, new_heading, new_speed, new_hr = integrate_motion(
-            m.positions[i], m.headings[i], m.speeds[i], m.heading_rates[i], Es[i], params, m.torus,
+            motor(bodies[i]), m.positions[i], m.headings[i], m.speeds[i], m.heading_rates[i], Es[i], m.torus,
         )
         m.positions[i] = new_pos
         m.headings[i] = new_heading

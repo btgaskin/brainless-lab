@@ -83,19 +83,26 @@ const _PASSTHROUGH_BODY_MORPHOLOGY = PassthroughMorphology(0, 0)
 const _VEN_RECEPTOR_PLACEMENT = Union{NoPlacement,Float64}
 
 """
+    PassthroughBody(morphology, motor)
     PassthroughBody(morphology)
     PassthroughBody()
 
-A body that carries a `Morphology` and relays encoding/decoding to it. The
-zero-arg form is the stateless task-env relay (identity encode/decode via the
-0×0 passthrough morphology). Swarm agents share one
-`PassthroughBody(VENMorphology(...))`; their per-agent physical state and
-per-agent `source_gain` live on the environment, not the body.
+A body that carries a `Morphology` and a `Motor` and relays encoding/decoding to
+them. The zero-arg form is the stateless task-env relay (identity encode/decode
+via the 0×0 passthrough morphology). Swarm agents share one
+`PassthroughBody(VENMorphology(...), motor)`; their per-agent physical state and
+per-agent `source_gain` live on the environment, not the body. The one- and
+zero-arg forms default the motor to [`PASSTHROUGH_MOTOR`](@ref) — the
+byte-identical no-op — so unmigrated callers are unchanged.
 """
-struct PassthroughBody{M<:Morphology} <: Body
+struct PassthroughBody{M<:Morphology,Mt<:Motor} <: Body
     morphology::M
+    motor::Mt
 end
+PassthroughBody(morphology::Morphology) = PassthroughBody(morphology, PASSTHROUGH_MOTOR)
 PassthroughBody() = PassthroughBody(_PASSTHROUGH_BODY_MORPHOLOGY)
+
+motor(b::PassthroughBody) = b.motor
 
 n_receptors(m::PassthroughMorphology) = m.n_receptors
 n_effectors(m::PassthroughMorphology) = m.n_effectors

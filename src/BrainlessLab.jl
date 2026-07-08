@@ -26,6 +26,7 @@ include("nodes/Drives.jl")
 include("nodes/Axes.jl")
 include("world/Torus.jl")
 include("world/Body.jl")
+include("world/Motor.jl")
 include("world/Morphology.jl")
 include("nodes/SpikeHistory.jl")
 include("nodes/Falandays.jl")
@@ -286,7 +287,10 @@ export Agent,
     tdelta,
     tdistance,
     bearing,
-    VENParams,
+    Motor,
+    KinematicMotor,
+    readout,
+    motor,
     VEN_ACOUSTIC_RECEPTOR_INDEX,
     VENMorphology,
     Port,
@@ -318,6 +322,8 @@ export register_node!,
     resolve_drive,
     register_body!,
     resolve_body,
+    register_motor!,
+    resolve_motor,
     register_metric!,
     resolve_metric,
     register_analysis!,
@@ -459,6 +465,8 @@ register_task!(:torus, :torus)
 register_task!(:forage, :forage)
 
 register_body!(:passthrough, PassthroughBody)
+
+register_motor!(:ven_kinematics, KinematicMotor)
 
 register_metric!(:polarization, polarization)
 register_metric!(:milling, milling)

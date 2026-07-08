@@ -771,7 +771,7 @@ function _make_swarm_ensemble(
         n_colours=config.n_colours,
         colour_sensing=config.colour_sensing,
     )
-    ven_body = PassthroughBody(morphology)
+    ven_body = PassthroughBody(morphology, config.motor)
     spec = portspec(morphology)
 
     agents = Vector{Agent}(undef, config.n_agents)
@@ -900,7 +900,8 @@ const _SWARM_ENVIRONMENT_KWARGS = Set{Symbol}((
     :n_colours,
     :colour_sensing,
     :colours,
-    :ven,
+    :motor,
+    :agent_radius,
     :record_inputs,
 ))
 

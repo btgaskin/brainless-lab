@@ -2,6 +2,7 @@ const NODES = Dict{Symbol,Any}()
 const TASKS = Dict{Symbol,Any}()
 const DRIVES = Dict{Symbol,Any}()
 const BODIES = Dict{Symbol,Any}()
+const MOTORS = Dict{Symbol,Any}()
 const METRICS = Dict{Symbol,Any}()
 const ANALYSES = Dict{Symbol,Any}()
 const VIEWS = Dict{Symbol,Any}()
@@ -104,6 +105,21 @@ register_body!(sym::Symbol, T) = _register!(BODIES, "body", sym, T)
 Resolve a registered body symbol to its constructor or concrete type.
 """
 resolve_body(sym::Symbol)::Any = _resolve(BODIES, "body", sym)
+
+"""
+    register_motor!(sym, T)
+
+Register a motor (effector-decode policy) constructor or concrete type under
+`sym`.
+"""
+register_motor!(sym::Symbol, T) = _register!(MOTORS, "motor", sym, T)
+
+"""
+    resolve_motor(sym)
+
+Resolve a registered motor symbol to its constructor or concrete type.
+"""
+resolve_motor(sym::Symbol)::Any = _resolve(MOTORS, "motor", sym)
 
 """
     register_metric!(sym, T)

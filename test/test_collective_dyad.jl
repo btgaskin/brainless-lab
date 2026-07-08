@@ -4,13 +4,13 @@ using Test
 
 @testset "Torus vision and metric seam corrections" begin
     torus = Torus(10.0)
-    params = VENParams(agent_radius=0.5)
+    agent_radius = 0.5
 
     # A neighbour just across the wrap, sensed by a single rear-pointing sensor.
     # Agent 1 (self) is skipped; agent 2 is the neighbour.
     sensors = sense_agents(
         (5.0, 5.0), 0.0,
-        [(5.0, 5.0), (4.0, 4.99)], 1, params.agent_radius,
+        [(5.0, 5.0), (4.0, 4.99)], 1, agent_radius,
         torus, [pi - 0.01], 0, 0,
     )
     @test only(sensors) == 1.0

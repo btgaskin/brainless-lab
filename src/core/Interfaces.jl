@@ -226,6 +226,25 @@ Integrate a body's kinematic state from decoded actuation commands.
 function integrate_motion! end
 
 """
+    readout(motor, reservoir, spikes)
+
+Re-express a reservoir's output as an effector command vector under a `Motor`'s
+readout scheme. The result is passed on to `decode_effectors`. Every scheme is a
+memoryless, bias-free re-expression of the reservoir's own output through the
+same effector projection: the default returns `effectors(reservoir, spikes)`
+unchanged, and graded schemes only substitute a different (still projected)
+slice of the reservoir's internal state.
+"""
+function readout end
+
+"""
+    motor(body)
+
+Return the `Motor` (effector-decode policy) carried by a `Body`.
+"""
+function motor end
+
+"""
     metrics(object, args...)
 
 Return named diagnostic metrics for a task, rollout, or system.
