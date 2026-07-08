@@ -28,19 +28,66 @@ using BrainlessLab
 
 const TASKS = (:wall, :tracking, :pong, :cartpole, :cartpole_swingup)
 
+function parse_args(args)
+    opts = Dict{Symbol,Any}(
+        :bins => 5,
+        :n_emitters => 4,
+        :emitter_popsize => 6,
+        :iterations => 50,
+        :k_trials => 4,
+        :N => 200,
+        :ticks => 300,
+        :seed => 0,
+    )
+    i = 1
+    while i <= length(args)
+        arg = args[i]
+        if arg == "--bins"
+            i += 1
+            opts[:bins] = parse(Int, args[i])
+        elseif arg == "--n-emitters" || arg == "--n_emitters"
+            i += 1
+            opts[:n_emitters] = parse(Int, args[i])
+        elseif arg == "--emitter-popsize" || arg == "--emitter_popsize"
+            i += 1
+            opts[:emitter_popsize] = parse(Int, args[i])
+        elseif arg == "--iterations"
+            i += 1
+            opts[:iterations] = parse(Int, args[i])
+        elseif arg == "--k-trials" || arg == "--k_trials"
+            i += 1
+            opts[:k_trials] = parse(Int, args[i])
+        elseif arg == "--N" || arg == "--n"
+            i += 1
+            opts[:N] = parse(Int, args[i])
+        elseif arg == "--ticks"
+            i += 1
+            opts[:ticks] = parse(Int, args[i])
+        elseif arg == "--seed"
+            i += 1
+            opts[:seed] = parse(Int, args[i])
+        else
+            error("unknown option $arg")
+        end
+        i += 1
+    end
+    return opts
+end
+
 function main()
+    opts = parse_args(ARGS)
     t0 = time()
     out = BrainlessLab.cma_me(
         model_sym=:compartmental_structured,
         train_tasks=TASKS,
-        bins=5,
-        n_emitters=4,
-        emitter_popsize=6,
-        iterations=50,
-        k_trials=4,
-        N=200,
-        ticks=300,
-        seed=0,
+        bins=opts[:bins],
+        n_emitters=opts[:n_emitters],
+        emitter_popsize=opts[:emitter_popsize],
+        iterations=opts[:iterations],
+        k_trials=opts[:k_trials],
+        N=opts[:N],
+        ticks=opts[:ticks],
+        seed=opts[:seed],
     )
     elapsed = time() - t0
 

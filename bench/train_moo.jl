@@ -26,25 +26,68 @@ include("Benchmark.jl")
 using .Benchmark
 using BrainlessLab
 
-const TASKS = (:wall, :tracking, :pong, :cartpole, :cartpole_swingup)
+const DEFAULT_TASKS = (:wall, :tracking, :pong, :cartpole, :cartpole_swingup)
+
+function parse_args(args)
+    opts = Dict{Symbol,Any}(
+        :popsize => 32,
+        :generations => 30,
+        :k_trials => 4,
+        :N => 200,
+        :ticks => 300,
+        :seed => 0,
+        :tasks => DEFAULT_TASKS,
+    )
+    i = 1
+    while i <= length(args)
+        arg = args[i]
+        if arg == "--tasks"
+            i += 1
+            opts[:tasks] = Tuple(Benchmark.parse_symbol_list(args[i]))
+        elseif arg == "--popsize"
+            i += 1
+            opts[:popsize] = parse(Int, args[i])
+        elseif arg == "--generations"
+            i += 1
+            opts[:generations] = parse(Int, args[i])
+        elseif arg == "--k-trials" || arg == "--k_trials"
+            i += 1
+            opts[:k_trials] = parse(Int, args[i])
+        elseif arg == "--N" || arg == "--n"
+            i += 1
+            opts[:N] = parse(Int, args[i])
+        elseif arg == "--ticks"
+            i += 1
+            opts[:ticks] = parse(Int, args[i])
+        elseif arg == "--seed"
+            i += 1
+            opts[:seed] = parse(Int, args[i])
+        else
+            error("unknown option $arg")
+        end
+        i += 1
+    end
+    return opts
+end
 
 function main()
+    opts = parse_args(ARGS)
     t0 = time()
     out = BrainlessLab.nsga2(
         model_sym=:compartmental_structured,
-        train_tasks=TASKS,
-        popsize=32,
-        generations=30,
-        k_trials=4,
-        N=200,
-        ticks=300,
-        seed=0,
+        train_tasks=opts[:tasks],
+        popsize=opts[:popsize],
+        generations=opts[:generations],
+        k_trials=opts[:k_trials],
+        N=opts[:N],
+        ticks=opts[:ticks],
+        seed=opts[:seed],
     )
     elapsed = time() - t0
 
     println("n_evaluated=", out.n_evaluated, "  elapsed_s=", round(elapsed; digits=1))
     println("pareto_front size=", length(out.pareto_front))
-    for (i, task) in enumerate(TASKS)
+    for (i, task) in enumerate(opts[:tasks])
         vals = [p.objectives[i] for p in out.pareto_front]
         println("  ", task, ": front range [", round(minimum(vals); digits=3), ", ", round(maximum(vals); digits=3), "]")
     end
@@ -57,7 +100,7 @@ function main()
         "git_sha" => git,
         "neuron" => "compartmental_structured_nsga",
         "method" => "nsga2",
-        "train_tasks" => String.(collect(TASKS)),
+        "train_tasks" => String.(collect(opts[:tasks])),
         "popsize" => out.config.popsize,
         "generations" => out.config.generations,
         "k_trials" => out.config.k_trials,
@@ -72,7 +115,7 @@ function main()
         "note" => "single generalist genome (highest mean objective on the final Pareto-eligible population), saved identically under every task cell",
     )
 
-    for task in TASKS
+    for task in opts[:tasks]
         entry = Benchmark.Store.save_genome_entry(Benchmark.Store.bench_dir(), :compartmental_structured_nsga, task, genome, manifest)
         println("saved -> ", entry.dir)
     end
