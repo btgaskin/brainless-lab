@@ -80,6 +80,14 @@ export default defineConfig({
           ],
         },
         {
+          label: 'Experiments',
+          items: [
+            { label: 'Overview', slug: 'experiments/overview' },
+            { label: 'Tracking parameter sweep', slug: 'experiments/tracking-param-sweep' },
+            { label: 'Freeze-plasticity onset', slug: 'experiments/freeze-onset' },
+          ],
+        },
+        {
           label: 'Extending & reference',
           items: [
             { label: 'Extending it', slug: 'extending' },

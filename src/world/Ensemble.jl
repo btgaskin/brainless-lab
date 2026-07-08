@@ -384,7 +384,24 @@ function _selected_environment_metrics(c::Ensemble, window::Integer, selection)
     return NamedTuple{Tuple(names)}(Tuple(values))
 end
 
-function rollout!(c::Ensemble, ticks::Integer; window::Integer=ticks, metrics=nothing)
+# Mid-rollout interventions: apply a scheduled verb (e.g. :freeze_plasticity) to
+# every agent's reservoir at its scheduled tick. Steps 1..T-1 run with the
+# pre-intervention configuration; the verb takes effect at tick T (inclusive).
+# Reuses the guarded build-time verb dispatch (`_apply_postbuild_ablation!`), so a
+# verb that does not apply to a given node is a documented no-op. `schedule` is a
+# tick-sorted `Vector{Tuple{Int,Symbol}}` resolved in `_build_ensemble`.
+function _apply_tick_interventions!(c::Ensemble, t::Integer, schedule)
+    @inbounds for entry in schedule
+        first(entry) == t || continue
+        sym = last(entry)
+        for agent in c.agents
+            _apply_postbuild_ablation!(agent.reservoir, sym)
+        end
+    end
+    return c
+end
+
+function rollout!(c::Ensemble, ticks::Integer; window::Integer=ticks, metrics=nothing, interventions=nothing)
     ticks = Int(ticks)
     ticks >= 0 || throw(ArgumentError("ticks must be non-negative"))
     window = Int(window)
@@ -392,6 +409,7 @@ function rollout!(c::Ensemble, ticks::Integer; window::Integer=ticks, metrics=no
     rates = zeros(Float64, ticks)
     node_count = 0
     for t in 1:ticks
+        interventions === nothing || _apply_tick_interventions!(c, t, interventions)
         spikes = step!(c)
         rates[t], width = _rollout_rate_and_width(spikes)
         node_count = max(node_count, width)

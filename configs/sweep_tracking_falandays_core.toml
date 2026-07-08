@@ -36,5 +36,10 @@ window = 300
 "node.threshold_mult" = [1.5, 2.0, 2.5]
 
 [analytics]
-measures = ["sigma_mr", "spectral_radius", "liveness"]
+# sigma_mr read beside spectral_radius (the homeostat pins the rate, so m≈1 can be
+# rate-pinned rather than emergent — ρ(W) disambiguates); participation_ratio is the
+# representational-diversity read; sigma_mr_conditioned splits branching by
+# object-in-view vs drift (records :percepts automatically). Pair the conditioned
+# difference with a temporal_null before reading it as a real effect.
+measures = ["sigma_mr", "spectral_radius", "liveness", "participation_ratio", "sigma_mr_conditioned"]
 viable_threshold = 0.5

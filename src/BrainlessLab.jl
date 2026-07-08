@@ -362,6 +362,7 @@ export SimResult,
     branching_ratio,
     branching_ratio_mr,
     branching_ratio_mr_windowed,
+    branching_ratio_mr_conditioned,
     avalanches,
     transfer_entropy,
     node_transfer_entropy,
@@ -380,9 +381,11 @@ export SimResult,
     contact_graph_clusters,
     contact_graph_clusters_windowed,
     crossshift_null,
+    temporal_null,
     distance_to_source,
     wall_distance,
     heading_error,
+    object_in_view,
     ball_paddle_distance
 
 export SepCMA,
@@ -490,6 +493,7 @@ register_metric!(:forage_metrics, forage_metrics)
 register_analysis!(:branching_ratio, branching_ratio)
 register_analysis!(:branching_ratio_mr, branching_ratio_mr; label="branching ratio m (MR estimator, subsampling-robust)")
 register_analysis!(:branching_ratio_mr_windowed, branching_ratio_mr_windowed; label="windowed branching ratio m (MR estimator)")
+register_analysis!(:branching_ratio_mr_conditioned, branching_ratio_mr_conditioned; label="branching ratio m split by object-in-view vs drift (experimental)")
 register_analysis!(:avalanches, avalanches; label="neuronal avalanche size/duration exponents")
 register_analysis!(:node_transfer_entropy, node_transfer_entropy; label="node-level transfer entropy (experimental)")
 register_analysis!(:agent_transfer_entropy, agent_transfer_entropy; label="agent-level transfer entropy (experimental)")
@@ -505,11 +509,13 @@ register_analysis!(:correlation_length_windowed, correlation_length_windowed; la
 register_analysis!(:contact_graph_clusters, contact_graph_clusters; label="contact-graph connected-component clusters (experimental)")
 register_analysis!(:contact_graph_clusters_windowed, contact_graph_clusters_windowed; label="windowed contact-graph connected-component clusters (experimental)")
 register_analysis!(:crossshift_null, crossshift_null; label="per-agent circular-shift null test")
+register_analysis!(:temporal_null, temporal_null; label="within-network condition-shuffle null test")
 register_analysis!(:distance_to_source, distance_to_source; task=:forage, label="mean distance to forage source")
 register_analysis!(:forage_alignment, forage_alignment; task=:forage, label="follower source-alignment (Vanni C, experimental)")
 register_analysis!(:lookout_follower_te, lookout_follower_te; task=:forage, label="lookout→follower transfer entropy (experimental)")
 register_analysis!(:wall_distance, wall_distance; task=:wall, label="distance to nearest wall")
 register_analysis!(:heading_error, heading_error; task=:tracking, label="heading error (rad)")
+register_analysis!(:object_in_view, object_in_view; task=:tracking, label="stimulus-in-view indicator (experimental)")
 register_analysis!(:ball_paddle_distance, ball_paddle_distance; task=:pong, label="ball–paddle distance")
 
 register_view!(:raster, rasterplot)

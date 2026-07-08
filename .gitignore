@@ -11,6 +11,7 @@ examples/output/
 /demo/Manifest.toml
 /demo/runs/
 /bench/runs/
+/experiments/runs/
 /bench/genomes/
 /bench/Manifest.toml
 /bench/output/
@@ -24,3 +25,4 @@ examples/output/
 
 # Internal development notes — kept local, not part of the public repo
 /dev/
+/experiments/figures/Manifest.toml

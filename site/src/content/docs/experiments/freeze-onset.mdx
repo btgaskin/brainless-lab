@@ -1,0 +1,49 @@
+---
+title: Freeze-plasticity onset
+description: Freeze the reservoir's plasticity at tick T — when does the frozen network become a working controller? A sharp homeostatic saturation-crash onset, present only where the initial network saturates.
+---
+
+**Question.** A Falandays reservoir self-organizes online. If we **freeze** its plasticity at
+tick `T`, is the frozen network a working controller — and is there a tick below which freezing
+locks in a dead configuration and above which it works?
+
+**Design.** The `:freeze_onset` experiment sweeps the freeze tick `T` (log-spaced, dense near the
+start) across the single-agent tasks, holding the frozen network for a fixed window and scoring
+it, over many random-init seeds.
+
+```bash
+julia -t auto --project=. experiments/run.jl freeze_onset
+```
+
+## Findings
+
+**The reservoir comes online at a sharp onset — a homeostatic saturation-crash.** For tracking,
+freezing at tick ≤ ~6 locks in the hyper-excitable *initial* weights: the network saturates
+(population rate → 1) and does nothing. The instant the homeostat's first correction crashes the
+rate — around **tick 7** — freezing starts to yield a working tracker. The transition is a cliff,
+not a ramp, and it sits exactly on the rate crash.
+
+**It is not a universal law — the degenerate state differs by task.**
+
+- **Tracking:** clean dead→alive onset; the frozen-init network *saturates*, and the task score
+  resolves it.
+- **Wall:** the *activity* onset is just as sharp (the rate crashes), but the task's score clamps
+  to its ceiling for both dead and alive states, so no *behavioural* onset is resolvable without
+  recalibration.
+- **Pong:** a different degenerate attractor — the frozen-init network is *silent* (low rate),
+  not saturated, and the discrete hit-rate is too noisy to resolve a clean onset.
+
+:::caution[Read the activity, not the branching]
+The branching ratio `m` sits at ~0.99 across every healthy freeze point — **rate-pinned** by the
+homeostat, and so non-discriminative. The **population rate** (saturate vs settle vs go silent) is
+the signal that separates the regimes. This is the same rate-pinning caveat that runs through the
+[tracking parameter sweep](/experiments/tracking-param-sweep/).
+:::
+
+**Freezing *after* self-organization.** Freezing well past the onset (e.g. tick 1800), the learned
+recurrent structure largely persists as a working configuration on its own — but freezing the
+weights lets the population activity slowly de-regulate, while freezing only the homeostatic
+*targets* (weights still adapting) holds both activity and behaviour. The load-bearing ongoing
+adaptation lives in the recurrent-weight plasticity, not the target homeostasis.
+
+Each run writes a traceable `experiments/runs/freeze_onset/<stamp>_<sha>/` (results + manifest).

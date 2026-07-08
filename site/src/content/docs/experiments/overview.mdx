@@ -1,0 +1,44 @@
+---
+title: Experiments
+description: Published studies run with the library — each traceable to a run-dir (config, seeds, git SHA). What a designed self-organizing reservoir can and cannot do, and the signatures that mark it.
+---
+
+Studies run with BrainlessLab, in the spirit of the library as a **null-model instrument**:
+a deliberately simple, *designed* self-organizing reservoir, used to ask what such a homeostatic
+network can and cannot self-organize into — and to read the dynamical signatures that separate
+the two.
+
+Each study composes the public API through the `experiments/` tool — a fifth CLI entry point
+alongside `bench`/`profile`/`sweep`/`calibration` — and links its **run-dir**
+(`results.json` + `manifest.txt`: the config, seeds, git SHA, and package versions), so every
+figure is traceable to the exact code that produced it.
+
+```bash
+julia --project=. experiments/run.jl --list                 # discover
+julia -t auto --project=. experiments/run.jl <name>         # run
+```
+
+:::note[The honest posture]
+These experiments are read as an *instrument*, not a leaderboard. The authors-faithful Falandays
+models are plausibility demonstrations, not tuned controllers — so the interesting question is
+*where* self-organization succeeds and *what fails* at the edges, not how high a score climbs.
+:::
+
+## Studies
+
+### [Tracking parameter sweep](/experiments/tracking-param-sweep/)
+
+How do the object-tracking model's homeostatic parameters shape **viability** — the region of
+parameter space where a random-init reservoir *reliably* tracks — and what internal signature
+marks it? A one-at-a-time sweep over six parameters plus a `leak × lrate_wmat` factorial, 100
+random-init seeds each. The viable region is narrow, init-dependent, and shaped by a real
+`leak × lrate_wmat` interaction; the homeostatic **set-point error** is the most defensible
+signature — a failure detector — over the rate-pinned branching ratio and the boundedness-flag
+spectral radius.
+
+### [Freeze-plasticity onset](/experiments/freeze-onset/)
+
+Freeze the reservoir's plasticity at tick T — is the frozen network a working controller, and
+*when* does it come online? A sharp homeostatic **saturation-crash onset** (around tick 7 for
+tracking), present only where the initial network saturates; the branching ratio is rate-pinned
+throughout, so activity — not branching — is the signal.

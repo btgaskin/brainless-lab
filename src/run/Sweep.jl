@@ -400,6 +400,8 @@ end
 
 function _measure_columns(measure::AbstractString, ensemble_specs)
     measure == "sigma_mr" && return ["sigma_mr"]
+    measure == "sigma_mr_conditioned" && return ["m_in_view", "m_out_view", "m_conditioned_diff"]
+    measure == "participation_ratio" && return ["participation_ratio"]
     measure == "sigma_mr_node" && return ["sigma_mr_node"]
     measure == "sigma_mr_agent" && return ["sigma_mr_agent__$(spec.id)" for spec in ensemble_specs]
     measure == "dist_to_source" && return ["dist_to_source"]
@@ -974,6 +976,7 @@ function _record_channels_for_measures(measures; capture::Bool=false)
     channels = Set{Symbol}((:spikes, :rate))
     ("spectral_radius" in measures || capture) && push!(channels, :spectral_radius)
     "regime" in measures && union!(channels, (:poses, :polarization, :milling))
+    "sigma_mr_conditioned" in measures && push!(channels, :percepts)
     if capture || any(measure -> measure in ("sigma_mr_agent", "dist_to_source", "susceptibility_agent", "correlation_length", "contact_clusters"), measures)
         push!(channels, :poses)
     end
@@ -1079,6 +1082,27 @@ function _measure_sigma_mr_node(sim::SimResult)
     kmax, transient = _sigma_mr_params(sim)
     res = branching_ratio_mr(sim; kmax=kmax, transient=transient, level=:node)
     return _finite_or_nan(res.m_mr)
+end
+
+# Pooled MR branching split by object-in-view vs drift windows. Sizes the window
+# for ~10 buckets across the run (>= 5*kmax so each MR fit is valid), then reads
+# the in-view/out-of-view means and their difference. Needs :percepts recorded.
+function _measure_sigma_mr_conditioned(sim::SimResult)
+    kmax, _ = _sigma_mr_params(sim)
+    n = length(_analysis_population_rate_series(sim, :sigma_mr_conditioned))
+    window = clamp(n ÷ 10, 5 * kmax, max(5 * kmax, n))
+    if window < 5 * kmax || window > n
+        return (m_in=NaN, m_out=NaN, m_diff=NaN)
+    end
+    stride = max(1, window ÷ 2)
+    res = branching_ratio_mr_conditioned(sim; window=window, stride=stride, kmax=kmax, condition=:object_in_view)
+    return (m_in=_finite_or_nan(res.m_in), m_out=_finite_or_nan(res.m_out), m_diff=_finite_or_nan(res.m_diff))
+end
+
+# Node-level participation ratio = orbital's "representational diversity" (the
+# effective dimensionality of the population activity). Uses :spikes (default).
+function _measure_participation_ratio(sim::SimResult)
+    return _finite_or_nan(participation_ratio(sim; level=:node).participation_ratio)
 end
 
 function _measure_sigma_mr_agent(sim::SimResult, spec)
@@ -1198,6 +1222,27 @@ function _run_seed_metrics(base::SweepBaseline, seed::Integer, measures, schema:
             catch err
                 row["sigma_mr_node"] = NaN
                 push!(warnings, "sigma_mr_node failed: $(sprint(showerror, err))")
+            end
+        elseif measure == "sigma_mr_conditioned"
+            try
+                cond = _measure_sigma_mr_conditioned(sim)
+                row["m_in_view"] = cond.m_in
+                row["m_out_view"] = cond.m_out
+                row["m_conditioned_diff"] = cond.m_diff
+                isfinite(cond.m_diff) || push!(warnings, "sigma_mr_conditioned unavailable/non-finite")
+            catch err
+                row["m_in_view"] = NaN
+                row["m_out_view"] = NaN
+                row["m_conditioned_diff"] = NaN
+                push!(warnings, "sigma_mr_conditioned failed: $(sprint(showerror, err))")
+            end
+        elseif measure == "participation_ratio"
+            try
+                row["participation_ratio"] = _measure_participation_ratio(sim)
+                isfinite(row["participation_ratio"]) || push!(warnings, "participation_ratio unavailable/non-finite")
+            catch err
+                row["participation_ratio"] = NaN
+                push!(warnings, "participation_ratio failed: $(sprint(showerror, err))")
             end
         elseif measure == "sigma_mr_agent"
             for spec in schema.ensemble_specs
