@@ -14,6 +14,7 @@ using BrainlessLab
 
 # --- register experiments (each file self-registers at include time) ---
 include(joinpath(@__DIR__, "freeze_onset.jl"))
+include(joinpath(@__DIR__, "tracking_param_sweep.jl"))
 # add new experiments here:  include(joinpath(@__DIR__, "<name>.jl"))
 
 function _parse_val(s::AbstractString)
@@ -27,6 +28,9 @@ function _parse_val(s::AbstractString)
     end
     let i = tryparse(Int, s); i !== nothing && return i end
     let f = tryparse(Float64, s); f !== nothing && return f end
+    lower = lowercase(s)
+    lower == "true" && return true
+    lower == "false" && return false
     return Symbol(s)
 end
 
