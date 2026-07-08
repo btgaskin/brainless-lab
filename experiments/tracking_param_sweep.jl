@@ -22,7 +22,7 @@ const TRACKING_PARAM_BASELINE = (
 const TRACKING_PARAM_SWEEPS = [
     (name=:leak, kind=:node, values=[0.0, 0.25, 0.5, 0.75, 1.0], baseline=TRACKING_PARAM_BASELINE.leak),
     (name=:lrate_targ, kind=:node, values=[0.01, 0.02, 0.03, 0.04, 0.05], baseline=TRACKING_PARAM_BASELINE.lrate_targ),
-    (name=:lrate_wmat, kind=:node, values=[0.01, 0.02, 0.03, 0.04, 0.05], baseline=TRACKING_PARAM_BASELINE.lrate_wmat),
+    (name=:lrate_wmat, kind=:node, values=[0.01, 0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1.0, 1.5, 2.0], baseline=TRACKING_PARAM_BASELINE.lrate_wmat),
     (name=:input_amp, kind=:node, values=[0.5, 0.75, 1.0, 1.25, 1.5], baseline=TRACKING_PARAM_BASELINE.input_amp),
     (name=:movement_amp, kind=:env, values=[5.0, 10.0, 15.0], baseline=TRACKING_PARAM_BASELINE.movement_amp),
     (name=:eye_offset_deg, kind=:env, values=[15.0, 30.0, 45.0, 60.0], baseline=TRACKING_PARAM_BASELINE.eye_offset_deg),
