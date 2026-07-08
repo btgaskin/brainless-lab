@@ -3,6 +3,7 @@
 # Registered for `experiments/run.jl`; run with:
 #   julia --project=. experiments/run.jl tracking_param_sweep
 #   julia --project=. experiments/run.jl tracking_param_sweep seeds=0:1 dry_run=true
+#   julia -t auto --project=. experiments/run.jl tracking_param_sweep  # use threads
 
 using .ExpHarness, .ExpRegistry
 using BrainlessLab
@@ -94,58 +95,73 @@ function _run_axis(axis, seeds::Vector{Int}; ticks::Integer, warmup::Integer, nn
     nseeds = length(seeds)
     sample_ticks = collect(Int(ticks) >= 20 ? (20:20:Int(ticks)) : (Int(ticks):Int(ticks)))
     branch_window, branch_stride = _branching_window_params(ticks)
+    branch_starts = branch_window >= 100 && Int(ticks) >= branch_window ? collect(1:branch_stride:(Int(ticks) - branch_window + 1)) : Int[]
+    branch_t = [Float64(start + 0.5 * (branch_window - 1)) for start in branch_starts]
+    nwin = length(branch_t)
 
     mean_err = Matrix{Float64}(undef, nvalues, nseeds)
     m_mr = similar(mean_err)
     rho = similar(mean_err)
     rate = similar(mean_err)
-    ts_sum = zeros(Float64, nvalues, length(sample_ticks))
-    branch_t = Float64[]
-    branch_sum = [Float64[] for _ in 1:nvalues]
-    branch_n = [Int[] for _ in 1:nvalues]
+    heading_ts = Array{Float64}(undef, nvalues, nseeds, length(sample_ticks))
+    branch_ts = fill(NaN, nvalues, nseeds, nwin)
 
     for (vi, value) in enumerate(axis.values)
         println("[$(axis.name)] value=$(value) ($(vi)/$(nvalues))")
-        for (si, seed) in enumerate(seeds)
+        Threads.@threads for si in 1:nseeds
+            seed = seeds[si]
             sim = _simulate_tracking(axis, value, seed; ticks=ticks, nnodes=nnodes)
             err_ts = heading_error(sim)
             mean_err[vi, si] = mean(@view err_ts[(Int(warmup) + 1):length(err_ts)])
             m_mr[vi, si] = branching_ratio_mr(sim; transient=warmup).m_mr
             rho[vi, si] = spectral_radius(sim).mean
             rate[vi, si] = _rate_mean(sim, warmup)
-            @views ts_sum[vi, :] .+= err_ts[sample_ticks]
+            @views heading_ts[vi, si, :] .= err_ts[sample_ticks]
 
-            if branch_window >= 100
+            if nwin > 0
                 t_centers, m_series, _, _ = branching_ratio_mr_windowed(
                     sim;
                     level=:pooled,
                     window=branch_window,
                     stride=branch_stride,
                 )
-                if isempty(branch_t)
-                    branch_t = collect(Float64, t_centers)
-                end
-                if isempty(branch_sum[vi])
-                    branch_sum[vi] = zeros(Float64, length(m_series))
-                    branch_n[vi] = zeros(Int, length(m_series))
-                end
-                @inbounds for wi in eachindex(m_series)
-                    m = Float64(m_series[wi])
-                    if !isnan(m)
-                        branch_sum[vi][wi] += m
-                        branch_n[vi][wi] += 1
-                    end
+                nw = min(length(t_centers), length(m_series), nwin)
+                @inbounds for wi in 1:nw
+                    branch_ts[vi, si, wi] = Float64(m_series[wi])
                 end
             end
         end
     end
 
     agg(mat) = (mean=vec(mean(mat; dims=2)), sd=vec(std(mat; dims=2)), per_seed=[vec(mat[vi, :]) for vi in axes(mat, 1)])
-    heading_per_value = [vec(ts_sum[vi, :] ./ nseeds) for vi in 1:nvalues]
-    branching_per_value = [
-        [branch_n[vi][wi] == 0 ? NaN : branch_sum[vi][wi] / branch_n[vi][wi] for wi in eachindex(branch_sum[vi])]
-        for vi in 1:nvalues
-    ]
+    heading_per_value = Vector{Vector{Float64}}(undef, nvalues)
+    for vi in 1:nvalues
+        series = zeros(Float64, length(sample_ticks))
+        for si in 1:nseeds
+            @inbounds for ti in eachindex(sample_ticks)
+                series[ti] += heading_ts[vi, si, ti]
+            end
+        end
+        series ./= nseeds
+        heading_per_value[vi] = series
+    end
+    branching_per_value = Vector{Vector{Float64}}(undef, nvalues)
+    for vi in 1:nvalues
+        series = Vector{Float64}(undef, nwin)
+        for wi in 1:nwin
+            total = 0.0
+            count = 0
+            for si in 1:nseeds
+                m = branch_ts[vi, si, wi]
+                if isfinite(m)
+                    total += m
+                    count += 1
+                end
+            end
+            series[wi] = count == 0 ? NaN : total / count
+        end
+        branching_per_value[vi] = series
+    end
     return (;
         mean_err=agg(mean_err),
         m_mr=agg(m_mr),
@@ -167,7 +183,9 @@ function _print_cost_preview(seeds::Vector{Int}; ticks::Integer, nnodes::Integer
     println("=== tracking_param_sweep cost preview ===")
     println("total_runs = ", total_runs)
     println("total_ticks = ", total_ticks)
-    println("estimated wall time = ~", round(est_seconds / 60; digits=1), " min single-threaded (threads reduce this)")
+    println("Threads.nthreads() = ", Threads.nthreads())
+    println("estimated wall time = ~", round(est_seconds / 60; digits=1), " min single-threaded")
+    println("estimated threaded wall time = ~", round((est_seconds / Threads.nthreads()) / 60; digits=1), " min on ", Threads.nthreads(), " threads")
     return (; total_runs, total_ticks, calib_elapsed, est_seconds)
 end
 
