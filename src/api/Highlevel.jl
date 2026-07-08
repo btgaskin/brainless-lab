@@ -748,18 +748,32 @@ function _make_swarm_ensemble(
     body=:ven,
     ablation=:none,
 )
+    body === :ven ||
+        throw(ArgumentError("swarm tasks (:torus/:forage) always use PassthroughBody(VENMorphology); `body=:$(body)` is not supported"))
     swarm_options = _merge_kwdicts(swarm_kwargs)
     swarm_options[:n_agents] = Int(n_agents)
     swarm_options[:n_nodes] = Int(n_nodes)
     swarm_options[:seed] = seed === nothing ? 0 : Int(seed)
     config = SwarmConfig(; _kwargs_tuple(swarm_options)...)
-    environment = forage ? ForageEnvironment(config; rng=_sim_rng(seed), body=body) : TorusEnvironment(config; rng=_sim_rng(seed), body=body)
+    environment = forage ? ForageEnvironment(config; rng=_sim_rng(seed)) : TorusEnvironment(config; rng=_sim_rng(seed))
+
+    # All swarm agents share one stateless body carrying the uniform VEN
+    # morphology; per-agent state (pos/heading/speed) and per-agent source_gain
+    # live on the environment arrays.
+    morphology = VENMorphology(
+        sensory_scaling=config.sensory_scaling,
+        source_bank=forage,
+        source_gain=config.source_gain,
+        signalling=forage && config.signalling,
+        norm_mode=config.norm_mode,
+        norm_sigma=config.norm_sigma,
+        conspecific_gain=config.conspecific_gain,
+    )
+    ven_body = PassthroughBody(morphology)
+    spec = portspec(morphology)
 
     agents = Vector{Agent}(undef, config.n_agents)
     @inbounds for i in 1:config.n_agents
-        body = environment.bodies[i]
-        morphology = default_morphology(body)
-        spec = portspec(morphology)
         reservoir = _build_reservoir(
             node,
             node_ctor,
@@ -770,7 +784,7 @@ function _make_swarm_ensemble(
             node_kwargs=node_kwargs,
             ablation=ablation,
         )
-        agents[i] = _make_agent(reservoir, body, morphology)
+        agents[i] = _make_agent(reservoir, ven_body, morphology)
     end
 
     recorder = Recorder(enabled=record, every=every, compute_every=_spectral_compute_every(spectral_every))
@@ -800,7 +814,7 @@ function _environment_config(m::TorusEnvironment)
         kind=:torus,
         bounds=(0.0, size, 0.0, size),
         size=size,
-        n_agents=length(m.bodies),
+        n_agents=length(m.positions),
         vision_range=m.config.vision_range,
     )
 end
@@ -811,7 +825,7 @@ function _environment_config(m::ForageEnvironment)
         kind=:forage,
         bounds=(0.0, size, 0.0, size),
         size=size,
-        n_agents=length(m.bodies),
+        n_agents=length(m.positions),
         vision_range=m.config.vision_range,
         source_position=m.source_position,
         source_gain=Float64(m.config.source_gain),

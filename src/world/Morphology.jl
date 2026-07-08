@@ -80,6 +80,21 @@ const VEN_MORPHOLOGY = VENMorphology()
 const _PASSTHROUGH_BODY_MORPHOLOGY = PassthroughMorphology(0, 0)
 const _VEN_RECEPTOR_PLACEMENT = Union{NoPlacement,Float64}
 
+"""
+    PassthroughBody(morphology)
+    PassthroughBody()
+
+A body that carries a `Morphology` and relays encoding/decoding to it. The
+zero-arg form is the stateless task-env relay (identity encode/decode via the
+0×0 passthrough morphology). Swarm agents share one
+`PassthroughBody(VENMorphology(...))`; their per-agent physical state and
+per-agent `source_gain` live on the environment, not the body.
+"""
+struct PassthroughBody{M<:Morphology} <: Body
+    morphology::M
+end
+PassthroughBody() = PassthroughBody(_PASSTHROUGH_BODY_MORPHOLOGY)
+
 n_receptors(m::PassthroughMorphology) = m.n_receptors
 n_effectors(m::PassthroughMorphology) = m.n_effectors
 n_receptors(m::VENMorphology) = m.source_bank ? VEN_FORAGE_RECEPTORS : VEN_BANK_RECEPTORS
@@ -171,25 +186,7 @@ end
 decode_effectors(::VENMorphology, e) = _ven_output_acts(e)
 
 default_morphology(env) = PassthroughMorphology(n_receptors(env), n_effectors(env))
-default_morphology(b::VENBody) = VENMorphology(
-    sensory_scaling=b.sensory_scaling,
-    source_bank=b.source_bank,
-    source_gain=b.source_gain,
-    signalling=b.signalling,
-    norm_mode=b.norm_mode,
-    norm_sigma=b.norm_sigma,
-    conspecific_gain=b.conspecific_gain,
-)
-default_morphology(::Type{VENBody}) = VEN_MORPHOLOGY
+default_morphology(b::PassthroughBody) = b.morphology
 
-receptors(::PassthroughBody, percept) =
-    encode_receptors(_PASSTHROUGH_BODY_MORPHOLOGY, percept)
-
-decode_effectors(::PassthroughBody, e) =
-    decode_effectors(_PASSTHROUGH_BODY_MORPHOLOGY, e)
-
-receptors(b::VENBody, percept) =
-    encode_receptors(default_morphology(b), percept)
-
-decode_effectors(b::VENBody, e) =
-    decode_effectors(default_morphology(b), e)
+receptors(b::PassthroughBody, percept) = encode_receptors(b.morphology, percept)
+decode_effectors(b::PassthroughBody, e) = decode_effectors(b.morphology, e)

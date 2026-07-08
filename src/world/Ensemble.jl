@@ -98,18 +98,13 @@ end
 _scene_payload(m::TaskEnvironment) = scene(m.world)
 _scene_payload(::Environment) = nothing
 
-function _pose_payload(::Environment, bodies)
-    poses = NTuple{3,Float64}[]
-    for body in bodies
-        if body isa VENBody
-            push!(poses, (body.pos[1], body.pos[2], body.heading))
-        elseif hasproperty(body, :pos) && hasproperty(body, :heading)
-            pos = getproperty(body, :pos)
-            push!(poses, (Float64(pos[1]), Float64(pos[2]), Float64(getproperty(body, :heading))))
-        end
-    end
-    return isempty(poses) ? nothing : poses
+function _pose_payload(m::AbstractTorusEnvironment, bodies)
+    n = length(m.positions)
+    n == 0 && return nothing
+    return NTuple{3,Float64}[(m.positions[i][1], m.positions[i][2], m.headings[i]) for i in 1:n]
 end
+
+_pose_payload(::Environment, bodies) = nothing
 
 function _record_swarm_metrics!(rec::Recorder, m::AbstractTorusEnvironment, poses)
     if poses === nothing || isempty(poses)

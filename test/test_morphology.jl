@@ -28,7 +28,7 @@ using Test
         @test length(ports(spec).effectors) == effectors_expected
     end
 
-    morphology = default_morphology(VENBody((0.0, 0.0), 0.0))
+    morphology = default_morphology(PassthroughBody(VENMorphology()))
     spec = portspec(morphology)
 
     @test morphology isa VENMorphology

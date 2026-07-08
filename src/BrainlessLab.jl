@@ -110,7 +110,6 @@ export step!,
     encode_receptors,
     sense,
     decode_effectors,
-    integrate_motion!,
     metrics,
     default_ticks,
     default_window,
@@ -288,7 +287,6 @@ export Agent,
     tdistance,
     bearing,
     VENParams,
-    VENBody,
     VEN_ACOUSTIC_RECEPTOR_INDEX,
     VENMorphology,
     Port,
@@ -459,7 +457,6 @@ register_task!(:torus, :torus)
 register_task!(:forage, :forage)
 
 register_body!(:passthrough, PassthroughBody)
-register_body!(:ven, VENBody)
 
 register_metric!(:polarization, polarization)
 register_metric!(:milling, milling)

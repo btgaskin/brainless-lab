@@ -14,14 +14,11 @@ const VEN_BANK_RECEPTORS = 64
 const VEN_FORAGE_RECEPTORS = 2 * VEN_BANK_RECEPTORS
 const VEN_ACOUSTIC_RECEPTOR_INDEX = VEN_BANK_RECEPTORS + 1
 
-"""
-    PassthroughBody()
-
-Stateless body for task environments that already expose reservoir-shaped
-percepts and accept reservoir-shaped motor commands.
-"""
-struct PassthroughBody <: Body end
-
+# The VEN swarm agent is now stateless: per-agent physical state (position,
+# heading, speed, heading-rate) and per-agent source_gain live on the
+# environment as index-addressed arrays (see TorusEnvironment / ForageEnvironment),
+# and the body is a `PassthroughBody{VENMorphology}` (defined in Morphology.jl).
+# VENParams are the uniform kinematic constants, carried on SwarmConfig.ven.
 Base.@kwdef struct VENParams
     top_speed::Float64 = 0.2
     accel_time::Float64 = 5.0
@@ -31,90 +28,7 @@ Base.@kwdef struct VENParams
     agent_radius::Float64 = 0.5
 end
 
-mutable struct VENBody <: Body
-    pos::NTuple{2,Float64}
-    heading::Float64
-    speed::Float64
-    heading_rate::Float64
-    params::VENParams
-    sensory_scaling::Bool
-    source_bank::Bool
-    source_gain::Float64
-    signalling::Bool
-    # Conspecific-bank normalisation mode (the source bank is always raw). `nothing`
-    # = derive from `sensory_scaling` (true -> :hard sum-normalise, the
-    # authors-faithful default; false -> :raw). Explicit modes override:
-    # :hard | :raw | :divisive (x / (norm_sigma + sum), a semi-saturating gain
-    # control that keeps the proximity gradient hard-normalise destroys).
-    norm_mode::Union{Nothing,Symbol}
-    norm_sigma::Float64
-    # Post-normalisation scalar on the conspecific bank only (source bank uses
-    # source_gain). Lets the conspecific channel be gain-tuned to the homeostat's
-    # responsive band, the way the authors tune input_amp per task.
-    conspecific_gain::Float64
-end
-
-function VENBody(
-    pos,
-    heading;
-    params::VENParams=VENParams(),
-    speed::Real=0.0,
-    heading_rate::Real=0.0,
-    sensory_scaling::Bool=true,
-    source_bank::Bool=false,
-    source_gain::Real=1.0,
-    signalling::Bool=false,
-    norm_mode=nothing,
-    norm_sigma::Real=1.0,
-    conspecific_gain::Real=1.0,
-)
-    return VENBody(
-        (Float64(pos[1]), Float64(pos[2])),
-        mod(Float64(heading), _TWO_PI),
-        Float64(speed),
-        Float64(heading_rate),
-        params,
-        Bool(sensory_scaling),
-        Bool(source_bank),
-        Float64(source_gain),
-        Bool(signalling),
-        norm_mode === nothing ? nothing : Symbol(norm_mode),
-        Float64(norm_sigma),
-        Float64(conspecific_gain),
-    )
-end
-
-function VENBody(
-    pos,
-    heading,
-    params::VENParams;
-    speed::Real=0.0,
-    heading_rate::Real=0.0,
-    sensory_scaling::Bool=true,
-    source_bank::Bool=false,
-    source_gain::Real=1.0,
-    signalling::Bool=false,
-    norm_mode=nothing,
-    norm_sigma::Real=1.0,
-    conspecific_gain::Real=1.0,
-)
-    return VENBody(
-        pos,
-        heading;
-        params=params,
-        speed=speed,
-        heading_rate=heading_rate,
-        sensory_scaling=sensory_scaling,
-        source_bank=source_bank,
-        source_gain=source_gain,
-        signalling=signalling,
-        norm_mode=norm_mode,
-        norm_sigma=norm_sigma,
-        conspecific_gain=conspecific_gain,
-    )
-end
-
-velocity_hat(b::VENBody) = (Float64(cos(b.heading)), Float64(sin(b.heading)))
+velocity_hat(heading::Real) = (Float64(cos(heading)), Float64(sin(heading)))
 
 _ven_float_vector(x) = Vector{Float64}(vec(Float64.(x)))
 _ven_float_vector(x::Vector{Float64}) = x
@@ -122,37 +36,44 @@ _ven_float_vector(x::Vector{Float64}) = x
 function _ven_output_acts(output_acts)
     vals = _ven_float_vector(output_acts)
     length(vals) in (3, 4) ||
-        throw(DimensionMismatch("VENBody requires 3 or 4 effector values, got $(length(vals))"))
+        throw(DimensionMismatch("VEN motor decode requires 3 or 4 effector values, got $(length(vals))"))
     return clamp.(vals, 0.0, 1.0)
 end
 
 ven_emitted_signal(e) = length(e) >= 4 ? clamp(Float64(e[4]), 0.0, 1.0) : 0.0
 
-function integrate_motion!(b::VENBody, e, torus::Torus)
+"""
+    integrate_motion(pos, heading, speed, heading_rate, e, params, torus)
+
+Advance one VEN agent's kinematics for a single tick. Pure: returns the updated
+`(pos, heading, speed, heading_rate)` from the current state and clamped effector
+vector `e`. Same differential drive as before; state is threaded rather than
+mutated on a body (the environment owns the arrays).
+"""
+function integrate_motion(pos, heading::Real, speed::Real, heading_rate::Real, e, params::VENParams, torus::Torus)
     output_acts = _ven_output_acts(e)
-    params = b.params
     dt = Float64(params.dt)
 
     max_a = params.top_speed / params.accel_time
     fric_a = max_a / params.top_speed
     accel = output_acts[3] * max_a
-    b.speed += (accel - fric_a * b.speed) * dt
+    speed = Float64(speed) + (accel - fric_a * Float64(speed)) * dt
 
     max_ha = params.top_heading_rate / params.h_accel_time
     fric_h = max_ha / params.top_heading_rate
     h_accel = (output_acts[2] - output_acts[1]) * max_ha
-    b.heading_rate += (h_accel - fric_h * b.heading_rate) * dt
-    b.heading = mod(b.heading + b.heading_rate * dt, _TWO_PI)
+    heading_rate = Float64(heading_rate) + (h_accel - fric_h * Float64(heading_rate)) * dt
+    heading = mod(Float64(heading) + heading_rate * dt, _TWO_PI)
 
-    x = b.pos[1] + b.speed * cos(b.heading) * dt
-    y = b.pos[2] + b.speed * sin(b.heading) * dt
-    b.pos = wrap(torus, x, y)
+    x = pos[1] + speed * cos(heading) * dt
+    y = pos[2] + speed * sin(heading) * dt
+    new_pos = wrap(torus, x, y)
 
-    return b
+    return (new_pos, heading, speed, heading_rate)
 end
 
 # Resolve the effective bank-normalisation mode. `nothing` derives it from the
-# legacy `sensory_scaling` flag so existing callers/fixtures are byte-identical.
+# legacy `sensory_scaling` flag so existing callers/fixtures are unchanged.
 function _resolve_norm_mode(sensory_scaling::Bool, norm_mode)
     norm_mode === nothing && return sensory_scaling ? :hard : :raw
     return Symbol(norm_mode)
@@ -213,10 +134,12 @@ function assemble_forage_inputs(
     return inputs
 end
 
+# --- bearing-cone vision (position/heading-based) ---
+
 function _accumulate_circular_target!(
     intersections::Vector{Float64},
     sensor_angles::Vector{Float64},
-    body::VENBody,
+    from_pos,
     target_position,
     target_radius::Real,
     torus::Torus,
@@ -226,7 +149,7 @@ function _accumulate_circular_target!(
     radius = max(0.0, Float64(target_radius))
     target_pos = (Float64(target_position[1]), Float64(target_position[2]))
 
-    target_dist = tdistance(torus, body.pos, target_pos)
+    target_dist = tdistance(torus, from_pos, target_pos)
     if vision_range !== nothing && target_dist > Float64(vision_range)
         return false
     end
@@ -236,7 +159,7 @@ function _accumulate_circular_target!(
         return true
     end
 
-    neighbor_angle = bearing(torus, body.pos, target_pos)
+    neighbor_angle = bearing(torus, from_pos, target_pos)
     perpendicular_angle =
         neighbor_angle > 0.0 ? neighbor_angle - pi / 2.0 : neighbor_angle + pi / 2.0
     offset = (
@@ -245,7 +168,7 @@ function _accumulate_circular_target!(
     )
     edge_a = (target_pos[1] + offset[1], target_pos[2] + offset[2])
 
-    edge_angle_a = bearing(torus, body.pos, edge_a)
+    edge_angle_a = bearing(torus, from_pos, edge_a)
     ref_d = mod(edge_angle_a - neighbor_angle + pi, _TWO_PI) - pi
     ref_dist = abs(ref_d)
 
@@ -294,7 +217,8 @@ function _sense_acts_from_intersections(
 end
 
 function _sense_circular_targets(
-    body::VENBody,
+    from_pos,
+    heading::Real,
     target_positions,
     target_radii,
     torus::Torus,
@@ -307,7 +231,7 @@ function _sense_circular_targets(
     length(target_positions) == length(target_radii) ||
         throw(DimensionMismatch("target position/radius counts differ"))
 
-    sensor_angles = Float64.(vec(collect(sens_angles_rad))) .+ body.heading
+    sensor_angles = Float64.(vec(collect(sens_angles_rad))) .+ Float64(heading)
     max_d = max_dist(torus)
     intersections = fill(max_d, length(sensor_angles))
 
@@ -315,7 +239,7 @@ function _sense_circular_targets(
         done = _accumulate_circular_target!(
             intersections,
             sensor_angles,
-            body,
+            from_pos,
             target_positions[idx],
             target_radii[idx],
             torus,
@@ -328,66 +252,39 @@ function _sense_circular_targets(
     return _sense_acts_from_intersections(intersections, max_d, sens_agent_dist, sensory_noise, rng)
 end
 
-function sense_agents(
-    body::VENBody,
-    others,
-    torus::Torus,
-    params::VENParams=body.params,
-    sens_angles_rad=SENS_ANGLES_RAD,
-    sens_agent_dist::Real=0,
-    sensory_noise::Real=0,
-    rng=nothing;
-    vision_range=nothing,
-)
-    target_positions = NTuple{2,Float64}[]
-    target_radii = Float64[]
-    for other in others
-        other === body && continue
-        other isa VENBody || throw(ArgumentError("sense_agents expects VENBody neighbours"))
-        push!(target_positions, other.pos)
-        push!(target_radii, Float64(params.agent_radius))
-    end
+"""
+    sense_agents(pos, heading, positions, skip, agent_radius, torus, sens_angles_rad, sens_agent_dist, sensory_noise, rng; vision_range)
 
-    return _sense_circular_targets(
-        body,
-        target_positions,
-        target_radii,
-        torus,
-        sens_angles_rad,
-        sens_agent_dist,
-        sensory_noise,
-        rng;
-        vision_range=vision_range,
-    )
-end
-
+Bearing-cone vision of conspecifics. `positions` is every agent's position;
+`skip` is the sensing agent's own index (self-exclusion). Every neighbour has
+the same `agent_radius`.
+"""
 function sense_agents(
-    body::VENBody,
-    others::Vector{VENBody},
+    pos,
+    heading::Real,
+    positions::AbstractVector,
     skip::Integer,
+    agent_radius::Real,
     torus::Torus,
-    params::VENParams=body.params,
     sens_angles_rad=SENS_ANGLES_RAD,
     sens_agent_dist::Real=0,
     sensory_noise::Real=0,
     rng=nothing;
     vision_range=nothing,
 )
-    sensor_angles = Float64.(vec(collect(sens_angles_rad))) .+ body.heading
+    sensor_angles = Float64.(vec(collect(sens_angles_rad))) .+ Float64(heading)
     max_d = max_dist(torus)
     intersections = fill(max_d, length(sensor_angles))
     skip_i = Int(skip)
 
-    @inbounds for j in eachindex(others)
+    @inbounds for j in eachindex(positions)
         j == skip_i && continue
-        other = others[j]
-        other === body && continue
         done = _accumulate_circular_target!(
             intersections,
             sensor_angles,
-            body,
-            other.pos,
-            params.agent_radius,
+            pos,
+            positions[j],
+            agent_radius,
             torus,
             max_d;
             vision_range=vision_range,
@@ -398,21 +295,27 @@ function sense_agents(
     return _sense_acts_from_intersections(intersections, max_d, sens_agent_dist, sensory_noise, rng)
 end
 
+"""
+    sense_source(pos, heading, source_position, torus, sens_angles_rad, sens_agent_dist, sensory_noise, rng; vision_range, source_radius)
+
+Bearing-cone vision of a single stationary source.
+"""
 function sense_source(
-    body::VENBody,
+    pos,
+    heading::Real,
     source_position,
     torus::Torus,
-    params::VENParams=body.params,
     sens_angles_rad=SENS_ANGLES_RAD,
     sens_agent_dist::Real=0,
     sensory_noise::Real=0,
     rng=nothing;
     vision_range=nothing,
-    source_radius::Real=params.agent_radius,
+    source_radius::Real=0.5,
 )
     source_pos = (Float64(source_position[1]), Float64(source_position[2]))
     return _sense_circular_targets(
-        body,
+        pos,
+        heading,
         (source_pos,),
         (Float64(source_radius),),
         torus,

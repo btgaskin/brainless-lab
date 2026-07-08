@@ -81,10 +81,7 @@ end
 
     torus = Torus(10.0)
     params = VENParams(agent_radius=0.5)
-    bodies = [
-        VENBody((4.0, 5.0), 0.0; params=params),
-        VENBody((4.2, 5.0), 0.0; params=params),
-    ]
+    positions = [(4.0, 5.0), (4.2, 5.0)]
     config = SwarmConfig(
         n_agents=2,
         space_size=10.0,
@@ -96,18 +93,20 @@ end
         capture_radius=0.5,
         ven=params,
     )
-    environment = ForageEnvironment(torus, bodies; config=config, rng=MersenneTwister(7))
+    environment = ForageEnvironment(torus, positions; config=config, rng=MersenneTwister(7))
 
-    percepts = observe(environment, bodies)
-    receptors_ = receptors(bodies[1], percepts[1])
-    @test length(receptors_) == 128
-    @test all(iszero, @view(receptors_[1:64]))
-    @test maximum(@view(receptors_[65:128])) ≈ 2.0
+    # observe now returns the fully-encoded reservoir inputs (128-wide); the agent
+    # bodies are stateless and only length-checked.
+    bodies = [PassthroughBody(), PassthroughBody()]
+    inputs = observe(environment, bodies)
+    @test length(inputs[1]) == 128
+    @test all(iszero, @view(inputs[1][1:64]))           # conspecific-blind
+    @test maximum(@view(inputs[1][65:128])) ≈ 2.0       # source bank × source_gain
 
-    before = [body.pos for body in bodies]
+    before = copy(environment.positions)
     actuate!(environment, bodies, [zeros(3), zeros(3)])
-    after = [body.pos for body in bodies]
-    @test after != before
+    after = copy(environment.positions)
+    @test after != before                                # collision resolution separates them
     @test tdistance(torus, after[1], after[2]) >= 2.0 * params.agent_radius - 1e-9
 end
 
