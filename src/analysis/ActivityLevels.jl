@@ -597,26 +597,31 @@ function _analysis_source_position(sim::SimResult, name::Symbol, source_position
 end
 
 """
-    distance_to_source(sim; source_position=nothing)
+    distance_to_source(sim; source_position=nothing, subset=nothing)
 
 Return the per-recorded-tick mean torus distance from the swarm to the forage
 source. Requires `:poses` and either `sim.config.environment.source_position` or
-an explicit `source_position`.
+an explicit `source_position`. `subset` (a collection of agent indices) restricts
+the mean to those agents -- e.g. pass the follower indices to read whether a
+blind subset is nonetheless drawn toward the source.
 """
-function distance_to_source(sim::SimResult; source_position=nothing)
+function distance_to_source(sim::SimResult; source_position=nothing, subset=nothing)
     xs, ys, _ = _analysis_pose_matrices(getchannel(sim.recorder, :poses), :distance_to_source)
     source = _analysis_source_position(sim, :distance_to_source, source_position)
     torus_size = _analysis_environment_size(sim)
     torus = torus_size === nothing ? nothing : Torus(torus_size)
+    idxs = subset === nothing ? collect(1:size(xs, 2)) : collect(Int.(subset))
     out = Vector{Float64}(undef, size(xs, 1))
     @inbounds for t in axes(xs, 1)
         total = 0.0
-        for i in axes(xs, 2)
+        for i in idxs
+            (1 <= i <= size(xs, 2)) ||
+                throw(ArgumentError("distance_to_source subset index $(i) outside 1:$(size(xs, 2))"))
             total += torus === nothing ?
                 hypot(xs[t, i] - source[1], ys[t, i] - source[2]) :
                 tdistance(torus, (xs[t, i], ys[t, i]), source)
         end
-        out[t] = size(xs, 2) == 0 ? NaN : total / size(xs, 2)
+        out[t] = isempty(idxs) ? NaN : total / length(idxs)
     end
     return out
 end

@@ -71,6 +71,9 @@ Base.@kwdef struct VENMorphology <: Morphology
     source_bank::Bool = false
     source_gain::Float64 = 1.0
     signalling::Bool = false
+    norm_mode::Union{Nothing,Symbol} = nothing   # nothing -> derive from sensory_scaling
+    norm_sigma::Float64 = 1.0                     # semi-saturation constant for :divisive
+    conspecific_gain::Float64 = 1.0               # post-normalisation gain on the conspecific bank
 end
 
 const VEN_MORPHOLOGY = VENMorphology()
@@ -149,6 +152,9 @@ function encode_receptors(m::VENMorphology, percept)
                 @view(vals[(VEN_BEARING_SENSOR_COUNT + 1):(2 * VEN_BEARING_SENSOR_COUNT)]),
                 m.sensory_scaling;
                 source_gain=m.source_gain,
+                norm_mode=m.norm_mode,
+                norm_sigma=m.norm_sigma,
+                conspecific_gain=m.conspecific_gain,
             )
         end
         throw(DimensionMismatch("forage VENBody percept must have length $(2 * VEN_BEARING_SENSOR_COUNT) or $(VEN_FORAGE_RECEPTORS), got $(length(vals))"))
@@ -156,7 +162,7 @@ function encode_receptors(m::VENMorphology, percept)
         if length(vals) == VEN_BANK_RECEPTORS
             return copy(vals)
         elseif length(vals) == VEN_BEARING_SENSOR_COUNT
-            return assemble_inputs(vals, m.sensory_scaling)
+            return assemble_inputs(vals, m.sensory_scaling; norm_mode=m.norm_mode, norm_sigma=m.norm_sigma, gain=m.conspecific_gain)
         end
     end
     throw(DimensionMismatch("VENBody percept must have length $(VEN_BEARING_SENSOR_COUNT) or $(VEN_BANK_RECEPTORS), got $(length(vals))"))
@@ -170,6 +176,9 @@ default_morphology(b::VENBody) = VENMorphology(
     source_bank=b.source_bank,
     source_gain=b.source_gain,
     signalling=b.signalling,
+    norm_mode=b.norm_mode,
+    norm_sigma=b.norm_sigma,
+    conspecific_gain=b.conspecific_gain,
 )
 default_morphology(::Type{VENBody}) = VEN_MORPHOLOGY
 

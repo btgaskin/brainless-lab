@@ -48,6 +48,17 @@ Base.@kwdef struct SwarmConfig
     conspecific_vision::Bool = true
     source_position::Union{Nothing,NTuple{2,Float64}} = nothing
     source_gain::Float64 = 1.0
+    # Informed-subset ("lookout") mask for :forage: the first `n_lookouts` agents
+    # see the source (source_gain), the rest are blind followers (source_gain=0,
+    # same 128-receptor shape). `nothing` = every agent is a lookout (the
+    # original symmetric forage; backward compatible).
+    n_lookouts::Union{Nothing,Int} = nothing
+    # Conspecific-bank normalisation: nothing -> derive from sensory_scaling
+    # (authors-faithful). Explicit :hard | :raw | :divisive overrides; norm_sigma
+    # is the :divisive semi-saturation constant. See VENBody / assemble_inputs.
+    norm_mode::Union{Nothing,Symbol} = nothing
+    norm_sigma::Float64 = 1.0
+    conspecific_gain::Float64 = 1.0
     signalling::Bool = false
     signal_range::Float64 = 3.0
     signal_gain::Float64 = 1.0
@@ -122,12 +133,27 @@ function _swarm_config_with(config::SwarmConfig; kwargs...)
     return SwarmConfig(; _environment_named_tuple(values)...)
 end
 
+function _resolve_n_lookouts(config::SwarmConfig, n_bodies::Integer)
+    nl = config.n_lookouts
+    nl === nothing && return Int(n_bodies)
+    k = Int(nl)
+    0 <= k <= Int(n_bodies) ||
+        throw(ArgumentError("n_lookouts must be in 0:n_agents (got $(k) for $(n_bodies) agents)"))
+    return k
+end
+
 function _configure_ven_bodies!(bodies::Vector{VENBody}, config::SwarmConfig; source_bank::Bool=false)
-    @inbounds for body in bodies
+    # Only :forage (source_bank) honours the lookout mask; the plain torus has no
+    # source bank, so every body keeps the uniform gain (mask is a no-op there).
+    n_lookouts = source_bank ? _resolve_n_lookouts(config, length(bodies)) : length(bodies)
+    @inbounds for (i, body) in enumerate(bodies)
         body.sensory_scaling = Bool(config.sensory_scaling)
         body.source_bank = Bool(source_bank)
-        body.source_gain = Float64(config.source_gain)
+        body.source_gain = i <= n_lookouts ? Float64(config.source_gain) : 0.0
         body.signalling = Bool(source_bank) && Bool(config.signalling)
+        body.norm_mode = config.norm_mode === nothing ? nothing : Symbol(config.norm_mode)
+        body.norm_sigma = Float64(config.norm_sigma)
+        body.conspecific_gain = Float64(config.conspecific_gain)
     end
     return bodies
 end

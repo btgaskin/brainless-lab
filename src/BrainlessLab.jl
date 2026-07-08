@@ -61,6 +61,7 @@ include("analysis/SwarmAnalysis.jl")
 include("analysis/NullTest.jl")
 include("analysis/TaskSignals.jl")
 include("analysis/TransferEntropy.jl")
+include("analysis/ForageTransfer.jl")
 include("drivers/Driver.jl")
 include("tasks/Calibration.jl")
 include("drivers/Parallel.jl")
@@ -351,6 +352,8 @@ export SimResult,
     transfer_entropy,
     node_transfer_entropy,
     agent_transfer_entropy,
+    forage_alignment,
+    lookout_follower_te,
     node_target_error,
     spectral_radius,
     susceptibility,
@@ -485,6 +488,8 @@ register_analysis!(:contact_graph_clusters, contact_graph_clusters; label="conta
 register_analysis!(:contact_graph_clusters_windowed, contact_graph_clusters_windowed; label="windowed contact-graph connected-component clusters (experimental)")
 register_analysis!(:crossshift_null, crossshift_null; label="per-agent circular-shift null test")
 register_analysis!(:distance_to_source, distance_to_source; task=:forage, label="mean distance to forage source")
+register_analysis!(:forage_alignment, forage_alignment; task=:forage, label="follower source-alignment (Vanni C, experimental)")
+register_analysis!(:lookout_follower_te, lookout_follower_te; task=:forage, label="lookout→follower transfer entropy (experimental)")
 register_analysis!(:wall_distance, wall_distance; task=:wall, label="distance to nearest wall")
 register_analysis!(:heading_error, heading_error; task=:tracking, label="heading error (rad)")
 register_analysis!(:ball_paddle_distance, ball_paddle_distance; task=:pong, label="ball–paddle distance")

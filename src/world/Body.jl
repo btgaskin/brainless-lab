@@ -41,6 +41,17 @@ mutable struct VENBody <: Body
     source_bank::Bool
     source_gain::Float64
     signalling::Bool
+    # Conspecific-bank normalisation mode (the source bank is always raw). `nothing`
+    # = derive from `sensory_scaling` (true -> :hard sum-normalise, the
+    # authors-faithful default; false -> :raw). Explicit modes override:
+    # :hard | :raw | :divisive (x / (norm_sigma + sum), a semi-saturating gain
+    # control that keeps the proximity gradient hard-normalise destroys).
+    norm_mode::Union{Nothing,Symbol}
+    norm_sigma::Float64
+    # Post-normalisation scalar on the conspecific bank only (source bank uses
+    # source_gain). Lets the conspecific channel be gain-tuned to the homeostat's
+    # responsive band, the way the authors tune input_amp per task.
+    conspecific_gain::Float64
 end
 
 function VENBody(
@@ -53,6 +64,9 @@ function VENBody(
     source_bank::Bool=false,
     source_gain::Real=1.0,
     signalling::Bool=false,
+    norm_mode=nothing,
+    norm_sigma::Real=1.0,
+    conspecific_gain::Real=1.0,
 )
     return VENBody(
         (Float64(pos[1]), Float64(pos[2])),
@@ -64,6 +78,9 @@ function VENBody(
         Bool(source_bank),
         Float64(source_gain),
         Bool(signalling),
+        norm_mode === nothing ? nothing : Symbol(norm_mode),
+        Float64(norm_sigma),
+        Float64(conspecific_gain),
     )
 end
 
@@ -77,6 +94,9 @@ function VENBody(
     source_bank::Bool=false,
     source_gain::Real=1.0,
     signalling::Bool=false,
+    norm_mode=nothing,
+    norm_sigma::Real=1.0,
+    conspecific_gain::Real=1.0,
 )
     return VENBody(
         pos,
@@ -88,6 +108,9 @@ function VENBody(
         source_bank=source_bank,
         source_gain=source_gain,
         signalling=signalling,
+        norm_mode=norm_mode,
+        norm_sigma=norm_sigma,
+        conspecific_gain=conspecific_gain,
     )
 end
 
@@ -128,20 +151,42 @@ function integrate_motion!(b::VENBody, e, torus::Torus)
     return b
 end
 
-function assemble_inputs(sens_agents_vec, sensory_scaling::Bool=true)
+# Resolve the effective bank-normalisation mode. `nothing` derives it from the
+# legacy `sensory_scaling` flag so existing callers/fixtures are byte-identical.
+function _resolve_norm_mode(sensory_scaling::Bool, norm_mode)
+    norm_mode === nothing && return sensory_scaling ? :hard : :raw
+    return Symbol(norm_mode)
+end
+
+# In-place normalisation of one bearing bank.
+#   :raw      -> untouched (proximity/number grows the drive; can blow up in crowds)
+#   :hard     -> x ./= sum(x)         (authors-faithful; invariant to number/proximity)
+#   :divisive -> x ./= (sigma + sum)  (Heeger/Carandini semi-saturation: linear-ish at
+#                                      low drive so the gradient survives, bounded high)
+function _normalize_bank!(bank::AbstractVector{Float64}, mode::Symbol, sigma::Real)
+    mode === :raw && return bank
+    total = sum(bank)
+    total > 0.0 || return bank
+    if mode === :hard
+        bank ./= total
+    elseif mode === :divisive
+        bank ./= (Float64(sigma) + total)
+    else
+        throw(ArgumentError("unknown VEN norm mode :$(mode); use :hard, :raw, or :divisive"))
+    end
+    return bank
+end
+
+function assemble_inputs(sens_agents_vec, sensory_scaling::Bool=true; norm_mode=nothing, norm_sigma::Real=1.0, gain::Real=1.0)
     sens = _ven_float_vector(sens_agents_vec)
     length(sens) == VEN_BEARING_SENSOR_COUNT ||
         throw(DimensionMismatch("bearing vision requires $(VEN_BEARING_SENSOR_COUNT) sensors, got $(length(sens))"))
 
     inputs = zeros(Float64, VEN_BANK_RECEPTORS)
     copyto!(@view(inputs[3:VEN_BANK_RECEPTORS]), sens)
-
-    if sensory_scaling
-        total = sum(inputs)
-        if total > 0.0
-            inputs ./= total
-        end
-    end
+    _normalize_bank!(inputs, _resolve_norm_mode(sensory_scaling, norm_mode), norm_sigma)
+    g = Float64(gain)
+    g == 1.0 || (inputs .*= g)
 
     return inputs
 end
@@ -151,13 +196,18 @@ function assemble_forage_inputs(
     source_sens_vec,
     sensory_scaling::Bool=true;
     source_gain::Real=1.0,
+    norm_mode=nothing,
+    norm_sigma::Real=1.0,
+    conspecific_gain::Real=1.0,
 )
     source_sens = _ven_float_vector(source_sens_vec)
     length(source_sens) == VEN_BEARING_SENSOR_COUNT ||
         throw(DimensionMismatch("source vision requires $(VEN_BEARING_SENSOR_COUNT) sensors, got $(length(source_sens))"))
 
     inputs = zeros(Float64, VEN_FORAGE_RECEPTORS)
-    conspecific_bank = assemble_inputs(conspecific_sens_vec, sensory_scaling)
+    # Only the conspecific bank is normalised; the source bank stays raw×gain (its
+    # un-normalised intensity gradient is what makes lone source-seeking work).
+    conspecific_bank = assemble_inputs(conspecific_sens_vec, sensory_scaling; norm_mode=norm_mode, norm_sigma=norm_sigma, gain=conspecific_gain)
     copyto!(@view(inputs[1:VEN_BANK_RECEPTORS]), conspecific_bank)
     @views inputs[(VEN_BANK_RECEPTORS + 3):VEN_FORAGE_RECEPTORS] .= Float64(source_gain) .* source_sens
     return inputs
