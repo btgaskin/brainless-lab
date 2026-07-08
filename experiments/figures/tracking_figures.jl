@@ -144,7 +144,7 @@ end
 function main(args)
     sweep_path = length(args) >= 1 ? args[1] : newest("tracking_param_sweep")
     fact_path  = length(args) >= 2 ? args[2] : newest("tracking_leak_lrate_factorial")
-    out = length(args) >= 3 ? args[3] : normpath(joinpath(@__DIR__, "..", "..", "site", "src", "assets", "experiments", "tracking-sweep"))
+    out = length(args) >= 3 ? args[3] : normpath(joinpath(@__DIR__, "..", "..", "site", "public", "experiments", "tracking-sweep"))
     mkpath(out)
     set_theme!(theme_neutral())
     sweep = readjson(sweep_path); fact = readjson(fact_path)
