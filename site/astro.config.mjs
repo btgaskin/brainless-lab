@@ -86,6 +86,7 @@ export default defineConfig({
             { label: 'Tracking parameter sweep', slug: 'experiments/tracking-param-sweep' },
             { label: 'Freeze-plasticity onset', slug: 'experiments/freeze-onset' },
             { label: 'Social foraging', slug: 'experiments/social-foraging' },
+            { label: 'Criticality is not the control variable', slug: 'experiments/criticality-control' },
           ],
         },
         {
