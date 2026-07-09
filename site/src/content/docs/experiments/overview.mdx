@@ -55,12 +55,14 @@ collective function **displaced from criticality**. Exploratory sweeps, not yet 
 
 ### [Criticality is not the control variable](/experiments/criticality-control/)
 
-Does the Falandays homeostat tune the reservoir to criticality, and is that what makes it work? Two
-probes say no. At the **node**, a one-at-a-time sweep of the four homeostatic knobs shows function is
-a **plateau in the activity rate** — held off saturation and silence by the *weight* rule, not the
-target — while the branching ratio m ≈ 1 is an **ambiguous byproduct** that reads the same at the
-healthy plateau, at saturation, and at silent collapse. At the **collective**, the swarm's flat
-m ≈ 0.97 does **not beat a circular-shift null** (ratio ≈ 1.0) and fires far below saturation — a
-pinned single-agent statistic, not real cross-agent criticality. This is the evidence behind the
-social-foraging page's "function without criticality." Exploratory scripts, not yet promoted to a
-run-dir.
+Does the Falandays homeostat tune the reservoir to criticality, and is that what makes it work? Across
+the node we actually use (Oosawa) on tracking and foraging, the drive/floor mechanism, and a 48-agent
+forage swarm, the branching ratio m ≈ 1 is a **homeostatically-defended byproduct** of rate
+homeostasis, not the controlled variable and not an independently tunable knob: at the node it reads
+the same at health, saturation, and silence, and across the swarm's whole functional range m is
+**welded to ≈ 0.98–0.99** — the only way to push it below 0.9 is to *silence* the reservoir, which
+kills foraging. So criticality and function are **confounded** ("the reservoir is working" and
+"m ≈ 1" are the same condition), and the causal question is **not answerable by tuning this node** —
+the earlier "decoupled from performance" phrasing is retired, since a pinned m can never demonstrate
+decoupling. The clean test is a fixed-weight, evolved reservoir where m is set by ρ(W) with no
+homeostat defending it. Exploratory scripts, not yet promoted to a run-dir.
