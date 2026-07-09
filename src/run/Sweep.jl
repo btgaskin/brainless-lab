@@ -514,6 +514,7 @@ function sweep_struct_axes(prefix::AbstractString, m::KinematicMotor)::Vector{Sw
     return [
         SweepAxisInfo(path="$(prefix).$(field)", default=getfield(m, field))
         for field in fieldnames(KinematicMotor)
+        if !(fieldtype(KinematicMotor, field) <: Tuple)
     ]
 end
 

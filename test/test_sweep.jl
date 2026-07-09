@@ -243,6 +243,7 @@ end
     axis_by_path = Dict(axis.path => axis for axis in axis_infos)
     @test "env.motor.scheme" in keys(axis_by_path)
     @test "env.motor.turn_gain" in keys(axis_by_path)
+    @test !("env.motor.turn_gain_range" in keys(axis_by_path))
     @test "env.sensor.n_per_eye" in keys(axis_by_path)
     @test "env.sensor.encoding" in keys(axis_by_path)
     @test axis_by_path["env.motor.scheme"].default == KinematicMotor().scheme

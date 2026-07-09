@@ -67,6 +67,7 @@ include("analysis/ForageTransfer.jl")
 include("drivers/Driver.jl")
 include("tasks/Calibration.jl")
 include("drivers/Parallel.jl")
+include("drivers/Composite.jl")
 include("drivers/Evolve.jl")
 include("drivers/MultiObjective.jl")
 include("drivers/QualityDiversity.jl")
@@ -390,10 +391,18 @@ export SimResult,
 
 export SepCMA,
     EvolveRunner,
+    GenomeBlock,
+    CompositeGenome,
     FixedRunner,
     PlasticRunner,
     rollout,
     evolve,
+    node_block,
+    motor_block,
+    sensor_block,
+    compose_genome,
+    swarm_rollout,
+    swarm_evaluate,
     find_alive_centroid,
     nsga2,
     cma_me,

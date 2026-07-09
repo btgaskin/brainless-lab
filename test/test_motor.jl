@@ -45,6 +45,51 @@ _falandays_reservoir(n, nr, ne; seed=1) =
     @test motor(PassthroughBody(VENMorphology(), custom)) === custom
 end
 
+@testset "KinematicMotor genome is opt-in and bounded" begin
+    m0 = KinematicMotor()
+    @test paramdim(m0) == 0
+    @test isempty(BrainlessLab.paramspace(m0))
+    @test isempty(pack_params(m0))
+    @test unpack_params(m0, Float64[]) === m0
+
+    m = KinematicMotor(
+        readout=:graded_state,
+        turn_gain=1.25,
+        turn_gain_range=(0.5, 2.0),
+        top_speed=0.3,
+        top_speed_range=(0.1, 0.5),
+        accel_time=5.0,
+        accel_time_range=(5.0, 5.0),
+        top_heading_rate=pi / 6.0,
+        top_heading_rate_range=(pi / 12.0, pi / 4.0),
+    )
+    space = BrainlessLab.paramspace(m)
+    @test paramdim(m) == 3
+    @test [entry.label for entry in space] == [:turn_gain, :top_speed, :top_heading_rate]
+    @test [(entry.lo, entry.hi) for entry in space] == [(0.5, 2.0), (0.1, 0.5), (pi / 12.0, pi / 4.0)]
+
+    g = pack_params(m)
+    @test length(g) == paramdim(m)
+    m2 = unpack_params(m, g)
+    @test m2 isa KinematicMotor
+    @test m2.scheme === m.scheme
+    @test m2.readout === m.readout
+    @test m2.allow_reverse === m.allow_reverse
+    @test m2.brake === m.brake
+    @test m2.dt == m.dt
+    @test m2.turn_gain_range == m.turn_gain_range
+    @test m2.top_speed_range == m.top_speed_range
+    @test m2.accel_time_range == m.accel_time_range
+    @test m2.top_heading_rate_range == m.top_heading_rate_range
+    @test isapprox(m2.turn_gain, m.turn_gain; atol=1e-6)
+    @test isapprox(m2.top_speed, m.top_speed; atol=1e-6)
+    @test isapprox(m2.accel_time, m.accel_time; atol=1e-6)
+    @test isapprox(m2.top_heading_rate, m.top_heading_rate; atol=1e-6)
+    @test isapprox(pack_params(m2), g; atol=1e-8)
+
+    @test_throws DimensionMismatch unpack_params(m, g[1:2])
+end
+
 @testset "Default readout is a strict no-op (== effectors)" begin
     R = 0.2 .* rand(MersenneTwister(2), 64)
     m = KinematicMotor()
