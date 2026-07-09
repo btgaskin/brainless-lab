@@ -424,7 +424,8 @@ end
 
 function _build_column_schema(measures, ensemble_specs, baseline::SweepBaseline; viable_threshold::Real=_viable_threshold_from_measures(measures))
     base_columns = ["seed", "score", "raw_score", "score_key", "alive", "liveness", "rate_mean", "rate_var"]
-    descriptor_columns = _descriptor_columns(baseline)
+    swarm_descriptor_columns = _is_swarm_sweep(baseline) ? ["n_sensors", "n_receptors"] : String[]
+    descriptor_columns = unique(vcat(_descriptor_columns(baseline), swarm_descriptor_columns))
     measure_columns = Dict{String,Vector{String}}()
     dynamic = String[]
     for measure in measures
@@ -441,10 +442,10 @@ function _build_column_schema(measures, ensemble_specs, baseline::SweepBaseline;
     for measure in measures, col in get(measure_columns, measure, String[])
         col == "regime" || push!(float_columns, col)
     end
-    for col in descriptor_columns
-        push!(float_columns, col)
-    end
     int_columns = Set{String}(["seed"])
+    for col in descriptor_columns
+        col in swarm_descriptor_columns ? push!(int_columns, col) : push!(float_columns, col)
+    end
     bool_columns = Set{String}(["alive"])
     aggregate_columns = ["score", "raw_score", "liveness", "rate_mean", "rate_var"]
     for measure in measures, col in get(measure_columns, measure, String[])
@@ -495,6 +496,7 @@ function _validate_sweep_task(task)
 end
 
 sweep_env_axes(::Type)::Vector{SweepAxisInfo} = SweepAxisInfo[]
+sweep_struct_axes(prefix::AbstractString, ::Any)::Vector{SweepAxisInfo} = SweepAxisInfo[]
 
 function sweep_env_axes(::Type{<:WallEnv})::Vector{SweepAxisInfo}
     return [
@@ -505,6 +507,22 @@ end
 function sweep_env_axes(::Type{<:TrackingEnv})::Vector{SweepAxisInfo}
     return [
         SweepAxisInfo(path="env.stim_speed_rad", default=deg2rad(1.0), range="> 0", description="tracking stimulus angular speed in radians per tick"),
+    ]
+end
+
+function sweep_struct_axes(prefix::AbstractString, m::KinematicMotor)::Vector{SweepAxisInfo}
+    return [
+        SweepAxisInfo(path="$(prefix).$(field)", default=getfield(m, field))
+        for field in fieldnames(KinematicMotor)
+    ]
+end
+
+function sweep_struct_axes(prefix::AbstractString, ::BearingSensor)::Vector{SweepAxisInfo}
+    return [
+        SweepAxisInfo(path="$(prefix).n_eyes", default=2, range="integer", description="bearing_eyes eye count"),
+        SweepAxisInfo(path="$(prefix).n_per_eye", default=31, range="integer", description="sets receptor width"),
+        SweepAxisInfo(path="$(prefix).half_fov_deg", default=60.0, range="> 0", description="bearing_eyes half field of view in degrees"),
+        SweepAxisInfo(path="$(prefix).encoding", default="binary", range="binary|graded", description="bearing sensor encoding"),
     ]
 end
 
@@ -569,6 +587,8 @@ function sweepable_axes(node=:falandays_base, task=:wall)
         push!(out, SweepAxisInfo(path="env.source_gain", default=cfg.source_gain, range=">= 0", description="forage source bank gain"))
         push!(out, SweepAxisInfo(path="env.capture_radius", default=cfg.capture_radius, range=">= 0", description="forage capture radius"))
         push!(out, SweepAxisInfo(path="env.conspecific_vision", default=cfg.conspecific_vision, range="true|false", description="whether agents see each other"))
+        append!(out, sweep_struct_axes("env.motor", cfg.motor))
+        append!(out, sweep_struct_axes("env.sensor", cfg.sensor))
     else
         task_obj = resolve_task(task_sym)
         if task_obj isa TaskSpec
@@ -687,6 +707,15 @@ function _apply_axis_value(base::SweepBaseline, path::AbstractString, value)
     end
 
     parts = split(path, ".")
+    if length(parts) == 3 && parts[1] == "env"
+        field, sub = Symbol(parts[2]), Symbol(parts[3])
+        prev = get(out.env_kwargs, field, nothing)
+        ov = prev isa AbstractDict ? copy(prev) : Dict{Symbol,Any}()
+        ov[sub] = value
+        out.env_kwargs[field] = ov
+        return out
+    end
+
     length(parts) == 2 || throw(ArgumentError("unknown sweep axis '$path'"))
     ns, field = parts
     key = Symbol(field)
@@ -858,8 +887,21 @@ function _write_sweep_done(cell_dir::AbstractString, cell_id::AbstractString)
     return _sweep_done_path(cell_dir)
 end
 
-function _dict_to_tomlable(d::Dict{Symbol,Any})
-    return Dict{String,Any}(string(k) => (v isa Symbol ? string(v) : v) for (k, v) in d)
+function _tomlable_value(value)
+    if value isa AbstractDict
+        return _dict_to_tomlable(value)
+    elseif value isa Symbol
+        return string(value)
+    elseif value isa Tuple
+        return [_tomlable_value(item) for item in value]
+    elseif value isa AbstractVector
+        return [_tomlable_value(item) for item in value]
+    end
+    return value
+end
+
+function _dict_to_tomlable(d::AbstractDict)
+    return Dict{String,Any}(string(k) => _tomlable_value(v) for (k, v) in d)
 end
 
 function _baseline_toml(base::SweepBaseline)
@@ -983,6 +1025,71 @@ function _record_channels_for_measures(measures; capture::Bool=false)
     return Tuple(sort!(collect(channels); by=string))
 end
 
+_coerce_env_struct_value(::Type{Symbol}, value) = Symbol(value)
+_coerce_env_struct_value(::Type{Int}, value) = Int(value)
+_coerce_env_struct_value(::Type{Float64}, value) = Float64(value)
+
+function _coerce_env_struct_value(::Type{Bool}, value)
+    value isa Bool && return value
+    if value isa AbstractString
+        text = lowercase(String(value))
+        text == "true" && return true
+        text == "false" && return false
+    end
+    return Bool(value)
+end
+
+function _coerce_env_struct_value(::Type{T}, value) where {T}
+    value isa T && return value
+    return convert(T, value)
+end
+
+function _unknown_struct_override_error(prefix::AbstractString, sub::Symbol, known)
+    paths = ["$(prefix).$(field)" for field in known]
+    suggestion = _suggest_name("$(prefix).$(sub)", paths)
+    known_msg = join(sort!(paths), ", ")
+    if suggestion === nothing
+        return ArgumentError("unknown axis '$(prefix).$(sub)' (known: $(known_msg))")
+    end
+    return ArgumentError("unknown axis '$(prefix).$(sub)' -- did you mean '$(suggestion)'? (known: $(known_msg))")
+end
+
+function _rebuild_env_struct(key::Symbol, ov::AbstractDict)
+    return _rebuild_env_struct(Val(key), ov)
+end
+
+function _rebuild_env_struct(::Val{:motor}, ov::AbstractDict)
+    known = fieldnames(KinematicMotor)
+    kwargs = Dict{Symbol,Any}()
+    for (raw_sub, value) in ov
+        sub = Symbol(raw_sub)
+        sub in known || throw(_unknown_struct_override_error("env.motor", sub, known))
+        kwargs[sub] = _coerce_env_struct_value(fieldtype(KinematicMotor, sub), value)
+    end
+    return KinematicMotor(; _kwargs_tuple(kwargs)...)
+end
+
+function _rebuild_env_struct(::Val{:sensor}, ov::AbstractDict)
+    known = (:n_eyes, :n_per_eye, :half_fov_deg, :encoding)
+    kwargs = Dict{Symbol,Any}()
+    for (raw_sub, value) in ov
+        sub = Symbol(raw_sub)
+        sub in known || throw(_unknown_struct_override_error("env.sensor", sub, known))
+        if sub === :encoding
+            kwargs[sub] = Symbol(value)
+        elseif sub === :n_eyes || sub === :n_per_eye
+            kwargs[sub] = Int(value)
+        elseif sub === :half_fov_deg
+            kwargs[sub] = Float64(value)
+        end
+    end
+    return bearing_eyes(; _kwargs_tuple(kwargs)...)
+end
+
+function _rebuild_env_struct(::Val{key}, ov::AbstractDict) where {key}
+    throw(ArgumentError("env.$(key) does not support nested sweep overrides"))
+end
+
 function _simulation_kwargs(base::SweepBaseline, seed::Integer, measures; capture::Bool=false)
     node_kwargs = copy(base.node_kwargs)
     for (key, value) in base.drive_kwargs
@@ -1006,7 +1113,7 @@ function _simulation_kwargs(base::SweepBaseline, seed::Integer, measures; captur
     if _is_swarm_sweep(base)
         kwargs[:n_agents] = base.n_agents
         for (key, value) in base.env_kwargs
-            kwargs[key] = value
+            kwargs[key] = value isa AbstractDict ? _rebuild_env_struct(key, value) : value
         end
     else
         kwargs[:env_kwargs] = _kwargs_tuple(copy(base.env_kwargs))
@@ -1058,6 +1165,28 @@ function _copy_descriptor_metrics!(row::Dict{String,Any}, sim::SimResult, warnin
             row[name] = NaN
             push!(warnings, "descriptor :$(key) unavailable")
         end
+    end
+    return row
+end
+
+function _ven_receptor_count_from_config(env_config, n_sensors_::Integer)
+    nb = Int(n_sensors_)
+    n_colours_ = hasproperty(env_config, :n_colours) ? Int(env_config.n_colours) : 1
+    colour_sensing_ = hasproperty(env_config, :colour_sensing) ? Bool(env_config.colour_sensing) : false
+    conspecific = colour_sensing_ ? 2 + n_colours_ * nb : 2 + nb
+    source_bank = hasproperty(env_config, :source_gain)
+    return source_bank ? conspecific + (2 + nb) : conspecific
+end
+
+function _copy_swarm_descriptor_metrics!(row::Dict{String,Any}, sim::SimResult, warnings::Vector{String})
+    sim.task in (:torus, :forage) || return row
+    env_config = sim.config.environment
+    if hasproperty(env_config, :sensor) && hasproperty(env_config.sensor, :n_sensors)
+        n_sensors_ = Int(env_config.sensor.n_sensors)
+        row["n_sensors"] = n_sensors_
+        row["n_receptors"] = _ven_receptor_count_from_config(env_config, n_sensors_)
+    else
+        push!(warnings, "swarm sensor descriptor unavailable")
     end
     return row
 end
@@ -1205,6 +1334,7 @@ function _run_seed_metrics(base::SweepBaseline, seed::Integer, measures, schema:
     row["error"] = ""
     row["notes"] = join(notes, " | ")
     _copy_descriptor_metrics!(row, sim, warnings)
+    _copy_swarm_descriptor_metrics!(row, sim, warnings)
 
     for measure in measures
         if measure == "sigma_mr"
