@@ -42,9 +42,20 @@ experiments/
   run.jl          # CLI entrypoint: registers all experiments, dispatches by name
   registry.jl     # ExpRegistry — register/resolve/list experiments by symbol
   harness.jl      # ExpHarness — reusable building blocks (public-API only)
-  freeze_onset.jl # an experiment (registered as :freeze_onset)
-  runs/           # self-describing outputs (git-ignored)
+  freeze_onset.jl                   # experiment (:freeze_onset)
+  tracking_param_sweep.jl           # experiment (:tracking_param_sweep)
+  tracking_leak_lrate_factorial.jl  # experiment (:tracking_leak_lrate_factorial)
+  figures/        # CairoMakie figure scripts (own env; read a run's results.json)
+  runs/           # scratch/exploratory outputs (git-ignored)
+  results/        # published run-dirs, committed & traceable to a study/figure
 ```
+
+**Data retention.** Exploratory runs land in the git-ignored `runs/`. When a run backs
+a published figure or docs page, promote its run-dir to the committed
+`results/<experiment>/<stamp>_<sha>/` — small here (`results.json` is a few hundred KB).
+For a genuinely large run (raw `results.json` in the MB–GB range) don't commit the blob:
+keep `manifest.txt` + a slimmed aggregate summary in `results/`, and leave the full
+per-seed data where it is (an external archive), noted in the manifest.
 
 `harness.jl` composes only the **public** `BrainlessLab` API (`simulate`,
 `sim.metrics.score`, `normalized_score`, …), so experiments survive core refactors:

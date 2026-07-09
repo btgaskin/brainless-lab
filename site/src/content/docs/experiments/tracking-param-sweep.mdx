@@ -100,7 +100,14 @@ separating), is the natural next test.
 
 ## Reproducibility
 
-Each run writes `experiments/runs/tracking_param_sweep/<UTCstamp>_<gitsha>/` (and the factorial its
-own), with `results.json` (per-seed matrices + aggregates) and `manifest.txt` (all fixed parameters,
-seeds, git SHA, timestamp). Figures are generated from `results.json` by
-`experiments/figures/tracking_figures.jl` (CairoMakie), so every figure traces to the exact run.
+The exact run-dirs behind these figures are committed at
+`experiments/results/tracking_param_sweep/20260708T214553Z_752b528/` and
+`experiments/results/tracking_leak_lrate_factorial/20260708T214041Z_752b528/` (git `752b528`,
+100 seeds, 7200 ticks) — each with `results.json` (per-seed matrices + aggregates) and `manifest.txt`
+(every fixed parameter, the full seed list, git SHA, timestamp). Download the raw data:
+[parameter sweep](/experiments/tracking-sweep/data/tracking_param_sweep.results.json) ·
+[leak×lrate_wmat factorial](/experiments/tracking-sweep/data/tracking_leak_lrate_factorial.results.json).
+
+Figures are generated from `results.json` by `experiments/figures/tracking_figures.jl` (CairoMakie),
+so every figure traces to the exact run. Exploratory and scratch runs stay under the gitignored
+`experiments/runs/`; only published studies are promoted to `experiments/results/`.
