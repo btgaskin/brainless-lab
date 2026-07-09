@@ -13,9 +13,9 @@ export interface TaskDescriptor {
 }
 
 export const TASKS: Record<TaskName, TaskDescriptor> = {
-  wall: { name: 'wall', label: 'Wall avoidance', createEnv: (seed) => new WallEnv(seed) },
-  tracking: { name: 'tracking', label: 'Object tracking', createEnv: () => new TrackingEnv() },
   pong: { name: 'pong', label: 'Pong', createEnv: (seed) => new PongEnv(seed) },
+  tracking: { name: 'tracking', label: 'Object tracking', createEnv: () => new TrackingEnv() },
+  wall: { name: 'wall', label: 'Wall avoidance', createEnv: (seed) => new WallEnv(seed) },
 };
 
-export const TASK_NAMES: TaskName[] = ['wall', 'tracking', 'pong'];
+export const TASK_NAMES: TaskName[] = ['pong', 'tracking', 'wall'];

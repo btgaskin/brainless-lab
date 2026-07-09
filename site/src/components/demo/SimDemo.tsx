@@ -18,9 +18,9 @@ import { TASKS } from '../../simulation/tasks';
 const TICK_INTERVAL_MS = 50;
 
 const TASK_OPTIONS: Array<{ value: TaskName; label: string }> = [
-  { value: 'wall', label: 'Wall' },
-  { value: 'tracking', label: 'Track' },
   { value: 'pong', label: 'Pong' },
+  { value: 'tracking', label: 'Track' },
+  { value: 'wall', label: 'Wall' },
 ];
 
 function makeSim(task: TaskName, params: FalandaysParams, seed = 1): { env: TaskEnv; reservoir: FalandaysReservoir } {

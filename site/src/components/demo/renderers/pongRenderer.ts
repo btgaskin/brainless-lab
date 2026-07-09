@@ -71,7 +71,7 @@ export class PongRenderer implements Renderer<PongSnapshot> {
     // Paddle: teal (agent semantic), rounded.
     ctx.fillStyle = BRAND_COLORS.teal;
     const px = tx(snap.paddleX) - 4;
-    const py = ty(snap.paddleY);
+    const py = ty(snap.paddleY - snap.paddleH / 2);
     const ph = snap.paddleH * scale;
     if (typeof ctx.roundRect === 'function') {
       ctx.beginPath();

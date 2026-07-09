@@ -19,7 +19,7 @@ export interface TaskTuning {
   inputWeight: number;
   /** Falandays et al.'s per-task reservoir size N — the paper's own tuning. */
   N: number;
-  /** Authors' per-task recurrent homeostasis rate. */
+  /** Demo starting recurrent homeostasis rate. */
   lrateWmat: number;
   /** Authors' per-task target homeostasis rate. */
   lrateTarg: number;
@@ -28,7 +28,7 @@ export interface TaskTuning {
 }
 
 /**
- * Per-task tuning, mirrored from src/api/paper_config.jl, which is backed by
+ * Per-task tuning, mostly mirrored from src/api/paper_config.jl, which is backed by
  * the authors' original Julia task scripts — NOT the numpy reference's defaults:
  *
  *   "used the homeostatic network (N=200) to control an agent that can
@@ -42,7 +42,9 @@ export interface TaskTuning {
  * every task — that's a deliberate choice for *its own* large-scale
  * statistical benchmarking (500 seeds per condition), not a reproduction of
  * the paper's per-task N. Since this demo is framed around the published
- * paper, the paper's numbers are what drive it here.
+ * paper, the paper's numbers are what drive it here, except for lrateWmat:
+ * the live demo starts all three tasks at 0.20 so the weight slider has a
+ * calmer shared default while staying directly editable.
  *
  * Applied as the starting value when switching tasks; both inputWeight and N
  * remain freely editable from there via the sliders. Effector gains
@@ -50,9 +52,9 @@ export interface TaskTuning {
  * they live in each task module, not here.
  */
 export const TASK_TUNING: Record<TaskName, TaskTuning> = {
-  wall: { inputWeight: 4.0, N: 200, lrateWmat: 1.0, lrateTarg: 0.01, weightInitMode: 'excitatory' },
-  tracking: { inputWeight: 0.75, N: 200, lrateWmat: 1.0, lrateTarg: 0.01, weightInitMode: 'excitatory' },
-  pong: { inputWeight: 2.75, N: 500, lrateWmat: 1.0, lrateTarg: 0.1, weightInitMode: 'pongMixed' },
+  wall: { inputWeight: 4.0, N: 200, lrateWmat: 0.2, lrateTarg: 0.01, weightInitMode: 'excitatory' },
+  tracking: { inputWeight: 0.75, N: 200, lrateWmat: 0.2, lrateTarg: 0.01, weightInitMode: 'excitatory' },
+  pong: { inputWeight: 2.75, N: 500, lrateWmat: 0.2, lrateTarg: 0.1, weightInitMode: 'pongMixed' },
 };
 
 export function taskTuningFor(task: TaskName): TaskTuning {
