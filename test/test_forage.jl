@@ -110,6 +110,86 @@ end
     @test tdistance(torus, after[1], after[2]) >= 2.0 * agent_radius - 1e-9
 end
 
+@testset "Forage source vision range" begin
+    kwargs = (
+        node=:falandays_base,
+        n_agents=4,
+        n_nodes=35,
+        ticks=16,
+        seed=9,
+        sensory_noise=0.0,
+        source_position=(8.0, 8.0),
+        source_gain=1.0,
+        record=(:poses,),
+    )
+    implicit_default = simulate(:forage; kwargs...)
+    explicit_default = simulate(:forage; kwargs..., source_vision_range=nothing)
+    @test getchannel(implicit_default.recorder, :poses) == getchannel(explicit_default.recorder, :poses)
+    @test implicit_default.metrics == explicit_default.metrics
+    @test explicit_default.config.environment.source_vision_range === nothing
+
+    torus = Torus(10.0)
+    bodies = [PassthroughBody()]
+    source_kwargs = (
+        n_agents=1,
+        space_size=10.0,
+        sensory_noise=0.0,
+        conspecific_vision=false,
+        source_position=(5.0, 5.0),
+        source_gain=1.0,
+        capture_radius=0.5,
+    )
+    unlimited = ForageEnvironment(
+        torus,
+        [(1.0, 5.0)];
+        headings=[0.0],
+        config=SwarmConfig(; source_kwargs..., source_vision_range=nothing),
+        rng=MersenneTwister(3),
+    )
+    limited = ForageEnvironment(
+        torus,
+        [(1.0, 5.0)];
+        headings=[0.0],
+        config=SwarmConfig(; source_kwargs..., source_vision_range=1.5),
+        rng=MersenneTwister(3),
+    )
+    unlimited_inputs = observe(unlimited, bodies)
+    limited_inputs = observe(limited, bodies)
+    @test maximum(@view(unlimited_inputs[1][65:128])) > 0.0
+    @test all(iszero, @view(limited_inputs[1][65:128]))
+    @test unlimited_inputs[1][65:128] != limited_inputs[1][65:128]
+
+    conspecific_kwargs = (
+        n_agents=2,
+        space_size=10.0,
+        sensory_noise=0.0,
+        source_position=(8.0, 5.0),
+        source_gain=1.0,
+        capture_radius=0.5,
+    )
+    conspecific_bodies = [PassthroughBody(), PassthroughBody()]
+    conspecific_positions = [(1.0, 5.0), (3.0, 5.0)]
+    unlimited_conspecific = ForageEnvironment(
+        torus,
+        conspecific_positions;
+        headings=[0.0, pi],
+        config=SwarmConfig(; conspecific_kwargs..., source_vision_range=nothing),
+        rng=MersenneTwister(4),
+    )
+    limited_conspecific = ForageEnvironment(
+        torus,
+        conspecific_positions;
+        headings=[0.0, pi],
+        config=SwarmConfig(; conspecific_kwargs..., source_vision_range=1.5),
+        rng=MersenneTwister(4),
+    )
+    unlimited_conspecific_inputs = observe(unlimited_conspecific, conspecific_bodies)
+    limited_conspecific_inputs = observe(limited_conspecific, conspecific_bodies)
+    @test maximum(@view(unlimited_conspecific_inputs[1][1:64])) > 0.0
+    @test limited_conspecific_inputs[1][1:64] == unlimited_conspecific_inputs[1][1:64]
+    @test limited_conspecific_inputs[2][1:64] == unlimited_conspecific_inputs[2][1:64]
+end
+
 @testset "Forage seeded determinism" begin
     kwargs = (
         node=:falandays_base,

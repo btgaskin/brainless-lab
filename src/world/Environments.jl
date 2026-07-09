@@ -39,6 +39,7 @@ Base.@kwdef struct SwarmConfig
     link_p::Float64 = 0.1
     sens_agent_dist::Int = 0
     vision_range::Union{Nothing,Float64} = nothing
+    source_vision_range::Union{Nothing,Float64} = nothing
     sensory_noise::Float64 = 0.1
     sensory_scaling::Bool = true
     visual_coupling::Bool = true
@@ -374,6 +375,7 @@ function ForageEnvironment(
     sensory_scaling::Bool=true,
     sens_agent_dist::Integer=0,
     vision_range=nothing,
+    source_vision_range=nothing,
     source_position=nothing,
     source_gain::Real=1.0,
     signalling::Bool=false,
@@ -392,6 +394,7 @@ function ForageEnvironment(
             space_size=torus.size,
             sens_agent_dist=Int(sens_agent_dist),
             vision_range=vision_range === nothing ? nothing : Float64(vision_range),
+            source_vision_range=source_vision_range === nothing ? nothing : Float64(source_vision_range),
             sensory_noise=Float64(sensory_noise),
             sensory_scaling=Bool(sensory_scaling),
             visual_coupling=Bool(visual_coupling),
@@ -516,7 +519,7 @@ function observe(m::ForageEnvironment, bodies)
             _resolve_encoding(m.config),
             m.sensory_noise,
             m.rng;
-            vision_range=m.config.vision_range,
+            vision_range=m.config.source_vision_range === nothing ? m.config.vision_range : m.config.source_vision_range,
             source_radius=m.config.capture_radius,
         )
         inputs[i] = assemble_forage_inputs(
