@@ -83,9 +83,11 @@ function _analysis_agent_node_vectors(entry, name::Symbol, t::Integer)
     throw(ArgumentError("$(name) needs numeric recorder entries; bad entry at tick $(t)"))
 end
 
-function _analysis_spike_matrices(sim::SimResult, name::Symbol)
-    raw = getchannel(sim.recorder, :spikes)
-    isempty(raw) && throw(ArgumentError("$(name) needs the :spikes channel recorded; run simulate(...; record=(:spikes, ...))"))
+function _analysis_agent_node_matrices(sim::SimResult, channel::Symbol, name::Symbol)
+    channel in (:rate, :rates) &&
+        throw(ArgumentError("$(name) needs per-node reservoir channels; :$(channel) only records per-agent rates"))
+    raw = getchannel(sim.recorder, channel)
+    isempty(raw) && throw(ArgumentError("$(name) needs the :$(channel) channel recorded; run simulate(...; record=(:$(channel), ...))"))
 
     n_ticks = length(raw)
     first = _analysis_agent_node_vectors(raw[1], name, 1)
@@ -111,6 +113,10 @@ function _analysis_spike_matrices(sim::SimResult, name::Symbol)
     end
 
     return out
+end
+
+function _analysis_spike_matrices(sim::SimResult, name::Symbol)
+    return _analysis_agent_node_matrices(sim, :spikes, name)
 end
 
 function _analysis_rate_matrix_from_raw(raw, name::Symbol)

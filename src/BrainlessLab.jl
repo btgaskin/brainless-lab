@@ -64,6 +64,7 @@ include("analysis/NullTest.jl")
 include("analysis/TaskSignals.jl")
 include("analysis/TransferEntropy.jl")
 include("analysis/ForageTransfer.jl")
+include("analysis/OwnColour.jl")
 include("drivers/Driver.jl")
 include("tasks/Calibration.jl")
 include("drivers/Parallel.jl")
@@ -368,6 +369,7 @@ export SimResult,
     transfer_entropy,
     node_transfer_entropy,
     agent_transfer_entropy,
+    own_colour_decodability,
     forage_alignment,
     lookout_follower_te,
     node_target_error,
@@ -522,6 +524,7 @@ register_analysis!(:temporal_null, temporal_null; label="within-network conditio
 register_analysis!(:distance_to_source, distance_to_source; task=:forage, label="mean distance to forage source")
 register_analysis!(:forage_alignment, forage_alignment; task=:forage, label="follower source-alignment (Vanni C, experimental)")
 register_analysis!(:lookout_follower_te, lookout_follower_te; task=:forage, label="lookout→follower transfer entropy (experimental)")
+register_analysis!(:own_colour_decodability, own_colour_decodability; task=:torus, label="own-colour decodability from reservoir state (experimental)")
 register_analysis!(:wall_distance, wall_distance; task=:wall, label="distance to nearest wall")
 register_analysis!(:heading_error, heading_error; task=:tracking, label="heading error (rad)")
 register_analysis!(:object_in_view, object_in_view; task=:tracking, label="stimulus-in-view indicator (experimental)")
