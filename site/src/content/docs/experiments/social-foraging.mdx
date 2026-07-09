@@ -84,6 +84,16 @@ turning social vision on lets the swarm reach **more** agents (reach $0.48 \to 0
 **later** on average (mean first-passage $841 \to 1315$ ticks). More reach, later arrival = a slow
 attractor, not a fast recruit.
 
+![Social foraging run — 48 agents, chance-discovery setup, 5000 ticks](/experiments/social-foraging/forage-social.gif)
+
+![Blind foraging run — same config, conspecific vision off](/experiments/social-foraging/forage-blind.gif)
+
+*One run each of the naturalistic chance-discovery setup — **social** (top) vs **blind** (bottom): 48
+agents, 5000 ticks, a source that can only be found by chance (short `source_vision_range`). The
+transmission effect is a **modest statistical pull, not a dramatic clump** — over the run the social
+swarm spends more time concentrated toward the source than the blind one, worth ΔΔ ≈ +0.09 (and
+ΔK ≈ +0.41 below). A single frame won't show it; the signal is in the scores, not the spectacle.*
+
 ## The tuning — one lever at a time
 
 **The regime is an *intersection*: a hard source, *moderate* cohesion, and Goldilocks density and
@@ -228,6 +238,14 @@ criticality"**: collective intelligence peaking in the connected phase, not at t
 (cf. [criticality → collective intelligence](/notes/criticality-collective-intelligence/)). Note the
 **blind** interaction graph is **empty by construction** (no conspecific sensing), so connectivity here
 is a purely **social** order parameter.
+
+![Social interaction graph at t=5000, vr=4 — a dense cohered giant component with a few outliers](/experiments/social-foraging/interaction-graph.png)
+
+*The **social interaction graph** (who-senses-whom within `vision_range`) at $t = 5000$, $v_r = 4$: a
+dense, cohered giant component (lower-right) with a handful of outliers still linked in — giant-component
+fraction $1.00$, deep in the connected phase above the $\approx 1.9$ percolation threshold. The **blind**
+graph, by contrast, has **no edges at all**. This emergent, source-anchored connectivity — not a fixed
+random geometric graph — is what carries the transmission.*
 
 **Self-organising, not merely tuned.** Bessone & Plantec **set** the micro order-parameter
 ($p^{\text{micro}}$) directly. Our allostatic node **pins its own** micro-criticality — the set-point
