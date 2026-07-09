@@ -5,9 +5,9 @@ description: Single-agent tasks and the swarm — their receptor/effector contra
 
 The **task** you pick fixes the `Environment` and the `(n_receptors, n_effectors)` the
 whole stack is built to — it shapes the assembly *and* supplies the score. Single-agent
-tasks use a `PassthroughBody` over a `TaskWorld`; the swarm uses the vision-based
-embodied body `VENBody` — bearing-vision in, movement kinematics out — in a
-`TorusEnvironment` / `ForageEnvironment`.
+tasks use a passthrough morphology over a `TaskWorld`; the swarm uses a shared
+`PassthroughBody(VENMorphology(...), KinematicMotor(...))` — bearing vision in,
+movement kinematics out — in a `TorusEnvironment` / `ForageEnvironment`.
 
 ## Single-agent tasks
 
@@ -32,18 +32,25 @@ scores are not. See [Scoring](/scoring/).
 
 ## The swarm
 
-`VENBody` turns bearing-vision into receptors and VEN kinematics out of effectors: **62**
-bearing sensors (two eyes × 31 angles) padded to **64** inputs; **3** effectors (`e3`
-forward acceleration, `e2−e1` heading acceleration). Coupling is **vision** — agents
-influence each other only by being seen, so the sensor geometry *is* the interaction
-topology; collective order is emergent, not imposed.
+`VENMorphology` turns bearing vision into receptors and `KinematicMotor` turns effectors
+into motion. The default `BearingSensor()` is the historical **62**-ray fan (two eyes × 31
+angles) padded to **64** inputs; the default motor has **3** effectors (`e3` forward
+acceleration, `e2−e1` heading acceleration). Coupling is **vision** — agents influence each
+other only by being seen, so the sensor geometry *is* the interaction topology; collective
+order is emergent, not imposed.
 
-<p class="bl-source">Source: <code>src/world/Body.jl</code> (<code>VENBody</code>, <code>sense_agents</code>), <code>src/world/Environments.jl</code> (<code>TorusEnvironment</code>).</p>
+The swarm sensor is explicit: pass `sensor=BearingSensor(...)` or `sensor=bearing_eyes(...)`
+to change the bearing angles and `:binary` / `:graded` encoding. `colour_sensing=true`
+splits the conspecific bank into one bearing bank per colour class (`n_colours`), while the
+default (`n_colours=1`, `colour_sensing=false`) is a no-op.
+
+<p class="bl-source">Source: <code>src/world/Morphology.jl</code> (<code>VENMorphology</code>, <code>PassthroughBody</code>), <code>src/world/Sensor.jl</code> (<code>BearingSensor</code>), <code>src/world/Motor.jl</code> (<code>KinematicMotor</code>), <code>src/world/Environments.jl</code> (<code>TorusEnvironment</code>).</p>
 
 ## The foraging experiment
 
 `:forage` adds a **source** the agents can find, sensed via a *second* bearing-vision
-bank (its own gain) alongside the conspecific bank. The headline manipulation is
+bank using the same `SensorSpec` geometry (with its own gain) alongside the conspecific bank.
+The headline manipulation is
 **social vs blind**:
 
 - **social** — agents see each other *and* the source;
@@ -63,10 +70,10 @@ simulate(:forage; node=:falandays_base, n_agents=12, conspecific_vision=false)  
 ## Acoustic signalling
 
 Foraging agents can optionally **call** to one another. Set `signalling=true` and each
-`VENBody` grows a fourth effector, `:signal` — a continuous emission intensity in $[0,1]$
-that does *not* move the agent — plus one scalar `:acoustic` receptor. The receptor reuses a
-reserved input slot, so the count stays **128**; the reservoir is simply built `(128, 4)`
-instead of `(128, 3)`.
+swarm morphology grows a fourth effector, `:signal` — a continuous emission intensity in
+$[0,1]$ that does *not* move the agent — plus one scalar `:acoustic` receptor. The receptor
+reuses a reserved input slot, so with the default 62-ray sensor the count stays **128**; the
+reservoir is simply built `(128, 4)` instead of `(128, 3)`.
 
 Hearing is **loudness only, with no direction** — an agent can tell *how much* calling is
 happening nearby but not *where* it comes from. Agent *i* reads:

@@ -24,7 +24,7 @@ abstract type Motor end
 The one built-in motor. `readout` selects how the reservoir's output is
 re-expressed as an effector command (see [`readout`](@ref)); `scheme` selects the
 differential-drive command map (see [`integrate_motion`](@ref)); the remaining
-fields are the uniform kinematic constants (formerly `VENParams`).
+fields are the uniform kinematic constants.
 
 Readout schemes (all a projection of the reservoir's own output through the same
 `effectors` map):
@@ -52,12 +52,17 @@ Base.@kwdef struct KinematicMotor <: Motor
     scheme::Symbol = :ven_differential
     readout::Symbol = :spike_fraction
     turn_gain::Float64 = 1.0
+    turn_gain_range::NTuple{2,Float64} = (1.0, 1.0)
     allow_reverse::Bool = false
     brake::Bool = false
     top_speed::Float64 = 0.2
+    top_speed_range::NTuple{2,Float64} = (0.2, 0.2)
     accel_time::Float64 = 5.0
+    accel_time_range::NTuple{2,Float64} = (5.0, 5.0)
     top_heading_rate::Float64 = pi / 8.0
+    top_heading_rate_range::NTuple{2,Float64} = (pi / 8.0, pi / 8.0)
     h_accel_time::Float64 = 5.0
+    h_accel_time_range::NTuple{2,Float64} = (5.0, 5.0)
     dt::Float64 = 1.0
 end
 
@@ -70,6 +75,95 @@ const PASSTHROUGH_MOTOR = KinematicMotor()
 # byte-identical to the pre-motor `effectors(r, s)`. `PassthroughBody` overrides
 # this with its stored motor (see Morphology.jl).
 motor(::Body) = PASSTHROUGH_MOTOR
+
+# --- genome (bounded kinematic constants) --------------------------------------
+
+const _KINEMATIC_MOTOR_GENES = (
+    (:turn_gain, :turn_gain_range),
+    (:top_speed, :top_speed_range),
+    (:accel_time, :accel_time_range),
+    (:top_heading_rate, :top_heading_rate_range),
+    (:h_accel_time, :h_accel_time_range),
+)
+
+_motor_range_evolvable(range::NTuple{2,Float64}) = range[1] != range[2]
+_motor_map(raw, lo, hi) = _sensor_map(raw, lo, hi)
+_motor_unmap(x, lo, hi) = _sensor_unmap(x, lo, hi)
+
+"""
+    paramspace(motor)
+
+Labeled `(label, lo, hi)` bounds for each evolvable scalar of a `KinematicMotor`.
+Categorical choices (`scheme`, `readout`, `allow_reverse`, `brake`) and `dt` are
+not genes. A degenerate range `(lo, lo)` drops that scalar from the genome.
+"""
+function paramspace(m::KinematicMotor)
+    space = NamedTuple{(:label, :lo, :hi),Tuple{Symbol,Float64,Float64}}[]
+    for (field, range_field) in _KINEMATIC_MOTOR_GENES
+        lo, hi = getfield(m, range_field)
+        _motor_range_evolvable((lo, hi)) || continue
+        push!(space, (label=field, lo=Float64(lo), hi=Float64(hi)))
+    end
+    return space
+end
+
+function paramdim(m::KinematicMotor)
+    count = 0
+    for (_, range_field) in _KINEMATIC_MOTOR_GENES
+        _motor_range_evolvable(getfield(m, range_field)) && (count += 1)
+    end
+    return count
+end
+
+function pack_params(m::KinematicMotor)
+    g = Float64[]
+    for (field, range_field) in _KINEMATIC_MOTOR_GENES
+        lo, hi = getfield(m, range_field)
+        _motor_range_evolvable((lo, hi)) || continue
+        push!(g, _motor_unmap(getfield(m, field), lo, hi))
+    end
+    return g
+end
+
+function unpack_params(m::KinematicMotor, raw::AbstractVector{<:Real})::KinematicMotor
+    n = paramdim(m)
+    length(raw) == n ||
+        throw(DimensionMismatch("KinematicMotor genome expects $(n) raw parameters, got $(length(raw))"))
+
+    values = Dict{Symbol,Float64}(
+        :turn_gain => m.turn_gain,
+        :top_speed => m.top_speed,
+        :accel_time => m.accel_time,
+        :top_heading_rate => m.top_heading_rate,
+        :h_accel_time => m.h_accel_time,
+    )
+
+    k = 0
+    for (field, range_field) in _KINEMATIC_MOTOR_GENES
+        lo, hi = getfield(m, range_field)
+        _motor_range_evolvable((lo, hi)) || continue
+        k += 1
+        values[field] = _motor_map(raw[k], lo, hi)
+    end
+
+    return KinematicMotor(
+        scheme=m.scheme,
+        readout=m.readout,
+        turn_gain=values[:turn_gain],
+        turn_gain_range=m.turn_gain_range,
+        allow_reverse=m.allow_reverse,
+        brake=m.brake,
+        top_speed=values[:top_speed],
+        top_speed_range=m.top_speed_range,
+        accel_time=values[:accel_time],
+        accel_time_range=m.accel_time_range,
+        top_heading_rate=values[:top_heading_rate],
+        top_heading_rate_range=m.top_heading_rate_range,
+        h_accel_time=values[:h_accel_time],
+        h_accel_time_range=m.h_accel_time_range,
+        dt=m.dt,
+    )
+end
 
 # --- readout -------------------------------------------------------------------
 

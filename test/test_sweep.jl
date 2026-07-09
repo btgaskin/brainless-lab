@@ -236,6 +236,113 @@ end
     @test aggregate["frac_alive"] == 1.0
 end
 
+@testset "Swarm struct-valued sweep axes" begin
+    dir = mktempdir()
+
+    axis_infos = sweepable_axes(:falandays_base, :forage)
+    axis_by_path = Dict(axis.path => axis for axis in axis_infos)
+    @test "env.motor.scheme" in keys(axis_by_path)
+    @test "env.motor.turn_gain" in keys(axis_by_path)
+    @test !("env.motor.turn_gain_range" in keys(axis_by_path))
+    @test "env.sensor.n_per_eye" in keys(axis_by_path)
+    @test "env.sensor.encoding" in keys(axis_by_path)
+    @test axis_by_path["env.motor.scheme"].default == KinematicMotor().scheme
+    @test axis_by_path["env.sensor.n_per_eye"].description == "sets receptor width"
+
+    base = BrainlessLab._resolve_sweep_baseline(BrainlessLab.SweepBaseline(
+        node=:falandays_base,
+        task=:forage,
+        N=8,
+        ticks=6,
+        window=6,
+        n_agents=2,
+    ))
+    default_kwargs = BrainlessLab._simulation_kwargs(base, 0, ["liveness"])
+    @test !haskey(base.env_kwargs, :motor)
+    @test !haskey(base.env_kwargs, :sensor)
+    @test !haskey(default_kwargs, :motor)
+    @test !haskey(default_kwargs, :sensor)
+
+    cells, _, _ = BrainlessLab._build_sweep_cells(
+        base,
+        Dict{String,Any}(
+            "env.motor.scheme" => ["ven_signed"],
+            "env.sensor.n_per_eye" => [31, 41],
+        ),
+        "factorial",
+    )
+    @test length(cells) == 2
+    wide = only(filter(cell -> cell["params"]["env.sensor.n_per_eye"] == 41, cells))
+    @test wide["baseline"].env_kwargs[:sensor][:n_per_eye] == 41
+    @test wide["baseline"].env_kwargs[:motor][:scheme] == "ven_signed"
+
+    sim_kwargs = BrainlessLab._simulation_kwargs(wide["baseline"], 0, ["liveness"])
+    @test sim_kwargs[:motor] isa KinematicMotor
+    @test sim_kwargs[:motor].scheme === :ven_signed
+    @test sim_kwargs[:sensor] isa BearingSensor
+    @test BrainlessLab.encoding(sim_kwargs[:sensor]) === :binary
+    @test n_sensors(sim_kwargs[:sensor]) == 82
+    @test n_receptors(VENMorphology(sensor=sim_kwargs[:sensor], source_bank=true)) == 168
+
+    config = joinpath(dir, "nested-struct-sweep.toml")
+    open(config, "w") do io
+        println(io, "[sweep]")
+        println(io, "id = \"nested-struct-sweep\"")
+        println(io, "mode = \"factorial\"")
+        println(io, "seeds = [0]")
+        println(io, "max_cells = 10")
+        println(io, "threaded = false")
+        println(io)
+        println(io, "[baseline]")
+        println(io, "node = \"falandays_base\"")
+        println(io, "task = \"forage\"")
+        println(io, "N = 8")
+        println(io, "ticks = 6")
+        println(io, "window = 6")
+        println(io, "n_agents = 2")
+        println(io, "\"env.sensor.encoding\" = \"graded\"")
+        println(io)
+        println(io, "[axes]")
+        println(io, "\"env.sensor.n_per_eye\" = [41]")
+        println(io, "\"env.motor.scheme\" = [\"ven_signed\"]")
+        println(io)
+        println(io, "[analytics]")
+        println(io, "measures = [\"liveness\"]")
+    end
+
+    out = run_sweep(config; root=joinpath(dir, "out"), force=true)
+    @test length(out.cells) == 1
+
+    manifest = TOML.parsefile(joinpath(out.dir, "manifest.toml"))
+    @test manifest["baseline"]["env_kwargs"]["sensor"]["encoding"] == "graded"
+
+    cell_manifest = TOML.parsefile(joinpath(out.cells[1]["result_path"], "manifest.toml"))
+    env_kwargs = cell_manifest["baseline"]["env_kwargs"]
+    @test env_kwargs["sensor"]["encoding"] == "graded"
+    @test env_kwargs["sensor"]["n_per_eye"] == 41
+    @test env_kwargs["motor"]["scheme"] == "ven_signed"
+    @test !haskey(env_kwargs["sensor"], "angles_deg")
+
+    result_header = _csv_header(out.results)
+    @test "n_sensors_mean" in result_header
+    @test "n_receptors_mean" in result_header
+    row = only(_csv_rows(out.results))
+    @test parse(Float64, row["n_sensors_mean"]) == 82.0
+    @test parse(Float64, row["n_receptors_mean"]) == 168.0
+
+    bad = joinpath(dir, "bad-nested-struct-axis.toml")
+    write(bad, replace(read(config, String), "env.motor.scheme" => "env.motor.bogus"))
+    err = try
+        run_sweep(bad; root=joinpath(dir, "bad-out"), force=true)
+        nothing
+    catch caught
+        caught
+    end
+    @test err isa ArgumentError
+    @test occursin("unknown axis 'env.motor.bogus'", sprint(showerror, err))
+    @test occursin("did you mean", sprint(showerror, err))
+end
+
 function _write_criticality_sweep(path; id=splitext(basename(path))[1], group="sample", timeseries=true, n_shifts=2, gif=false, source_values="[1.0, 2.0]")
     open(path, "w") do io
         println(io, "[sweep]")

@@ -51,8 +51,6 @@ def build_fixture():
         visual_coupling=True,
         physical_coupling=False,
         sensory_noise=0.0,
-        membrane_noise=0.0,
-        node_kind="standard",
     )
     world = SwarmWorld(config)
     reservoirs = make_reservoirs(world)
@@ -125,6 +123,8 @@ def build_fixture():
         "sensory_scaling": np.int8(bool(config.sensory_scaling)),
         "visual_coupling": np.int8(bool(config.visual_coupling)),
         "physical_coupling": np.int8(bool(config.physical_coupling)),
+        # v0.2 oracle note: VENParams/config.ven was dissolved into KinematicMotor
+        # in current BrainlessLab.
         "top_speed": np.float64(config.ven.top_speed),
         "accel_time": np.float64(config.ven.accel_time),
         "top_heading_rate": np.float64(config.ven.top_heading_rate),

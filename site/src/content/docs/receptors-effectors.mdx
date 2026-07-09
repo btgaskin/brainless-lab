@@ -8,7 +8,7 @@ the world becomes receptor current, and how effector output becomes action — i
 first-class part of the experiment, not an implementation detail. This page is the
 *mechanism and configuration* of that interface, plus where it is going. For the
 per-task **R/E counts**, see [Environments & Tasks](/environments-tasks/); here we
-cover how those counts are produced and how they will become settable.
+cover how those counts are produced and which parts are now explicit specs.
 
 ## The interface
 
@@ -20,10 +20,12 @@ motor output). The **Body** owns the morphology that sits between them and the w
 percept ─receptors(body)→ R ─step!(reservoir,R)→ spikes ─effectors(reservoir)→ E ─decode_effectors(body)→ command ─actuate!(env)→ world
 ```
 
-- **`PassthroughBody`** relays a single-agent task env's $R$/$E$ unchanged — the `Env`
-  owns the world encoding (`sense` / `step!`) and effector decode.
-- **`VENBody`** is the embodied swarm body: it turns **bearing-vision into $R$** and
-  **VEN kinematics out of $E$**. Coupling between agents is *vision*, so the sensor
+- **`PassthroughBody{M,Mt}`** carries a morphology and a motor. For single-agent tasks,
+  the passthrough morphology relays the task env's $R$/$E$ unchanged — the `Env` owns
+  `sense` / `step!` and task-specific effector decode.
+- **The swarm body is `PassthroughBody(VENMorphology(...), KinematicMotor(...))`.**
+  `VENMorphology` turns bearing vision into $R$ using a `SensorSpec`; `KinematicMotor`
+  reads $E$ into movement dynamics. Coupling between agents is *vision*, so the sensor
   geometry literally *is* the interaction topology.
 
 Effector semantics are **task-specific, not globally uniform** — channel 1 of Pong is
@@ -31,29 +33,36 @@ not the same physical quantity as channel 1 of cartpole. A reservoir is always b
 match the task/body it will drive, i.e. to the resulting `(n_receptors, n_effectors)`.
 See the [node contract](/nodes/overview/) for what a reservoir must implement.
 
-<p class="bl-source">Source: <code>src/world/Body.jl</code> (<code>PassthroughBody</code>, <code>VENBody</code>, <code>sense_agents</code>), <code>src/world/Environments.jl</code> (env-side encoding/decode).</p>
+<p class="bl-source">Source: <code>src/world/Morphology.jl</code> (<code>PassthroughBody</code>, <code>VENMorphology</code>), <code>src/world/Sensor.jl</code> (<code>SensorSpec</code>, <code>BearingSensor</code>), <code>src/world/Motor.jl</code> (<code>KinematicMotor</code>), <code>src/world/Environments.jl</code> (env-side encoding/decode).</p>
 
-## Current state: fixed per task/body
+## Current state: task contracts plus explicit swarm specs
 
-Today counts and placements are **hardcoded constants** baked into the env/body. The
-per-task numbers live in [Environments & Tasks](/environments-tasks/); the two mechanics
-worth knowing here are the swarm's padding conventions:
+Single-agent task counts and placements still live in the task envs themselves. The
+per-task numbers live in [Environments & Tasks](/environments-tasks/); the body just
+passes those vectors through.
 
-- **Torus** — `sense_agents` computes **62** bearing-vision values (two eyes × 31
-  angles, `SENS_ANGLES_DEG`), but `VENBody.receptors` hands the reservoir a **64**-channel
-  vector by copying those into `inputs[3:64]`. Swarm reservoirs are therefore built
-  `(n_receptors=64, n_effectors=3)`.
-- **Forage** — keeps that 64-channel conspecific bank intact and appends a *second*
-  64-wide **source** bank with the same bearing geometry (weighted by `source_gain`),
-  so reservoirs are built `(n_receptors=128, n_effectors=3)`. Effector semantics are
-  unchanged.
+The swarm is now decomposed into three explicit pieces:
 
-Placements are equally fixed: `TrackingEnv` bakes `eye_offsets_deg = (30, -30)` and
-`sensor_offsets_deg = -60:4:60`; `VENBody` uses `SENS_ANGLES_DEG`. **There is no way to
-vary the sensor count or geometry without editing env/body code** — that is the gap the
-roadmap below closes.
+- **`VENMorphology`** owns the receptor/effector ports. The default torus layout is the
+  historical conspecific bank: two reserved leads plus **62** bearing rays, so reservoirs
+  are built `(n_receptors=64, n_effectors=3)`. `:forage` appends a second source bank using
+  the same bearing geometry; with defaults that is `(128, 3)`. `signalling=true` adds a
+  fourth `:signal` effector and reuses the first source reserved slot as `:acoustic`.
+- **`BearingSensor <: SensorSpec`** owns the bearing geometry and encoding. `BearingSensor()`
+  is the byte-identical historical two-eye 62-ray fan; `bearing_eyes(...)` and
+  `BearingSensor(angles_deg=..., encoding=:graded)` let a run change the ray placement,
+  active ray count, and binary/graded intersection encoding.
+- **`KinematicMotor <: Motor`** owns the readout and kinematics. The default
+  `readout=:spike_fraction`, `scheme=:ven_differential` path is the old VEN arithmetic;
+  `readout=:graded_state` / `:graded_deviation` expose Falandays graded readouts, and
+  `scheme=:ven_signed` can turn the thrust effector into signed forward/reverse drive.
 
-<p class="bl-source">Source: <code>src/world/Body.jl</code> (<code>SENS_ANGLES_DEG</code>, <code>receptors</code>, the <code>inputs[3:64]</code> padding), <code>src/world/Morphology.jl</code> (<code>VENMorphology</code>, <code>PortSpec</code>).</p>
+Colour vision is a morphology option: `colour_sensing=true` lays out one conspecific
+bearing bank per colour class (`conspecific_c0_bearing_...`, `conspecific_c1_bearing_...`).
+The source bank stays uncoloured. With the defaults (`n_colours=1`, `colour_sensing=false`)
+the receptor width and values are unchanged.
+
+<p class="bl-source">Source: <code>src/world/Morphology.jl</code> (<code>VENMorphology</code>, <code>PortSpec</code>), <code>src/world/Sensor.jl</code> (<code>BearingSensor</code>), <code>src/world/Motor.jl</code> (<code>KinematicMotor</code>), <code>src/world/Body.jl</code> (<code>sense_agents</code>, input assembly).</p>
 
 ## Timing & temporal coding
 
@@ -86,7 +95,7 @@ gap is sensorimotor (velocity-receptor scaling / bang-bang decode), not temporal
 
 :::caution[Planned — the other readout-side timing knobs]
 `substeps` above is built; the remaining levers still default to today's behaviour and
-belong to the [spec refactor](#planned-the-spec-refactor) below:
+belong to the [remaining config/evolution layer](#remaining-roadmap-config-and-evolution) below:
 
 | knob | default | meaning |
 |---|---:|---|
@@ -100,54 +109,40 @@ layout below.
 
 <p class="bl-source">Source: <code>src/core/Traits.jl</code> (<code>WindowTrait</code>, <code>windowing</code>, <code>temporal_window</code>), <code>src/world/Ensemble.jl</code> (<code>step_window!</code>), <code>src/nodes/CompartmentalReservoir.jl</code> / <code>src/nodes/Falandays.jl</code> (<code>substeps</code>).</p>
 
-## Planned: the spec refactor
+## Remaining roadmap: config and evolution
 
 :::note[Roadmap, kept honest]
-Everything from here down is a **design target**, not a shipped feature. `SensorSpec` /
-`EffectorSpec` do not exist in the tree yet; the counts and placements above are still
-hardcoded. This section states the intended shape so the interface can be built against it.
+The swarm now has the core objects: `SensorSpec` / `BearingSensor` for geometry and
+encoding, `Motor` / `KinematicMotor` for readout and kinematics, and `VENMorphology` for
+ports. What is still a design target is the broader config surface and the morphology genome.
 :::
 
-Both roadmap angles start from the same refactor: **lift the R/E layout out of hardcoded
-constants into a spec object** that defaults to today's values.
-
-```julia
-struct SensorSpec
-    angles_deg::Vector{Float64}   # one entry per sensor (placement)
-    tuning::Float64               # Gaussian width / receptive-field size
-    encoding::Symbol              # :raycast | :gaussian_bearing | :spikeff2 | ...
-    noise::Float64                # additive sensory noise
-end
-
-struct EffectorSpec
-    n::Int
-    decode::Symbol                # :differential | :vote | :ven_kinematics | ...
-end
-```
-
-The env/body would read its `SensorSpec` / `EffectorSpec` instead of constants;
-`n_receptors` becomes the decoded input width *after* any task/body padding.
+Both roadmap angles start from the shipped split: **the morphology declares the ports, the
+sensor declares the bearing geometry, and the motor declares the effector decode**.
+`n_receptors` is the decoded input width after morphology padding, colour-bank expansion,
+and source/signalling additions.
 
 ### Angle A — config-driven layout
 
-Expose the spec through the TOML config so an experimenter sets sensor **count,
-placement, tuning, encoding** (and effector count/decode) per task/body without touching
-code:
+Expose the shipped specs through TOML so an experimenter sets sensor **count, placement,
+tuning, encoding**, colour vision, and motor readout/kinematics without touching code:
 
 ```toml
-[task.sensors]
-encoding  = "gaussian_bearing"
-angles_deg = [-60, -40, -20, 0, 20, 40, 60]   # 7 sensors, not the default layout
-tuning    = 10.0
-noise     = 0.1
+[swarm.sensor]
+kind = "bearing"
+encoding = "graded"
+angles_deg = [-60, -40, -20, 0, 20, 40, 60]
+tuning_deg = 0.0
 
-[task.effectors]
-n      = 2
-decode = "differential"
+[swarm.motor]
+kind = "kinematic"
+readout = "graded_state"
+scheme = "ven_signed"
 ```
 
-`resolve` would validate counts, angles, and decode compatibility, then build the node
-to the resulting `(R, E)`. This is also where the timing knobs above would live.
+`resolve` would validate counts, angles, colour-bank widths, and motor compatibility, then
+build the node to the resulting `(R, E)`. This is also where the timing knobs above would
+live.
 
 ### Angle B — evolvable morphology (within set ranges)
 
@@ -166,21 +161,24 @@ Mechanics: a morphology parameter block is appended to the genome; each gene is 
 through its bound, $g \mapsto \text{lo} + (\text{hi}-\text{lo})\,\sigma(g)$; the env
 builds sensors from the decoded morphology each rollout. Variable sensor count is handled
 by a fixed-max layout plus per-sensor enable gates. Controller and body then co-adapt —
-the agent discovers its own sensorimotor arrangement. Angle B depends on Angle A.
+the agent discovers its own sensorimotor arrangement. `BearingSensor` already has the
+per-ray angle bounds, tuning bounds, and enabled mask that this layer would use; the missing
+piece is connecting those fields to the optimizer genome.
 
 ## Why this matters for the collective
 
-In the swarm the default coupling between agents is `VENBody` vision — so the sensor
-geometry (eye offsets, field of view, range) **is** the interaction topology. Making it
-tunable and evolvable means you can study how collective behaviour (flocking, milling,
-foraging convergence) *depends on*, or *co-evolves with*, the sensorimotor interface —
-not just the controller.
+In the swarm the default coupling between agents is `BearingSensor` vision through
+`VENMorphology` — so the sensor geometry (ray angles, field of view, range) **is** the
+interaction topology. Making it tunable and evolvable means you can study how collective
+behaviour (flocking, milling, foraging convergence) *depends on*, or *co-evolves with*, the
+sensorimotor interface — not just the controller.
 
 ## Status
 
 - **Done** — per-task/body R/E documented and inspectable ([Environments & Tasks](/environments-tasks/)); baseline timing scheme (1 tick/env-step for Falandays; CTRNN internal `substeps`).
-- **Planned** — the spec refactor (Angle A: sensor/effector layout + readout timing knobs).
-- **Planned** — [evolvable morphology](/evolution/) (Angle B), which depends on Angle A.
+- **Done** — swarm `SensorSpec` / `BearingSensor`, `Motor` / `KinematicMotor`, `VENMorphology`, and colour-selective conspecific banks.
+- **Planned** — TOML config for the shipped sensor/motor/morphology fields plus readout-side timing knobs.
+- **Planned** — [evolvable morphology](/evolution/) (Angle B), using the `BearingSensor` bounds/mask fields.
 
-These are the next build targets for the I/O layer. For adding your own env, body, or
-node against the existing contract, see [Extending it](/extending/).
+The planned items are the next build targets for the I/O layer. For adding your own env,
+body, or node against the existing contract, see [Extending it](/extending/).

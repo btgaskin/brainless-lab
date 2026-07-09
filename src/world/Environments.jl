@@ -40,8 +40,6 @@ Base.@kwdef struct SwarmConfig
     sens_agent_dist::Int = 0
     vision_range::Union{Nothing,Float64} = nothing
     sensory_noise::Float64 = 0.1
-    membrane_noise::Float64 = 0.0
-    noise_gain::Float64 = 0.0
     sensory_scaling::Bool = true
     visual_coupling::Bool = true
     physical_coupling::Bool = false
@@ -64,9 +62,8 @@ Base.@kwdef struct SwarmConfig
     signal_gain::Float64 = 1.0
     capture_radius::Float64 = 1.0
     # The uniform kinematic constants + effector-decode scheme live on the motor;
-    # the default KinematicMotor is the byte-identical no-op. agent_radius (the
-    # per-agent collision/vision radius, formerly VENParams.agent_radius) is a
-    # plain SwarmConfig field.
+    # the default KinematicMotor is the byte-identical no-op. agent_radius is the
+    # per-agent collision/vision radius.
     motor::KinematicMotor = KinematicMotor()
     agent_radius::Float64 = 0.5
     # Perception geometry (which rays + how an intersection becomes an activation)
@@ -75,13 +72,8 @@ Base.@kwdef struct SwarmConfig
     # sens_agent_dist knob still selects the encoding: a non-zero value forces the
     # graded (1 - d/max_d) map — see `_resolve_encoding`.
     sensor::SensorSpec = BEARING_DEFAULT
-    node_params::Any = nothing
     seed::Int = 0
     record_inputs::Bool = true
-    node_kind::String = "standard"
-    n_dendrites::Int = 4
-    soma_drive::Float64 = 0.0
-    dend_drive::Float64 = 0.0
     # Colour-tagged sensing: split the conspecific bearing bank into one selective
     # copy per colour. `colours` is an explicit per-agent 0-based assignment;
     # nothing => balanced interleaved split (0,1,...,n_colours-1,0,...). The
@@ -293,8 +285,8 @@ function TorusEnvironment(config::SwarmConfig; rng::AbstractRNG=MersenneTwister(
     return _make_torus_environment(torus, config, positions, headings, rng)
 end
 
-# Bring-your-own-state. The narrow `NTuple{2,Float64}` element type makes a stale
-# `Vector{VENBody}` caller fail loudly (no compat alias).
+# Bring-your-own-state. The narrow `NTuple{2,Float64}` element type makes stale
+# body-vector callers fail loudly (no compat alias).
 function TorusEnvironment(
     torus::Torus,
     positions::AbstractVector{<:NTuple{2,Float64}};

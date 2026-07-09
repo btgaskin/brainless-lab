@@ -22,7 +22,7 @@ widths; here is how each body reads the vector:
 | `:tracking` | 2 | eye-rotation command. Eye heading changes by $10(e_1-e_2)$° per tick as the stimulus advances separately. |
 | `:pong`, `:pong_hitrate` | 2 | paddle vote. Paddle moves $100(e_1-e_2)$, clamped to range. |
 | `:cartpole` (+ `_hard`/`_swingup`/`_long`) | 2 | binary force vote. $e_1 \ge e_2 \Rightarrow$ negative force, else positive. Variants change force/bounds/initial state, not the interface. |
-| `:torus` / `VENBody` | 3 | VEN kinematics. $e_3$ drives forward acceleration; $e_2-e_1$ drives heading acceleration; speed and heading rate are damped/capped by `VENParams`. |
+| `:torus` / swarm `PassthroughBody(VENMorphology, KinematicMotor)` | 3 | VEN kinematics by default. `KinematicMotor(readout=:spike_fraction, scheme=:ven_differential)` maps $e_3$ to forward acceleration and $e_2-e_1$ to heading acceleration; speed and heading-rate caps live on the motor. |
 
 <p class="bl-source">Source: <code>src/tasks/Tasks.jl</code>, <code>src/world/Body.jl</code>.</p>
 

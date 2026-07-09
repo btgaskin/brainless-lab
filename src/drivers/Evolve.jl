@@ -316,6 +316,8 @@ Base.@kwdef mutable struct EvolveRunner <: Runner
     ticks::Any = nothing
     sigma0::Float64 = 2.5
     x0::Any = nothing
+    genome::Union{Nothing,CompositeGenome} = nothing
+    evaluate::Union{Nothing,Function} = nothing
     seed::Int = 0
     wiring_seed_base::Int = 1000
     link_p::Float64 = 0.1
@@ -331,6 +333,15 @@ function _finite_unit(value)
     isfinite(value) || return 0.0
     return clamp(value, 0.0, 1.0)
 end
+
+function _finite_objective(value)
+    value = Float64(value)
+    isfinite(value) || return 0.0
+    return value
+end
+
+_evolve_fitness_value(value, clamp_unit::Bool) =
+    clamp_unit ? _finite_unit(value) : _finite_objective(value)
 
 function _evolve_mean(values)
     isempty(values) && return NaN
@@ -354,6 +365,10 @@ function _aggregate_task_scores(values, aggregator::Symbol)
     aggregator == :mean && return _evolve_mean(values)
     throw(ArgumentError("aggregator must be :min or :mean"))
 end
+
+_task_config_name(task::TaskSpec) = task.name
+_task_config_name(task::Symbol) = task
+_task_config_name(task) = Symbol(task)
 
 function _default_param_vector(T::Type{<:NodeModel})
     if applicable(pack_params, T)
@@ -387,6 +402,35 @@ function _resolve_optimizer_instance(optimizer, x0::AbstractVector{<:Real}, sigm
     return es
 end
 
+function _evaluate_custom_fitness_matrix(solutions, seeds, evaluate::Function; threaded::Bool=true)
+    seed_tuple = _seed_tuple(seeds)
+    isempty(seed_tuple) && throw(ArgumentError("seeds must contain at least one seed"))
+
+    n_candidates = length(solutions)
+    n_trials = length(seed_tuple)
+    out = Matrix{Float64}(undef, n_candidates, n_trials)
+
+    function eval_cell!(linear_index)
+        i = fld(linear_index - 1, n_trials) + 1
+        j = mod(linear_index - 1, n_trials) + 1
+        out[i, j] = Float64(evaluate(solutions[i], seed_tuple[j]))
+        return nothing
+    end
+
+    total = n_candidates * n_trials
+    if threaded && total > 1
+        Base.Threads.@threads for idx in 1:total
+            eval_cell!(idx)
+        end
+    else
+        for idx in 1:total
+            eval_cell!(idx)
+        end
+    end
+
+    return out
+end
+
 function evolve(;
     model_sym=:falandays,
     train_tasks=(:wall,),
@@ -399,6 +443,8 @@ function evolve(;
     ticks=nothing,
     sigma0::Real=2.5,
     x0=nothing,
+    genome::Union{Nothing,CompositeGenome}=nothing,
+    evaluate::Union{Nothing,Function}=nothing,
     seed::Integer=0,
     wiring_seed_base::Integer=1000,
     link_p::Real=0.1,
@@ -420,10 +466,13 @@ function evolve(;
     tasks = Tuple(resolve_task(t) for t in train_tasks)
     isempty(tasks) && throw(ArgumentError("train_tasks must contain at least one task"))
 
-    x0_vec = x0 === nothing ?
+    x0_vec = genome === nothing ? (
+        x0 === nothing ?
         _default_x0(node_sym, n_nodes; ticks=ticks, link_p=link_p, rho=rho, window=window, kwargs...) :
         Vector{Float64}(Float64.(x0))
+    ) : Vector{Float64}(Float64.(pack_params(genome)))
     es = _resolve_optimizer_instance(optimizer, x0_vec, Float64(sigma0); popsize=popsize, seed=Int(seed))
+    clamp_unit_fitness = evaluate === nothing
 
     generations_seen = Int[]
     fitness_best = Float64[]
@@ -438,29 +487,42 @@ function evolve(;
         solutions = ask(es)
         task_means = Matrix{Float64}(undef, length(solutions), length(tasks))
 
-        for (task_idx, task) in enumerate(tasks)
-            matrix = evaluate_fitness_matrix(
-                solutions,
-                task,
-                seeds;
-                model_sym=node_sym,
-                N=n_nodes,
-                ticks=ticks,
-                link_p=link_p,
-                rho=rho,
-                window=window,
-                lam=lam,
-                threaded=threaded,
-                kwargs...,
-            )
+        if evaluate === nothing
+            for (task_idx, task) in enumerate(tasks)
+                matrix = evaluate_fitness_matrix(
+                    solutions,
+                    task,
+                    seeds;
+                    model_sym=node_sym,
+                    N=n_nodes,
+                    ticks=ticks,
+                    link_p=link_p,
+                    rho=rho,
+                    window=window,
+                    lam=lam,
+                    threaded=threaded,
+                    kwargs...,
+                )
+                @inbounds for i in axes(matrix, 1)
+                    task_means[i, task_idx] = _evolve_mean(@view matrix[i, :])
+                end
+            end
+        else
+            matrix = _evaluate_custom_fitness_matrix(solutions, seeds, evaluate; threaded=threaded)
             @inbounds for i in axes(matrix, 1)
-                task_means[i, task_idx] = _evolve_mean(@view matrix[i, :])
+                score = _evolve_mean(@view matrix[i, :])
+                for task_idx in axes(task_means, 2)
+                    task_means[i, task_idx] = score
+                end
             end
         end
 
         fitnesses = Vector{Float64}(undef, length(solutions))
         @inbounds for i in eachindex(fitnesses)
-            fitnesses[i] = _finite_unit(_aggregate_task_scores(@view(task_means[i, :]), aggregator))
+            fitnesses[i] = _evolve_fitness_value(
+                _aggregate_task_scores(@view(task_means[i, :]), aggregator),
+                clamp_unit_fitness,
+            )
         end
 
         tell!(es, solutions, .-fitnesses)
@@ -477,7 +539,7 @@ function evolve(;
     end
 
     es_result = result(es)
-    best_fitness = _finite_unit(-es_result.fbest)
+    best_fitness = _evolve_fitness_value(-es_result.fbest, clamp_unit_fitness)
     out = (
         optimizer=es,
         best=copy(es_result.xbest),
@@ -495,7 +557,7 @@ function evolve(;
         ),
         config=(
             model_sym=node_sym,
-            train_tasks=Tuple(t.name for t in tasks),
+            train_tasks=Tuple(_task_config_name(t) for t in tasks),
             generations=generations,
             popsize=popsize,
             k_trials=k_trials,
@@ -527,6 +589,8 @@ function evolve(runner::EvolveRunner)
         ticks=runner.ticks,
         sigma0=runner.sigma0,
         x0=runner.x0,
+        genome=runner.genome,
+        evaluate=runner.evaluate,
         seed=runner.seed,
         wiring_seed_base=runner.wiring_seed_base,
         link_p=runner.link_p,

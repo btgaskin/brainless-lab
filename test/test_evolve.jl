@@ -91,6 +91,58 @@ end
     @test serial == threaded
 end
 
+@testset "Default evolve path uses rollout fitness matrix and unit clamp" begin
+    x0 = pack_params(FalandaysParams())
+    seeds = BrainlessLab._train_seed_tuple(0, 1, 1000)
+    matrix = BrainlessLab.evaluate_fitness_matrix(
+        [x0, x0],
+        :wall,
+        seeds;
+        model_sym=:falandays,
+        N=8,
+        ticks=20,
+        threaded=false,
+    )
+    expected = BrainlessLab._finite_unit(BrainlessLab._evolve_mean(@view matrix[1, :]))
+
+    out = evolve(
+        model_sym=:falandays,
+        train_tasks=(:wall,),
+        optimizer=TestOptimizer,
+        generations=1,
+        popsize=2,
+        k_trials=1,
+        N=8,
+        ticks=20,
+        seed=3,
+        threaded=false,
+    )
+    @test out.optimizer.x0 == x0
+    @test out.fitnesses == [[expected, expected]]
+    @test out.best_fitness == expected
+    @test 0.0 <= out.best_fitness <= 1.0
+end
+
+@testset "Custom evolve evaluator uses genome x0 and raw finite objective" begin
+    genome = compose_genome(
+        node=:falandays_base,
+        motor=KinematicMotor(turn_gain_range=(0.5, 1.5)),
+    )
+    out = evolve(
+        optimizer=TestOptimizer,
+        genome=genome,
+        evaluate=(raw, seed) -> -0.25,
+        generations=1,
+        popsize=2,
+        k_trials=1,
+        seed=4,
+        threaded=false,
+    )
+    @test out.optimizer.x0 == pack_params(genome)
+    @test out.fitnesses == [[-0.25, -0.25]]
+    @test out.best_fitness == -0.25
+end
+
 @testset "Plastic rollout diagnostics wrap rollout" begin
     x0 = pack_params(FalandaysParams())
     plastic = BrainlessLab._plastic_rollout(:wall, x0, 7; N=16, ticks=30, window=30)

@@ -836,6 +836,44 @@ _spectral_compute_every(spectral_every::Integer) =
 _environment_size(::TaskWorld) = nothing
 _environment_size(env::WallEnv) = Float64(env.box.size)
 
+function _motor_config(m::KinematicMotor)
+    return (
+        kind=:kinematic,
+        scheme=m.scheme,
+        readout=m.readout,
+        turn_gain=Float64(m.turn_gain),
+        allow_reverse=Bool(m.allow_reverse),
+        brake=Bool(m.brake),
+        top_speed=Float64(m.top_speed),
+        accel_time=Float64(m.accel_time),
+        top_heading_rate=Float64(m.top_heading_rate),
+        h_accel_time=Float64(m.h_accel_time),
+        dt=Float64(m.dt),
+    )
+end
+
+function _sensor_config(s::BearingSensor)
+    return (
+        kind=:bearing,
+        n_sensors=Int(n_sensors(s)),
+        angles_deg=angles_deg(s),
+        encoding=encoding(s),
+        tuning_deg=Float64(s.tuning_deg),
+        angle_range_deg=s.angle_range_deg,
+        tuning_range_deg=s.tuning_range_deg,
+        enabled=collect(s.enabled),
+    )
+end
+
+function _sensor_config(s::SensorSpec)
+    return (
+        kind=Symbol(lowercase(string(nameof(typeof(s))))),
+        n_sensors=Int(n_sensors(s)),
+        angles_deg=angles_deg(s),
+        encoding=encoding(s),
+    )
+end
+
 function _environment_config(m::TaskEnvironment)
     world = m.world
     return (
@@ -854,6 +892,12 @@ function _environment_config(m::TorusEnvironment)
         size=size,
         n_agents=length(m.positions),
         vision_range=m.config.vision_range,
+        motor=_motor_config(m.config.motor),
+        agent_radius=Float64(m.config.agent_radius),
+        norm_mode=m.config.norm_mode,
+        norm_sigma=Float64(m.config.norm_sigma),
+        conspecific_gain=Float64(m.config.conspecific_gain),
+        sensor=_sensor_config(m.config.sensor),
         n_colours=Int(m.config.n_colours),
         colour_sensing=Bool(m.config.colour_sensing),
         colours=copy(m.colours),
@@ -871,9 +915,12 @@ function _environment_config(m::ForageEnvironment)
         source_position=m.source_position,
         source_gain=Float64(m.config.source_gain),
         n_lookouts=m.config.n_lookouts,
+        motor=_motor_config(m.config.motor),
+        agent_radius=Float64(m.config.agent_radius),
         norm_mode=m.config.norm_mode,
         norm_sigma=Float64(m.config.norm_sigma),
         conspecific_gain=Float64(m.config.conspecific_gain),
+        sensor=_sensor_config(m.config.sensor),
         signalling=Bool(m.config.signalling),
         signal_range=Float64(m.config.signal_range),
         signal_gain=Float64(m.config.signal_gain),
