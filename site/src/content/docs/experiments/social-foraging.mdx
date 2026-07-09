@@ -1,0 +1,299 @@
+---
+title: "Social foraging: transmission, search efficiency, and interaction topology"
+description: A swarm of allostatic Falandays nodes foraging on a torus — a chance-discovery transmission effect (social − blind), a search-efficiency currency ΔK, and where collective function sits relative to the interaction graph's percolation. Exploratory sweeps, honestly flagged.
+---
+
+**Question.** Put a swarm of designed, self-organizing nodes on a foraging task and ask three
+things at once: does seeing conspecifics help an agent find a source it can only stumble on by
+chance (**transmission**), how much dissipative search is that worth in cognitive units
+(**search efficiency**, ΔK), and where — relative to the interaction network's connectivity —
+does the benefit live (**topology**)? The task lets us place the same substrate on two
+otherwise-separate axes from the literature: the *criticality/topology* axis of
+[Bessone & Plantec (2026)](/notes/emergent-macro-criticality/) and the *search-efficiency* axis
+of [Chis-Ciure & Levin (2025)](/notes/cognition-all-the-way-down/).
+
+:::note[The honest posture]
+These are **exploratory sweeps** — a handful of seeds and ad-hoc scripts — not yet promoted to the
+`experiments/` run-dir framework. They **map a regime and demonstrate a method**; they are not the
+finalized study. Read the effect sizes as directional and the ΔK method as the contribution, not
+the magnitude. Where a claim is a *hint from a curve* rather than a *measured result*, it is
+flagged as such.
+:::
+
+## The node, and the task
+
+Each agent is driven by the **allostatic** Falandays reservoir (see [Nodes → Falandays](/nodes/falandays/)
+and [The collective](/collective/)). Two facts about the rule matter for reading everything below.
+It is **allostatic, not fixed-setpoint homeostatic**: the target itself drifts toward the node's own
+firing rate, so the network chases a moving set-point rather than a hard-wired one. And the plasticity
+is **eligibility-gated homeostatic**, *not* STDP — the **sign** of $\Delta w$ is set by the
+postsynaptic error $(\text{acts} - \text{target})$, while "fired last tick" only **gates which weights
+are eligible** to move. The node reproduces Falandays' wall / tracking / pong behaviour to numerical
+fidelity (bit-for-bit against the authors' fixtures at $10^{-9}$).
+
+We drive a **swarm** of these on a torus **forage** task:
+
+- $N$ agents on a torus of side $L$ with a single **source**.
+- Agents sense the source **only** within a short `source_vision_range`, so the source is found by
+  **chance wandering**, not by gradient descent from afar.
+- Agents sense conspecifics within `vision_range`. **SOCIAL** = conspecific vision on; **BLIND** =
+  conspecific vision off. *Source* vision is identical in both conditions — the only thing that
+  changes is whether an agent can see its neighbours.
+
+Performance is chance-anchored. The score is the mean proximity to the source,
+
+$$
+\text{forage\_score} = \mathrm{clamp}\!\left(1 - \overline{d_\text{source}}\,/\,(L/\sqrt2),\ 0,\ 1\right),
+$$
+
+with a random/null floor of $\approx 0.456$ and $1.0$ = all agents on the source. The transmission
+readout is the difference between the two conditions,
+
+$$
+\Delta\Delta = \text{forage\_score}_\text{social} - \text{forage\_score}_\text{blind}.
+$$
+
+## The regime — the discovery
+
+**A source-anchored clump acts as a slow attractor: a chance discovery accumulates the swarm, and
+the benefit grows with time.** The canonical regime is the runnable config below.
+
+```julia
+using BrainlessLab
+sim = simulate(:forage;
+    node=:falandays_oosawa, n_agents=48, n_nodes=100, space_size=12.0, agent_radius=0.25,
+    vision_range=4.0, source_vision_range=0.8, sens_agent_dist=1,
+    norm_mode=:divisive, norm_sigma=1.0,
+    conspecific_gain=4.0, source_gain=2.0, noise_gain=0.25,
+    motor=KinematicMotor(top_speed=0.1),
+    visual_coupling=true, conspecific_vision=true,   # false = BLIND control
+    ticks=3000, seed=1)
+sim.metrics.forage_score
+```
+
+Canonical result: **social 0.683 / blind 0.590 / ΔΔ ≈ +0.093** (5 seeds, 3000 ticks). At tuned
+sub-configs the best case is **ΔΔ +0.08 – 0.116 at ~6.5σ** (8 seeds). The effect **grows with time**
+— it is an integral of accumulation, not a fixed offset (ΔΔ ≈ +0.060 at 1500 ticks rising to
+≈ +0.086 at 5000 ticks on the base config).
+
+**Mechanism: cohesion-mediated accumulation, not sharp recruitment.** The social channel does not
+show followers beelining to a discoverer. It shows a source-anchored clump that slowly pulls in
+stragglers — its ceiling set by conspecific **indistinguishability** (a discoverer looks exactly like
+a wanderer, so there is no "found it!" signal to chase). The evidence is in the ΔK runs (below):
+turning social vision on lets the swarm reach **more** agents (reach $0.48 \to 0.82$) but they arrive
+**later** on average (mean first-passage $841 \to 1315$ ticks). More reach, later arrival = a slow
+attractor, not a fast recruit.
+
+## The tuning — one lever at a time
+
+**The regime is an *intersection*: a hard source, *moderate* cohesion, and Goldilocks density and
+speed.** It is not "more coupling is better" on any axis. One-at-a-time sweeps from the canonical base
+follow.
+
+### vision_range — conspecific sight, and the social interaction graph
+
+The one axis that *only* touches the social channel — so the BLIND score is invariant to it (constant
+$0.604$, since blind agents never use conspecific vision). This sweep doubles as the **giant-component
+fraction** of the social interaction graph (who-senses-whom within `vision_range`). 3 seeds.
+
+| vision_range | social | blind | ΔΔ | giant-component |
+|---|---|---|---|---|
+| 1.0 | 0.642 | 0.604 | +0.038 | 0.62 |
+| 1.5 | 0.626 | 0.604 | +0.022 | 0.50 |
+| 2.0 | 0.681 | 0.604 | +0.076 | 0.69 |
+| 2.5 | 0.658 | 0.604 | +0.054 | 0.96 |
+| 3.0 | 0.654 | 0.604 | +0.049 | 0.90 |
+| 4.0 | 0.692 | 0.604 | +0.087 | 1.00 |
+
+ΔΔ is still climbing at $v_r = 4$, where the interaction graph is already fully connected
+(giant-component $= 1.00$). Hold onto that — it is the pivot of the topology synthesis below.
+
+### Density, speed, and capture — the Goldilocks axes
+
+`space_size` (inverse density), `top_speed`, and `capture_radius`. 5 seeds, 3000 ticks.
+
+| space_size | social | blind | ΔΔ |
+|---|---|---|---|
+| 10 | 0.714 | 0.657 | +0.056 |
+| 12 | 0.683 | 0.590 | +0.093 |
+| 16 | 0.594 | 0.540 | +0.055 |
+| 20 | 0.545 | 0.495 | +0.050 |
+
+Density has a **Goldilocks optimum ≈ 12**: too dense and the swarm is always in contact (little to
+transmit), too sparse and encounters are too rare.
+
+| top_speed | social | blind | ΔΔ |
+|---|---|---|---|
+| 0.05 | 0.561 | 0.515 | +0.047 |
+| 0.10 | 0.683 | 0.590 | +0.093 |
+| 0.20 | 0.711 | 0.689 | +0.022 |
+
+Speed peaks at **≈ 0.1**; going fast lifts the *absolute* score but **erases the gap** (at 0.20 the
+blind swarm nearly catches up — fast diffusion finds the source on its own).
+
+| capture_radius | social | blind | ΔΔ |
+|---|---|---|---|
+| 0.5 | 0.627 | 0.590 | +0.038 |
+| 1.0 | 0.683 | 0.590 | +0.093 |
+| 2.0 | 0.683 | 0.590 | +0.093 |
+
+`capture_radius` (the source's effective visual size plus its "captured" zone) **saturates at ≥ 1.0**.
+
+### The directional axes
+
+- **conspecific_gain — the inverted-U, and the key reversal.** The optimum is **≈ 4**. Coupling that
+  is too weak carries no transmission; coupling that is too **strong reverses the effect** — at
+  $\text{cg} = 16$, ΔΔ $= \mathbf{-0.176}$, because over-cohesion blobs the swarm into a knot that
+  drifts *away* from the source. Cohesion is double-edged: it is the mechanism *and*, past the
+  optimum, the failure mode. (Intermediate values are not all logged; read it as an inverted-U with
+  the cg ≈ 4 optimum and the cg = 16 reversal.)
+- **source_gain — lower is better for ΔΔ.** A **harder-to-reach** source (low gain) leaves more room
+  for the social channel to matter. Canonical $\text{sg} = 2$.
+- **source_vision_range — shorter is better for ΔΔ.** Harder chance-discovery ⇒ larger social
+  advantage. Canonical $0.8$.
+- **noise_gain (the Oosawa intrinsic drive) — sweet spot 0.2 – 0.3.** More exploration → more
+  discovery, but the `falandays_oosawa` preset default of **0.8 is too high** (the noise drowns
+  vision). Canonical $0.25$.
+- **norm_sigma — inert.** $0.5 \to 0.682$, $1.0 \to 0.683$, $3.0 \to 0.679$: ΔΔ ≈ +0.09 throughout.
+  The divisive-normalization width does not move the transmission effect.
+
+**Reading the tuning.** The working regime is the intersection of a **hard source** (low `source_gain`,
+short `source_vision_range`), **moderate cohesion** (`conspecific_gain` ≈ 4 — an *optimum*, not a
+maximum), and **Goldilocks density and speed** (`space_size` ≈ 12, `top_speed` ≈ 0.1).
+`capture_radius` saturates and `norm_sigma` is inert.
+
+## Search efficiency — the ΔK currency
+
+**Collective intelligence, priced in orders of magnitude of dissipative search saved.** Following
+[Chis-Ciure & Levin (2025)](/notes/cognition-all-the-way-down/), define
+
+$$
+K = \log_{10}\!\left(\frac{\tau_\text{blind}}{\tau_\text{agent}}\right),
+$$
+
+the decimal-log ratio of the expected dissipative search cost of a blind walk to that of the agent, in
+the *same* problem space — we proxy cost by **mean first-passage time (ticks)** to reach the source.
+Collective intelligence is then the **social increment**:
+
+$$
+\Delta K = K_\text{social} - K_\text{asocial} = \log_{10}\!\left(\frac{\tau_\text{asocial}}{\tau_\text{social}}\right).
+$$
+
+Three-condition ladder (source pinned at centre, `capture_radius=1.0`, 6 seeds, $T = 5000$, hazard
+$\tau = -T / \ln(1 - \text{reach})$):
+
+| condition | drive | reach | τ (hazard) | K vs chance |
+|---|---|---|---|---|
+| maxent | source_gain=0, no social | 0.00 | ≳1.4M\* | anchor (weak) |
+| asocial | source_gain=2, no social | 0.48 | 7,633 | 2.27 (186×) |
+| social | source_gain=2, social on | 0.82 | 2,951 | 2.68 (480×) |
+
+**ΔK<sub>collective</sub> = +0.41 (2.59×)** — this is the robust headline, because $\tau_\text{maxent}$
+cancels out of the *increment*. An RMST cross-check gives +0.18 (a censoring-compressed lower bound).
+
+$K_\text{asocial} \approx 2.3$ lands in the same band as Levin's amoeba ($K \approx 2.18$ – $2.30$) —
+an **illustrative anchor** for "cognition all the way **up**": Levin descends brains → cells; we ascend
+brainless nodes → collective; same $K$, opposite direction.
+
+:::note[The honest posture]
+- \*The **maxent** null is floored (reach $0.00$), so the **absolute** $K$'s are **lower bounds**. This
+  does **not** touch ΔK, which is a difference of the two goal-driven conditions.
+- The goal state is currently a **per-agent reach proxy**, not yet the proper collective-aggregation
+  threshold ($S_\text{goal}$).
+- **ΔK ≈ 0.4 is small.** The contribution is the **method** — ΔK as a common currency you can compute
+  for *every* lever in the tuning above — not the magnitude.
+:::
+
+## Interaction topology, and the two axes
+
+**One substrate, two orthogonal axes — and forage puts our swarm on both.**
+
+- [**Bessone & Plantec (2026)**](/notes/emergent-macro-criticality/) is the **topology/criticality
+  axis**: what network state gates transmission. Their result is that **micro-criticality is
+  insufficient** — collective criticality is set by the interaction network's connectivity
+  (giant-component percolation at $v_r^{\text{conn}} = \sqrt{L^2 \ln N / ((N-1)\pi)}$), the critical
+  band is **displaced** from the micro critical point, and it **dies at high connectivity**. Crucially,
+  **their system has no task** — they name "explicit task settings" as future work — and they frame the
+  result as **tuning** ("a *tunable* cross-scale property … by varying $p^{\text{micro}}$ and the
+  interaction range"). So they **cannot be placed on the search-efficiency axis at all**.
+- [**Chis-Ciure & Levin (2025)**](/notes/cognition-all-the-way-down/) is the **function/search-efficiency
+  axis**: $K$, which **requires** a goal state.
+
+**Our contribution: forage HAS a goal, so the swarm sits on both axes.** For our parameters
+($L = 12$, $N = 48$) the percolation threshold is $v_r^{\text{conn}} \approx 1.9$. The `vision_range`
+table shows ΔΔ **still climbing at $v_r = 4$**, where the giant component is already $1.00$ — i.e.
+**function keeps improving in the fully-connected phase, *above* percolation**, precisely where their
+criticality would be **dying**. The open hypothesis this frames is **"function displaced from
+criticality"**: collective intelligence peaking in the connected phase, not at the critical transition
+(cf. [criticality → collective intelligence](/notes/criticality-collective-intelligence/)). Note the
+**blind** interaction graph is **empty by construction** (no conspecific sensing), so connectivity here
+is a purely **social** order parameter.
+
+**Self-organising, not merely tuned.** Bessone & Plantec **set** the micro order-parameter
+($p^{\text{micro}}$) directly. Our allostatic node **pins its own** micro-criticality — the set-point
+chases the rate, so the branching ratio $m \approx 1$ regardless of parameters — so it **resists
+detuning**. What we tune is a **local rule**; the working interaction topology is a **downstream
+emergent product** we never specify. The decisive test (proposed, **not yet run**) is
+**scatter-and-re-form**: teleport all agents to random positions mid-run *without touching the rule*,
+and watch the source-anchored connected component and ΔK **recover** — something a static random
+geometric graph cannot do.
+
+## Reproduce it
+
+**Transmission (ΔΔ).** Run the canonical [regime block](#the-regime--the-discovery) twice, flipping
+`conspecific_vision` (`true` = SOCIAL, `false` = BLIND); ΔΔ is the difference of
+`sim.metrics.forage_score`.
+
+**Search efficiency (ΔK).** Run the three-condition ladder:
+
+```julia
+# per condition: pin the source, record poses, ≥6 seeds, T=5000
+common = (; node=:falandays_oosawa, n_agents=48, n_nodes=100, space_size=12.0,
+            vision_range=4.0, source_vision_range=0.8, conspecific_gain=4.0, noise_gain=0.25,
+            motor=KinematicMotor(top_speed=0.1),
+            source_position=(6.0, 6.0), capture_radius=1.0, record=(:poses,), ticks=5000)
+
+maxent  = simulate(:forage; common..., source_gain=0.0, conspecific_vision=false, seed=s)
+asocial = simulate(:forage; common..., source_gain=2.0, conspecific_vision=false, seed=s)
+social  = simulate(:forage; common..., source_gain=2.0, conspecific_vision=true,  seed=s)
+```
+
+For each condition, compute per-agent **first-passage** to within `capture_radius` of the source
+(**exclude** agents that spawn inside it); take the reach fraction; the hazard estimate is
+$\tau = -T / \ln(1 - \text{reach\_frac})$; then $K$ and ΔK by the formulas above.
+
+**Interaction graph.** Two agents are linked if their **torus** distance $\le$ `vision_range`; compute
+the giant-component fraction by union-find over the recorded `:poses`. The library's
+[analysis layer](/analysis/) provides `contact_graph_clusters` and the `branching_ratio_mr` /
+`crossshift_null` machinery for the criticality-side measurements.
+
+:::note[Provenance]
+These sweeps are **exploratory** — a handful of seeds, ad-hoc scripts — and are **not yet promoted** to
+the `experiments/` run-dir framework (`results.json` + `manifest.txt`, git SHA, seed lists) that backs
+the [tracking sweep](/experiments/tracking-param-sweep/). They map a regime and demonstrate a method.
+The **finalized study** — 20+ seeds, circular-shift nulls, and the ΔK-vs-criticality **displacement
+grid** — is the natural next step.
+:::
+
+## Open questions
+
+:::note[The honest posture]
+The criticality↔function link is a **hint from the percolation curve, not a measured result.** The
+branching/avalanche curve on the *same* axis as ΔK is not yet done, and our prior is that a
+macro-criticality signature may be **flat or absent** (the allostat rate-pins $m \approx 1$). If it is,
+the headline honestly **degrades to "function *without* criticality"** — still a clean, publishable
+distinction, just a different one.
+:::
+
+1. **Is the link real, or is it "function without criticality"?** The displacement is inferred from a
+   connectivity curve, not measured against a branching/avalanche score on the shared axis. The
+   allostatic rate-pinning may forbid a *varying* criticality signature altogether.
+2. **ΔK magnitude is small** (≈ 0.4). The contribution is the method — a common currency for every
+   lever — not the number.
+3. **The additivity interaction is a finding, not a bug.** ΔK is **largest when individual competence
+   is low** (a hard source) — so the social and individual channels are **not independent**, and the
+   clean additive-across-independent-subproblems decomposition does not hold here. Mapping ΔK across a
+   source-difficulty axis is the natural probe.
+4. **The evolutionary top rung is a roadmap, not a result.** "K all the way up" ends by evolving the
+   `CompositeGenome` under selection-on-function so the regime is a **found attractor**, not a hand-set
+   one — nested $K$. That rung is promised, not built.

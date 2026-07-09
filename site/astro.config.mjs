@@ -85,6 +85,7 @@ export default defineConfig({
             { label: 'Overview', slug: 'experiments/overview' },
             { label: 'Tracking parameter sweep', slug: 'experiments/tracking-param-sweep' },
             { label: 'Freeze-plasticity onset', slug: 'experiments/freeze-onset' },
+            { label: 'Social foraging', slug: 'experiments/social-foraging' },
           ],
         },
         {
