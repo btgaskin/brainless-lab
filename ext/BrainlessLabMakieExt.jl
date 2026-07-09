@@ -117,6 +117,42 @@ function _branching_trace(sim)
     end
 end
 
+# Per-tick mean distance from each agent to the source (torus-wrapped), for the
+# `metric=:source_distance` animation panel. Empty when there is no source/poses.
+function _source_distance_trace(sim)
+    src = _source_position(sim)
+    src === nothing && return Float64[]
+    samples = _channel(sim, :poses)
+    isempty(samples) && return Float64[]
+    bounds = _plot_bounds(sim)
+    Lx = bounds === nothing ? nothing : Float64(bounds[2]) - Float64(bounds[1])
+    Ly = bounds === nothing ? nothing : Float64(bounds[4]) - Float64(bounds[3])
+    out = Float64[]
+    for s in samples
+        rows = _pose_rows(s)
+        if isempty(rows)
+            push!(out, NaN); continue
+        end
+        d = 0.0
+        for p in rows
+            dx = abs(Float64(p[1]) - src[1]); Lx !== nothing && (dx = min(dx, Lx - dx))
+            dy = abs(Float64(p[2]) - src[2]); Ly !== nothing && (dy = min(dy, Ly - dy))
+            d += sqrt(dx * dx + dy * dy)
+        end
+        push!(out, d / length(rows))
+    end
+    return out
+end
+
+# Per-agent boid colours for colour-sensing swarm runs (nothing => single teal).
+const _GROUP_PALETTE = (_TEAL, Makie.RGBf(0.74, 0.32, 0.58), Makie.RGBf(0.30, 0.62, 0.35), _INK)
+function _agent_group_colors(sim)
+    (sim isa BL.SimResult && hasproperty(sim.config, :environment)) || return nothing
+    env = sim.config.environment
+    (hasproperty(env, :n_colours) && Int(env.n_colours) > 1 && hasproperty(env, :colours)) || return nothing
+    return [_GROUP_PALETTE[mod(Int(c), length(_GROUP_PALETTE)) + 1] for c in collect(env.colours)]
+end
+
 # Simple linear-interpolated percentile over finite values (0..100).
 function _pctl(sorted::Vector{Float64}, p::Real)
     isempty(sorted) && return NaN
@@ -336,12 +372,13 @@ function _draw_trajectory!(ax, sim)
     return ax
 end
 
-function _draw_agent_boids!(ax, poses; markersize=16)
+function _draw_agent_boids!(ax, poses; markersize=16, colors=nothing)
     xs = [pose[1] for pose in poses]
     ys = [pose[2] for pose in poses]
     hd = [pose[3] for pose in poses]
     Makie.scatter!(ax, xs, ys; marker=:utriangle, rotation=(hd .- (pi / 2)),
-                   markersize=markersize, color=_TEAL, strokecolor=_PAPER, strokewidth=0.8)
+                   markersize=markersize, color=(colors === nothing ? _TEAL : colors),
+                   strokecolor=_PAPER, strokewidth=0.8)
     return ax
 end
 
@@ -667,7 +704,7 @@ branching ratio σ(t) with a swept marker, a dashed σ=1 reference, and the curr
 """
 function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
                     framerate::Integer=20, trail::Integer=40, maxframes::Integer=200,
-                    branching::Bool=false)
+                    branching::Bool=false, metric::Symbol=:rate)
     scenes = _channel(sim, :scene)
     isempty(scenes) || return _animate_scenes(sim, scenes, path, framerate, maxframes; branching=branching)
     tracks = _pose_tracks(sim)
@@ -679,8 +716,13 @@ function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
     pol = _channel(sim, :polarization)
     mill = _channel(sim, :milling)
     has_world = !isempty(tracks)
-    nr = length(rate)
-    rmax = nr == 0 ? 1.0 : max(1e-6, maximum(rate)) * 1.05
+    use_dist = metric === :source_distance
+    bottom = use_dist ? _source_distance_trace(sim) : rate
+    blabel = use_dist ? "mean distance to source" : "firing rate"
+    bylabel = use_dist ? "dist" : "rate"
+    nb = length(bottom)
+    bmax = nb == 0 ? 1.0 : max(1e-6, maximum((x for x in bottom if isfinite(x)); init=1e-6)) * 1.05
+    agent_colors = _agent_group_colors(sim)
 
     sigma = branching ? _branching_trace(sim) : Float64[]
     show_b = branching && !isempty(sigma)
@@ -690,7 +732,7 @@ function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
     axw = has_world ? Makie.Axis(fig[1, 1]; xlabel="x", ylabel="y") : nothing
     axlow = show_b ?
         Makie.Axis(fig[has_world ? 2 : 1, 1]; xlabel="tick", ylabel="σ", title="branching ratio") :
-        Makie.Axis(fig[has_world ? 2 : 1, 1]; xlabel="tick", ylabel="rate", title="firing rate")
+        Makie.Axis(fig[has_world ? 2 : 1, 1]; xlabel="tick", ylabel=bylabel, title=blabel)
     axw !== nothing && (_style_axis!(axw); axw.aspect = Makie.DataAspect())
     _style_axis!(axlow)
     has_world && Makie.rowsize!(fig.layout, 2, Makie.Relative(show_b ? 0.24 : 0.22))
@@ -701,17 +743,20 @@ function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
             bounds === nothing || _draw_bounds!(axw, sim)
             _draw_source!(axw, sim)
             frame_poses = NTuple{3,Float64}[]
-            for tr in tracks
+            frame_colors = agent_colors === nothing ? nothing : similar(agent_colors, 0)
+            for (ai, tr) in enumerate(tracks)
                 isempty(tr) && continue
                 ff = min(f, length(tr))
                 lo = max(1, ff - trail)
                 tx = [Float64(p[1]) for p in tr[lo:ff]]
                 ty = [Float64(p[2]) for p in tr[lo:ff]]
                 bx, by = _wrap_break(tx, ty, bounds)
-                Makie.lines!(axw, bx, by; color=(_TEAL, 0.45), linewidth=2)
+                has_col = agent_colors !== nothing && ai <= length(agent_colors)
+                Makie.lines!(axw, bx, by; color=(has_col ? agent_colors[ai] : _TEAL, 0.4), linewidth=2)
                 push!(frame_poses, tr[ff])
+                has_col && push!(frame_colors, agent_colors[ai])
             end
-            _draw_agent_boids!(axw, frame_poses)
+            _draw_agent_boids!(axw, frame_poses; colors=frame_colors)
             ttl = "tick $f / $nt"
             if !isempty(pol)
                 pf = Float64(pol[min(f, length(pol))]); mf = Float64(mill[min(f, length(mill))])
@@ -722,7 +767,7 @@ function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
         if show_b
             _draw_branching!(axlow, sigma, f, slims)
         else
-            _draw_rate_frame!(axlow, rate, f, rmax)
+            _draw_rate_frame!(axlow, bottom, f, bmax)
         end
     end
     return path
