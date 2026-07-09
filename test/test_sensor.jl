@@ -79,9 +79,35 @@ end
     binary_sim = simulate(:torus; common..., sensor=BearingSensor(encoding=:binary))
     graded_sim = simulate(:torus; common..., sensor=BearingSensor(encoding=:graded))
     legacy_graded = simulate(:torus; common..., sens_agent_dist=1)
+    @test binary_sim.config.environment.sensor.kind == :bearing
+    @test binary_sim.config.environment.sensor.n_sensors == 62
+    @test binary_sim.config.environment.sensor.angles_deg == BL.angles_deg(BearingSensor())
+    @test binary_sim.config.environment.sensor.encoding == :binary
+    @test binary_sim.config.environment.motor.kind == :kinematic
+    @test binary_sim.config.environment.agent_radius == 0.5
     @test getchannel(binary_sim.recorder, :poses) != getchannel(graded_sim.recorder, :poses)
     # legacy sens_agent_dist=1 reproduces the :graded sensor exactly.
     @test getchannel(legacy_graded.recorder, :poses) == getchannel(graded_sim.recorder, :poses)
+end
+
+@testset "BearingSensor validation and coercion" begin
+    s = BearingSensor(
+        angles_deg=(-30, 0, 30),
+        angle_range_deg=[-90, 90],
+        tuning_range_deg=[0, 15],
+        enabled=[true, false, true],
+    )
+    @test s.angles_deg == [-30.0, 0.0, 30.0]
+    @test s.angle_range_deg == (-90.0, 90.0)
+    @test s.tuning_range_deg == (0.0, 15.0)
+    @test s.enabled == BitVector([true, false, true])
+    @test BL.angles_deg(s) == [-30.0, 30.0]
+
+    @test_throws ArgumentError BearingSensor(angles_deg=[0.0, Inf])
+    @test_throws ArgumentError BearingSensor(tuning_deg=NaN)
+    @test_throws ArgumentError BearingSensor(angle_range_deg=[-90.0, 0.0, 90.0])
+    @test_throws ArgumentError BearingSensor(angle_range_deg=(90.0, -90.0))
+    @test_throws ArgumentError BearingSensor(tuning_range_deg=(0.0, NaN))
 end
 
 @testset "Non-default geometry: receptor width tracks 2 + n_sensors and runs" begin
@@ -103,11 +129,15 @@ end
                    sensor=single, record=Symbol[], metrics=(:polarization, :milling))
     @test isfinite(sim.metrics.polarization)
     @test isfinite(sim.metrics.milling)
+    @test sim.config.environment.sensor.n_sensors == 21
+    @test sim.config.environment.sensor.angles_deg == BL.angles_deg(single)
 
     # forage with a non-default sensor runs end-to-end.
     simf = simulate(:forage; node=:falandays_base, n_agents=6, n_nodes=40, ticks=30, seed=3,
                     sensor=s, record=Symbol[])
     @test isfinite(simf.metrics.forage_score)
+    @test simf.config.environment.sensor.n_sensors == 30
+    @test simf.config.environment.sensor.angles_deg == BL.angles_deg(s)
 end
 
 @testset "enabled mask reduces the active ray count" begin

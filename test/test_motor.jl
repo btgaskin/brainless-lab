@@ -33,7 +33,7 @@ _falandays_reservoir(n, nr, ne; seed=1) =
     @test m.readout === :spike_fraction
     @test m.turn_gain == 1.0
     @test !m.allow_reverse && !m.brake
-    # Kinematic constants match the retired VENParams defaults.
+    # Kinematic constants match the historical VEN defaults.
     @test m.top_speed == 0.2 && m.accel_time == 5.0
     @test m.top_heading_rate == pi / 8.0 && m.h_accel_time == 5.0 && m.dt == 1.0
 

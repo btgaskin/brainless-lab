@@ -16,7 +16,7 @@ NodeModel → Reservoir → Body → Agent → Environment → Ensemble → Runn
 
 - **Node / `NodeModel`** — the atomic neuron-like unit and its (evolvable) parameters. A Falandays node is a homeostatic leaky-integrate-and-fire unit.
 - **Reservoir** — a *population of nodes* + wiring (a `Connectome`) + dynamic state. The contract is `step!(r, R) → spikes`.
-- **Body** — the sensorimotor morphology: it turns a percept into receptor currents and effector outputs into actuation (`PassthroughBody` for single-agent tasks; for the swarm, the vision-based embodied body `VENBody`, which manufactures receptors from bearing vision and reads its effectors as movement kinematics).
+- **Body** — the sensorimotor wrapper: a `PassthroughBody{M,Mt}` carries a morphology (the receptor/effector ports) and a motor (the effector-decode dynamics). Single-agent tasks use a passthrough morphology; the swarm uses `VENMorphology` with `BearingSensor` geometry and a `KinematicMotor`.
 - **Agent** — a reservoir *inside* a body.
 - **Environment** — the world the agent(s) live in: a `TaskEnvironment` (wrapping a single-agent `TaskWorld` like `WallEnv`) or a `TorusEnvironment` / `ForageEnvironment` for the swarm. The contract is `observe` / `actuate!`.
 - **Ensemble** — a *population of agents* in an Environment.

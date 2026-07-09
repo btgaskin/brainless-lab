@@ -73,6 +73,26 @@ _default_bearing_angles_deg() = Float64.(
     ),
 )
 
+function _coerce_angles_deg(angles)
+    vals = Float64.(vec(collect(angles)))
+    bad = findfirst(x -> !isfinite(x), vals)
+    bad === nothing ||
+        throw(ArgumentError("BearingSensor angles_deg must be finite; value at index $(bad) is $(vals[bad])"))
+    return vals
+end
+
+function _coerce_degree_range(name::Symbol, range)
+    vals = Float64.(vec(collect(range)))
+    length(vals) == 2 ||
+        throw(ArgumentError("BearingSensor $(name) must contain exactly two values (lo, hi); got $(length(vals))"))
+    lo, hi = vals
+    (isfinite(lo) && isfinite(hi)) ||
+        throw(ArgumentError("BearingSensor $(name) must be finite; got ($(lo), $(hi))"))
+    lo <= hi ||
+        throw(ArgumentError("BearingSensor $(name) must be ordered with lo <= hi; got ($(lo), $(hi))"))
+    return (lo, hi)
+end
+
 """
     BearingSensor(; angles_deg, encoding=:binary, tuning_deg=0.0,
                     angle_range_deg=(-180.0, 180.0), tuning_range_deg=(0.0, 0.0),
@@ -104,15 +124,20 @@ Base.@kwdef struct BearingSensor <: SensorSpec
     enabled::BitVector = trues(0)
 
     function BearingSensor(angles_deg, encoding, tuning_deg, angle_range_deg, tuning_range_deg, enabled)
+        deg = _coerce_angles_deg(angles_deg)
         enc = Symbol(encoding)
         enc in (:binary, :graded) ||
             throw(ArgumentError("BearingSensor encoding must be :binary or :graded, got :$(enc)"))
-        (isempty(enabled) || length(enabled) == length(angles_deg)) || throw(DimensionMismatch(
-            "BearingSensor enabled mask has length $(length(enabled)); expected 0 (all-on) or $(length(angles_deg))",
+        tuning = Float64(tuning_deg)
+        isfinite(tuning) ||
+            throw(ArgumentError("BearingSensor tuning_deg must be finite; got $(tuning)"))
+        angle_range = _coerce_degree_range(:angle_range_deg, angle_range_deg)
+        tuning_range = _coerce_degree_range(:tuning_range_deg, tuning_range_deg)
+        mask = BitVector(vec(collect(enabled)))
+        (isempty(mask) || length(mask) == length(deg)) || throw(DimensionMismatch(
+            "BearingSensor enabled mask has length $(length(mask)); expected 0 (all-on) or $(length(deg))",
         ))
-        # `new` converts each argument to its field type (Range/Int vectors ->
-        # Vector{Float64}, tuples -> NTuple{2,Float64}, mask -> BitVector).
-        return new(angles_deg, enc, tuning_deg, angle_range_deg, tuning_range_deg, enabled)
+        return new(deg, enc, tuning, angle_range, tuning_range, mask)
     end
 end
 

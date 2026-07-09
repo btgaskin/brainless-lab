@@ -24,7 +24,7 @@ abstract type Motor end
 The one built-in motor. `readout` selects how the reservoir's output is
 re-expressed as an effector command (see [`readout`](@ref)); `scheme` selects the
 differential-drive command map (see [`integrate_motion`](@ref)); the remaining
-fields are the uniform kinematic constants (formerly `VENParams`).
+fields are the uniform kinematic constants.
 
 Readout schemes (all a projection of the reservoir's own output through the same
 `effectors` map):

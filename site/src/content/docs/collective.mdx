@@ -45,18 +45,21 @@ reservoir, which drives A's motion, which changes what B sees. So:
 - collective order is therefore **emergent, not imposed**.
 
 `physical_coupling` is an opt-in flag for collision resolution, but the default swarm
-coupling path is purely visual. The one relaxation worth naming: the `VENBody` normalises
-its receptor vector by its sum when activity is nonzero.
+coupling path is purely visual. The one relaxation worth naming: `VENMorphology` normalises
+its receptor vector by its sum when activity is nonzero unless you select another
+normalisation mode.
 
 ## The bodies
 
-The body is what makes an agent *couplable*. Single-agent tasks use a `PassthroughBody` —
-the environment already speaks the reservoir's `(R, E)`, so the body is a pass-through. The
-swarm uses **`VENBody`**, which *manufactures* receptors from bearing vision and reads its
-effectors as movement kinematics: vision in, kinematics out. Its receptor/effector geometry
-(the 62→64 conspecific bank, the 128-wide forage bank, the three VEN kinematic effectors) is
-the [Environments & Tasks](/environments-tasks/) contract — that is where the coupling
-topology is literally specified, so it lives there rather than being repeated here.
+The body is what makes an agent *couplable*. Single-agent tasks use a passthrough
+morphology — the environment already speaks the reservoir's `(R, E)`, so encoding and
+decode are identities. The swarm uses **`PassthroughBody(VENMorphology(...),
+KinematicMotor(...))`**: `VENMorphology` manufactures receptors from the active
+`SensorSpec` (`BearingSensor` by default), and `KinematicMotor` reads effectors as movement
+kinematics. Its receptor/effector geometry (the default 62→64 conspecific bank, the
+128-wide forage bank, optional per-colour conspecific banks, the three default kinematic
+effectors) is the [Environments & Tasks](/environments-tasks/) contract — that is where the
+coupling topology is literally specified, so it lives there rather than being repeated here.
 
 ## The torus environment
 
