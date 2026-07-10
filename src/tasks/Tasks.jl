@@ -71,7 +71,7 @@ score_ceiling(task::TaskSpec) = task.ceiling.value
 const WALL_TASK = TaskSpec(
     :wall,
     WallEnv;
-    floor=null_anchor(0.763125, "null=null_random, score_key=nav_score, seeds 0:7, git d420563, 2026-07-04"),
+    floor=null_anchor(0.775625, "null=null_random, score_key=nav_score, seeds 0:7, git dc04918, julia 1.10.11, 2026-07-10"),
     ceiling=analytic(1.0; note="nav_score max = collision-free navigation while moving (a true analytic optimum); untrained falandays_base ref measured ~0.013 << null 0.763, so the analytic optimum is the honest ceiling, not a reference agent"),
     score_key=:nav_score,
     descriptor_keys=[:collisions_window, :distance_window],
@@ -88,7 +88,7 @@ const TRACKING_TASK = TaskSpec(
 const PONG_TASK = TaskSpec(
     :pong,
     PongEnv;
-    floor=null_anchor(0.3561507936507936, "null=null_random, score_key=hit_rate, seeds 0:7, git d420563, 2026-07-04"),
+    floor=null_anchor(0.35317460317460314, "null=null_random, score_key=hit_rate, seeds 0:7, git dc04918, julia 1.10.11, 2026-07-10"),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
@@ -96,7 +96,7 @@ const PONG_TASK = TaskSpec(
 const PONG_HITRATE_TASK = TaskSpec(
     :pong_hitrate,
     PongEnv;
-    floor=null_anchor(0.3561507936507936, "null=null_random, score_key=hit_rate, seeds 0:7, git d420563, 2026-07-04"),
+    floor=null_anchor(0.35317460317460314, "null=null_random, score_key=hit_rate, seeds 0:7, git dc04918, julia 1.10.11, 2026-07-10"),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
@@ -131,7 +131,7 @@ const CARTPOLE_LONG_TASK = TaskSpec(
 )
 
 const FORAGE_FLOOR_ANCHOR =
-    null_anchor(0.4556865216303779, "null=null_random, score_key=forage_score, seeds 0:7, git d420563, 2026-07-04")
+    null_anchor(0.45826637542592896, "null=null_random, score_key=forage_score, seeds 0:7, git dc04918, julia 1.10.11, 2026-07-10")
 const FORAGE_CEILING_ANCHOR =
     analytic(1.0; note="agents on source")
 

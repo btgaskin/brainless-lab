@@ -2,7 +2,8 @@ using Dates
 
 function _git_short_sha()
     try
-        sha = strip(readchomp(`git rev-parse --short HEAD`))
+        repo = abspath(joinpath(@__DIR__, "..", ".."))
+        sha = strip(readchomp(`git -C $repo rev-parse --short HEAD`))
         return isempty(sha) ? "unknown" : sha
     catch
         return "unknown"
