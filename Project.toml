@@ -1,7 +1,7 @@
 name = "BrainlessLab"
 uuid = "d12add44-1e3e-4161-9a99-c2121a2f0f38"
 authors = ["btgaskin <bengaskin@outlook.com>"]
-version = "0.0.1"
+version = "0.1.0"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
