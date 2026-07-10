@@ -61,18 +61,19 @@ export function ControlPanel({ params, onParamsChange }: ControlPanelProps) {
       <div className="flex flex-wrap items-center gap-1.5">
         <Chip label="learn w" checked={params.learnWeights} onChange={(v) => set('learnWeights', v)} />
         <Chip label="learn targets" checked={params.learnTargets} onChange={(v) => set('learnTargets', v)} />
-        <Chip label="rectify" checked={params.rectify} onChange={(v) => set('rectify', v)} />
       </div>
 
       <div className="h-px bg-grid" />
 
       {/* Attribution footnote for the landing demo — kept light and unobtrusive. */}
       <p className="text-[10px] font-light leading-relaxed text-ink-muted">
-        Untrained homeostatic spiking neurons after Falandays&nbsp;et&nbsp;al. (2021), adapting
+        Untrained homeostatic spiking neurons after Falandays&nbsp;et&nbsp;al. (2024), adapting
         online. The lab asks why this model works.{' '}
         <a href="/nodes/falandays/" className="text-teal-ink underline underline-offset-2 hover:text-teal">
           Falandays node&nbsp;→
         </a>
+        <br />
+        Browser reimplementation with aligned task constants; not a bit-level Julia replay.
       </p>
     </div>
   );
