@@ -1,5 +1,7 @@
 # BrainlessLab.jl
 
+[![CI](https://github.com/btgaskin/brainless-lab/actions/workflows/CI.yml/badge.svg)](https://github.com/btgaskin/brainless-lab/actions/workflows/CI.yml)
+
 <p align="center"><img src="brainless-lab.png" alt="BrainlessLab" width="760"></p>
 
 <p align="center">
@@ -56,6 +58,8 @@ but they should not be described as the 2021 paper model.
 ---
 
 ## Quickstart
+
+**Requirements:** Julia 1.10 or newer on macOS, Linux, or Windows (CI-verified).
 
 ```julia
 pkg> activate .         # or run scripts with julia --project=.
