@@ -63,6 +63,17 @@ export function ControlPanel({ params, onParamsChange }: ControlPanelProps) {
         <Chip label="learn targets" checked={params.learnTargets} onChange={(v) => set('learnTargets', v)} />
         <Chip label="rectify" checked={params.rectify} onChange={(v) => set('rectify', v)} />
       </div>
+
+      <div className="h-px bg-grid" />
+
+      {/* Attribution footnote for the landing demo — kept light and unobtrusive. */}
+      <p className="text-[10px] font-light leading-relaxed text-ink-muted">
+        Untrained homeostatic spiking neurons after Falandays&nbsp;et&nbsp;al. (2021), adapting
+        online. The lab asks why this model works.{' '}
+        <a href="/nodes/falandays/" className="text-teal-ink underline underline-offset-2 hover:text-teal">
+          Falandays node&nbsp;→
+        </a>
+      </p>
     </div>
   );
 }
