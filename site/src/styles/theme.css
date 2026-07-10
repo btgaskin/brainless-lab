@@ -138,11 +138,27 @@
   line-height: 1.6;
 }
 [data-has-hero] .hero .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
   justify-content: flex-start;
 }
 [data-has-hero] .hero .actions a {
   font-size: var(--sl-text-base);
+}
+[data-has-hero] .hero .actions a.minimal {
   padding: 0;
+}
+[data-has-hero] .hero .actions a.primary {
+  padding: 0.7rem 1.15rem;
+  border-color: var(--bl-teal);
+  background: var(--bl-teal);
+  color: #fff;
+}
+[data-has-hero] .hero .actions a.primary:hover {
+  border-color: var(--bl-teal-ink);
+  background: var(--bl-teal-ink);
+  color: #fff;
 }
 
 /* Demo range inputs: hairline track + teal thumb (appearance-none needs an

@@ -1,0 +1,12 @@
+---
+import DefaultHead from '@astrojs/starlight/components/Head.astro';
+
+const entryId = Astro.locals.starlightRoute.entry.id;
+const routeId = !entryId || entryId === '404' ? 'index' : entryId;
+const ogImage = new URL(`/og/${routeId}.png`, Astro.site ?? Astro.url.origin).href;
+---
+
+<DefaultHead />
+<meta property="og:image" content={ogImage} />
+<meta name="twitter:image" content={ogImage} />
+<meta name="twitter:card" content="summary_large_image" />

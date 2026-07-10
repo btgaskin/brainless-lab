@@ -5,37 +5,33 @@ description: What BrainlessLab is, and a getting-started path from clone to your
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-BrainlessLab is an extensible Julia lab for **"brainless" cognition** — behaviour that
-emerges from collectives of simple neuron-like nodes, with no homunculus and no
-hand-wired control. It is a Diverse Intelligences Summer Institute 2026 project, built
-as infrastructure for others to run experiments around a settled Falandays baseline.
+BrainlessLab is an extensible Julia lab for **"brainless" cognition**. It studies behaviour
+that emerges from collectives of simple neuron-like nodes. These collectives have no trained
+readout and no controller. The lab provides shared infrastructure for experiments around a
+settled Falandays baseline. It is a Diverse Intelligences Summer Institute 2026 project.
+
+This page takes you from cloning the repository to producing your first figure.
 
 ## What the lab studies
 
-The two angles share a single object of study: a **class of entity** — self-organising
-collectives of minimal, neuron-like units, the *same* object whether the units are nodes
-in a reservoir or agents in an ensemble. The work is to **characterise that class**, and
-it has two halves.
+BrainlessLab studies one class of entity from two angles. The [Concepts](/concepts/) page
+describes this class. It is a self-organising collective, whether its units are nodes in a
+reservoir or agents in a swarm.
 
-One half asks *what the class can do*: each task is not a problem to be solved but a
-**test of a capacity for behavioural complexity** — responsiveness, coordination, and, at
-the frontier, adaptation and memory. The capacities are an open, evolving set, carved by
-the tasks that probe them, closer to construct-validation than to a benchmark. A score is
-only a **calibrated indicator** that a capacity is present, never the capacity itself: a
-collective self-organises toward its own *viability*, not toward our task, so that it *can
-be made* to do the task is the thing worth measuring — and measuring it honestly means
-saying what the number is measured against.
+The **cellular cognition** angle asks what this class can do. Each task tests for a capacity,
+such as responsiveness or coordination. At the frontier, tasks can test for adaptation and
+memory. The set of capacities can grow as new tasks are added. This approach is closer to
+construct validation than to a fixed benchmark.
 
-The other half asks *what makes that possible*: the collective dynamics — the **qualities**
-(criticality, timescale separation, coupling) a collective must have for a capacity to
-appear. These are the real payoff, and the two halves meet where the *same*
-*neurons-as-nodes-within-a-collective* signatures are measured at the node scale and the
-agent scale.
+A score is a calibrated indicator that a capacity is present. It is not the capacity itself.
+The collective self-organises toward its own viability, not toward our task. The task measures
+whether the collective can be made to exhibit the capacity. An honest measurement states what
+the score is measured against. See [Scoring](/scoring/) for details.
 
-These are the two angles by their proper names: **cellular cognition** (test and evolve
-node designs; read a capacity off a calibrated score) and **collective intelligence**
-(profile and sweep the dynamics that underwrite it). See [Concepts](/concepts/) for the
-ontology and [Scoring](/scoring/) for what a score means.
+The **collective intelligence** angle asks what makes a capacity possible. It examines the
+collective dynamics required for the capacity to appear, including criticality, timescale
+separation, and coupling. The two angles meet because BrainlessLab measures the same dynamical
+signatures at the node scale and the agent scale.
 
 ## Prerequisites
 
@@ -43,7 +39,7 @@ ontology and [Scoring](/scoring/) for what a score means.
 - **Git**, to clone the repository.
 
 ```bash
-git clone https://github.com/…/brainless-lab.git
+git clone https://github.com/btgaskin/brainless-lab.git
 cd brainless-lab
 ```
 

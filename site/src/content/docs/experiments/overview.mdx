@@ -5,7 +5,7 @@ description: Published studies run with the library — each traceable to a run-
 
 Studies run with BrainlessLab, in the spirit of the library as a **null-model instrument**:
 a deliberately simple, *designed* self-organizing reservoir, used to ask what such a homeostatic
-network can and cannot self-organize into — and to read the dynamical signatures that separate
+reservoir can and cannot self-organize into — and to read the dynamical signatures that separate
 the two.
 
 Each study composes the public API through the `experiments/` tool — a fifth CLI entry point
@@ -19,9 +19,9 @@ julia -t auto --project=. experiments/run.jl <name>         # run
 ```
 
 :::note[The honest posture]
-These experiments are read as an *instrument*, not a leaderboard. The authors-faithful Falandays
-models are plausibility demonstrations, not tuned controllers — so the interesting question is
-*where* self-organization succeeds and *what fails* at the edges, not how high a score climbs.
+These experiments use the library as an instrument. The authors-faithful Falandays models
+demonstrate plausibility. They were not tuned as controllers. The studies examine where
+self-organization succeeds, what fails at the boundaries, and which dynamics explain the result.
 :::
 
 ## Studies
@@ -38,9 +38,9 @@ spectral radius.
 
 ### [Freeze-plasticity onset](/experiments/freeze-onset/)
 
-Freeze the reservoir's plasticity at tick T — is the frozen network a working controller, and
+Freeze the reservoir's plasticity at tick T — is the frozen reservoir a working controller, and
 *when* does it come online? A sharp homeostatic **saturation-crash onset** (around tick 7 for
-tracking), present only where the initial network saturates; the branching ratio is rate-pinned
+tracking), present only where the initial reservoir saturates; the branching ratio is rate-pinned
 throughout, so activity — not branching — is the signal.
 
 ### [Social foraging](/experiments/social-foraging/)
@@ -55,14 +55,20 @@ collective function **displaced from criticality**. Exploratory sweeps, not yet 
 
 ### [Criticality is not the control variable](/experiments/criticality-control/)
 
-Does the Falandays homeostat tune the reservoir to criticality, and is that what makes it work? Across
-the node we actually use (Oosawa) on tracking and foraging, the drive/floor mechanism, and a 48-agent
-forage swarm, the branching ratio m ≈ 1 is a **homeostatically-defended byproduct** of rate
-homeostasis, not the controlled variable and not an independently tunable knob: at the node it reads
-the same at health, saturation, and silence, and across the swarm's whole functional range m is
-**welded to ≈ 0.98–0.99** — the only way to push it below 0.9 is to *silence* the reservoir, which
-kills foraging. So criticality and function are **confounded** ("the reservoir is working" and
-"m ≈ 1" are the same condition), and the causal question is **not answerable by tuning this node** —
-the earlier "decoupled from performance" phrasing is retired, since a pinned m can never demonstrate
-decoupling. The clean test is a fixed-weight, evolved reservoir where m is set by ρ(W) with no
-homeostat defending it. Exploratory scripts, not yet promoted to a run-dir.
+This study asks whether the Falandays homeostat tunes the reservoir to criticality and whether
+criticality makes the reservoir work. It examines the Oosawa node on tracking and foraging, the
+drive/floor mechanism, and a 48-agent forage swarm.
+
+Across these tests, the branching ratio m ≈ 1 is a homeostatically defended byproduct of rate
+homeostasis. It is not the controlled variable and cannot be tuned independently. At the node
+scale, m has the same value during healthy activity, saturation, and silence. Across the swarm's
+functional range, m stays at ≈ 0.98–0.99. Pushing it below 0.9 requires silencing the reservoir,
+which stops foraging.
+
+Criticality and function are therefore confounded. "The reservoir is working" and "m ≈ 1"
+describe the same condition. Tuning this node cannot answer the causal question. The earlier
+phrase "decoupled from performance" is retired because a pinned m cannot demonstrate decoupling.
+
+A clean test requires a fixed-weight, evolved reservoir. In that design, m is set by ρ(W), and no
+homeostat defends it. This work currently exists as exploratory scripts and has not been promoted
+to a run-dir.

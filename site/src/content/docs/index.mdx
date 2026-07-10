@@ -1,14 +1,18 @@
 ---
 title: BrainlessLab
-description: Behaviour from collectives of simple neuron-like nodes — brainless cognition. A Diverse Intelligences Summer Institute 2026 project.
+description: A runnable Julia lab for minimal neural collectives. Design node models, test why they work, and compare variations across cellular cognition and collective intelligence. A Diverse Intelligences Summer Institute 2026 project.
 template: splash
 hero:
-  title: Emergent behavioural complexity in collectives
-  tagline: Simple units, each minding only itself — collectives nested within collectives. Live and untrained below.
+  title: From cellular cognition to collective intelligence
+  tagline: A runnable, low-code Julia lab for minimal neural collectives. Design node models, test why they work, and compare them. Runs on a laptop. No GPU required.
   actions:
     - text: Read the docs
       link: /introduction/
       icon: right-arrow
+      variant: primary
+    - text: Browse the experiments
+      link: /experiments/overview/
+      icon: document
       variant: minimal
 ---
 
@@ -18,7 +22,7 @@ import FalandaysDemo from '../../components/FalandaysDemo.tsx';
 <FalandaysDemo client:load />
 
 <p class="bl-caption">
-  The units are homeostatic spiking neurons after <strong>Falandays&nbsp;et&nbsp;al. (2021)</strong> — the update equations and so forth can be found <a href="/nodes/falandays/">here</a>.
+  These units are untrained homeostatic spiking neurons based on Falandays&nbsp;et&nbsp;al. (2021). They adapt online. The lab asks why this model works. See the <a href="/nodes/falandays/">Falandays node page</a> for the update equations and model details.
 </p>
 
 <a class="bl-chevron" href="#more" aria-label="Scroll for more">
@@ -27,33 +31,59 @@ import FalandaysDemo from '../../components/FalandaysDemo.tsx';
 
 <div id="more"></div>
 
-## One class, two questions
+## An experimentation platform
 
-One object of study — a **class of entity**: self-organising collectives of minimal units,
-the same thing whether the units are nodes in a reservoir or agents in a swarm. It
-self-organises toward its own viability, not toward any task of ours; that it *can be made*
-to do a task is what we probe, from two sides.
+BrainlessLab is a runnable lab for **minimal neural collectives**. Each collective contains
+simple, homeostatic, neuron-like nodes. It has no trained readout and no controller. It is for
+researchers who study real neurons or cells and want a small, designed collective they can run.
+
+The anchor question is why the Falandays node works. You can test that question, design
+variations, and compare them. Each comparison tests for a capacity, such as responsiveness,
+coordination, or memory. A score indicates that the capacity is present. It does not rank
+designs in any absolute sense. These tests span the cellular cognition of a single node and
+the collective intelligence of a swarm.
+
+The collective self-organises toward its own viability, not toward our tasks. BrainlessLab
+measures whether the collective can be made to perform a task.
+
+You can add tasks and environments. The library provides abstractions for bodies, receptors
+and effectors, sensor placement, parameters, and reservoir structure. Modelling stays under
+biologically plausible constraints. The compute core is low-code and headless. It runs on a
+laptop and does not require a GPU.
+
+:::note[Ships with two agent skills]
+The repository includes two agent skills. One covers Julia. The other covers BrainlessLab
+itself.
+:::
+
+## What you run
+
+These four tools cover comparisons, detailed profiles, parameter sweeps, and composed studies.
 
 <CardGrid>
-  <Card title="What it can do" icon="seti:julia">
-    *Cellular cognition.* Design and **evolve** node models under a strict locality
-    constraint, then read a **capacity for behavioural complexity** — responsiveness,
-    coordination, memory — off a calibrated score. Each task is a *test of a capacity*,
-    not a benchmark to win.
+  <Card title="bench" icon="list-format">
+    Run a set of node models across a grid of tasks. Compare the scores and rankings. Each
+    score indicates the capacity tested by its task.
+    [Benchmark →](/tooling/#the-commands)
   </Card>
-  <Card title="What makes it possible" icon="puzzle">
-    *Collective intelligence.* Read the collective as a **network** and a **multi-agent
-    system** at once — **profile** and **sweep** the dynamical **qualities** (criticality,
-    order, information flow) that underwrite a capacity.
+  <Card title="profile" icon="magnifier">
+    Examine one node in detail. Measure its internal signatures, the region where it works,
+    and how it fails.
+    [Profile →](/tooling/#the-commands)
+  </Card>
+  <Card title="sweep" icon="random">
+    Scan parameters and configurations. Map the viable region and identify how the node fails
+    at its boundaries.
+    [Sweep →](/tooling/#sweep--what-makes-it-work-how-it-breaks)
+  </Card>
+  <Card title="experiments" icon="document">
+    Run composed studies. Each study records a run-dir with its configuration, seeds, and git
+    SHA, so every figure can be traced to the code that produced it.
+    [See the studies →](/experiments/overview/)
   </Card>
 </CardGrid>
 
-:::note[Reservoir in spirit, not in method]
-A recurrent spiking pool read out by simple effectors — but the weights **adapt online**,
-with **no trained readout**.
-:::
-
 ---
 
-A product of the **[Diverse Intelligences Summer Institute](https://disi.org) 2026**,
+A project of the **[Diverse Intelligences Summer Institute](https://disi.org) 2026**,
 Geneva NY.
