@@ -406,6 +406,12 @@ end
     @test validate_development_structure(
         _development_drop_family(robot, :geometry); physical=false,
     ) isa EmbodimentConfig
+    @test_throws ArgumentError validate_development_structure(
+        _development_drop_family(robot, :actuator); physical=false,
+    )
+    @test_throws ArgumentError validate_development_structure(
+        _development_drop_family(robot, :sensor); physical=false,
+    )
 
     duplicate_dynamics = EmbodimentConfig(
         robot.schema_version,
@@ -422,4 +428,68 @@ end
         robot.source,
     )
     @test_throws ArgumentError validate_development_structure(duplicate_dynamics)
+
+    metabolism = only(component for component in insect.components if component.family === :physiology)
+    duplicate_physiology = EmbodimentConfig(
+        insect.schema_version,
+        insect.name,
+        (
+            insect.components...,
+            ComponentConfig(
+                :backup_metabolism,
+                metabolism.family,
+                metabolism.kind,
+                metabolism.parameters,
+            ),
+        ),
+        insect.source,
+    )
+    @test_throws ArgumentError validate_development_structure(duplicate_physiology)
+    @test_throws ArgumentError materialize_embodiment(duplicate_physiology)
+
+    unsupported = EmbodimentConfig(
+        robot.schema_version,
+        robot.name,
+        (
+            robot.components...,
+            ComponentConfig(:status_light, :accessory, :test_tag, NamedTuple()),
+        ),
+        robot.source,
+    )
+    @test_throws ArgumentError validate_development_structure(unsupported)
+
+    wheels = only(component for component in robot.components if component.family === :actuator)
+    no_dynamics = _development_drop_family(robot, :dynamics)
+    multi_actuator_no_dynamics = EmbodimentConfig(
+        no_dynamics.schema_version,
+        no_dynamics.name,
+        (
+            no_dynamics.components...,
+            ComponentConfig(:backup_wheels, wheels.family, wheels.kind, wheels.parameters),
+        ),
+        no_dynamics.source,
+    )
+    @test validate_development_structure(
+        multi_actuator_no_dynamics;
+        physical=false,
+    ) isa EmbodimentConfig
+    passive_body = materialize_embodiment(multi_actuator_no_dynamics)
+    @test length(actuator_components(passive_body)) == 2
+    @test passive_body.dynamics isa NoDynamics
+    @test_throws ArgumentError validate_development_structure(multi_actuator_no_dynamics)
+
+    multi_actuator_with_dynamics = EmbodimentConfig(
+        robot.schema_version,
+        robot.name,
+        (
+            robot.components...,
+            ComponentConfig(:backup_wheels, wheels.family, wheels.kind, wheels.parameters),
+        ),
+        robot.source,
+    )
+    @test_throws ArgumentError validate_development_structure(
+        multi_actuator_with_dynamics;
+        physical=false,
+    )
+    @test_throws ArgumentError materialize_embodiment(multi_actuator_with_dynamics)
 end

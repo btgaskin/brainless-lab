@@ -240,14 +240,13 @@ end
 
 function _apply_postbuild_ablation!(reservoir::Reservoir, sym::Symbol)
     sym === :none && return reservoir
-    if sym === :zero_recurrent
-        (reservoir isa FalandaysReservoir || reservoir isa CompartmentalReservoir) &&
-            apply!(ZeroRecurrent(), reservoir)
-    elseif sym === :freeze_plasticity
-        reservoir isa FalandaysReservoir && apply!(FreezePlasticity(), reservoir)
-    elseif sym === :clamp_target
-        reservoir isa FalandaysReservoir && apply!(ClampTarget(), reservoir)
-    end
+    intervention =
+        sym === :zero_recurrent ? ZeroRecurrent() :
+        sym === :freeze_plasticity ? FreezePlasticity() :
+        sym === :clamp_target ? ClampTarget() :
+        nothing
+    intervention === nothing && return reservoir
+    supports_intervention(intervention, reservoir) && apply!(intervention, reservoir)
     return reservoir
 end
 
@@ -770,7 +769,20 @@ function _make_ensemble(
                 "does not declare receptor_profile_keyword; register the constructor " *
                 "with that capability or use a uniform body profile",
             ))
-            body_node_options[profile_keyword] = input_profile
+            if haskey(body_node_options, profile_keyword)
+                explicit_profile = body_node_options[profile_keyword]
+                explicit_values = try
+                    Float64.(collect(explicit_profile))
+                catch
+                    nothing
+                end
+                explicit_values == input_profile || throw(ArgumentError(
+                    "node :$(node) received conflicting :$(profile_keyword): the explicit " *
+                    "profile does not match the body-derived receptor profile",
+                ))
+            else
+                body_node_options[profile_keyword] = input_profile
+            end
         end
         reservoir = _build_reservoir(
             node,
@@ -1240,7 +1252,7 @@ _environment_config(m::SituatedEnvironment{ForageMode}) =
 
 _environment_config(m::Environment) = (kind=Symbol(lowercase(string(nameof(typeof(m))))), bounds=nothing, size=nothing)
 
-function _network_snapshot(r::FalandaysReservoir)
+function network_snapshot(r::FalandaysReservoir)
     return (
         kind=:falandays,
         adjacency=Float64.(r.recurrent_mask),
@@ -1249,7 +1261,7 @@ function _network_snapshot(r::FalandaysReservoir)
     )
 end
 
-function _network_snapshot(r::CompartmentalReservoir)
+function network_snapshot(r::CompartmentalReservoir)
     n = r.wiring.N
     adjacency = zeros(Float64, n, n)
     @inbounds for dst in 1:n, src0 in r.wiring.node_sources[dst, :]
@@ -1264,8 +1276,6 @@ function _network_snapshot(r::CompartmentalReservoir)
         spikes=copy(r.spike_buffer),
     )
 end
-
-_network_snapshot(::Reservoir) = nothing
 
 const _SWARM_ENVIRONMENT_KWARGS = Set{Symbol}((
     :space_size,
@@ -1324,7 +1334,7 @@ function _simulation_config(
             id=ids[slot],
             slot=slot,
             body=_body_config(body_at_slot(c, slot)),
-            network=_network_snapshot(agent_at_slot(c, slot).reservoir),
+            network=network_snapshot(agent_at_slot(c, slot).reservoir),
         )
         for slot in 1:nagents(c)
     )

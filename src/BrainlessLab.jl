@@ -144,6 +144,7 @@ export step!,
     default_window,
     apply_drive!,
     apply!,
+    supports_intervention,
     ask,
     tell!,
     result,
@@ -700,9 +701,24 @@ register_node!(
     genome_type=FalandaysParams,
     receptor_profile_keyword=:input_link_p,
 )
-register_node!(:falandays_noisy, _falandays_noisy_native; genome_type=FalandaysParams)
-register_node!(:falandays_extended, _falandays_extended_native; genome_type=FalandaysParams)
-register_node!(:falandays_ablated, _falandays_ablated_native; genome_type=FalandaysParams)
+register_node!(
+    :falandays_noisy,
+    _falandays_noisy_native;
+    genome_type=FalandaysParams,
+    receptor_profile_keyword=:input_link_p,
+)
+register_node!(
+    :falandays_extended,
+    _falandays_extended_native;
+    genome_type=FalandaysParams,
+    receptor_profile_keyword=:input_link_p,
+)
+register_node!(
+    :falandays_ablated,
+    _falandays_ablated_native;
+    genome_type=FalandaysParams,
+    receptor_profile_keyword=:input_link_p,
+)
 register_node!(:falandays_hemispheric, _falandays_hemispheric_native; genome_type=FalandaysParams)
 register_node!(
     :falandays_oosawa,

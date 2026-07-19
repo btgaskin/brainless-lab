@@ -426,6 +426,16 @@ Apply an intervention to an object.
 function apply! end
 
 """
+    supports_intervention(intervention, object)
+
+Return whether `object` supports `intervention` through [`apply!`](@ref).
+Wrappers should delegate this capability to the object they wrap rather than
+advertising every intervention unconditionally.
+"""
+supports_intervention(intervention::Intervention, object) =
+    applicable(apply!, intervention, object)
+
+"""
     ask(strategy, args...)
 
 Ask an evolution strategy for candidate parameters.

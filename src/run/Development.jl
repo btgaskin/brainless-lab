@@ -268,18 +268,6 @@ function _family_components(config::EmbodimentConfig, family::Symbol)
     return Tuple(component for component in config.components if component.family === family)
 end
 
-function _require_one_component(config, family::Symbol, physical::Bool)
-    components = _family_components(config, family)
-    if physical
-        length(components) == 1 || throw(ArgumentError(
-            "physical development requires exactly one :$(family) component, got $(length(components))",
-        ))
-    elseif length(components) > 1
-        throw(ArgumentError("development supports at most one :$(family) component"))
-    end
-    return components
-end
-
 function _validate_bilateral_references(config::EmbodimentConfig)
     components = Dict(component.id => component for component in config.components)
     for encoder in config.components
@@ -308,10 +296,10 @@ function _validate_bilateral_references(config::EmbodimentConfig)
     return config
 end
 
-function _validate_command_compatibility(config::EmbodimentConfig, physical::Bool)
-    actuators = _require_one_component(config, :actuator, physical)
-    dynamics = _require_one_component(config, :dynamics, physical)
-    (isempty(actuators) || isempty(dynamics)) && return config
+function _validate_command_compatibility(config::EmbodimentConfig)
+    actuators = _family_components(config, :actuator)
+    dynamics = _family_components(config, :dynamics)
+    (length(actuators) == 1 && length(dynamics) == 1) || return config
     actuator = _materialize_component(only(actuators)).value
     dynamics_ = _materialize_component(only(dynamics)).value
     actuator isa AbstractActuator || throw(ArgumentError(
@@ -332,13 +320,13 @@ end
 function validate_development_structure(config::EmbodimentConfig; physical::Bool=true)
     ids = Tuple(component.id for component in config.components)
     length(unique(ids)) == length(ids) || throw(ArgumentError("development component IDs must be unique"))
-    _require_one_component(config, :geometry, physical)
-    sensors = _family_components(config, :sensor)
-    physical && isempty(sensors) && throw(ArgumentError(
-        "physical development requires at least one :sensor component",
-    ))
+    _validate_standard_embodiment_structure(
+        config;
+        physical=physical,
+        context="development embodiment",
+    )
     _validate_bilateral_references(config)
-    _validate_command_compatibility(config, physical)
+    _validate_command_compatibility(config)
     return config
 end
 

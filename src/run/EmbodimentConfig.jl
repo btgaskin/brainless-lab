@@ -358,18 +358,69 @@ materialize_blueprint(config::EmbodimentConfig) = _materialize_blueprint(config)
 _family_components(blueprint::EmbodimentBlueprint, family::Symbol) =
     Tuple(component for component in blueprint.components if component.family === family)
 
-function _validate_composable_families(blueprint::EmbodimentBlueprint)
+function _structure_family_components(subject, family::Symbol)
+    return Tuple(component for component in subject.components if component.family === family)
+end
+
+function _validate_standard_embodiment_structure(
+    subject;
+    physical::Bool=false,
+    context::AbstractString="embodiment",
+)
     unsupported = Tuple(
         (id=component.id, family=component.family)
-        for component in blueprint.components
+        for component in subject.components
         if !(component.family in _COMPOSABLE_EMBODIMENT_FAMILIES)
     )
     isempty(unsupported) || throw(ArgumentError(
-        "embodiment :$(blueprint.name) contains component families that the standard " *
+        "$(context) :$(subject.name) contains component families that the standard " *
         "Embodiment cannot compose: $(unsupported); supported families are " *
         "$(_COMPOSABLE_EMBODIMENT_FAMILIES)",
     ))
-    return nothing
+
+    geometry = _structure_family_components(subject, :geometry)
+    sensors = _structure_family_components(subject, :sensor)
+    actuators = _structure_family_components(subject, :actuator)
+    dynamics = _structure_family_components(subject, :dynamics)
+    physiology = _structure_family_components(subject, :physiology)
+
+    for (family, components) in (
+        (:geometry, geometry),
+        (:dynamics, dynamics),
+        (:physiology, physiology),
+    )
+        length(components) <= 1 || throw(ArgumentError(
+            "$(context) :$(subject.name) declares multiple :$(family) components; " *
+            "this family is singular",
+        ))
+    end
+    isempty(sensors) && throw(ArgumentError(
+        "$(context) :$(subject.name) requires at least one :sensor component",
+    ))
+    isempty(actuators) && throw(ArgumentError(
+        "$(context) :$(subject.name) requires at least one :actuator component",
+    ))
+
+    if physical
+        length(geometry) == 1 || throw(ArgumentError(
+            "physical $(context) :$(subject.name) requires exactly one :geometry component, " *
+            "got $(length(geometry))",
+        ))
+        length(actuators) == 1 || throw(ArgumentError(
+            "physical $(context) :$(subject.name) requires exactly one :actuator component, " *
+            "got $(length(actuators))",
+        ))
+        length(dynamics) == 1 || throw(ArgumentError(
+            "physical $(context) :$(subject.name) requires exactly one :dynamics component, " *
+            "got $(length(dynamics))",
+        ))
+    elseif length(actuators) > 1 && !isempty(dynamics)
+        throw(ArgumentError(
+            "$(context) :$(subject.name) may declare multiple actuators only without a " *
+            "dynamics component",
+        ))
+    end
+    return subject
 end
 
 function _single_component(blueprint, family::Symbol, default)
@@ -392,7 +443,7 @@ function _sensor_identity_ids(sensors)
 end
 
 function _compose_embodiment(blueprint::EmbodimentBlueprint)
-    _validate_composable_families(blueprint)
+    _validate_standard_embodiment_structure(blueprint)
     geometry = _single_component(blueprint, :geometry, NoGeometry())
     dynamics = _single_component(blueprint, :dynamics, NoDynamics())
     physiology = _single_component(blueprint, :physiology, NoPhysiology())

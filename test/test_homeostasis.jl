@@ -358,6 +358,28 @@ end
         receptor_profile_keyword="",
     )
     @test_throws KeyError resolve_node(:empty_profile_test)
+
+    for node in (:falandays_noisy, :falandays_extended, :falandays_ablated)
+        @test node_receptor_profile_keyword(node) === :input_link_p
+        @test simulate(task; node=node, n_nodes=8, ticks=1, seed=2) isa SimResult
+    end
+    expected_profile = (0.1, 0.1, 1.0)
+    @test simulate(
+        task;
+        node=:falandays_noisy,
+        n_nodes=8,
+        ticks=1,
+        seed=2,
+        node_kwargs=(input_link_p=expected_profile,),
+    ) isa SimResult
+    @test_throws ArgumentError simulate(
+        task;
+        node=:falandays_noisy,
+        n_nodes=8,
+        ticks=1,
+        seed=2,
+        node_kwargs=(input_link_p=(0.1, 0.1, 0.5),),
+    )
     @test_throws ArgumentError simulate(task; node=:sorn, n_nodes=8, ticks=1)
 end
 
