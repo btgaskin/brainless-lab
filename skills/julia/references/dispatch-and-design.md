@@ -44,6 +44,34 @@ Generic code that only calls `step!(n, dt)` works for any current or future subt
 without modification — this is the same payoff polymorphism gives you elsewhere, achieved without
 a class hierarchy.
 
+## Transparent wrappers require methods, not field illusion
+
+A wrapper around an interface value is transparent only when it forwards the interface's
+functions and traits. Forwarding `getproperty(wrapper, :field)` can make `wrapper.field`
+look convenient, but it does **not** make dispatch on `step!`, `record_state!`,
+`snapshot_state`, a trait, or any other generic behave as if the wrapped value had been
+passed. It also does not automatically make `hasproperty` truthful; that follows
+`propertynames`.
+
+```julia
+struct Noisy{R<:Reservoir,RNG<:AbstractRNG} <: Reservoir
+    inner::R
+    rng::RNG
+    gain::Float64
+end
+
+n_nodes(x::Noisy) = n_nodes(x.inner)
+temporal_window(x::Noisy) = temporal_window(x.inner)
+network_snapshot(x::Noisy) = network_snapshot(x.inner)
+record_state!(rec, x::Noisy, tick) = record_state!(rec, x.inner, tick)
+```
+
+Forward every operation promised by the public contract, including traits, inspection,
+recording, interventions, and state snapshot/load. Wrapper-owned dynamic state (for
+example its RNG) belongs in the wrapper snapshot; accepting an older inner-only snapshot
+can be a deliberate compatibility method. Test behavioral continuation after
+snapshot/load, not just equality of visible fields.
+
 ## The anti-pattern: branching where a method belongs
 
 The most common thing to fix when reviewing Julia code — especially code translated from a

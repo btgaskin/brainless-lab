@@ -84,7 +84,8 @@ rate) are preserved while the *cross-agent alignment* is destroyed.
 using Random
 res = crossshift_null(sim, s -> susceptibility(s; level=:agent);
                       n_shifts=200, rng=MersenneTwister(11))
-# (; real, null_mean, null_std, ratio)  — ratio ≈ 1 ⇒ indistinguishable from null
+# Includes real, null_values, null_mean/std, ratio, pvalue,
+# n_valid, n_requested, and alternative.
 ```
 
 The `measure_fn` must return a `Number` or a NamedTuple with a known scalar field
@@ -171,10 +172,14 @@ Node measures need `:spikes` (or fall back to `:rate` × node count); agent meas
 `:poses` (and `:polarization`/`:milling` if you want to skip recomputation); the spectral
 radius needs its own `:spectral_radius` channel. That channel is expensive (an eigenvalue
 solve per sample), so **stride it** with `spectral_every=K` rather than recording every
-tick. Note `crossshift_null` knows how to shift the per-agent channels
-(`:poses`, `:rate`, `:spikes`, …) and drops the whole-ensemble scalars (`:polarization`,
-`:milling`, recomputed from shifted `:poses`); an unknown channel is left unshifted **with
-a warning**, because a surrogate that looks nulled but isn't is worse than none.
+tick. `crossshift_null` shifts every `EntityFrame` by stable `EntityID`, including
+receptors, component state, and contact indicators, while preserving the frame's IDs.
+Derived and event channels such as `:polarization`, `:milling`, `:interactions`, and
+`:deaths` are removed so the measure must recompute them from shifted entity data; static
+object snapshots pass through unchanged. Unknown non-entity channels are errors by default
+because an apparently nulled but still aligned channel is unsafe. Use `strict=false` only
+to inspect a legacy result, and treat its warning as a request to classify that channel
+explicitly before drawing a result.
 
 The sweep tool exposes measures by short name in `[analytics] measures`
 (`sigma_mr`, `susceptibility_node`, `correlation_length`, `contact_clusters`,

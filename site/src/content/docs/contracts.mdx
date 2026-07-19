@@ -76,16 +76,24 @@ keeps physiology `link_p` routing capability-driven rather than coupled to node 
 The ensemble calls:
 
 ```julia
+sync_activity!(environment, bodies)
 prepare_step!(environment, bodies)
 percepts = sample!(environment, bodies)
 commands = # sense! → reservoir → decode! for every body
 effects = apply_commands!(environment, bodies, commands)
 update!(body, effects_for_body)
+sync_activity!(environment, bodies)
 ```
 
 `sample!` must return one percept per body from the same pre-action state.
 `apply_commands!` commits the frame and returns one effect collection per body. Effects are
 interpreted by physiology, not by the environment.
+`sync_activity!` is the public lifecycle boundary: before observation it makes current
+activity authoritative for sensing, and after physiology it makes the same boundary
+authoritative for metrics and rendering. An inactive body has neutral motion and is
+excluded from active-only summaries such as mean speed; cohort-level survival or
+homeostasis scores retain the initial population so death cannot improve a score by
+shrinking its denominator.
 
 `ObjectWorld` additionally exposes `bind_entity_ids!`, `interaction_events`, and
 `object_snapshot`. New physical sensor kinds extend
@@ -111,6 +119,12 @@ Entity-aligned recorder channels (`:poses`, `:sensors`, `:receptors`, `:componen
 identity while ordinary indexing and iteration access the values. World-global
 `:interactions` and `:objects` samples are respectively the current tick's event vector and a
 full object snapshot; they are not `EntityFrame`s.
+
+Reservoir network inspection is optional through `network_snapshot(reservoir)`. Results
+store per-agent network metadata under `config.agents`; uniform runs may also expose
+plural compatibility projections such as `config.networks`. New results do not use a
+singular `config.network`. Network views require an `EntityID` when more than one agent
+exposes a network, and pair the selected graph with that same entity's activity.
 
 ## Configuration and component registration
 

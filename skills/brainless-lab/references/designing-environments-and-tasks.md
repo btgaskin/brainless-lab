@@ -146,7 +146,10 @@ default control; tonic, Bernoulli, and replay modes are explicit.
 World relations return `Exposure(name, delta)` values. Unknown effects are rejected by
 default. Effects for one tick are accumulated before clamping/failure, so contact can rescue
 an agent on a threshold tick. Death keeps stable identity but disables neural stepping,
-sensing, motion, and interactions in the fixed population.
+sensing, motion, and interactions in the fixed population. Metrics must distinguish the
+current active population from the original cohort: active-only motion summaries exclude
+dead bodies, while survival or regulation objectives keep the original denominator so
+death cannot improve the score.
 
 ## Task composition and scoring
 
@@ -197,6 +200,11 @@ role. Always identify the actual coupling seam before interpreting collective or
 
 Collective measures need nulls. Shared environmental input can mimic interaction; use
 `crossshift_null` before interpreting a cross-agent statistic.
+
+Lifecycle state crosses the generic public `sync_activity!(environment, bodies)` hook
+before observation and again after physiology updates. Specialize that hook instead of
+probing a private environment method with `applicable`; it keeps sensing, metrics,
+recording, and rendering on the same definition of activity.
 
 ## Component registration
 

@@ -158,6 +158,17 @@ source sensing. Optional signalling adds a `:signal` effector and scalar `:acous
 receptor. Hearing is self-excluding, exponentially distance-attenuated, saturated, and
 one-tick delayed by the synchronous sample/apply order.
 
+`conspecific_contact_radius` plus `conspecific_contact_effects` adds an optional
+body-to-body effect relation. It requires a population task. The recorded
+`:conspecific_contacts` channel is one Boolean indicator per entity and tick—whether at
+least one contact occurred—not a contact count.
+
+Situated options may be supplied in progressively more specific bags:
+`env_kwargs`, `environment_kwargs`, `swarm_kwargs`, `task_kwargs`, then recognized bare
+keywords. Later layers win. The result stores the fully effective situated configuration,
+source/effect settings, colours, and initial positions/headings so a rendered or analyzed
+run does not depend on reconstructing defaults.
+
 `SituatedEnvironment` should be used when reproducing or extending those established tasks.
 Use `ObjectWorld` when the experiment is about independently composed physical sensors,
 actuators, dynamics, appearances, fields, and object effects.

@@ -64,8 +64,9 @@ The load-bearing ones:
 - `n_nodes` (alias `N`) — reservoir size; defaults are per-node and, for the
   Falandays base on a paper task, taken from the paper config.
 - `window` — trailing window over which end-of-run metrics are computed.
-- `n_agents` — **presence of this kwarg makes the run a swarm** (as do the `:torus`
-  and `:forage` tasks). `:forage` gets a `ForageEnvironment`; otherwise `TorusEnvironment`.
+- `n_agents` — population size for a task whose setup supports populations. `:torus`
+  and `:forage` do; passing it to an ordinary single-agent task is an error. This is a
+  task capability, not a global switch that silently changes the environment type.
 - `body` — an `AbstractBody`, a registered body symbol, or a zero-argument body
   constructor. Vector-valued `TaskWorld`s default to a direct `Embodiment`; situated task
   setups construct their own composed embodiments. The body ports must match the setup.
@@ -161,6 +162,12 @@ Individual recipes each return a `Figure` and accept a `SimResult` (or bare `Rec
 `driftplot(sim; bin=N)` (spike-pattern autocorrelation heatmap). `explore` needs GLMakie
 specifically and will raise if only CairoMakie is loaded. Panels resolve through the view
 registry, so a custom registered view can also appear as a `panels=` entry.
+
+For a multi-agent result, select one stable identity with
+`networkplot(sim; entity=EntityID(3))` or `visualize(sim; entity=EntityID(3),
+panels=[:network, :raster])`. A bare integer is interpreted as an `EntityID`, not as a
+world slot. Selection is automatic only when exactly one agent exposes a network; an
+ambiguous multi-network result is an error rather than a silently chosen graph.
 
 ## Analyses on a result
 

@@ -88,7 +88,8 @@ sweeps/forage_criticality/
     └── cell_004/            # the captured cell (node.link_p == 0.1) also gets:
         ├── representative.gif        #   a behaviour GIF (placeholder if no
         ├── criticality_timeseries.csv #   Makie backend is loaded)
-        └── null_test.csv
+        └── null_test.csv              #   value, p-value, alternative, requested/
+                                       #   valid surrogate counts, status, error
 ```
 
 :::note[GIFs and timeseries are opt-in]
@@ -97,6 +98,10 @@ here `cell_004`) carries `representative.gif`, `criticality_timeseries.csv`, and
 `null_test.csv`. Without a `[capture]` block, a cell is just `DONE` + `manifest.toml` +
 `metrics.csv`, and the numeric metrics remain authoritative.
 :::
+
+`null_test.csv` is deliberately auditable: a failed or under-filled surrogate run records
+its status, error text, requested count, and effective valid count instead of silently
+substituting `NaN`. Check those columns before interpreting the ratio or p-value.
 
 ## (d) Reading the headline result
 

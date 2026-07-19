@@ -54,10 +54,14 @@ end
 
 `EntityID` is stable independently of slot and group. Recorded `EntityFrame`s carry IDs
 beside their values so analysis does not silently infer identity from a vector index.
+Views, null models, and analyses align frames by those IDs even if storage order changes
+or IDs are sparse.
 
 The population is currently fixed. Death keeps the identity and slot but makes the body
-inactive; births, replacement, migration between runtime groups, and lineage events are not
-implemented.
+inactive, zeros its motion, and removes it from active-only summaries. Cohort-level
+survival and regulation scores retain the original denominator; use the separately
+reported active count/fraction to describe attrition. Births, replacement, migration
+between runtime groups, and lineage events are not implemented.
 
 ## Coupling lives in the world and sensors
 

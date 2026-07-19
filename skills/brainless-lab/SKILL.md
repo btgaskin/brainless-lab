@@ -35,6 +35,8 @@ A single-agent task is an `Ensemble` of **one** agent; a dyad is `n_agents=2`; a
 `step!(collective)` runs a solo reservoir and a 200-agent swarm through the *same code path*. When you
 catch yourself thinking "the swarm case is different," stop — it almost never is; it's the same abstraction
 with `n_agents` turned up. This is the single most important thing to internalise before extending anything.
+The task must still declare that it supports a population: `n_agents` is a setup capability, not a magic
+keyword that converts an unrelated single-agent task into a swarm environment.
 
 Named, discoverable presets are wired through **registries**. Nodes, tasks, bodies, drives, metrics,
 analyses, views, ablations, and optimizers can be registered by symbol and resolved at run time. Julia
@@ -136,6 +138,9 @@ the subsampling-robust estimators the library ships (MR branching over the naive
 `_windowed` variants when the process is non-stationary. Treat an un-null-tested cross-agent number as
 shared-drive until shown otherwise — this project's own swarm runs are a standing reminder that measures which
 *look* collective often don't survive the null. See `references/designing-analyses.md`.
+Entity-aligned channels carry stable `EntityID`s in `EntityFrame`; nulls, analyses, and views must align by
+those IDs rather than assuming vector position is identity. Unknown non-entity channels are not safe to pass
+through a surrogate silently.
 
 ## Reference files
 

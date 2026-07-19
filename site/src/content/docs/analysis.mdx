@@ -148,9 +148,15 @@ Each surrogate independently circular-shifts every agent's recorded time series,
 agent's *own* dynamics are preserved while the *inter-agent timing* is destroyed. The
 measure is recomputed on the surrogate ensemble; comparing the real value against the
 null distribution separates genuine cross-agent coupling from what any independent set of
-single-agent series would produce by chance. Returns
-`(real, null_mean, null_std, ratio)` over `n_shifts` draws — a `ratio` near $1$ means the
-apparent coupling is indistinguishable from the null. Because the null strips both real
+single-agent series would produce by chance. Entity-aligned channels are shifted by stable
+`EntityID`, not vector position. Derived/event channels are removed and static object
+snapshots are retained; an unknown non-entity channel is an error by default rather than
+being left deceptively aligned.
+
+The result retains `real`, `null_mean`, `null_std`, and `ratio`, and also reports the full
+`null_values`, `pvalue`, `alternative`, `n_requested`, and effective `n_valid`. A `ratio`
+near $1$ means the apparent coupling is indistinguishable from the null, while the
+p-value makes the declared tail and finite surrogate count explicit. Because the null strips both real
 coupling *and* common-source drive, read the coupling as the vision-on minus vision-off
 difference, not the raw ratio.
 
