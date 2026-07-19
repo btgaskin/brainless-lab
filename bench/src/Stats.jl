@@ -1,18 +1,15 @@
 module Stats
 
-using HypothesisTests
 using Random
 using Statistics
 
 export bootstrap_ci,
-    cliffs_delta,
+    paired_mean_diff_ci,
+    paired_signflip_p,
+    paired_superiority,
+    repeated_measures_p,
     holm_adjust,
     benjamini_hochberg,
-    mannwhitney_p,
-    kruskalwallis_p,
-    mean_diff_ci,
-    achieved_power,
-    min_n_for_080,
     analyze_task
 
 _as_float_vector(xs) = Vector{Float64}(Float64.(collect(xs)))
@@ -25,24 +22,6 @@ function _resample_mean(xs::Vector{Float64}, n::Integer, rng::AbstractRNG)
     end
     return total / n
 end
-
-function _all_same(groups::Vector{Vector{Float64}})
-    seen = false
-    first_value = 0.0
-    for group in groups
-        for value in group
-            if !seen
-                first_value = value
-                seen = true
-            elseif value != first_value
-                return false
-            end
-        end
-    end
-    return seen
-end
-
-_all_same(x::Vector{Float64}, y::Vector{Float64}) = _all_same([x, y])
 
 function bootstrap_ci(xs; nboot::Integer=2000, alpha::Real=0.05, rng::AbstractRNG=Random.Xoshiro(0))
     x = _as_float_vector(xs)
@@ -64,72 +43,109 @@ function bootstrap_ci(xs; nboot::Integer=2000, alpha::Real=0.05, rng::AbstractRN
     )
 end
 
-function mean_diff_ci(xs, ys; nboot::Integer=2000, alpha::Real=0.05, rng::AbstractRNG=Random.Xoshiro(0))
+function _paired_vectors(xs, ys)
     x = _as_float_vector(xs)
     y = _as_float_vector(ys)
-    (isempty(x) || isempty(y)) && return (NaN, NaN)
-    nboot = Int(nboot)
-    nboot >= 1 || throw(ArgumentError("nboot must be at least 1"))
-
-    diffs = Vector{Float64}(undef, nboot)
-    @inbounds for b in 1:nboot
-        diffs[b] = _resample_mean(x, length(x), rng) - _resample_mean(y, length(y), rng)
-    end
-
-    a = Float64(alpha)
-    0.0 < a < 1.0 || throw(ArgumentError("alpha must be in (0, 1)"))
-    return (
-        Statistics.quantile(diffs, a / 2.0),
-        Statistics.quantile(diffs, 1.0 - a / 2.0),
-    )
+    length(x) == length(y) || throw(DimensionMismatch(
+        "paired samples have lengths $(length(x)) and $(length(y))",
+    ))
+    return x, y
 end
 
-function cliffs_delta(xs, ys)
-    x = _as_float_vector(xs)
-    y = _as_float_vector(ys)
-    (isempty(x) || isempty(y)) && return NaN
+function paired_mean_diff_ci(
+    xs,
+    ys;
+    nboot::Integer=2000,
+    alpha::Real=0.05,
+    rng::AbstractRNG=Random.Xoshiro(0),
+)
+    x, y = _paired_vectors(xs, ys)
+    isempty(x) && return (NaN, NaN)
+    differences = x .- y
+    return bootstrap_ci(differences; nboot=nboot, alpha=alpha, rng=rng)
+end
 
-    greater = 0
-    less = 0
-    @inbounds for xi in x
-        for yj in y
-            if xi > yj
-                greater += 1
-            elseif xi < yj
-                less += 1
+function paired_superiority(xs, ys)
+    x, y = _paired_vectors(xs, ys)
+    isempty(x) && return NaN
+    return sum(sign, x .- y) / length(x)
+end
+
+function paired_signflip_p(
+    xs,
+    ys;
+    nperm::Integer=20_000,
+    rng::AbstractRNG=Random.Xoshiro(0),
+)
+    x, y = _paired_vectors(xs, ys)
+    isempty(x) && return NaN
+    differences = x .- y
+    all(iszero, differences) && return 1.0
+    observed = abs(Statistics.mean(differences))
+    n = length(differences)
+
+    if n <= 16
+        total = 1 << n
+        hits = 0
+        @inbounds for mask in 0:(total - 1)
+            candidate = 0.0
+            for index in 1:n
+                candidate += ((mask >> (index - 1)) & 1 == 1 ? 1.0 : -1.0) *
+                    differences[index]
             end
+            abs(candidate / n) >= observed - eps(Float64) && (hits += 1)
         end
+        return hits / total
     end
-    return (greater - less) / (length(x) * length(y))
+
+    nperm = Int(nperm)
+    nperm >= 1 || throw(ArgumentError("nperm must be at least 1"))
+    hits = 0
+    @inbounds for _ in 1:nperm
+        candidate = 0.0
+        for difference in differences
+            candidate += (rand(rng, Bool) ? 1.0 : -1.0) * difference
+        end
+        abs(candidate / n) >= observed && (hits += 1)
+    end
+    return (hits + 1) / (nperm + 1)
 end
 
-function mannwhitney_p(xs, ys)
-    x = _as_float_vector(xs)
-    y = _as_float_vector(ys)
-    (isempty(x) || isempty(y)) && return NaN
-    _all_same(x, y) && return 1.0
-
-    try
-        p = pvalue(MannWhitneyUTest(x, y))
-        return isfinite(p) ? clamp(Float64(p), 0.0, 1.0) : NaN
-    catch
-        _all_same(x, y) && return 1.0
-        rethrow()
-    end
+function _repeated_measures_stat(matrix::AbstractMatrix{<:Real})
+    condition_means = vec(Statistics.mean(matrix; dims=1))
+    grand_mean = Statistics.mean(condition_means)
+    return sum(value -> (value - grand_mean)^2, condition_means)
 end
 
-function kruskalwallis_p(groups...)
+function repeated_measures_p(
+    groups...;
+    nperm::Integer=10_000,
+    rng::AbstractRNG=Random.Xoshiro(0),
+)
     valid = [_as_float_vector(group) for group in groups if !isempty(group)]
     length(valid) < 2 && return NaN
-    _all_same(valid) && return 1.0
+    n_blocks = length(first(valid))
+    all(group -> length(group) == n_blocks, valid) || throw(DimensionMismatch(
+        "repeated-measures groups must contain the same paired blocks",
+    ))
+    matrix = reduce(hcat, valid)
+    observed = _repeated_measures_stat(matrix)
+    observed == 0.0 && return 1.0
 
-    try
-        p = pvalue(KruskalWallisTest(valid...))
-        return isfinite(p) ? clamp(Float64(p), 0.0, 1.0) : NaN
-    catch
-        _all_same(valid) && return 1.0
-        rethrow()
+    nperm = Int(nperm)
+    nperm >= 1 || throw(ArgumentError("nperm must be at least 1"))
+    permuted = similar(matrix)
+    hits = 0
+    @inbounds for _ in 1:nperm
+        for block in axes(matrix, 1)
+            order = randperm(rng, size(matrix, 2))
+            for condition in axes(matrix, 2)
+                permuted[block, condition] = matrix[block, order[condition]]
+            end
+        end
+        _repeated_measures_stat(permuted) >= observed && (hits += 1)
     end
+    return (hits + 1) / (nperm + 1)
 end
 
 function holm_adjust(pvals)
@@ -168,68 +184,28 @@ function benjamini_hochberg(pvals)
     return adjusted
 end
 
-function achieved_power(xs, ys; B::Integer=500, n::Integer=min(length(xs), length(ys)),
-        alpha::Real=0.05, rng::AbstractRNG=Random.Xoshiro(0))
-    x = _as_float_vector(xs)
-    y = _as_float_vector(ys)
-    (isempty(x) || isempty(y)) && return NaN
-
-    B = Int(B)
-    n = Int(n)
-    B >= 1 || throw(ArgumentError("B must be at least 1"))
-    n >= 2 || return NaN
-
-    hits = 0
-    xr = Vector{Float64}(undef, n)
-    yr = Vector{Float64}(undef, n)
-
-    @inbounds for _ in 1:B
-        for i in 1:n
-            xr[i] = x[rand(rng, 1:length(x))]
-            yr[i] = y[rand(rng, 1:length(y))]
-        end
-        p = mannwhitney_p(xr, yr)
-        if isfinite(p) && p < alpha
-            hits += 1
-        end
-    end
-
-    return hits / B
-end
-
-function min_n_for_080(xs, ys; B::Integer=500, alpha::Real=0.05,
-        rng::AbstractRNG=Random.Xoshiro(0), target::Real=0.8)
-    for n in 2:5:120
-        pow = achieved_power(xs, ys; B=B, n=n, alpha=alpha, rng=rng)
-        if isfinite(pow) && pow >= target
-            return n
-        end
-    end
-    return nothing
-end
-
 function analyze_task(group_vectors::AbstractDict; baseline::Symbol=:falandays_base,
-        alpha::Real=0.05, nboot::Integer=2000, power_boot::Integer=500,
+        alpha::Real=0.05, nboot::Integer=2000, nperm::Integer=10_000,
         rng::AbstractRNG=Random.Xoshiro(0))
-    names = sort(collect(keys(group_vectors)); by=String)
+    names = sort([name for name in keys(group_vectors) if !isempty(group_vectors[name])]; by=String)
     groups = [group_vectors[name] for name in names]
-    omnibus = kruskalwallis_p(groups...)
+    omnibus = repeated_measures_p(groups...; nperm=nperm, rng=rng)
 
     pair_core = NamedTuple[]
-    if isfinite(omnibus) && omnibus < alpha
-        for i in eachindex(names)
-            for j in (i + 1):lastindex(names)
-                a_name = names[i]
-                b_name = names[j]
-                a = group_vectors[a_name]
-                b = group_vectors[b_name]
-                push!(pair_core, (
-                    neuron_a=a_name,
-                    neuron_b=b_name,
-                    p=mannwhitney_p(a, b),
-                    cliffs_delta=cliffs_delta(a, b),
-                ))
-            end
+    for i in eachindex(names)
+        for j in (i + 1):lastindex(names)
+            a_name = names[i]
+            b_name = names[j]
+            a = group_vectors[a_name]
+            b = group_vectors[b_name]
+            push!(pair_core, (
+                neuron_a=a_name,
+                neuron_b=b_name,
+                p=paired_signflip_p(a, b; nperm=nperm, rng=rng),
+                delta_mean=Statistics.mean(a .- b),
+                delta_median=Statistics.median(a .- b),
+                paired_superiority=paired_superiority(a, b),
+            ))
         end
     end
 
@@ -246,18 +222,17 @@ function analyze_task(group_vectors::AbstractDict; baseline::Symbol=:falandays_b
             name == baseline && continue
             xs = group_vectors[name]
             isempty(xs) && continue
-            p = mannwhitney_p(xs, base)
-            lo, hi = mean_diff_ci(xs, base; nboot=nboot, alpha=alpha, rng=rng)
+            p = paired_signflip_p(xs, base; nperm=nperm, rng=rng)
+            lo, hi = paired_mean_diff_ci(xs, base; nboot=nboot, alpha=alpha, rng=rng)
             push!(baseline_core, (
                 baseline=baseline,
                 neuron=name,
                 p=p,
-                cliffs_delta=cliffs_delta(xs, base),
                 delta_mean=Statistics.mean(xs) - Statistics.mean(base),
+                delta_median=Statistics.median(xs .- base),
+                paired_superiority=paired_superiority(xs, base),
                 delta_ci_lo=lo,
                 delta_ci_hi=hi,
-                achieved_power=achieved_power(xs, base; B=power_boot, alpha=alpha, rng=rng),
-                min_n_for_080=min_n_for_080(xs, base; B=power_boot, alpha=alpha, rng=rng),
             ))
         end
     end
@@ -269,7 +244,7 @@ function analyze_task(group_vectors::AbstractDict; baseline::Symbol=:falandays_b
     end
 
     return (
-        omnibus_kw_p=omnibus,
+        omnibus_rm_p=omnibus,
         pairwise=pairwise,
         baseline=baseline_rows,
     )

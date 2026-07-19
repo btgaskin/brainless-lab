@@ -11,29 +11,34 @@
 
 An extensible Julia lab for **"brainless" cognition** -- behaviour that emerges from
 collectives of simple neuron-like nodes with no homunculus and no hand-wired control.
-Reservoirs, bodies, tasks, swarm environments, recorders, metrics, and Makie visualisations are
-all wired through lightweight **registries**, so participants can swap node families or add
-their own parts without forking the framework. The core concept is *neurons as nodes within
-a collective* -- the same abstraction at every scale.
+Reservoirs, composed embodiments, tasks, physical worlds, recorders, metrics, and Makie
+visualisations are wired through lightweight **registries** and Julia interfaces, so participants
+can swap node families or add their own parts without forking the framework. The core concept is
+*neurons as nodes within a collective* -- the same abstraction at every scale.
 
 The project is a summer-institute testbed: a clean framework for other people to run
 experiments around a settled Falandays baseline. Use a project-local Julia environment
-(`pkg> activate .` or `julia --project=.`) when running examples and tooling. Validation means bit-fidelity to the local
-numpy reference implementations (`../v0`, `../v0.2`) where those reference paths exist.
+(`pkg> activate .` or `julia --project=.`) when running examples and tooling. Validation
+means numerical trajectory parity with the tested local reference implementations
+(`../v0`, `../v0.2`) within their declared tolerances, where those reference paths exist.
 The 2021 authors-faithful baseline is `:falandays_base` with the original constants; v0.2
 also contains documented experimental departures, so numpy fidelity should not be read as
 paper fidelity for every platform component.
 
 **Documentation:** the full docs live in the Astro/Starlight site under [`site/`](site/),
 published at <https://brainless-lab.pages.dev> (run locally with `cd site && bun run dev`). Key pages:
+[getting started](https://brainless-lab.pages.dev/getting-started/),
 [introduction](https://brainless-lab.pages.dev/introduction/),
+[research workflow](https://brainless-lab.pages.dev/research-workflow/),
+[agentic workflow](https://brainless-lab.pages.dev/agentic-workflow/),
 [nodes & variants](https://brainless-lab.pages.dev/nodes/overview/),
 [environments & tasks](https://brainless-lab.pages.dev/environments-tasks/),
 [the collective](https://brainless-lab.pages.dev/collective/),
-[receptors & effectors](https://brainless-lab.pages.dev/receptors-effectors/),
+[embodiment](https://brainless-lab.pages.dev/receptors-effectors/),
 [analysis](https://brainless-lab.pages.dev/analysis/),
 [evolution](https://brainless-lab.pages.dev/evolution/),
 [contracts](https://brainless-lab.pages.dev/contracts/),
+[platform limits](https://brainless-lab.pages.dev/platform-limits/),
 [reference](https://brainless-lab.pages.dev/reference/).
 
 ---
@@ -41,38 +46,34 @@ published at <https://brainless-lab.pages.dev> (run locally with `cd site && bun
 ## Stable baseline vs Experimental
 
 **Stable baseline:** `:falandays_base` (also accepted as `:falandays`) is the settled,
-validated, authors-faithful baseline: the 2021 Falandays homeostatic spiking reservoir with
+validated, authors-faithful baseline: the published Falandays homeostatic spiking reservoir with
 its exact constants, run on the 2024 case-study task suite implemented here. This is the
 reference participants can rely on when they need the known model rather than a new
 experiment.
 
 **Experimental platform:** everything around that baseline is for experiments and is still
-in flux: the compartmental/CTRNN nodes, the evolution layer, the swarm/VEN extensions, and
+in flux: the compartmental/CTRNN nodes, the evolution and embodiment layers, collective and
+ecological worlds, and
 the SORN reference node, the Falandays variants beyond base (`:falandays_noisy`,
 `:falandays_extended`, `:falandays_ablated`, `:falandays_hemispheric`, `:falandays_oosawa`,
 `:falandays_spatial`, `:falandays_delayed`, `:falandays_dendritic`). These pieces are useful testbed surfaces,
-but they should not be described as the 2021 paper model.
+but they should not be described as the published paper model.
 
 ---
 
 ## Quickstart
 
-```julia
-pkg> activate .         # or run scripts with julia --project=.
-pkg> dev .              # from the brainless-lab/ directory
-pkg> add CairoMakie     # a Makie backend, for plotting
-
-julia> using BrainlessLab, CairoMakie
-
-julia> sim = simulate(:wall; node=:falandays_base, ticks=300)  # authors-faithful baseline
-julia> visualize(sim)                                          # spike raster + rate + trajectory
+```bash
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+julia --project=. examples/quickstart.jl
 ```
 
-The compute core does **not** depend on Makie -- `simulate` runs headless. Plot methods load
-automatically (a package extension) once you load a Makie backend (`CairoMakie` for static
-figures, `GLMakie` for interactive windows). See the
-[Introduction](https://brainless-lab.pages.dev/introduction/) for the root package and
-tooling-project setup split.
+This runs the fixture-validated baseline headlessly and prints its wall-task score. The
+compute core does **not** depend on Makie. Plot methods load automatically as a package
+extension in an environment that provides a Makie backend (`CairoMakie` for static figures,
+`GLMakie` for interactive windows). See
+[Getting started](https://brainless-lab.pages.dev/getting-started/) for browser,
+agent-assisted, and manual paths without modifying the root environment.
 
 `explore(...)` opens a live GLMakie display. On SSH/headless machines, use saved static
 outputs instead (`visualize`/`animate` with CairoMakie, or the CLI `--save` paths where
@@ -133,12 +134,12 @@ The registered high-level variants are:
 
 | Symbol | Status | Description |
 | --- | --- | --- |
-| `:falandays_base` | **stable baseline** | Base Falandays homeostatic spiking reservoir, authors-faithful to the 2021 model. `:falandays` is an alias. |
+| `:falandays_base` | **stable baseline** | Base Falandays homeostatic spiking reservoir, authors-faithful to the tested 2024 publication reference construction. `:falandays` is an alias. |
 | `:falandays_noisy` | experimental | Base reservoir wrapped with sensory input noise (`Uniform(+/-0.1)`, clip >= 0 -- the v0.2 body formula). |
 | `:falandays_extended` | experimental | The paper's **extended** architecture (validated against the v0.2 numpy reference, not the authors' bit-parity fixtures): base + sensory noise + Watts--Strogatz small-world recurrent wiring + Dale's law (excitatory/inhibitory). Same neuron update as base; a richer substrate -- the documented `base` vs `extended` contrast. |
 | `:falandays_ablated` | experimental | Target homeostasis frozen (`lrate_targ=0`): target pinned at 1.0, threshold fixed at 2.0; weights still learn. |
 | `:falandays_hemispheric` | experimental | Two half-size reservoirs, contralateral wiring (right sensors -> left effectors, left -> right). |
-| `:falandays_oosawa` | experimental | Oosawa endogenous membrane drive (pure target-modulated, stays active when blind). |
+| `:falandays_oosawa` | experimental | Oosawa endogenous membrane drive (firing-threshold-gap-modulated noise; stays active when blind). |
 | `:falandays_spatial` | experimental | Falandays reservoir with spatial embedding and distance-dependent wiring. |
 | `:falandays_delayed` | experimental | Falandays reservoir with heterogeneous recurrent transmission delays. |
 | `:falandays_dendritic` | experimental | Base reservoir plus a parallel dendritic pathway: recurrent synapses are split across `n_dendrites` compartments, each firing a local dendritic spike that sets an eligibility tag, so the homeostatic weight update gates on presynaptic-spike **or** dendrite-tag (learning without a somatic spike); the soma still receives the full recurrent sum. |
@@ -153,15 +154,70 @@ The registered high-level variants are:
 The registered tasks are `:wall`, `:tracking`, `:pong`, `:pong_hitrate`, `:cartpole`,
 `:cartpole_hard`, `:cartpole_swingup`, `:cartpole_long`, `:torus`, and `:forage`.
 
-Single-agent tasks use task-specific 2-effector decoders. The swarm task (`:torus`) uses
-`VENBody`: 62 bearing-vision sensors are padded to **64 receptor inputs**, and the motor
-decode consumes **3 effectors** for heading and forward acceleration. `:forage` uses the same
-3-effector VEN decode with **128 receptors**: 64 conspecific-vision inputs plus 64 source-vision
-inputs, scored by bounded `forage_score` and source-arrival metrics. `tasks()` lists them all.
+Every registered task resolves to a `TaskSpec` whose setup returns
+`TaskSetup(environment, bodies)`; a task may set `score_key=nothing` when it has no scalar
+objective. Existing single-agent vector tasks use direct `Embodiment`s and task-specific
+2-effector decoders. The established situated adapter builds ordinary embodiments from
+`SituatedSensorLayout`, `SituatedEncoder`, `SituatedActuator`, and `KinematicMotor`.
+Its default `:torus` contract pads 62 bearing rays to **64 receptor inputs** and uses
+**3 effectors** for heading and forward acceleration. `:forage` adds a second 64-wide source
+bank for **128 receptors**, scored by bounded `forage_score` and source-arrival metrics.
+`tasks()` lists all registered task symbols.
 
 See [Environments & Tasks](https://brainless-lab.pages.dev/environments-tasks/) and
 [Contracts](https://brainless-lab.pages.dev/contracts/) before comparing
 results across tasks, because effectors and scores are intentionally non-uniform.
+
+## Embodiment and physical worlds
+
+`AbstractBody` is the public dispatch boundary; `Embodiment` is the one generic concrete body.
+It composes geometry, sensors, encoders, actuators, dynamics, physiology, traits, and runtime
+state. Component IDs are stable, and receptor/effector port IDs are namespaced from them.
+Biological and robotic organisms use the same type with different component values.
+`traits` are optional direct-Julia metadata; embodiment TOML does not currently represent
+them, and preset materialization or physics does not depend on them.
+
+Strict TOML presets live in [`examples/embodiments/`](examples/embodiments/):
+
+```julia
+config = read_embodiment_config("examples/embodiments/bilateral_insect.toml")
+body = materialize_embodiment(config)
+
+component_slots(body)
+portspec(body)
+```
+
+For the tested physical loop, run
+`include("examples/embodiments/object_world_quickstart.jl")` followed by
+`run_object_world_quickstart(ticks=25, seed=7)`.
+
+For the same physical composition through the high-level result surface, run
+`include("examples/embodiments/object_world_task.jl")` followed by
+`run_object_world_task(ticks=25, seed=11)`. The direct quickstart exposes its
+`Ensemble` and `Recorder`; wrapping a setup callable in `TaskSpec` adds standardized
+`SimResult`, recording, and scoring semantics.
+
+The component catalog exposes required/optional parameter-name metadata and evidence-scoped
+readiness:
+
+```julia
+components()
+component_info(:sensor, :spectral_camera)
+readiness()
+```
+
+This metadata lists accepted names; it is not a typed schema of defaults or constraints.
+
+`ObjectWorld` closes the generic physical loop for toroidal or walled 2-D arenas, fixed
+agent populations, static circular objects, named analytic fields, spectral appearances,
+mounted field probes, typed effects, and one actuator/dynamics command pair per body.
+`SituatedEnvironment` remains the adapter for established collective, foraging, and
+signalling tasks.
+
+`RegulatedPhysiology` can hold arbitrary named `RegulatedVariable`s. Each owns drift, bounds,
+setpoint/deficit rule, response curve, feedback mode, gain, emission and reservoir-link
+probabilities, plus optional failure. Worlds emit typed `Exposure`s; physiology decides how
+they change internal state.
 
 ---
 
@@ -187,9 +243,10 @@ required before those non-plastic nodes are a meaningful test.
 (with `:teaching` / `:oracle` / `:evolution` profiles), runs the runner, and writes a run
 directory under `runs/` containing a `manifest.toml` (git SHA, Julia + package versions,
 timestamps, full seed scheme), the resolved config, CSV/JSONL logs, and a JLD2 genome
-checkpoint. A run reproduces **bit-for-bit** from its own artifacts. `run_sweep` does
-cartesian parameter sweeps with an index. `replay(rundir)` can load a saved run directory with
-`recorder.jld2` back into a `SimResult` for `visualize`/`animate`.
+checkpoint. These artifacts support a traceable rerun in the declared environment;
+bit-for-bit guarantees apply only where explicit fixture or replay tests establish them.
+`run_sweep` does cartesian parameter sweeps with an index. `replay(rundir)` can load a saved
+run directory with `recorder.jld2` back into a `SimResult` for `visualize`/`animate`.
 
 ## Performance
 
@@ -215,12 +272,14 @@ holds the last value in between, keeping the recorded series tick-aligned.
 
 ## Extending it
 
-Every surface has a registry: register a part under a symbol, then reference that symbol from
-high-level code. **Extending a node means adding methods to the package generics, so
-`import` them** -- otherwise `simulate` will not see your `step!`.
+Named, discoverable presets use registries; direct Julia composition and multiple dispatch
+are equally public. Register a part when configuration by symbol is useful. **Extending a
+node means adding methods to the package generics, so `import` them**—otherwise `simulate`
+will not see your `step!`.
 
 ```julia
-import BrainlessLab: step!, effectors, n_receptors, n_effectors
+using BrainlessLab: Reservoir, register_node!, simulate
+import BrainlessLab: step!, effectors, reset!, n_nodes, n_receptors, n_effectors
 
 struct MyNode <: Reservoir
     n_receptors::Int
@@ -237,6 +296,8 @@ function step!(r::MyNode, receptors)
 end
 
 effectors(r::MyNode, spikes) = fill(sum(spikes) / length(spikes), r.n_effectors)
+reset!(r::MyNode) = (fill!(r.spikes, 0.0); r)
+n_nodes(r::MyNode) = length(r.spikes)
 n_receptors(r::MyNode) = r.n_receptors
 n_effectors(r::MyNode) = r.n_effectors
 
@@ -245,15 +306,18 @@ simulate(:wall; node=:mynode, ticks=100)
 ```
 
 The same `register_*!` pattern applies to tasks (`register_task!` + a `TaskSpec`), drives
-(`<: Drive` + `apply_drive!`), bodies, metrics, ablations/interventions, views, and
-optimizers (`<: AbstractEvolutionStrategy` with `ask`/`tell!`/`result`). See
+(`<: Drive` + `apply_drive!`), bodies, physical components (`register_component!`), metrics,
+ablations/interventions, views, and optimizers (`<: AbstractEvolutionStrategy` with
+`ask`/`tell!`/`result`). See
 [Contracts](https://brainless-lab.pages.dev/contracts/) for the node/extension contract and the
 `pack_params`/`snapshot_state` split.
 
 ## Examples & notebooks
 
-`examples/{quickstart,variant_tour,dyad,drift}.jl` are runnable scripts (save PNGs to
-`examples/output/`); `examples/pluto/quickstart.jl` is a reactive Pluto notebook.
+`examples/quickstart.jl` is the headless first run. `variant_tour.jl`, `dyad.jl`, and
+`drift.jl` are figure-producing examples for an environment with CairoMakie and save PNGs
+to `examples/output/`; `examples/embodiments/` contains three strict component presets;
+`examples/pluto/quickstart.jl` is a reactive Pluto notebook.
 
 ## Tests
 
@@ -261,15 +325,17 @@ optimizers (`<: AbstractEvolutionStrategy` with `ask`/`tell!`/`result`). See
 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-The test suite covers node families, envs, ensembles, ablations, the CMA runner, run
-artifacts, and Makie extension loading against Float64 numpy fixtures where applicable.
+The test suite covers node families, environments, homogeneous and heterogeneous ensembles,
+embodiment composition/configuration/development, physical components, homeostasis, ablations,
+the CMA runner, run artifacts, and Makie extension loading against Float64 scientific fixtures
+where applicable.
 
 ## Layout
 
 ```
 src/core/    interfaces, traits, registries, params, Recorder
 src/nodes/   Falandays baseline/variants + compartmental (cell, reservoir, wiring, interventions)
-src/world/   Body, Torus, Environments, Ensemble, Metrics  (single-agent task = ensemble of one)
+src/world/   ports, embodiment/physiology, physical components, worlds, ensembles, metrics
 src/envs/    WallBox + the four environments + cartpole variants
 src/drivers/ rollout, SepCMA + EvolveRunner, Fixed/Plastic, threaded harness
 src/run/     TOML config, profiles, manifest, artifacts, sweeps
@@ -279,9 +345,9 @@ bench/       cross-node comparison tool
 profile/     single-node characterization tool
 sweep/       parameter and ablation sweep runner   ·   calibration/  score-anchor report
 configs/     sweep/experiment TOML configs
-examples/    runnable examples and templates   ·   test/
+examples/    runnable examples, embodiment presets, and templates   ·   test/
 site/        Astro/Starlight docs + outputs site (the docs live here)
-skills/      Claude Code skills (julia, brainless-lab)
+skills/      agent guidance for Julia and BrainlessLab
 ```
 
 ## Acknowledgements & prior art
@@ -295,9 +361,11 @@ the homeostatic spiking reservoir from:
 > 1811–1834 (2024). [doi:10.1007/s11571-023-09988-2](https://doi.org/10.1007/s11571-023-09988-2)
 
 BrainlessLab is not affiliated with or endorsed by the original authors. "Authors-faithful" means
-bit-fidelity to a reconstruction of the authors' code (guarded by the `test/fixtures/authors_*.jld2`
-fixtures), **not** paper-fidelity for every component — the experimental variants and platform layers
-are our own construction. See [`CITATION.cff`](CITATION.cff) to cite this software.
+numerical parity of the tested reservoir state trajectories with a local authors-derived
+reference construction, within the declared `1e-9` tolerance (guarded by the
+`test/fixtures/authors_*.jld2` fixtures). It does **not** mean paper fidelity for every
+component—the experimental variants and platform layers are our own construction. See
+[`CITATION.cff`](CITATION.cff) to cite this software.
 
 ## License
 

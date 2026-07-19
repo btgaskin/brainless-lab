@@ -1,6 +1,16 @@
 ---
 title: "Social foraging: transmission, search efficiency, and interaction topology"
 description: A swarm of allostatic Falandays nodes foraging on a torus — a chance-discovery transmission effect (social − blind), a search-efficiency currency ΔK, and where collective function sits relative to the interaction graph's percolation. Exploratory sweeps, honestly flagged.
+evidence:
+  status: exploratory
+  id: social-foraging-working-note
+  protocol_version: "0"
+  randomization_unit: one seeded multi-agent world
+  n_independent_blocks: 3
+  block_summary: minimum 3 and maximum 8 independent seeds per tuned cell in the working notes
+  primary_endpoint: paired social-minus-blind forage score
+  artifact_path: none; ad-hoc exploratory outputs only
+  limitations: morphology and environment were tuned on the reported seeds; no sham-information control, prospective power, or sealed evaluation
 ---
 
 **Question.** Put a swarm of designed, self-organizing nodes on a foraging task and ask three
@@ -28,8 +38,9 @@ It is **allostatic, not fixed-setpoint homeostatic**: the target itself drifts t
 firing rate, so the network chases a moving set-point rather than a hard-wired one. And the plasticity
 is **eligibility-gated homeostatic**, *not* STDP — the **sign** of $\Delta w$ is set by the
 postsynaptic error $(\text{acts} - \text{target})$, while "fired last tick" only **gates which weights
-are eligible** to move. The node reproduces Falandays' wall / tracking / pong behaviour to numerical
-fidelity (bit-for-bit against the authors' fixtures at $10^{-9}$).
+are eligible** to move. The baseline's tested wall, tracking, and pong trajectories agree with
+the local authors-derived reference fixtures within the declared $10^{-9}$ tolerance. That
+implementation check does not validate this foraging task or its biological interpretation.
 
 We drive a **swarm** of these on a torus **forage** task:
 
@@ -71,12 +82,14 @@ sim = simulate(:forage;
 sim.metrics.forage_score
 ```
 
-Canonical result: **social 0.683 / blind 0.590 / ΔΔ ≈ +0.093** (5 seeds, 3000 ticks). At tuned
-sub-configs the best case is **ΔΔ +0.08 – 0.116 at ~6.5σ** (8 seeds). The effect **grows with time**
+In one tuned development setting, the observed means were **social 0.683 / blind 0.590 /
+ΔΔ ≈ +0.093** (5 seeds, 3000 ticks). Tuned sub-configurations showed
+**ΔΔ +0.08 – 0.116** over 8 seeds. Those seeds were used during selection, so neither a
+sigma-style summary nor the best cell is confirmatory. The observed difference **grows with time**
 — it is an integral of accumulation, not a fixed offset (ΔΔ ≈ +0.060 at 1500 ticks rising to
 ≈ +0.086 at 5000 ticks on the base config).
 
-**Mechanism: cohesion-mediated accumulation, not sharp recruitment.** The social channel does not
+**Candidate mechanism: cohesion-mediated accumulation, not sharp recruitment.** The social channel does not
 show followers beelining to a discoverer. It shows a source-anchored clump that slowly pulls in
 stragglers — its ceiling set by conspecific **indistinguishability** (a discoverer looks exactly like
 a wanderer, so there is no "found it!" signal to chase). The evidence is in the ΔK runs (below):
@@ -88,11 +101,12 @@ attractor, not a fast recruit.
 
 ![Blind foraging run — same config, conspecific vision off](/experiments/social-foraging/forage-blind.gif)
 
-*One run each of the naturalistic chance-discovery setup — **social** (top) vs **blind** (bottom): 48
-agents, 5000 ticks, a source that can only be found by chance (short `source_vision_range`). The
-transmission effect is a **modest statistical pull, not a dramatic clump** — over the run the social
-swarm spends more time concentrated toward the source than the blind one, worth ΔΔ ≈ +0.09 (and
-ΔK ≈ +0.41 below). A single frame won't show it; the signal is in the scores, not the spectacle.*
+*One illustrative run each of the naturalistic chance-discovery setup — **social** (top) vs
+**blind** (bottom): 48 agents, 5000 ticks, and a short `source_vision_range`. The selected
+social trajectory spends more time concentrated toward the source than the selected blind
+trajectory. That visual contrast is not a statistical estimate. The associated exploratory
+scores gave ΔΔ ≈ +0.09 and ΔK ≈ +0.41 below; uncertainty must be assessed across independent
+paired worlds, not from these representative animations.*
 
 ## The tuning — one lever at a time
 
@@ -129,7 +143,7 @@ fraction** of the social interaction graph (who-senses-whom within `vision_range
 | 16 | 0.594 | 0.540 | +0.055 |
 | 20 | 0.545 | 0.495 | +0.050 |
 
-Density has a **Goldilocks optimum ≈ 12**: too dense and the swarm is always in contact (little to
+Density has a **best observed Goldilocks cell near 12** in this development sweep: too dense and the swarm is always in contact (little to
 transmit), too sparse and encounters are too rare.
 
 | top_speed | social | blind | ΔΔ |
@@ -151,12 +165,12 @@ blind swarm nearly catches up — fast diffusion finds the source on its own).
 
 ### The directional axes
 
-- **conspecific_gain — the inverted-U, and the key reversal.** The optimum is **≈ 4**. Coupling that
+- **conspecific_gain — the inverted-U, and the key reversal.** The best observed value is **≈ 4**. Coupling that
   is too weak carries no transmission; coupling that is too **strong reverses the effect** — at
   $\text{cg} = 16$, ΔΔ $= \mathbf{-0.176}$, because over-cohesion blobs the swarm into a knot that
   drifts *away* from the source. Cohesion is double-edged: it is the mechanism *and*, past the
-  optimum, the failure mode. (Intermediate values are not all logged; read it as an inverted-U with
-  the cg ≈ 4 optimum and the cg = 16 reversal.)
+  selected value, the failure mode. (Intermediate values are not all logged; read it as a
+  candidate inverted-U with the cg ≈ 4 development cell and the cg = 16 reversal.)
 - **source_gain — lower is better for ΔΔ.** A **harder-to-reach** source (low gain) leaves more room
   for the social channel to matter. Canonical $\text{sg} = 2$.
 - **source_vision_range — shorter is better for ΔΔ.** Harder chance-discovery ⇒ larger social
@@ -168,8 +182,8 @@ blind swarm nearly catches up — fast diffusion finds the source on its own).
   The divisive-normalization width does not move the transmission effect.
 
 **Reading the tuning.** The working regime is the intersection of a **hard source** (low `source_gain`,
-short `source_vision_range`), **moderate cohesion** (`conspecific_gain` ≈ 4 — an *optimum*, not a
-maximum), and **Goldilocks density and speed** (`space_size` ≈ 12, `top_speed` ≈ 0.1).
+short `source_vision_range`), **moderate cohesion** (`conspecific_gain` ≈ 4 in this sweep),
+and **Goldilocks density and speed** (`space_size` ≈ 12, `top_speed` ≈ 0.1).
 `capture_radius` saturates and `norm_sigma` is inert.
 
 ## Search efficiency — the ΔK currency
@@ -198,7 +212,8 @@ $\tau = -T / \ln(1 - \text{reach})$):
 | asocial | source_gain=2, no social | 0.48 | 7,633 | 2.27 (186×) |
 | social | source_gain=2, social on | 0.82 | 2,951 | 2.68 (480×) |
 
-**ΔK<sub>collective</sub> = +0.41 (2.59×)** — this is the robust headline, because $\tau_\text{maxent}$
+**The selected development runs give ΔK<sub>collective</sub> = +0.41 (2.59×).** This is a
+candidate summary for confirmation because $\tau_\text{maxent}$
 cancels out of the *increment*. An RMST cross-check gives +0.18 (a censoring-compressed lower bound).
 
 $K_\text{asocial} \approx 2.3$ lands in the same band as Levin's amoeba ($K \approx 2.18$ – $2.30$) —
@@ -247,11 +262,11 @@ fraction $1.00$, deep in the connected phase above the $\approx 1.9$ percolation
 graph, by contrast, has **no edges at all**. This emergent, source-anchored connectivity — not a fixed
 random geometric graph — is what carries the transmission.*
 
-**Self-organising, not merely tuned.** Bessone & Plantec **set** the micro order-parameter
-($p^{\text{micro}}$) directly. Our allostatic node **pins its own** micro-criticality — the set-point
-chases the rate, so the branching ratio $m \approx 1$ regardless of parameters — so it **resists
-detuning**. What we tune is a **local rule**; the working interaction topology is a **downstream
-emergent product** we never specify. The decisive test (proposed, **not yet run**) is
+**A self-organisation hypothesis.** Bessone & Plantec **set** the micro order-parameter
+($p^{\text{micro}}$) directly. Across our tested settings, the allostatic node's branching-ratio
+estimate remained near $1$, which is consistent with—but does not establish—weight-mediated
+stabilization. What we tune is a **local rule**; the observed interaction topology is a **downstream
+product** we never specify directly. A stronger test (proposed, **not yet run**) is
 **scatter-and-re-form**: teleport all agents to random positions mid-run *without touching the rule*,
 and watch the source-anchored connected component and ΔK **recover** — something a static random
 geometric graph cannot do.

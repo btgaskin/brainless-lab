@@ -608,6 +608,7 @@ end
 effectors(r::HomeostaticFlowV2Reservoir) = effectors(r, r.centered)
 n_receptors(r::HomeostaticFlowV2Reservoir) = r.n_receptors_
 n_effectors(r::HomeostaticFlowV2Reservoir) = r.n_effectors_
+n_nodes(r::HomeostaticFlowV2Reservoir) = r.n_nodes_
 
 function reset!(r::HomeostaticFlowV2Reservoir)
     copyto!(r.wmat, r.wmat0)

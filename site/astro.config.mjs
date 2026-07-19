@@ -50,8 +50,10 @@ export default defineConfig({
         {
           label: 'Start here',
           items: [
+            { label: 'Getting started', slug: 'getting-started' },
             { label: 'Introduction', slug: 'introduction' },
             { label: 'Concepts', slug: 'concepts' },
+            { label: 'Platform limits', slug: 'platform-limits' },
           ],
         },
         {
@@ -65,18 +67,21 @@ export default defineConfig({
                 { label: 'Biological grounding', slug: 'nodes/neurons' },
               ],
             },
-            { label: 'Receptors & Effectors', slug: 'receptors-effectors' },
+            { label: 'Embodiment', slug: 'receptors-effectors' },
             { label: 'Environments & Tasks', slug: 'environments-tasks' },
+            { label: 'Task reference', slug: 'task-reference' },
             { label: 'The collective', slug: 'collective' },
           ],
         },
         {
-          label: 'Running the lab',
+          label: 'Research workflow',
           items: [
+            { label: 'Research workflow', slug: 'research-workflow' },
+            { label: 'Agentic workflow', slug: 'agentic-workflow' },
             { label: 'Tooling', slug: 'tooling' },
-            { label: 'Evolution', slug: 'evolution' },
-            { label: 'Analysis', slug: 'analysis' },
             { label: 'Scoring', slug: 'scoring' },
+            { label: 'Analysis', slug: 'analysis' },
+            { label: 'Evolution', slug: 'evolution' },
             { label: 'Outputs', slug: 'outputs/overview' },
           ],
         },
@@ -87,11 +92,11 @@ export default defineConfig({
             { label: 'Tracking parameter sweep', slug: 'experiments/tracking-param-sweep' },
             { label: 'Freeze-plasticity onset', slug: 'experiments/freeze-onset' },
             { label: 'Social foraging', slug: 'experiments/social-foraging' },
-            { label: 'Criticality is not the control variable', slug: 'experiments/criticality-control' },
+            { label: 'Criticality across tested perturbations', slug: 'experiments/criticality-control' },
           ],
         },
         {
-          label: 'Extending & reference',
+          label: 'Build & reference',
           items: [
             { label: 'Extending it', slug: 'extending' },
             { label: 'Contracts', slug: 'contracts' },

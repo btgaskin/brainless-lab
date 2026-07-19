@@ -1,0 +1,60 @@
+schema_version = 1
+name = "planar_uav"
+
+[[components]]
+id = "airframe"
+family = "geometry"
+kind = "disc"
+[components.parameters]
+radius = 0.28
+
+[[components]]
+id = "camera"
+family = "sensor"
+kind = "spectral_camera"
+[components.parameters]
+channels = ["red", "green", "blue"]
+field_of_view_deg = 160.0
+rays = 32
+range = 12.0
+
+[[components]]
+id = "antenna_left"
+family = "sensor"
+kind = "field_probe"
+[components.parameters]
+channel = "radio"
+mount = [0.12, 0.18]
+
+[[components]]
+id = "antenna_right"
+family = "sensor"
+kind = "field_probe"
+[components.parameters]
+channel = "radio"
+mount = [0.12, -0.18]
+
+[[components]]
+id = "radio_contrast"
+family = "encoder"
+kind = "bilateral_contrast"
+[components.parameters]
+left = "antenna_left"
+right = "antenna_right"
+epsilon = 1.0e-6
+
+[[components]]
+id = "thrusters"
+family = "actuator"
+kind = "planar_force_yaw"
+[components.parameters]
+max_force = 1.0
+max_yaw = 0.8
+
+[[components]]
+id = "motion"
+family = "dynamics"
+kind = "planar_rigid_body"
+[components.parameters]
+linear_drag = 0.08
+angular_drag = 0.1

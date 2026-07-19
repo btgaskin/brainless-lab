@@ -1,0 +1,90 @@
+schema_version = 1
+name = "bilateral_insect"
+
+[[components]]
+id = "body"
+family = "geometry"
+kind = "disc"
+[components.parameters]
+radius = 0.2
+
+[[components]]
+id = "antenna_left"
+family = "sensor"
+kind = "field_probe"
+[components.parameters]
+channel = "odor"
+mount = [0.18, 0.12]
+response_tau = 2.0
+
+[[components]]
+id = "antenna_right"
+family = "sensor"
+kind = "field_probe"
+[components.parameters]
+channel = "odor"
+mount = [0.18, -0.12]
+response_tau = 2.0
+
+[[components]]
+id = "bilateral"
+family = "encoder"
+kind = "bilateral_contrast"
+[components.parameters]
+left = "antenna_left"
+right = "antenna_right"
+epsilon = 1.0e-6
+
+[[components]]
+id = "locomotion"
+family = "actuator"
+kind = "forward_turn"
+[components.parameters]
+max_forward = 0.8
+max_turn = 1.2
+
+[[components]]
+id = "motion"
+family = "dynamics"
+kind = "unicycle"
+[components.parameters]
+linear_tau = 0.1
+
+[[components]]
+id = "metabolism"
+family = "physiology"
+kind = "regulated"
+[components.parameters]
+seed = 17
+unknown_effects = "reject"
+
+[[components.parameters.variables]]
+name = "energy"
+minimum = 0.0
+maximum = 1.0
+initial = 0.75
+setpoint = 1.0
+drift = -0.002
+deficit = "below"
+curve = "linear"
+feedback_mode = "tonic"
+gain = 0.5
+emission_p = 1.0
+link_p = 0.2
+failure = "below"
+failure_threshold = 0.0
+
+[[components.parameters.variables]]
+name = "temperature"
+minimum = 0.0
+maximum = 1.0
+initial = 1.0
+setpoint = 0.8
+drift = -0.0005
+deficit = "below"
+curve = "power"
+curve_exponent = 2.0
+feedback_mode = "bernoulli"
+gain = 0.2
+emission_p = 0.1
+failure = "none"

@@ -2,18 +2,16 @@
 
 ## What an allocation is, and why it costs more than it looks like
 
-A "heap allocation" happens whenever Julia creates a value whose size isn't known statically (a
-resizable `Vector`, a new `String`, a boxed value from a type instability). Julia's garbage
-collector (a mark-and-sweep collector) periodically pauses execution to reclaim unused heap memory
-— so allocations don't just cost the allocation itself, they cost GC time later, and that GC pause
-affects the *whole program*, not just the function that allocated. Numbers (other than `BigInt`),
-tuples, and immutable structs of concrete fields don't need this — they can live on the stack or
-in registers, which is essentially free by comparison.
+A heap allocation reserves garbage-collected storage for a value that escapes its local context or
+needs a runtime-managed representation, such as most resizable `Vector`s and `String`s. Boxing
+caused by imprecise inference can allocate too. Julia's compiler may scalar-replace or eliminate
+apparently allocated immutable values, so source syntax alone does not determine whether something
+lives on the heap, stack, or in registers. Measure the compiled call.
 
-**Practical rule:** unexpected allocations reported by `@time`, `@allocated`, or a profiler are
-almost always a symptom of a type instability (see `type-stability.md`) or of avoidable temporary
-array creation, not just an inherent cost of the computation. Treat "why is this allocating" as a
-question with a findable answer, not background noise.
+**Practical rule:** repeated unexpected allocations reported by `@allocated`, a benchmark, or an
+allocation profiler are often caused by imprecise inference or temporary array creation. Some
+allocations are intentional API costs, so optimize the measured hot path rather than demanding
+zero allocation everywhere.
 
 ## Array slices copy; views don't
 
@@ -54,11 +52,10 @@ negligible, so don't contort readable code chasing this on something tiny.
 
 ## Mutating APIs: reuse buffers in hot loops
 
-The `!`-suffix convention (`push!`, `sort!`, and the entire `f!(du, u, p, t)` style used by
-`DifferentialEquations.jl`) exists specifically to let a function write into memory that's already
-been allocated, instead of allocating fresh output every call. If you're writing a function that
-will be called every step of a simulation, every iteration of an optimizer, or every agent on every
-tick — write the in-place form:
+The `!`-suffix convention (`push!`, `sort!`, and the `f!(du, u, p, t)` style used by SciML)
+communicates that one or more arguments are mutated. Mutation often enables output-buffer reuse,
+but a `!` function may still allocate internally. If a function is called every simulation step
+and its output shape is reusable, provide an in-place form and verify its allocations:
 
 ```julia
 # allocates a new array every call — fine occasionally, expensive in a hot loop
@@ -98,25 +95,26 @@ sizehint!(v, n)
 
 ## `StaticArrays.jl` — small, fixed-size state
 
-For arrays whose size is known at compile time and small (roughly under 20-100 elements —
-the exact cutoff depends on the operation), `StaticArrays.jl` encodes the size *in the type*:
+For arrays whose size is known at compile time and small enough for specialization to remain
+cheap, `StaticArrays.jl` encodes the size *in the type*. The useful size range depends on the
+operation and compiler workload, so benchmark instead of relying on a fixed cutoff:
 
 ```julia
 using StaticArrays
-v = SA[1.0, 2.0, 3.0]        # SVector{3,Float64} — immutable, stack-allocated
+v = SA[1.0, 2.0, 3.0]        # SVector{3,Float64} — immutable, size in the type
 m = SA[1.0 0.0; 0.0 1.0]     # SMatrix{2,2,Float64}
 ```
 
-Because the size is part of the type, `SArray`/`SVector`/`SMatrix` are immutable and can live on
-the stack — no GC involvement at all, and operations on them (especially linear algebra) get
-specialized, unrolled methods via dispatch on the size. `MArray`/`MVector`/`MMatrix` give you a
-mutable variant when you need to update in place but still want the stack-allocation benefit.
+Because the size is part of the type, operations on `SArray`/`SVector`/`SMatrix` can be specialized
+and unrolled. The compiler may keep small values inline, in registers, or on the stack, but storage
+placement and allocation elimination are compiler decisions rather than guarantees.
+`MArray`/`MVector`/`MMatrix` provide mutable fixed-size storage; mutation does not by itself
+guarantee stack allocation.
 
-This is exactly the right tool for **per-agent state in an agent-based model** or **per-neuron
-state in a small ODE system** (e.g. a single Hodgkin-Huxley neuron's `(V, m, h, n)` state) — small,
-fixed shape, created and destroyed extremely often. See `scientific-ecosystem.md` for the
-`DifferentialEquations.jl`-specific version of this (small systems should use a `StaticArray` as
-`u0` and an out-of-place, non-mutating right-hand side).
+This is a good candidate for compact **per-agent state in an agent-based model** or **per-neuron
+state in a small ODE system** (e.g. a single Hodgkin-Huxley neuron's `(V, m, h, n)` state) when the
+shape is fixed and measurements support it. See `scientific-ecosystem.md` for the
+`DifferentialEquations.jl`-specific tradeoff.
 
 Don't reach for `StaticArrays.jl` for large or dynamically-sized arrays — the size-in-the-type
 mechanism works against you there (compilation blows up, and you lose the point of dynamic
@@ -150,8 +148,8 @@ the model to stay readable as it grows.
 
 ## `AllocCheck.jl` — hard guarantees
 
-For functions where you want a compile-time-checkable promise of zero allocation (e.g. a
-hot inner kernel called millions of times per simulation step):
+For functions where you want a static allocation check for a concrete call signature (e.g. a hot
+inner kernel called millions of times per simulation step):
 
 ```julia
 using AllocCheck
@@ -160,9 +158,9 @@ using AllocCheck
 end
 ```
 
-This raises an error if the compiler detects the function might allocate — useful as a regression
-test (`@test isempty(AllocCheck.check_allocs(kernel, (Float64, Float64)))`) so a future innocuous-
-looking change can't silently reintroduce allocation into a function you've already tuned.
+This raises an error if the analysis detects a possible allocation for the checked signature. Use
+it as a regression test alongside runtime measurements; dynamic dispatch and compiler-version
+changes can affect what is provable.
 
 ## Sequencing
 

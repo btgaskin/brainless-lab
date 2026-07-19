@@ -2,6 +2,15 @@ using BrainlessLab
 using Test
 
 include("testutils.jl")
+include("test_components.jl")
+include("test_public_vocabulary.jl")
+include("test_experiment_evidence.jl")
+include("test_embodiment_config.jl")
+include("test_component_catalog.jl")
+include("test_development.jl")
+include("test_embodiment_runtime.jl")
+include("test_object_world.jl")
+include("test_object_world_arbitration.jl")
 include("test_paper_constants.jl")
 include("test_authors_parity.jl")
 include("test_falandays.jl")
@@ -18,8 +27,15 @@ include("test_envs.jl")
 include("test_tracking_env_params.jl")
 include("test_cartpole_variants.jl")
 include("test_morphology.jl")
+include("test_homeostasis.jl")
 include("test_sensor.jl")
+include("test_situated.jl")
+include("test_spectral_vision.jl")
+include("test_bilateral_sensing.jl")
+include("test_physical_components.jl")
 include("test_collective_single.jl")
+include("test_mixed_ensemble.jl")
+include("test_template_extension.jl")
 include("test_motor.jl")
 include("test_collective_dyad.jl")
 include("test_forage.jl")
@@ -46,7 +62,7 @@ include("test_run.jl")
 
     @test NodeModel isa Type
     @test Reservoir isa Type
-    @test Body isa Type
+    @test AbstractBody isa Type
     @test Environment isa Type
     @test TaskWorld isa Type
     @test Runner isa Type

@@ -46,6 +46,7 @@ end
 effectors(w::NoisyInput, spikes) = effectors(getfield(w, :inner), spikes)
 n_receptors(w::NoisyInput) = n_receptors(getfield(w, :inner))
 n_effectors(w::NoisyInput) = n_effectors(getfield(w, :inner))
+n_nodes(w::NoisyInput) = n_nodes(getfield(w, :inner))
 
 function reset!(w::NoisyInput)
     reset!(getfield(w, :inner))

@@ -1,6 +1,16 @@
 ---
 title: Freeze-plasticity onset
-description: Freeze the reservoir's plasticity at tick T — when does the frozen network become a working controller? A sharp homeostatic saturation-crash onset, present only where the initial network saturates.
+description: Exploratory freeze-tick sweeps asking when a Falandays reservoir first retains useful behavior without further plasticity.
+evidence:
+  status: exploratory
+  id: freeze-plasticity-onset-working-note
+  protocol_version: "0"
+  randomization_unit: one seeded reservoir and task rollout
+  n_independent_blocks: 0
+  block_summary: no promoted artifact documents independent blocks
+  primary_endpoint: task score after the freeze intervention
+  artifact_path: none; current runs remain under experiments/runs
+  limitations: no committed run bundle, frozen protocol, uncertainty analysis, or untouched confirmation
 ---
 
 **Question.** A Falandays reservoir self-organizes online. If we **freeze** its plasticity at
@@ -17,7 +27,10 @@ julia -t auto --project=. experiments/run.jl freeze_onset
 
 ## Findings
 
-**The reservoir comes online at a sharp onset — a homeostatic saturation-crash.** For tracking,
+The observations below are hypotheses from current exploratory runs. They require a committed
+protocol, sample count, uncertainty analysis, and untouched replication before promotion.
+
+**The current tracking runs show a sharp onset aligned with a saturation crash.** For tracking,
 freezing at tick ≤ ~6 locks in the hyper-excitable *initial* weights: the network saturates
 (population rate → 1) and does nothing. The instant the homeostat's first correction crashes the
 rate — around **tick 7** — freezing starts to yield a working tracker. The transition is a cliff,
@@ -40,10 +53,12 @@ the signal that separates the regimes. This is the same rate-pinning caveat that
 [tracking parameter sweep](/experiments/tracking-param-sweep/).
 :::
 
-**Freezing *after* self-organization.** Freezing well past the onset (e.g. tick 1800), the learned
+**Freezing *after* self-organization.** In the current runs, freezing well past the onset
+(e.g. tick 1800), the learned
 recurrent structure largely persists as a working configuration on its own — but freezing the
 weights lets the population activity slowly de-regulate, while freezing only the homeostatic
-*targets* (weights still adapting) holds both activity and behaviour. The load-bearing ongoing
-adaptation lives in the recurrent-weight plasticity, not the target homeostasis.
+*targets* (weights still adapting) holds both activity and behaviour. This suggests that the
+load-bearing ongoing adaptation lives in recurrent-weight plasticity rather than target
+homeostasis; that mechanism claim is not yet confirmed on a promoted run.
 
 Each run writes a traceable `experiments/runs/freeze_onset/<stamp>_<sha>/` (results + manifest).

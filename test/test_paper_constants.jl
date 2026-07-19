@@ -79,7 +79,7 @@ end
     end
 
     wall_setup = BrainlessLab._build_ensemble(:wall, :falandays; ticks=1, seed=10, record=Symbol[])
-    wall_env = wall_setup.ensemble.environment.world
+    wall_env = wall_setup.ensemble.environment
     @test wall_env isa WallEnv
     @test wall_env.sensory_noise == 0.0
     @test wall_env.clip_sensory_noise == true
@@ -92,7 +92,7 @@ end
         record=Symbol[],
         sensory_noise=0.1,
         clip_sensory_noise=false,
-    ).ensemble.environment.world
+    ).ensemble.environment
     @test noisy_wall.sensory_noise == 0.1
     @test noisy_wall.clip_sensory_noise == false
 

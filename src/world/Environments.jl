@@ -1,12 +1,9 @@
 using Random
 
-abstract type AbstractTorusEnvironment <: Environment end
+abstract type AbstractSituatedEnvironment <: Environment end
+abstract type AbstractTorusEnvironment <: AbstractSituatedEnvironment end
 
-"""
-    TaskEnvironment(world)
-
-Single-agent environment adapter around one `TaskWorld`.
-"""
+"""Compatibility adapter; `TaskWorld` itself is now an `Environment`."""
 struct TaskEnvironment{W<:TaskWorld} <: Environment
     world::W
 end
@@ -17,22 +14,112 @@ function _require_single_body(bodies)
     return nothing
 end
 
-function observe(m::TaskEnvironment, bodies)
+function sample!(m::TaskWorld, bodies)
     _require_single_body(bodies)
-    return [sense(m.world)]
+    return [sense(m)]
 end
 
-function actuate!(m::TaskEnvironment, bodies, Es)
+function apply_commands!(m::TaskWorld, bodies, Es)
     _require_single_body(bodies)
     length(Es) == 1 ||
-        throw(ArgumentError("TaskEnvironment requires exactly one effector command"))
-    return step!(m.world, Es[1])
+        throw(ArgumentError("TaskWorld requires exactly one effector command"))
+    command = Es[1]
+    step!(m, command isa DirectCommand ? command_values(command) : command)
+    return nothing
 end
 
-environment_metrics(m::TaskEnvironment, window::Integer=default_window(m.world)) =
+sample!(m::TaskEnvironment, bodies) = sample!(m.world, bodies)
+apply_commands!(m::TaskEnvironment, bodies, Es) = apply_commands!(m.world, bodies, Es)
+metrics(m::TaskEnvironment, window::Integer=default_window(m.world)) =
     metrics(m.world, Int(window))
 
-Base.@kwdef struct SwarmConfig
+"""
+    EmbodiedEnvironment(arena, states, sampler)
+
+Minimal generic physical runtime for composed embodiments. `sampler` receives
+`(body, motion_state, tick, arena)` and returns raw samples aligned with the
+body's sensor components. Commands are decoded by the body, integrated by its
+own dynamics component, then projected back into the arena boundary.
+"""
+mutable struct EmbodiedEnvironment{A<:Union{Torus,WalledArena},F} <: Environment
+    arena::A
+    states::Vector{MotionState2D}
+    sampler::F
+    tick::Int
+end
+
+function EmbodiedEnvironment(
+    arena::Union{Torus,WalledArena},
+    states,
+    sampler,
+)
+    states_ = MotionState2D[state for state in states]
+    isempty(states_) && throw(ArgumentError("EmbodiedEnvironment requires at least one motion state"))
+    return EmbodiedEnvironment{typeof(arena),typeof(sampler)}(arena, states_, sampler, 0)
+end
+
+function sample!(environment::EmbodiedEnvironment, bodies)
+    length(bodies) == length(environment.states) || throw(DimensionMismatch(
+        "EmbodiedEnvironment has $(length(environment.states)) states for $(length(bodies)) bodies",
+    ))
+    return [
+        alive(body) ?
+            environment.sampler(body, environment.states[index], environment.tick, environment.arena) :
+            _inactive_sensor_samples(body)
+        for (index, body) in enumerate(bodies)
+    ]
+end
+
+function _inactive_sensor_samples(body::Embodiment)
+    samples = Tuple(zeros(Float64, _raw_width(sensor)) for sensor in sensor_components(body))
+    return length(samples) == 1 ? only(samples) : samples
+end
+
+_inactive_sensor_samples(body::AbstractBody) = zeros(Float64, n_receptors(body))
+
+function _project_motion!(state::MotionState2D, arena::Torus, geometry::AbstractGeometry)
+    state.position = typeof(state.position)(wrap(arena, state.position[1], state.position[2])...)
+    return state
+end
+
+
+function _project_motion!(state::MotionState2D, arena::WalledArena, geometry::AbstractGeometry)
+    radius = geometry_radius(geometry)
+    xmin, xmax, ymin, ymax = arena_bounds(arena)
+    x = clamp(state.position[1], xmin + radius, xmax - radius)
+    y = clamp(state.position[2], ymin + radius, ymax - radius)
+    vx = x == state.position[1] ? state.velocity[1] : 0.0
+    vy = y == state.position[2] ? state.velocity[2] : 0.0
+    state.position = typeof(state.position)(x, y)
+    state.velocity = typeof(state.velocity)(vx, vy)
+    return state
+end
+
+function apply_commands!(environment::EmbodiedEnvironment, bodies, commands)
+    length(bodies) == length(environment.states) == length(commands) ||
+        throw(DimensionMismatch("EmbodiedEnvironment requires one command per body"))
+    @inbounds for index in eachindex(bodies)
+        body = bodies[index]
+        body isa Embodiment || throw(ArgumentError(
+            "EmbodiedEnvironment requires composed Embodiment bodies; got $(typeof(body))",
+        ))
+        alive(body) || continue
+        command = commands[index]
+        command isa Tuple && throw(ArgumentError(
+            "EmbodiedEnvironment currently requires one actuator command per body",
+        ))
+        integrate!(environment.states[index], body.dynamics, command)
+        _project_motion!(environment.states[index], environment.arena, body.geometry)
+    end
+    environment.tick += 1
+    return [() for _ in bodies]
+end
+
+metrics(environment::EmbodiedEnvironment, window::Integer=1) = (
+    mean_speed=sum(linear_speed, environment.states) / length(environment.states),
+)
+
+Base.@kwdef struct SituatedConfig
     n_agents::Int
     space_size::Float64 = 15.0
     n_nodes::Int = 250
@@ -45,6 +132,10 @@ Base.@kwdef struct SwarmConfig
     visual_coupling::Bool = true
     physical_coupling::Bool = false
     conspecific_vision::Bool = true
+    # Optional body-to-body interaction policy. An active agent receives each
+    # effect at most once per tick when any active conspecific is in range.
+    conspecific_contact_radius::Union{Nothing,Float64} = nothing
+    conspecific_contact_effects::Tuple = ()
     source_position::Union{Nothing,NTuple{2,Float64}} = nothing
     source_gain::Float64 = 1.0
     # Informed-subset ("lookout") mask for :forage: the first `n_lookouts` agents
@@ -68,11 +159,11 @@ Base.@kwdef struct SwarmConfig
     motor::KinematicMotor = KinematicMotor()
     agent_radius::Float64 = 0.5
     # Perception geometry (which rays + how an intersection becomes an activation)
-    # lives on the SensorSpec, mirroring the motor. The default BearingSensor is the
+    # lives on the AbstractSensor. The default BearingSensor is the
     # byte-identical no-op (historical 62-ray fan, :binary encoding). The legacy
     # sens_agent_dist knob still selects the encoding: a non-zero value forces the
     # graded (1 - d/max_d) map — see `_resolve_encoding`.
-    sensor::SensorSpec = BEARING_DEFAULT
+    sensor::AbstractSensor = BEARING_DEFAULT
     seed::Int = 0
     record_inputs::Bool = true
     # Colour-tagged sensing: split the conspecific bearing bank into one selective
@@ -84,32 +175,28 @@ Base.@kwdef struct SwarmConfig
     colours::Union{Nothing,Vector{Int}} = nothing
 end
 
-# Per-agent physical state lives on the environment as index-addressed arrays
-# (positions/headings/speeds/heading_rates), the way WallEnv owns env.box. Agents
-# carry a shared, stateless PassthroughBody{VENMorphology}.
-mutable struct TorusEnvironment{R<:AbstractRNG} <: AbstractTorusEnvironment
-    torus::Torus
-    config::SwarmConfig
-    colours::Vector{Int}
-    positions::Vector{NTuple{2,Float64}}
-    headings::Vector{Float64}
-    speeds::Vector{Float64}
-    heading_rates::Vector{Float64}
-    visual_coupling::Bool
-    physical_coupling::Bool
-    sensory_noise::Float64
-    rng::R
-    sens_angles_rad::Vector{Float64}
-    history::Vector{Vector{NTuple{3,Float64}}}
-    input_history::Vector{Vector{Vector{Float64}}}
-    last_inputs::Union{Nothing,Vector{Vector{Float64}}}
-end
+"""Compatibility alias for the canonical `SituatedConfig`."""
+const SwarmConfig = SituatedConfig
 
-mutable struct ForageEnvironment{R<:AbstractRNG} <: AbstractTorusEnvironment
-    torus::Torus
-    config::SwarmConfig
+abstract type SituatedMode end
+struct CollectiveMode <: SituatedMode end
+struct ForageMode <: SituatedMode end
+
+"""
+    SituatedEnvironment
+
+Canonical mutable world for established collective and forage tasks. Geometry,
+agent poses, interaction state, histories, and world RNGs live here; bodies
+remain the owners of receptor encoding and physiology. Generic object-based
+tasks use `ObjectWorld`.
+"""
+mutable struct SituatedEnvironment{M<:SituatedMode,A,R<:AbstractRNG} <: AbstractSituatedEnvironment
+    mode::M
+    arena::A
+    config::SituatedConfig
     colours::Vector{Int}
-    source_position::NTuple{2,Float64}
+    initial_positions::Vector{NTuple{2,Float64}}
+    initial_headings::Vector{Float64}
     positions::Vector{NTuple{2,Float64}}
     headings::Vector{Float64}
     speeds::Vector{Float64}
@@ -124,9 +211,46 @@ mutable struct ForageEnvironment{R<:AbstractRNG} <: AbstractTorusEnvironment
     history::Vector{Vector{NTuple{3,Float64}}}
     input_history::Vector{Vector{Vector{Float64}}}
     last_inputs::Union{Nothing,Vector{Vector{Float64}}}
+    active_agents::BitVector
+    last_conspecific_contacts::BitVector
+    interaction_effects::Vector{Vector{Any}}
+    tick::Int
 end
 
-n_agents(m::AbstractTorusEnvironment) = length(m.positions)
+"""Compatibility facade for direct construction of the historical torus world."""
+struct TorusEnvironment{W<:SituatedEnvironment} <: AbstractTorusEnvironment
+    world::W
+end
+
+"""Compatibility facade for direct construction of the historical forage world."""
+struct ForageEnvironment{W<:SituatedEnvironment} <: AbstractTorusEnvironment
+    world::W
+end
+
+function Base.getproperty(env::Union{TorusEnvironment,ForageEnvironment}, name::Symbol)
+    name === :world && return getfield(env, :world)
+    world = getfield(env, :world)
+    name === :torus && return world.arena
+    name === :source_position && return world.config.source_position
+    return getproperty(world, name)
+end
+
+function Base.propertynames(env::Union{TorusEnvironment,ForageEnvironment}, private::Bool=false)
+    return (:world, :torus, :source_position, propertynames(getfield(env, :world), private)...)
+end
+
+function Base.setproperty!(env::Union{TorusEnvironment,ForageEnvironment}, name::Symbol, value)
+    name === :world && throw(ArgumentError("compatibility world reference is immutable"))
+    return setproperty!(getfield(env, :world), name, value)
+end
+
+function Base.getproperty(env::SituatedEnvironment, name::Symbol)
+    name === :torus && return getfield(env, :arena)
+    name === :source_position && return getfield(env, :config).source_position
+    return getfield(env, name)
+end
+
+n_agents(m::AbstractSituatedEnvironment) = length(m.positions)
 
 function _environment_named_tuple(dict::Dict{Symbol,Any})
     isempty(dict) && return NamedTuple()
@@ -205,6 +329,18 @@ function _validate_forage_config(config::SwarmConfig)
     return nothing
 end
 
+function _validate_conspecific_contact(config::SwarmConfig)
+    radius = config.conspecific_contact_radius
+    isempty(config.conspecific_contact_effects) && radius === nothing && return nothing
+    radius === nothing && throw(ArgumentError(
+        "conspecific_contact_radius is required when contact effects are configured",
+    ))
+    isfinite(radius) && radius >= 0.0 || throw(ArgumentError(
+        "conspecific_contact_radius must be finite and non-negative",
+    ))
+    return nothing
+end
+
 function _empty_torus_histories(n::Integer)
     n_ = Int(n)
     history = [NTuple{3,Float64}[] for _ in 1:n_]
@@ -212,12 +348,53 @@ function _empty_torus_histories(n::Integer)
     return history, input_history
 end
 
-function _sample_open_position(rng::AbstractRNG, torus::Torus, config::SwarmConfig, positions, min_separation)
+function _make_situated_environment(
+    mode::SituatedMode,
+    arena,
+    config::SwarmConfig,
+    positions,
+    headings,
+    rng::AbstractRNG,
+)
+    _validate_conspecific_contact(config)
+    pos = _coerce_positions(positions)
+    n = length(pos)
+    heads = _coerce_headings(headings, n)
+    history, input_history = _empty_torus_histories(n)
+    return SituatedEnvironment(
+        mode,
+        arena,
+        config,
+        _resolve_colours(config, n),
+        copy(pos),
+        copy(heads),
+        pos,
+        heads,
+        zeros(Float64, n),
+        zeros(Float64, n),
+        _source_gains(config, n),
+        zeros(Float64, n),
+        Bool(config.visual_coupling),
+        Bool(config.physical_coupling),
+        Float64(config.sensory_noise),
+        rng,
+        angles_rad(config.sensor),
+        history,
+        input_history,
+        nothing,
+        trues(n),
+        falses(n),
+        [Any[] for _ in 1:n],
+        0,
+    )
+end
+
+function _sample_open_position(rng::AbstractRNG, arena::Union{Torus,WalledArena}, config::SwarmConfig, positions, min_separation)
     for _ in 1:10000
-        pos = (rand(rng) * config.space_size, rand(rng) * config.space_size)
+        pos = sample_position(rng, arena; radius=config.agent_radius)
         open = true
         for p in positions
-            if tdistance(torus, pos, p) < min_separation
+            if arena_distance(arena, pos, p) < min_separation
                 open = false
                 break
             end
@@ -229,13 +406,13 @@ end
 
 # Sample initial per-agent (position, heading). RNG draw order matches the old
 # per-body sampling: an agent's open position, then its heading.
-function _sample_states(config::SwarmConfig, torus::Torus, rng::AbstractRNG)
+function _sample_states(config::SwarmConfig, arena::Union{Torus,WalledArena}, rng::AbstractRNG)
     Int(config.n_agents) >= 1 || throw(ArgumentError("n_agents must be at least 1"))
     positions = NTuple{2,Float64}[]
     headings = Float64[]
     min_separation = 2.0 * config.agent_radius + 0.2
     for _ in 1:config.n_agents
-        pos = _sample_open_position(rng, torus, config, positions, min_separation)
+        pos = _sample_open_position(rng, arena, config, positions, min_separation)
         push!(positions, pos)
         push!(headings, rand(rng) * _TWO_PI)
     end
@@ -243,7 +420,10 @@ function _sample_states(config::SwarmConfig, torus::Torus, rng::AbstractRNG)
 end
 
 function _coerce_positions(positions)
-    return NTuple{2,Float64}[(Float64(p[1]), Float64(p[2])) for p in positions]
+    values = NTuple{2,Float64}[(Float64(p[1]), Float64(p[2])) for p in positions]
+    all(position -> all(isfinite, position), values) ||
+        throw(ArgumentError("agent positions must be finite"))
+    return values
 end
 
 function _coerce_headings(headings, n::Integer)
@@ -251,33 +431,17 @@ function _coerce_headings(headings, n::Integer)
     heads = Float64.(collect(headings))
     length(heads) == Int(n) ||
         throw(DimensionMismatch("expected $(n) headings, got $(length(heads))"))
+    all(isfinite, heads) || throw(ArgumentError("agent headings must be finite"))
     return heads
 end
 
 # --- TorusEnvironment constructors ---
 
 function _make_torus_environment(torus::Torus, config::SwarmConfig, positions, headings, rng::AbstractRNG)
-    pos = _coerce_positions(positions)
-    n = length(pos)
-    heads = _coerce_headings(headings, n)
-    history, input_history = _empty_torus_histories(n)
-    return TorusEnvironment(
-        torus,
-        config,
-        _resolve_colours(config, n),
-        pos,
-        heads,
-        zeros(Float64, n),
-        zeros(Float64, n),
-        Bool(config.visual_coupling),
-        Bool(config.physical_coupling),
-        Float64(config.sensory_noise),
-        rng,
-        angles_rad(config.sensor),
-        history,
-        input_history,
-        nothing,
+    world = _make_situated_environment(
+        CollectiveMode(), torus, config, positions, headings, rng,
     )
+    return TorusEnvironment(world)
 end
 
 function TorusEnvironment(config::SwarmConfig; rng::AbstractRNG=MersenneTwister(config.seed))
@@ -326,32 +490,17 @@ end
 
 # --- ForageEnvironment constructors ---
 
-function _make_forage_environment(torus::Torus, config::SwarmConfig, positions, headings, source_pos::NTuple{2,Float64}, rng::AbstractRNG)
-    pos = _coerce_positions(positions)
-    n = length(pos)
-    heads = _coerce_headings(headings, n)
-    source_gains = _source_gains(config, n)
-    history, input_history = _empty_torus_histories(n)
-    return ForageEnvironment(
-        torus,
-        config,
-        _resolve_colours(config, n),
-        source_pos,
-        pos,
-        heads,
-        zeros(Float64, n),
-        zeros(Float64, n),
-        source_gains,
-        zeros(Float64, n),
-        Bool(config.visual_coupling),
-        Bool(config.physical_coupling),
-        Float64(config.sensory_noise),
-        rng,
-        angles_rad(config.sensor),
-        history,
-        input_history,
-        nothing,
+function _make_forage_environment(
+    torus::Torus,
+    config::SwarmConfig,
+    positions,
+    headings,
+    rng::AbstractRNG,
+)
+    world = _make_situated_environment(
+        ForageMode(), torus, config, positions, headings, rng,
     )
+    return ForageEnvironment(world)
 end
 
 function ForageEnvironment(config::SwarmConfig; rng::AbstractRNG=MersenneTwister(config.seed))
@@ -360,7 +509,7 @@ function ForageEnvironment(config::SwarmConfig; rng::AbstractRNG=MersenneTwister
     positions, headings = _sample_states(config, torus, rng)
     source_pos = _resolve_source_position(config, torus, rng)
     config_ = _swarm_config_with(config; source_position=source_pos)
-    return _make_forage_environment(torus, config_, positions, headings, source_pos, rng)
+    return _make_forage_environment(torus, config_, positions, headings, rng)
 end
 
 function ForageEnvironment(
@@ -415,10 +564,93 @@ function ForageEnvironment(
     _validate_forage_config(config_)
     source_pos = _resolve_source_position(config_, torus, rng)
     config_ = _swarm_config_with(config_; source_position=source_pos)
-    return _make_forage_environment(torus, config_, positions, headings, source_pos, rng)
+    return _make_forage_environment(torus, config_, positions, headings, rng)
 end
 
-function _require_torus_width(m::AbstractTorusEnvironment, bodies)
+"""Concrete setup callable for the registered periodic collective world."""
+struct TorusTaskSetup end
+
+"""Concrete setup callable for the registered source-foraging world."""
+struct ForageTaskSetup end
+
+is_multiagent(setup) = false
+is_multiagent(::TaskWorldSetup) = false
+is_multiagent(::TorusTaskSetup) = true
+is_multiagent(::ForageTaskSetup) = true
+
+function _swarm_task_setup(
+    forage::Bool;
+    seed=0,
+    rng=nothing,
+    body=nothing,
+    n_agents::Integer=8,
+    n_nodes::Integer=100,
+    kwargs...,
+)
+    if body !== nothing
+        throw(ArgumentError(
+            "torus and forage construct situated embodiments from task options; got body=$(body)",
+        ))
+    end
+
+    options = Dict{Symbol,Any}(Symbol(key) => value for (key, value) in pairs(kwargs))
+    options[:n_agents] = Int(n_agents)
+    options[:n_nodes] = Int(n_nodes)
+    options[:seed] = seed === nothing ? 0 : Int(seed)
+    keys_ = Tuple(keys(options))
+    values_ = Tuple(options[key] for key in keys_)
+    config = SwarmConfig(; NamedTuple{keys_}(values_)...)
+    env_rng = rng === nothing ? _task_setup_rng(seed) : rng
+    facade = forage ? ForageEnvironment(config; rng=env_rng) : TorusEnvironment(config; rng=env_rng)
+    environment = facade.world
+
+    layout = SituatedSensorLayout(
+        sensory_scaling=config.sensory_scaling,
+        source_bank=forage,
+        source_gain=config.source_gain,
+        signalling=forage && config.signalling,
+        norm_mode=config.norm_mode,
+        norm_sigma=config.norm_sigma,
+        conspecific_gain=config.conspecific_gain,
+        n_colours=config.n_colours,
+        colour_sensing=config.colour_sensing,
+        sensor=config.sensor,
+    )
+    bodies = [
+        situated_embodiment(layout, config.motor; radius=config.agent_radius)
+        for _ in 1:config.n_agents
+    ]
+    return TaskSetup(environment, bodies)
+end
+
+(::TorusTaskSetup)(; kwargs...) = _swarm_task_setup(false; kwargs...)
+(::ForageTaskSetup)(; kwargs...) = _swarm_task_setup(true; kwargs...)
+
+const TORUS_TASK = TaskSpec(
+    :torus,
+    TorusTaskSetup();
+    env_type=SituatedEnvironment{CollectiveMode},
+    n_receptors=DEFAULT_BEARING_BANK_RECEPTORS,
+    n_effectors=3,
+    default_ticks=1000,
+    default_window=1000,
+    score_key=nothing,
+)
+
+const FORAGE_TASK = TaskSpec(
+    :forage,
+    ForageTaskSetup();
+    env_type=SituatedEnvironment{ForageMode},
+    n_receptors=DEFAULT_FORAGE_RECEPTORS,
+    n_effectors=3,
+    default_ticks=1000,
+    default_window=1000,
+    floor=FORAGE_FLOOR_ANCHOR,
+    ceiling=FORAGE_CEILING_ANCHOR,
+    score_key=:forage_score,
+)
+
+function _require_situated_width(m::AbstractSituatedEnvironment, bodies)
     n = length(m.positions)
     length(bodies) == n ||
         throw(DimensionMismatch("environment has $(n) agents, got $(length(bodies))"))
@@ -436,8 +668,13 @@ function _resolve_encoding(config::SwarmConfig)
     return encoding(config.sensor)
 end
 
-function _conspecific_sensors(m::AbstractTorusEnvironment, i::Integer)
+function _conspecific_sensors(m::AbstractSituatedEnvironment, i::Integer)
     nb = length(m.sens_angles_rad)
+    if !m.active_agents[Int(i)]
+        return m.config.colour_sensing ?
+            zeros(Float64, max(1, Int(m.config.n_colours)) * nb) :
+            zeros(Float64, nb)
+    end
     if m.visual_coupling && m.config.conspecific_vision
         enc = _resolve_encoding(m.config)
         if m.config.colour_sensing
@@ -455,6 +692,7 @@ function _conspecific_sensors(m::AbstractTorusEnvironment, i::Integer)
                 m.rng;
                 n_colours=m.config.n_colours,
                 vision_range=m.config.vision_range,
+                active_mask=m.active_agents,
             )
         end
         return sense_agents(
@@ -469,95 +707,100 @@ function _conspecific_sensors(m::AbstractTorusEnvironment, i::Integer)
             m.sensory_noise,
             m.rng;
             vision_range=m.config.vision_range,
+            active_mask=m.active_agents,
         )
     end
     # Blind: zeros wide enough for the (possibly coloured) conspecific layout.
     return m.config.colour_sensing ? zeros(Float64, max(1, Int(m.config.n_colours)) * nb) : zeros(Float64, nb)
 end
 
-# observe returns the fully-encoded reservoir inputs (so the per-agent source_gain
-# env array is applied here); the agent's PassthroughBody{VENMorphology} passes
-# them through in Ensemble.step!.
-function observe(m::TorusEnvironment, bodies)
-    _require_torus_width(m, bodies)
+function _collective_percepts(m::SituatedEnvironment, bodies)
+    _require_situated_width(m, bodies)
+    _sync_active_agents!(m, bodies)
     n = length(m.positions)
-    inputs = Vector{Vector{Float64}}(undef, n)
-
-    nb = length(m.sens_angles_rad)
+    inputs = Vector{NamedTuple{(:conspecific,),Tuple{Vector{Float64}}}}(undef, n)
     @inbounds for i in 1:n
-        sens = _conspecific_sensors(m, i)
-        inputs[i] = assemble_inputs(
-            sens,
-            m.config.sensory_scaling;
-            norm_mode=m.config.norm_mode,
-            norm_sigma=m.config.norm_sigma,
-            gain=m.config.conspecific_gain,
-            n_colours=m.config.n_colours,
-            colour_sensing=m.config.colour_sensing,
-            n_sensors=nb,
-        )
+        inputs[i] = (conspecific=_conspecific_sensors(m, i),)
     end
-
-    m.last_inputs = inputs
     return inputs
 end
 
-function observe(m::ForageEnvironment, bodies)
-    _require_torus_width(m, bodies)
+sample!(m::SituatedEnvironment{CollectiveMode}, bodies) = _collective_percepts(m, bodies)
+
+function _acoustic_percept(m::SituatedEnvironment, i::Int)
+    m.config.signalling || return 0.0
+    intensity = 0.0
+    pos_i = m.positions[i]
+    @inbounds for j in eachindex(m.positions)
+        (i == j || !m.active_agents[j]) && continue
+        d = arena_distance(m.arena, pos_i, m.positions[j])
+        intensity += m.last_signal[j] * exp(-d / Float64(m.config.signal_range))
+    end
+    return Float64(m.config.signal_gain) * clamp(intensity, 0.0, 1.0)
+end
+
+function sample!(m::SituatedEnvironment{ForageMode}, bodies)
+    _require_situated_width(m, bodies)
+    _sync_active_agents!(m, bodies)
     n = length(m.positions)
-    inputs = Vector{Vector{Float64}}(undef, n)
-    nb = length(m.sens_angles_rad)
+    T = NamedTuple{(:conspecific,:source,:source_gain,:acoustic),Tuple{Vector{Float64},Vector{Float64},Float64,Float64}}
+    inputs = Vector{T}(undef, n)
 
     @inbounds for i in 1:n
         conspecific = _conspecific_sensors(m, i)
-        source = sense_source(
+        source = m.active_agents[i] ? sense_source(
             m.positions[i],
             m.headings[i],
             m.source_position,
-            m.torus,
+            m.arena,
             m.sens_angles_rad,
             _resolve_encoding(m.config),
             m.sensory_noise,
             m.rng;
             vision_range=m.config.source_vision_range === nothing ? m.config.vision_range : m.config.source_vision_range,
             source_radius=m.config.capture_radius,
-        )
-        inputs[i] = assemble_forage_inputs(
-            conspecific,
-            source,
-            m.config.sensory_scaling;
+        ) : zeros(Float64, length(m.sens_angles_rad))
+        inputs[i] = (
+            conspecific=conspecific,
+            source=source,
             source_gain=m.source_gains[i],
-            norm_mode=m.config.norm_mode,
-            norm_sigma=m.config.norm_sigma,
-            conspecific_gain=m.config.conspecific_gain,
-            n_colours=m.config.n_colours,
-            colour_sensing=m.config.colour_sensing,
-            n_sensors=nb,
+            acoustic=_acoustic_percept(m, i),
         )
     end
-
-    if m.config.signalling
-        signal_range = Float64(m.config.signal_range)
-        signal_gain = Float64(m.config.signal_gain)
-        # The acoustic receptor sits at the start of the source region, which the
-        # coloured conspecific layout (and a non-default sensor ray count) can shift
-        # off the hardcoded index 65.
-        acoustic_idx = _ven_acoustic_index(m.config.colour_sensing, m.config.n_colours; n_sensors=nb)
-        @inbounds for i in 1:n
-            intensity = 0.0
-            pos_i = m.positions[i]
-            for j in 1:n
-                i == j && continue
-                d = tdistance(m.torus, pos_i, m.positions[j])
-                intensity += m.last_signal[j] * exp(-d / signal_range)
-            end
-            inputs[i][acoustic_idx] = signal_gain * clamp(intensity, 0.0, 1.0)
-        end
-    end
-
-    m.last_inputs = inputs
     return inputs
 end
+
+function _compat_observe(m::Union{TorusEnvironment,ForageEnvironment}, bodies)
+    raw = sample!(m.world, bodies)
+    config = m.config
+    layout = SituatedSensorLayout(
+        sensory_scaling=config.sensory_scaling,
+        source_bank=m isa ForageEnvironment,
+        source_gain=config.source_gain,
+        signalling=m isa ForageEnvironment && config.signalling,
+        norm_mode=config.norm_mode,
+        norm_sigma=config.norm_sigma,
+        conspecific_gain=config.conspecific_gain,
+        n_colours=config.n_colours,
+        colour_sensing=config.colour_sensing,
+        sensor=config.sensor,
+    )
+    encoder = SituatedEncoder(layout)
+    inputs = [encode!(encoder, raw[i]) for i in eachindex(raw)]
+    remember_receptors!(m.world, inputs)
+    return inputs
+end
+
+sample!(m::TorusEnvironment, bodies) = _compat_observe(m, bodies)
+sample!(m::ForageEnvironment, bodies) = _compat_observe(m, bodies)
+
+function remember_receptors!(m::SituatedEnvironment, inputs)
+    m.last_inputs = [Vector{Float64}(input) for input in inputs]
+    return nothing
+end
+
+remember_receptors!(m::Union{TorusEnvironment,ForageEnvironment}, inputs) =
+    remember_receptors!(m.world, inputs)
 
 # Set (speed, heading) from a velocity vector after a collision.
 function _velocity_to_state(velocity::NTuple{2,Float64}, heading::Float64)
@@ -566,7 +809,7 @@ function _velocity_to_state(velocity::NTuple{2,Float64}, heading::Float64)
     return Float64(speed), new_heading
 end
 
-function _resolve_collisions!(m::AbstractTorusEnvironment)
+function _resolve_collisions!(m::AbstractSituatedEnvironment)
     m.physical_coupling || return nothing
 
     radius = Float64(m.config.agent_radius)
@@ -574,8 +817,10 @@ function _resolve_collisions!(m::AbstractTorusEnvironment)
     n = length(m.positions)
 
     for i in 1:n
+        m.active_agents[i] || continue
         for j in (i + 1):n
-            dx, dy = tdelta(m.torus, m.positions[i], m.positions[j])
+            m.active_agents[j] || continue
+            dx, dy = arena_delta(m.arena, m.positions[i], m.positions[j])
             dist = hypot(dx, dy)
             dist >= min_d && continue
 
@@ -585,16 +830,18 @@ function _resolve_collisions!(m::AbstractTorusEnvironment)
                 (Float64(dx / dist), Float64(dy / dist))
 
             overlap = min_d - dist
-            m.positions[i] = wrap(
-                m.torus,
+            m.positions[i] = first(arena_position(
+                m.arena,
                 m.positions[i][1] - 0.5 * overlap * normal[1],
                 m.positions[i][2] - 0.5 * overlap * normal[2],
-            )
-            m.positions[j] = wrap(
-                m.torus,
+                radius,
+            ))
+            m.positions[j] = first(arena_position(
+                m.arena,
                 m.positions[j][1] + 0.5 * overlap * normal[1],
                 m.positions[j][2] + 0.5 * overlap * normal[2],
-            )
+                radius,
+            ))
 
             va_hat = velocity_hat(m.headings[i])
             vb_hat = velocity_hat(m.headings[j])
@@ -618,25 +865,96 @@ function _resolve_collisions!(m::AbstractTorusEnvironment)
     return nothing
 end
 
-_capture_signals!(::AbstractTorusEnvironment, Es) = nothing
+_capture_signals!(::AbstractSituatedEnvironment, Es) = nothing
 
 function _capture_signals!(m::ForageEnvironment, Es)
     m.config.signalling || return nothing
     @inbounds for i in eachindex(Es)
-        m.last_signal[i] = ven_emitted_signal(Es[i])
+        values = Es[i] isa DirectCommand ? command_values(Es[i]) : Es[i]
+        m.last_signal[i] = emitted_signal(values)
     end
     return nothing
 end
 
-function actuate!(m::AbstractTorusEnvironment, bodies, Es)
-    _require_torus_width(m, bodies)
+function _capture_signals!(m::SituatedEnvironment{ForageMode}, Es)
+    m.config.signalling || return nothing
+    @inbounds for i in eachindex(Es)
+        values = Es[i] isa DirectCommand ? command_values(Es[i]) : Es[i]
+        m.last_signal[i] = m.active_agents[i] ? emitted_signal(values) : 0.0
+    end
+    return nothing
+end
+
+function _integrate_situated(motor_, pos, heading, speed, heading_rate, e, arena::Torus, radius)
+    return integrate!(motor_, pos, heading, speed, heading_rate, e, arena)
+end
+
+function _integrate_situated(motor_, pos, heading, speed, heading_rate, e, arena::WalledArena, radius)
+    return integrate!(
+        motor_, pos, heading, speed, heading_rate, e, arena; radius=radius,
+    )
+end
+
+_resolve_object_interactions!(::AbstractSituatedEnvironment, bodies) = nothing
+
+function _resolve_conspecific_interactions!(m::AbstractSituatedEnvironment, bodies, effects)
+    fill!(m.last_conspecific_contacts, false)
+    radius = m.config.conspecific_contact_radius
+    radius === nothing && return effects
+
+    resolved = if effects === nothing
+        @inbounds for agent_effects in m.interaction_effects
+            empty!(agent_effects)
+        end
+        m.interaction_effects
+    else
+        effects
+    end
+    radius_ = Float64(radius)
+    @inbounds for i in eachindex(bodies)
+        m.active_agents[i] || continue
+        for j in (i + 1):length(bodies)
+            m.active_agents[j] || continue
+            arena_distance(m.arena, m.positions[i], m.positions[j]) <= radius_ || continue
+            m.last_conspecific_contacts[i] = true
+            m.last_conspecific_contacts[j] = true
+        end
+    end
+    contact_effects = m.config.conspecific_contact_effects
+    isempty(contact_effects) && return resolved
+    @inbounds for i in eachindex(bodies)
+        m.last_conspecific_contacts[i] || continue
+        append!(resolved[i], contact_effects)
+    end
+    return resolved
+end
+
+function _sync_active_agents!(m::AbstractSituatedEnvironment, bodies)
+    @inbounds for i in eachindex(bodies)
+        m.active_agents[i] = alive(bodies[i])
+    end
+    return nothing
+end
+
+function apply_commands!(m::AbstractSituatedEnvironment, bodies, Es)
+    _require_situated_width(m, bodies)
     n = length(m.positions)
     length(Es) == n ||
         throw(DimensionMismatch("expected one effector vector per agent"))
+    _sync_active_agents!(m, bodies)
 
     @inbounds for i in 1:n
-        new_pos, new_heading, new_speed, new_hr = integrate_motion(
-            motor(bodies[i]), m.positions[i], m.headings[i], m.speeds[i], m.heading_rates[i], Es[i], m.torus,
+        m.active_agents[i] || continue
+        command = Es[i] isa DirectCommand ? command_values(Es[i]) : Es[i]
+        new_pos, new_heading, new_speed, new_hr = _integrate_situated(
+            readout_policy(bodies[i]),
+            m.positions[i],
+            m.headings[i],
+            m.speeds[i],
+            m.heading_rates[i],
+            command,
+            m.arena,
+            m.config.agent_radius,
         )
         m.positions[i] = new_pos
         m.headings[i] = new_heading
@@ -658,16 +976,16 @@ function actuate!(m::AbstractTorusEnvironment, bodies, Es)
         end
     end
 
-    return nothing
+    effects = _resolve_object_interactions!(m, bodies)
+    effects = _resolve_conspecific_interactions!(m, bodies, effects)
+    m.tick += 1
+    return effects
 end
 
-function _default_torus_window(m::AbstractTorusEnvironment)
+function _default_situated_window(m::AbstractSituatedEnvironment)
     isempty(m.history) && return 0
     return minimum(length, m.history)
 end
 
-environment_metrics(m::TorusEnvironment, window::Integer=_default_torus_window(m)) =
-    swarm_metrics(m, Int(window))
-
-environment_metrics(m::ForageEnvironment, window::Integer=_default_torus_window(m)) =
-    forage_metrics(m, Int(window))
+conspecific_contacts(m::AbstractSituatedEnvironment) =
+    copy(m.last_conspecific_contacts)

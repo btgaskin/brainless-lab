@@ -173,10 +173,6 @@ _ablation_symbol(name::AbstractString) = Symbol(name)
 _ablation_symbol(::Type{T}) where {T<:Intervention} = Symbol(nameof(T))
 _ablation_symbol(i::Intervention) = Symbol(nameof(typeof(i)))
 
-function _is_swarm_task(task::Symbol, n_agents)
-    return task in (:torus, :swarm, :forage) || n_agents !== nothing
-end
-
 function _ablation_notes(sym::Symbol, node::Symbol, task::Symbol, is_swarm::Bool)
     sym === :none && return String[]
     notes = String[]
@@ -696,45 +692,42 @@ function _build_reservoir(
     end
 end
 
-function _validate_agent_ports(reservoir::Reservoir, body::Body, morphology::Morphology)
-    spec = portspec(morphology)
+function _validate_agent_ports(reservoir::Reservoir, body::AbstractBody)
+    spec = portspec(body)
     reservoir_receptors = n_receptors(reservoir)
     reservoir_effectors = n_effectors(reservoir)
-    morphology_receptors = n_receptors(spec)
-    morphology_effectors = n_effectors(spec)
+    body_receptors = n_receptors(spec)
+    body_effectors = n_effectors(spec)
 
-    if reservoir_receptors != morphology_receptors || reservoir_effectors != morphology_effectors
+    if reservoir_receptors != body_receptors || reservoir_effectors != body_effectors
         msg =
-            "Agent port mismatch for $(typeof(body)) / $(typeof(morphology)): " *
+            "Agent port mismatch for $(typeof(body)): " *
             "reservoir has ($(reservoir_receptors), $(reservoir_effectors)) " *
-            "but morphology expects ($(morphology_receptors), $(morphology_effectors))"
+            "but body expects ($(body_receptors), $(body_effectors))"
         throw(DimensionMismatch(msg))
     end
 
     return nothing
 end
 
-function _make_agent(reservoir::Reservoir, body::Body, morphology::Morphology)
-    _validate_agent_ports(reservoir, body, morphology)
+function _make_agent(reservoir::Reservoir, body::AbstractBody)
+    _validate_agent_ports(reservoir, body)
     return Agent(reservoir, body)
 end
 
-function _resolve_task_body(body)
-    body isa Body && return body
-    ctor =
-        body isa Symbol ? resolve_body(body) :
-        body isa AbstractString ? resolve_body(Symbol(body)) :
-        body
-    if applicable(ctor)
-        body_obj = ctor()
-        body_obj isa Body ||
-            throw(ArgumentError("task body constructor returned $(typeof(body_obj)), not a Body"))
-        return body_obj
-    end
-    throw(ArgumentError("task body must be a Body instance, registered body symbol, or zero-argument Body constructor"))
+function _setup_for_node_count(
+    task_spec::TaskSpec{S},
+    n_nodes::Integer;
+    kwargs...,
+) where {S<:TaskWorldSetup}
+    return setup_task(task_spec; kwargs...)
 end
 
-function _make_task_ensemble(
+function _setup_for_node_count(task_spec::TaskSpec, n_nodes::Integer; kwargs...)
+    return setup_task(task_spec; n_nodes=Int(n_nodes), kwargs...)
+end
+
+function _make_ensemble(
     task_spec::TaskSpec,
     node::Symbol,
     node_ctor;
@@ -744,89 +737,56 @@ function _make_task_ensemble(
     spectral_every::Integer=1,
     n_nodes::Integer=100,
     node_kwargs=NamedTuple(),
-    env_kwargs=NamedTuple(),
-    body=:passthrough,
+    task_kwargs=NamedTuple(),
+    body=nothing,
     ablation=:none,
 )
-    env_options = _kwargs_tuple(_merge_kwdicts(env_kwargs))
-    env = make_env(task_spec; rng=_sim_rng(seed), env_options...)
-    morphology = default_morphology(env)
-    spec = portspec(morphology)
-    reservoir = _build_reservoir(
-        node,
-        node_ctor,
-        n_nodes,
-        n_receptors(spec),
-        n_effectors(spec);
+    setup_options = _kwargs_tuple(_merge_kwdicts(task_kwargs))
+    task_setup = _setup_for_node_count(
+        task_spec,
+        n_nodes;
         seed=seed,
-        node_kwargs=node_kwargs,
-        ablation=ablation,
+        body=body,
+        setup_options...,
     )
-    agent = _make_agent(reservoir, _resolve_task_body(body), morphology)
-    recorder = Recorder(enabled=record, every=every, compute_every=_spectral_compute_every(spectral_every))
-    ensemble = Ensemble([agent], TaskEnvironment(env); recorder=recorder)
-    return ensemble, recorder
-end
 
-function _make_swarm_ensemble(
-    node::Symbol,
-    node_ctor;
-    seed=0,
-    record=Symbol[],
-    every::Integer=1,
-    spectral_every::Integer=1,
-    n_agents::Integer=8,
-    n_nodes::Integer=100,
-    node_kwargs=NamedTuple(),
-    swarm_kwargs=NamedTuple(),
-    forage::Bool=false,
-    body=:ven,
-    ablation=:none,
-)
-    body === :ven ||
-        throw(ArgumentError("swarm tasks (:torus/:forage) always use PassthroughBody(VENMorphology); `body=:$(body)` is not supported"))
-    swarm_options = _merge_kwdicts(swarm_kwargs)
-    swarm_options[:n_agents] = Int(n_agents)
-    swarm_options[:n_nodes] = Int(n_nodes)
-    swarm_options[:seed] = seed === nothing ? 0 : Int(seed)
-    config = SwarmConfig(; _kwargs_tuple(swarm_options)...)
-    environment = forage ? ForageEnvironment(config; rng=_sim_rng(seed)) : TorusEnvironment(config; rng=_sim_rng(seed))
-
-    # All swarm agents share one stateless body carrying the uniform VEN
-    # morphology; per-agent state (pos/heading/speed) and per-agent source_gain
-    # live on the environment arrays.
-    morphology = VENMorphology(
-        sensory_scaling=config.sensory_scaling,
-        source_bank=forage,
-        source_gain=config.source_gain,
-        signalling=forage && config.signalling,
-        norm_mode=config.norm_mode,
-        norm_sigma=config.norm_sigma,
-        conspecific_gain=config.conspecific_gain,
-        n_colours=config.n_colours,
-        colour_sensing=config.colour_sensing,
-        sensor=config.sensor,
-    )
-    ven_body = PassthroughBody(morphology, config.motor)
-    spec = portspec(morphology)
-
-    agents = Vector{Agent}(undef, config.n_agents)
-    @inbounds for i in 1:config.n_agents
+    bodies = task_setup.bodies
+    agents = Vector{Agent}(undef, length(bodies))
+    @inbounds for i in eachindex(bodies)
+        spec = portspec(bodies[i])
+        body_node_options = _merge_kwdicts(node_kwargs)
+        if haskey(body_node_options, :noise_source)
+            body_node_options[:noise_source] = agent_noise_source(
+                body_node_options[:noise_source],
+                i,
+            )
+        end
+        default_link_p = Float64(get(body_node_options, :link_p, 0.1))
+        input_profile = receptor_link_profile(bodies[i], default_link_p)
+        if input_profile !== nothing
+            profile_keyword = node_receptor_profile_keyword(node)
+            profile_keyword === nothing && throw(ArgumentError(
+                "body requires a per-receptor link profile, but registered node :$(node) " *
+                "does not declare receptor_profile_keyword; register the constructor " *
+                "with that capability or use a uniform body profile",
+            ))
+            body_node_options[profile_keyword] = input_profile
+        end
         reservoir = _build_reservoir(
             node,
             node_ctor,
-            config.n_nodes,
+            n_nodes,
             n_receptors(spec),
             n_effectors(spec);
             seed=_sim_seed(seed, i - 1),
-            node_kwargs=node_kwargs,
+            node_kwargs=body_node_options,
             ablation=ablation,
         )
-        agents[i] = _make_agent(reservoir, ven_body, morphology)
+        agents[i] = _make_agent(reservoir, bodies[i])
     end
 
     recorder = Recorder(enabled=record, every=every, compute_every=_spectral_compute_every(spectral_every))
-    ensemble = Ensemble(agents, environment; recorder=recorder)
+    ensemble = Ensemble(agents, task_setup.environment; recorder=recorder)
     return ensemble, recorder
 end
 
@@ -835,6 +795,283 @@ _spectral_compute_every(spectral_every::Integer) =
 
 _environment_size(::TaskWorld) = nothing
 _environment_size(env::WallEnv) = Float64(env.box.size)
+
+_config_type(value) = string(typeof(value))
+
+function _custom_callable_config(value)
+    names = fieldnames(typeof(value))
+    parameters = NamedTuple{names}(Tuple(getfield(value, name) for name in names))
+    return (kind=:custom, type=_config_type(value), parameters=parameters)
+end
+
+_deficit_config(::BelowSetpoint) = (kind=:below_setpoint,)
+_deficit_config(::AboveSetpoint) = (kind=:above_setpoint,)
+_deficit_config(::SetpointDistance) = (kind=:setpoint_distance,)
+_deficit_config(value) = _custom_callable_config(value)
+
+_curve_config(::LinearFeedback) = (kind=:linear,)
+_curve_config(curve::ConstantResponse) = (kind=:constant, value=curve.value)
+_curve_config(curve::PowerFeedback) = (kind=:power, exponent=curve.exponent)
+_curve_config(curve::LogisticFeedback) = (
+    kind=:logistic,
+    slope=curve.slope,
+    midpoint=curve.midpoint,
+)
+_curve_config(curve::ThresholdFeedback) = (kind=:threshold, threshold=curve.threshold)
+_curve_config(value) = _custom_callable_config(value)
+
+_feedback_mode_config(::OffFeedback) = (kind=:off,)
+_feedback_mode_config(::TonicFeedback) = (kind=:tonic,)
+_feedback_mode_config(::BernoulliFeedback) = (kind=:bernoulli,)
+_feedback_mode_config(mode::ReplayFeedback) = (
+    kind=:replay,
+    values=Tuple(mode.values),
+    cycle=mode.cycle,
+)
+_feedback_mode_config(value) = _custom_callable_config(value)
+
+_failure_config(::NoFailure) = (kind=:none,)
+_failure_config(policy::BelowFailure) = (kind=:below, threshold=policy.threshold)
+_failure_config(policy::AboveFailure) = (kind=:above, threshold=policy.threshold)
+_failure_config(value) = _custom_callable_config(value)
+
+function _variable_config(need::RegulatedVariable)
+    return (
+        name=need.name,
+        minimum=need.minimum,
+        maximum=need.maximum,
+        initial=need.initial,
+        setpoint=need.setpoint,
+        drift=need.drift,
+        deficit=_deficit_config(need.deficit),
+        curve=_curve_config(need.curve),
+        mode=_feedback_mode_config(need.mode),
+        gain=need.gain,
+        emission_p=need.emission_p,
+        link_p=need.link_p,
+        failure=_failure_config(need.failure),
+    )
+end
+
+function _ports_config(body::AbstractBody)
+    spec = portspec(body)
+    return (
+        n_receptors=n_receptors(spec),
+        n_effectors=n_effectors(spec),
+        receptor_ids=Tuple(port.id for port in spec.receptor_ports),
+        effector_ids=Tuple(port.id for port in spec.effector_ports),
+    )
+end
+
+function _sensory_bank_config(bank::SensorBank)
+    return (
+        name=bank.name,
+        source=_sensory_source_config(bank.source),
+        modality=_sensory_modality_config(bank.modality),
+        norm_mode=bank.norm_mode,
+        norm_sigma=bank.norm_sigma,
+        gain=bank.gain,
+        link_p=bank.link_p,
+    )
+end
+
+_sensory_source_config(source::ObjectSource) = (
+    kind=:objects,
+    name=source_name(source),
+)
+
+_sensory_source_config(source::SpatialFieldSource) = (
+    kind=:spatial_field,
+    name=source_name(source),
+)
+
+_sensory_modality_config(modality::BearingModality) = (
+    kind=:bearing,
+    range=modality.range,
+    curve=_curve_config(modality.curve),
+    sensor=_sensor_config(modality.sensor),
+)
+
+_sensory_modality_config(modality::FieldModality) = (
+    kind=:field,
+    range=modality.range,
+    curve=_curve_config(modality.curve),
+    probe_count=modality.probe_count,
+    probe_radius=modality.probe_radius,
+    aggregation=modality.aggregation,
+)
+
+_sensory_modality_config(modality::OffModality) = (
+    kind=:off,
+    underlying=_sensory_modality_config(modality.modality),
+)
+
+function _sensor_component_config(sensor::SituatedSensorLayout)
+    return (
+        kind=:situated,
+        sensory_scaling=sensor.sensory_scaling,
+        source_bank=sensor.source_bank,
+        source_gain=sensor.source_gain,
+        signalling=sensor.signalling,
+        norm_mode=sensor.norm_mode,
+        norm_sigma=sensor.norm_sigma,
+        conspecific_gain=sensor.conspecific_gain,
+        n_colours=sensor.n_colours,
+        colour_sensing=sensor.colour_sensing,
+        sensor=_sensor_config(sensor.sensor),
+        sensory_banks=Tuple(_sensory_bank_config(bank) for bank in sensor.sensory_banks),
+    )
+end
+
+_sensor_component_config(sensor::DirectRelaySensor) = (
+    kind=:direct,
+    port_ids=sensor.port_ids,
+)
+_mount_config(mount::Mount2D) = (
+    position=Tuple(mount.position),
+    yaw=mount.yaw,
+)
+function _sensor_component_config(sensor::SpectralCamera)
+    sensitivity = Tuple(
+        Tuple(sensor.sensitivity[row, column] for column in axes(sensor.sensitivity, 2))
+        for row in axes(sensor.sensitivity, 1)
+    )
+    return (
+        kind=:spectral_camera,
+        wavelengths_nm=Tuple(sensor.grid.wavelengths_nm),
+        channels=Tuple(sensor.channels),
+        sensitivity=sensitivity,
+        ray_angles=Tuple(sensor.ray_angles),
+        mount=_mount_config(sensor.mount),
+        max_range=sensor.max_range,
+        exposure=sensor.exposure,
+        saturation=sensor.saturation,
+        layout=:channel_major,
+    )
+end
+_sensor_response_config(response::SensorResponse) = (
+    tau=response.tau,
+    dt=response.dt,
+    shared_sigma=response.shared_sigma,
+    independent_sigma=response.independent_sigma,
+    minimum=response.minimum,
+    maximum=response.maximum,
+)
+_sensor_component_config(sensor::AbstractSensor) = (
+    kind=:custom,
+    type=_config_type(sensor),
+)
+
+_encoder_component_config(encoder::IdentityEncoder) = (
+    kind=:identity,
+    port_ids=encoder.port_ids,
+    sources=encoder.source_ids,
+)
+_encoder_component_config(encoder::SituatedEncoder) = (kind=:situated,)
+_encoder_component_config(encoder::AbstractEncoder) = (
+    kind=:custom,
+    type=_config_type(encoder),
+)
+
+_actuator_component_config(actuator::DirectRelayActuator) = (
+    kind=:direct,
+    port_ids=actuator.port_ids,
+    minimum=actuator.minimum,
+    maximum=actuator.maximum,
+)
+_actuator_component_config(actuator::SituatedActuator) = (
+    kind=:situated,
+    signalling=actuator.signalling,
+    policy=_motor_config(actuator.policy),
+)
+_actuator_component_config(actuator::ForwardTurnActuator) = (
+    kind=:forward_turn,
+    max_forward_speed=actuator.max_forward_speed,
+    max_turn_rate=actuator.max_turn_rate,
+    allow_reverse=actuator.allow_reverse,
+)
+_actuator_component_config(actuator::DifferentialDriveActuator) = (
+    kind=:differential_drive,
+    max_wheel_speed=actuator.max_wheel_speed,
+    allow_reverse=actuator.allow_reverse,
+)
+_actuator_component_config(actuator::PlanarForceYawActuator) = (
+    kind=:planar_force_yaw,
+    max_force=actuator.max_force,
+    max_yaw_torque=actuator.max_yaw_torque,
+)
+_actuator_component_config(actuator::AbstractActuator) = (
+    kind=:custom,
+    type=_config_type(actuator),
+)
+
+_geometry_config(::NoGeometry) = (kind=:none,)
+_geometry_config(geometry::DiscGeometry) = (kind=:disc, radius=geometry.radius)
+_geometry_config(geometry::AbstractGeometry) = (kind=:custom, type=_config_type(geometry))
+
+_dynamics_config(::NoDynamics) = (kind=:none,)
+_dynamics_config(dynamics::UnicycleDynamics) = (
+    kind=:unicycle,
+    dt=dynamics.dt,
+    linear_tau=dynamics.linear_tau,
+    angular_tau=dynamics.angular_tau,
+)
+_dynamics_config(dynamics::DifferentialDriveDynamics) = (
+    kind=:differential_drive,
+    dt=dynamics.dt,
+    wheel_base=dynamics.wheel_base,
+)
+_dynamics_config(dynamics::PlanarRigidBodyDynamics) = (
+    kind=:planar_rigid_body,
+    dt=dynamics.dt,
+    mass=dynamics.mass,
+    moment_of_inertia=dynamics.moment_of_inertia,
+    linear_drag=dynamics.linear_drag,
+    angular_drag=dynamics.angular_drag,
+    max_linear_speed=dynamics.max_linear_speed,
+    max_angular_speed=dynamics.max_angular_speed,
+)
+_dynamics_config(dynamics::AbstractDynamics) = (kind=:custom, type=_config_type(dynamics))
+
+_unknown_effect_config(::RejectUnknownEffects) = :reject
+_unknown_effect_config(::IgnoreUnknownEffects) = :ignore
+_unknown_effect_config(policy::UnknownEffectPolicy) = (
+    kind=:custom,
+    type=_config_type(policy),
+)
+_physiology_config(physiology::NoPhysiology) = (
+    kind=:none,
+    unknown_effects=_unknown_effect_config(physiology.unknown_effects),
+)
+_physiology_config(physiology::RegulatedPhysiology) = (
+    kind=:regulated,
+    variables=Tuple(_variable_config(variable) for variable in physiology.variables),
+    feedback_seed=physiology.seed,
+    unknown_effects=_unknown_effect_config(physiology.unknown_effects),
+)
+_physiology_config(physiology) = (kind=:custom, type=_config_type(physiology))
+
+function _body_config(body::Embodiment)
+    return (
+        kind=:embodiment,
+        geometry=_geometry_config(body.geometry),
+        sensors=Tuple(_sensor_component_config(sensor) for sensor in body.sensors),
+        encoders=Tuple(_encoder_component_config(encoder) for encoder in body.encoders),
+        actuators=Tuple(_actuator_component_config(actuator) for actuator in body.actuators),
+        dynamics=_dynamics_config(body.dynamics),
+        physiology=_physiology_config(body.physiology),
+        component_ids=body.state.ids,
+        traits=body.traits,
+        state=component_state(body).body,
+        ports=_ports_config(body),
+    )
+end
+
+_body_config(body::AbstractBody) = (
+    kind=:custom,
+    type=_config_type(body),
+    ports=_ports_config(body),
+)
 
 function _motor_config(m::KinematicMotor)
     return (
@@ -865,7 +1102,7 @@ function _sensor_config(s::BearingSensor)
     )
 end
 
-function _sensor_config(s::SensorSpec)
+function _sensor_config(s::AbstractSensor)
     return (
         kind=Symbol(lowercase(string(nameof(typeof(s))))),
         n_sensors=Int(n_sensors(s)),
@@ -874,8 +1111,70 @@ function _sensor_config(s::SensorSpec)
     )
 end
 
+_respawn_config(::NoRespawn) = (kind=:none,)
+_respawn_config(policy::SamePositionRespawn) = (kind=:same_position, delay=policy.delay)
+_respawn_config(policy::UniformRespawn) = (kind=:uniform, delay=policy.delay)
+_respawn_config(value) = (kind=:custom, type=_config_type(value))
+
+_effect_config(delta::Exposure) = (
+    kind=:exposure,
+    name=delta.name,
+    amount=delta.amount,
+)
+_effect_config(value) = (kind=:custom, type=_config_type(value))
+
+_appearance_config(::NoAppearance) = (kind=:none,)
+_appearance_config(appearance::SpectralAppearance) = (
+    kind=:spectral,
+    wavelengths_nm=Tuple(appearance.reflectance.grid.wavelengths_nm),
+    reflectance=Tuple(appearance.reflectance.values),
+)
+_appearance_config(appearance::AbstractObjectAppearance) = (
+    kind=:custom,
+    type=_config_type(appearance),
+)
+
+_spatial_field_config(field::ConstantSpatialField) = (
+    kind=:constant,
+    value=field.value,
+)
+
+_spatial_field_config(field::LinearSpatialField) = (
+    kind=:linear,
+    origin=field.origin,
+    direction=field.direction,
+    offset=field.offset,
+    scale=field.scale,
+)
+
+_spatial_field_config(field::AbstractSpatialField) = (
+    kind=:custom,
+    type=_config_type(field),
+)
+
+function _object_type_config(kind::ObjectType)
+    return (
+        name=kind.name,
+        bank=kind.bank,
+        radius=kind.radius,
+        effects=Tuple(_effect_config(effect) for effect in kind.effects),
+        capacity=kind.capacity,
+        respawn=_respawn_config(kind.respawn),
+        appearance=_appearance_config(kind.appearance),
+    )
+end
+
 function _environment_config(m::TaskEnvironment)
     world = m.world
+    return (
+        kind=:task,
+        world=Symbol(lowercase(string(nameof(typeof(world))))),
+        bounds=bounds(world),
+        size=_environment_size(world),
+    )
+end
+
+function _environment_config(world::TaskWorld)
     return (
         kind=:task,
         world=Symbol(lowercase(string(nameof(typeof(world))))),
@@ -932,6 +1231,12 @@ function _environment_config(m::ForageEnvironment)
         colours=copy(m.colours),
     )
 end
+
+_environment_config(m::SituatedEnvironment{CollectiveMode}) =
+    _environment_config(TorusEnvironment(m))
+
+_environment_config(m::SituatedEnvironment{ForageMode}) =
+    _environment_config(ForageEnvironment(m))
 
 _environment_config(m::Environment) = (kind=Symbol(lowercase(string(nameof(typeof(m))))), bounds=nothing, size=nothing)
 
@@ -1013,23 +1318,47 @@ function _simulation_config(
     ablation_notes=(),
     interventions=nothing,
 )
+    ids = entity_ids(c)
+    agent_configs = Tuple(
+        (
+            id=ids[slot],
+            slot=slot,
+            body=_body_config(body_at_slot(c, slot)),
+            network=_network_snapshot(agent_at_slot(c, slot).reservoir),
+        )
+        for slot in 1:nagents(c)
+    )
     return (
         ticks=Int(ticks),
         seed=seed,
         record=Tuple(record),
         every=Int(every),
         window=Int(window),
-        n_agents=length(c.agents),
+        n_agents=nagents(c),
         n_nodes=Int(n_nodes),
         environment=_environment_config(c.environment),
-        network=_network_snapshot(c.agents[1].reservoir),
+        agents=agent_configs,
+        bodies=Tuple(agent.body for agent in agent_configs),
+        networks=Tuple(agent.network for agent in agent_configs),
         ablation=ablation,
         ablation_notes=Tuple(ablation_notes),
         interventions=interventions === nothing ? () : Tuple(interventions),
     )
 end
 
-function _build_ensemble(task::Symbol, node::Symbol; ticks=nothing, seed=0, record=_DEFAULT_RECORD_CHANNELS, every::Integer=1, kwargs...)
+function _task_spec(task::TaskSpec)
+    return task
+end
+
+function _task_spec(task::Union{Symbol,AbstractString})
+    spec = resolve_task(Symbol(task))
+    spec isa TaskSpec || throw(ArgumentError(
+        "registered task :$(Symbol(task)) resolved to $(typeof(spec)); expected TaskSpec",
+    ))
+    return spec
+end
+
+function _build_ensemble(task_spec::TaskSpec, node::Symbol; ticks=nothing, seed=0, record=_DEFAULT_RECORD_CHANNELS, every::Integer=1, kwargs...)
     options = _kwdict(kwargs)
     record_channels = _record_symbols(record)
 
@@ -1040,75 +1369,40 @@ function _build_ensemble(task::Symbol, node::Symbol; ticks=nothing, seed=0, reco
         nothing
     window_arg = haskey(options, :window) ? pop!(options, :window) : nothing
     spectral_every = haskey(options, :spectral_every) ? Int(pop!(options, :spectral_every)) : 1
-    env_kwargs = _merge_kwdicts(haskey(options, :env_kwargs) ? pop!(options, :env_kwargs) : NamedTuple())
+    explicit_task_kwargs = haskey(options, :task_kwargs) ? pop!(options, :task_kwargs) : NamedTuple()
+    env_kwargs = haskey(options, :env_kwargs) ? pop!(options, :env_kwargs) : NamedTuple()
+    environment_kwargs = haskey(options, :environment_kwargs) ? pop!(options, :environment_kwargs) : NamedTuple()
+    swarm_kwargs = haskey(options, :swarm_kwargs) ? pop!(options, :swarm_kwargs) : NamedTuple()
     node_kwargs = haskey(options, :node_kwargs) ? pop!(options, :node_kwargs) : NamedTuple()
     body = haskey(options, :body) ? pop!(options, :body) : nothing
     ablation_arg = haskey(options, :ablation) ? pop!(options, :ablation) : nothing
     interventions_arg = haskey(options, :interventions) ? pop!(options, :interventions) : nothing
     intervention_schedule = _resolve_intervention_schedule(interventions_arg)
 
-    swarm_kwargs =
-        haskey(options, :swarm_kwargs) ? pop!(options, :swarm_kwargs) :
-        haskey(options, :environment_kwargs) ? pop!(options, :environment_kwargs) :
-        NamedTuple()
+    is_swarm = is_multiagent(task_spec.setup)
+    if n_agents !== nothing && !is_swarm
+        throw(ArgumentError(
+            "n_agents is only valid for a multi-agent task setup; task :$(task_spec.name) is single-agent",
+        ))
+    end
 
-    is_swarm = _is_swarm_task(task, n_agents)
+    task_options = _merge_kwdicts(env_kwargs, environment_kwargs, swarm_kwargs, explicit_task_kwargs)
     if is_swarm
-        swarm_kwargs = _extract_swarm_environment_kwargs!(options, swarm_kwargs)
+        task_options = _extract_swarm_environment_kwargs!(options, task_options)
+        n_agents !== nothing && (task_options[:n_agents] = Int(n_agents))
+    elseif !isempty(_merge_kwdicts(swarm_kwargs))
+        throw(ArgumentError("swarm_kwargs is only valid for a multi-agent task setup"))
     end
 
     node_kwargs = _merge_kwdicts(node_kwargs, options)
-    swarm_options = _merge_kwdicts(swarm_kwargs)
-    _apply_falandays_task_defaults!(task, node, is_swarm, node_kwargs, env_kwargs)
+    _apply_falandays_task_defaults!(task_spec.name, node, is_swarm, node_kwargs, task_options)
     _preserve_swarm_falandays_defaults!(node, is_swarm, node_kwargs)
-    ablation_sym = _prepare_ablation_options!(node, task, is_swarm, node_kwargs, swarm_options, ablation_arg)
-    ablation_notes = _ablation_notes(ablation_sym, node, task, is_swarm)
-    n_nodes = _resolve_n_nodes!(node, task, explicit_n_nodes, node_kwargs, is_swarm)
+    ablation_sym = _prepare_ablation_options!(node, task_spec.name, is_swarm, node_kwargs, task_options, ablation_arg)
+    ablation_notes = _ablation_notes(ablation_sym, node, task_spec.name, is_swarm)
+    n_nodes = _resolve_n_nodes!(node, task_spec.name, explicit_n_nodes, node_kwargs, is_swarm)
 
     node_ctor = resolve_node(node)
-
-    if is_swarm
-        n_agents_ = n_agents === nothing ? 8 : Int(n_agents)
-        forage = task == :forage
-        ensemble, recorder = _make_swarm_ensemble(
-            node,
-            node_ctor;
-            seed=seed,
-            record=record_channels,
-            every=every,
-            spectral_every=spectral_every,
-            n_agents=n_agents_,
-            n_nodes=n_nodes,
-            node_kwargs=node_kwargs,
-            swarm_kwargs=swarm_options,
-            forage=forage,
-            body=body === nothing ? :ven : body,
-            ablation=ablation_sym,
-        )
-        tick_count = ticks === nothing ? 1000 : Int(ticks)
-        window = window_arg === nothing ? tick_count : Int(window_arg)
-        result_task = forage ? :forage : :torus
-        return (
-            ensemble=ensemble,
-            recorder=recorder,
-            task=result_task,
-            node=node,
-            ticks=tick_count,
-            window=window,
-            record=record_channels,
-            every=Int(every),
-            seed=seed,
-            n_nodes=n_nodes,
-            ablation=ablation_sym,
-            ablation_notes=Tuple(ablation_notes),
-            interventions=intervention_schedule,
-        )
-    end
-
-    task_spec = resolve_task(task)
-    task_spec isa TaskSpec ||
-        throw(ArgumentError("Registered task :$(task) is not a TaskSpec and is not handled by simulate."))
-    ensemble, recorder = _make_task_ensemble(
+    ensemble, recorder = _make_ensemble(
         task_spec,
         node,
         node_ctor;
@@ -1118,8 +1412,8 @@ function _build_ensemble(task::Symbol, node::Symbol; ticks=nothing, seed=0, reco
         spectral_every=spectral_every,
         n_nodes=n_nodes,
         node_kwargs=node_kwargs,
-        env_kwargs=env_kwargs,
-        body=body === nothing ? :passthrough : body,
+        task_kwargs=task_options,
+        body=body,
         ablation=ablation_sym,
     )
     tick_count = ticks === nothing ? task_spec.default_ticks : Int(ticks)
@@ -1142,6 +1436,10 @@ function _build_ensemble(task::Symbol, node::Symbol; ticks=nothing, seed=0, reco
     )
 end
 
+function _build_ensemble(task::Union{Symbol,AbstractString}, node::Symbol; kwargs...)
+    return _build_ensemble(_task_spec(task), node; kwargs...)
+end
+
 """
     simulate(task; node=:falandays, ticks=nothing, seed=0, record=..., every=1, kwargs...)
 
@@ -1153,7 +1451,7 @@ verb (`:freeze_plasticity`, `:clamp_target`, or `:zero_recurrent`) at a chosen t
 (inclusive) — e.g. to freeze plasticity after the network self-organizes and test
 whether the learned structure persists without ongoing adaptation.
 """
-function simulate(task::Symbol; node=:falandays, ticks=nothing, seed=0, record=_DEFAULT_RECORD_CHANNELS, every::Integer=1, metrics=nothing, kwargs...)
+function simulate(task::TaskSpec; node=:falandays, ticks=nothing, seed=0, record=_DEFAULT_RECORD_CHANNELS, every::Integer=1, metrics=nothing, kwargs...)
     node_sym = Symbol(node)
     setup = _build_ensemble(task, node_sym; ticks=ticks, seed=seed, record=record, every=every, kwargs...)
     result_metrics = rollout!(setup.ensemble, setup.ticks; window=setup.window, metrics=metrics, interventions=setup.interventions)
@@ -1172,4 +1470,4 @@ function simulate(task::Symbol; node=:falandays, ticks=nothing, seed=0, record=_
     return SimResult(setup.recorder, result_metrics, setup.task, setup.node, config)
 end
 
-simulate(task::AbstractString; kwargs...) = simulate(Symbol(task); kwargs...)
+simulate(task::Union{Symbol,AbstractString}; kwargs...) = simulate(_task_spec(task); kwargs...)

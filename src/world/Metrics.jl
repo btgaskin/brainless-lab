@@ -91,6 +91,13 @@ function circular_centroid(positions, torus::Torus)
     )
 end
 
+function circular_centroid(positions, ::WalledArena)
+    pos = _positions_matrix(positions)
+    size(pos, 1) == 0 && return (0.0, 0.0)
+    return (Float64(sum(@view(pos[:, 1])) / size(pos, 1)),
+            Float64(sum(@view(pos[:, 2])) / size(pos, 1)))
+end
+
 function milling(positions, headings, centroid)
     pos = _positions_matrix(positions)
     hs = Float64.(vec(collect(headings)))
@@ -144,6 +151,9 @@ function milling(positions, headings, centroid, torus::Torus)
     return Float64(abs(total / n))
 end
 
+milling(positions, headings, centroid, ::WalledArena) =
+    milling(positions, headings, centroid)
+
 function mean_pairwise_distance(positions, torus::Torus)
     pos = _positions_matrix(positions)
     n = size(pos, 1)
@@ -158,6 +168,20 @@ function mean_pairwise_distance(positions, torus::Torus)
         end
     end
 
+    return Float64(total / count)
+end
+
+
+function mean_pairwise_distance(positions, arena::WalledArena)
+    pos = _positions_matrix(positions)
+    n = size(pos, 1)
+    n < 2 && return 0.0
+    total = 0.0
+    count = 0
+    @inbounds for i in 1:n, j in (i + 1):n
+        total += arena_distance(arena, (pos[i, 1], pos[i, 2]), (pos[j, 1], pos[j, 2]))
+        count += 1
+    end
     return Float64(total / count)
 end
 
@@ -182,6 +206,27 @@ function mean_nearest_neighbor_distance(positions, torus::Torus)
     return _mean(distances)
 end
 
+
+function mean_nearest_neighbor_distance(positions, arena::WalledArena)
+    pos = _positions_matrix(positions)
+    n = size(pos, 1)
+    n < 2 && return 0.0
+    distances = zeros(Float64, n)
+    @inbounds for i in 1:n
+        best = Inf
+        for j in 1:n
+            i == j && continue
+            best = min(best, arena_distance(
+                arena,
+                (pos[i, 1], pos[i, 2]),
+                (pos[j, 1], pos[j, 2]),
+            ))
+        end
+        distances[i] = best
+    end
+    return _mean(distances)
+end
+
 """
     segregation(positions, colours, torus)
 
@@ -192,7 +237,7 @@ same-colour agents sit closer than cross-colour (colour-sorted), `~0` means
 well-mixed, `<0` means anti-sorted. The colour-blind run (colours still assigned
 but `colour_sensing=false`) is the natural ~chance null.
 """
-function segregation(positions, colours, torus::Torus)
+function segregation(positions, colours, arena::Union{Torus,WalledArena})
     pos = _positions_matrix(positions)
     cols = Int[Int(c) for c in vec(collect(colours))]
     n = size(pos, 1)
@@ -205,7 +250,7 @@ function segregation(positions, colours, torus::Torus)
     cross_count = 0
     @inbounds for i in 1:n
         for j in (i + 1):n
-            d = tdistance(torus, (pos[i, 1], pos[i, 2]), (pos[j, 1], pos[j, 2]))
+            d = arena_distance(arena, (pos[i, 1], pos[i, 2]), (pos[j, 1], pos[j, 2]))
             if cols[i] == cols[j]
                 same_total += d
                 same_count += 1
@@ -230,33 +275,34 @@ end
 _empty_segregation() = (same_dist=0.0, cross_dist=0.0, assortativity=0.0)
 
 """
-    segregation(m::AbstractTorusEnvironment, window)
+    segregation(m::AbstractSituatedEnvironment, window)
 
 Window-averaged colour assortativity over the last `window` recorded poses, using
 the per-agent `m.colours`. Registered as the `:segregation` swarm metric.
 """
-function segregation(m::AbstractTorusEnvironment, window::Integer)
+function segregation(m::AbstractSituatedEnvironment, window::Integer)
     window = Int(window)
-    if window <= 0 || isempty(m.history) || any(isempty, m.history)
+    active = hasproperty(m, :active_agents) ? findall(m.active_agents) : collect(eachindex(m.history))
+    if window <= 0 || isempty(active) || any(i -> isempty(m.history[i]), active)
         return _empty_segregation()
     end
 
-    steps = min(window, minimum(length, m.history))
+    steps = min(window, minimum(i -> length(m.history[i]), active))
     steps <= 0 && return _empty_segregation()
 
-    n_agents = length(m.history)
+    n_agents = length(active)
     same = Float64[]
     cross = Float64[]
     assort = Float64[]
     positions = zeros(Float64, n_agents, 2)
     for k in 1:steps
-        @inbounds for i in 1:n_agents
+        @inbounds for (row, i) in enumerate(active)
             hist = m.history[i]
             pose = hist[length(hist) - steps + k]
-            positions[i, 1] = pose[1]
-            positions[i, 2] = pose[2]
+            positions[row, 1] = pose[1]
+            positions[row, 2] = pose[2]
         end
-        snap = segregation(positions, m.colours, m.torus)
+        snap = segregation(positions, m.colours[active], m.arena)
         push!(same, snap.same_dist)
         push!(cross, snap.cross_dist)
         push!(assort, snap.assortativity)
@@ -324,13 +370,14 @@ _empty_swarm_metrics() = (
     input_stability=0.0,
 )
 
-function swarm_metrics(m::AbstractTorusEnvironment, window::Integer)
+function swarm_metrics(m::AbstractSituatedEnvironment, window::Integer)
     window = Int(window)
-    if window <= 0 || isempty(m.history) || any(isempty, m.history)
+    active = hasproperty(m, :active_agents) ? findall(m.active_agents) : collect(eachindex(m.history))
+    if window <= 0 || isempty(active) || any(i -> isempty(m.history[i]), active)
         return _empty_swarm_metrics()
     end
 
-    steps = min(window, minimum(length, m.history))
+    steps = min(window, minimum(i -> length(m.history[i]), active))
     steps <= 0 && return _empty_swarm_metrics()
 
     polarizations = Float64[]
@@ -338,17 +385,17 @@ function swarm_metrics(m::AbstractTorusEnvironment, window::Integer)
     nearest = Float64[]
     pairwise = Float64[]
 
-    n_agents = length(m.history)
+    n_agents = length(active)
     for k in 1:steps
         positions = zeros(Float64, n_agents, 2)
         headings = zeros(Float64, n_agents)
 
-        @inbounds for i in 1:n_agents
+        @inbounds for (row, i) in enumerate(active)
             hist = m.history[i]
             pose = hist[length(hist) - steps + k]
-            positions[i, 1] = pose[1]
-            positions[i, 2] = pose[2]
-            headings[i] = pose[3]
+            positions[row, 1] = pose[1]
+            positions[row, 2] = pose[2]
+            headings[row] = pose[3]
         end
 
         centroid = circular_centroid(positions, m.torus)
@@ -363,7 +410,8 @@ function swarm_metrics(m::AbstractTorusEnvironment, window::Integer)
     mean_pairwise = _mean(pairwise)
 
     input_histories = Any[]
-    for hist in m.input_history
+    for i in active
+        hist = m.input_history[i]
         take = min(steps, length(hist))
         start = length(hist) - take + 1
         push!(input_histories, hist[start:length(hist)])
@@ -381,7 +429,10 @@ end
 
 swarm_metrics(c::Ensemble, window::Integer) = swarm_metrics(c.environment, Int(window))
 
-metrics(m::TorusEnvironment, window::Integer=_default_torus_window(m)) =
+metrics(m::TorusEnvironment, window::Integer=_default_situated_window(m)) =
+    swarm_metrics(m, Int(window))
+
+metrics(m::SituatedEnvironment{CollectiveMode}, window::Integer=_default_situated_window(m)) =
     swarm_metrics(m, Int(window))
 
 _empty_forage_only_metrics(window::Integer=0) = (
@@ -391,13 +442,14 @@ _empty_forage_only_metrics(window::Integer=0) = (
     forage_score=0.0,
 )
 
-function _forage_only_metrics(m::ForageEnvironment, window::Integer)
+function _forage_only_metrics(m::Union{ForageEnvironment,SituatedEnvironment{ForageMode}}, window::Integer)
     window = Int(window)
-    if window <= 0 || isempty(m.history) || any(isempty, m.history)
+    active = hasproperty(m, :active_agents) ? findall(m.active_agents) : collect(eachindex(m.history))
+    if window <= 0 || isempty(active) || any(i -> isempty(m.history[i]), active)
         return _empty_forage_only_metrics(window)
     end
 
-    steps = min(window, minimum(length, m.history))
+    steps = min(window, minimum(i -> length(m.history[i]), active))
     steps <= 0 && return _empty_forage_only_metrics(window)
 
     total_distance = 0.0
@@ -409,7 +461,8 @@ function _forage_only_metrics(m::ForageEnvironment, window::Integer)
 
     @inbounds for k in 1:steps
         any_arrived = false
-        for hist in m.history
+        for i in active
+            hist = m.history[i]
             pose = hist[length(hist) - steps + k]
             d = tdistance(m.torus, (pose[1], pose[2]), m.source_position)
             total_distance += d
@@ -444,9 +497,19 @@ function forage_metrics(m::ForageEnvironment, window::Integer)
     )
 end
 
+function forage_metrics(m::SituatedEnvironment{ForageMode}, window::Integer)
+    return (;
+        swarm_metrics(m, Int(window))...,
+        _forage_only_metrics(m, Int(window))...,
+    )
+end
+
 forage_metrics(c::Ensemble, window::Integer) = forage_metrics(c.environment, Int(window))
 
-metrics(m::ForageEnvironment, window::Integer=_default_torus_window(m)) =
+metrics(m::ForageEnvironment, window::Integer=_default_situated_window(m)) =
+    forage_metrics(m, Int(window))
+
+metrics(m::SituatedEnvironment{ForageMode}, window::Integer=_default_situated_window(m)) =
     forage_metrics(m, Int(window))
 
 function liveness(rates::AbstractVector, N, window)

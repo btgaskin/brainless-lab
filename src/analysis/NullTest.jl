@@ -19,8 +19,26 @@ end
 # unshifted and _crossshift_surrogate warns rather than silently passing it
 # through -- a measure_fn that reads such a channel would otherwise get a
 # surrogate that looks nulled but silently isn't.
-const _CROSSSHIFT_PER_AGENT_CHANNELS = (:poses, :rate, :rates, :spikes, :effectors, :percepts, :sensors, :spectral_radius)
-const _CROSSSHIFT_GLOBAL_CHANNELS = (:polarization, :milling)
+const _CROSSSHIFT_PER_AGENT_CHANNELS = (
+    :poses,
+    :rate,
+    :rates,
+    :spikes,
+    :effectors,
+    :percepts,
+    :sensors,
+    :spectral_radius,
+    :needs,
+    :feedback,
+    :body_alive,
+    :deaths,
+    :fields,
+)
+const _CROSSSHIFT_GLOBAL_CHANNELS = (:polarization, :milling, :interactions)
+# Environment context is not an agent time series. Preserve object snapshots so
+# a surrogate analysis can still reconstruct the same world while shifting only
+# agent-owned histories.
+const _CROSSSHIFT_PASSTHROUGH_CHANNELS = (:objects,)
 
 function _crossshift_n_agents(sim::SimResult)
     for channel in (:poses, :rate, :spikes)
@@ -80,6 +98,8 @@ function _crossshift_surrogate(sim::SimResult, shifts::AbstractVector{<:Integer}
     for (channel, raw) in sim.recorder.channels
         if channel in _CROSSSHIFT_GLOBAL_CHANNELS
             continue
+        elseif channel in _CROSSSHIFT_PASSTHROUGH_CHANNELS
+            shifted_channels[channel] = copy(raw)
         elseif channel in _CROSSSHIFT_PER_AGENT_CHANNELS
             shifted_channels[channel] = _crossshift_channel(raw, shifts, n_agents)
         else

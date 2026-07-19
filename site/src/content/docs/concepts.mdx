@@ -1,87 +1,116 @@
 ---
 title: Concepts — the ladder
-description: The core ontology of BrainlessLab — a ladder of collectives, the same abstraction at every scale.
+description: "The core ontology of BrainlessLab: reservoirs inside composed embodiments, agents inside synchronous ensembles, and worlds that mediate every interaction."
 ---
 
-BrainlessLab is a **ladder of collectives**: the same idea — a *population of locally
-coupled units* — appears at two scales, and everything else hangs off that spine.
+BrainlessLab is a **ladder of collectives**. A reservoir is a population of locally
+coupled node-like units; an ensemble is a population of embodied agents coupled through a
+world. The same principles—local state, explicit interfaces, and synchronous updates—hold
+at both scales.
 
 ```text
-NodeModel → Reservoir → Body → Agent → Environment → Ensemble → Runner → Run
-             ▲ nodes in            ▲ a reservoir     ▲ agents in
-               a reservoir           in a body         a world
+NodeModel → Reservoir → Agent(Reservoir, Embodiment) → Ensemble(Environment) → Run
+             ▲ nodes in                              ▲ agents in
+               a reservoir                            a world
 ```
 
 ## The rungs
 
-- **Node / `NodeModel`** — the atomic neuron-like unit and its (evolvable) parameters. A Falandays node is a homeostatic leaky-integrate-and-fire unit.
-- **Reservoir** — a *population of nodes* + wiring (a `Connectome`) + dynamic state. The contract is `step!(r, R) → spikes`.
-- **Body** — the sensorimotor wrapper: a `PassthroughBody{M,Mt}` carries a morphology (the receptor/effector ports) and a motor (the effector-decode dynamics). Single-agent tasks use a passthrough morphology; the swarm uses `VENMorphology` with `BearingSensor` geometry and a `KinematicMotor`.
-- **Agent** — a reservoir *inside* a body.
-- **Environment** — the world the agent(s) live in: a `TaskEnvironment` (wrapping a single-agent `TaskWorld` like `WallEnv`) or a `TorusEnvironment` / `ForageEnvironment` for the swarm. The contract is `observe` / `actuate!`.
-- **Ensemble** — a *population of agents* in an Environment.
-- **Runner** — how it is executed over time: `Fixed`, `Plastic`, or `Evolve`, producing a recorded `Run`.
+- **Node / `NodeModel`** — the atomic neuron-like unit and its parameters.
+- **`Reservoir`** — a population of nodes, its wiring, and its dynamic state. Its central
+  contract is `step!(reservoir, receptors)`.
+- **`AbstractBody`** — the public dispatch boundary for anything that can mediate between
+  a reservoir and a world.
+- **`Embodiment <: AbstractBody`** — the generic concrete body. It composes geometry,
+  sensors, encoders, actuators, dynamics, physiology, traits, and runtime state; biological
+  and robotic organisms differ in component values, not body subclasses.
+- **`Agent`** — a reservoir paired with an `AbstractBody`.
+- **`Environment`** — owns external state and relations. `TaskEnvironment` adapts the
+  existing vector-valued task worlds; `ObjectWorld` is the generic physical world for
+  composed embodiments; `SituatedEnvironment` remains the adapter for established
+  collective and foraging tasks.
+- **`Ensemble`** — one or more agents in an environment, advanced synchronously.
+- **Runner / run** — the execution and artifact layer: fixed, plastic, or evolutionary
+  evaluation with optional recording.
 
-## What is an Ensemble, exactly?
+## Composition, not organism classes
 
-An **`Ensemble` is a population of 1…N Agents in an Environment** — *not* necessarily
-many. A single-agent task is an **ensemble of one**, driven by the *identical*
-`step!(ensemble)` as a twelve-agent swarm:
-
-```julia
-simulate(:wall;   node=:falandays_base)              # ensemble of one
-simulate(:forage; node=:falandays_base, n_agents=12) # a swarm
-```
-
-That uniformity is the point: the single agent and the swarm are the same object at
-different `N`. The name is the **scale-free container** — "nodes within a reservoir,
-agents within an ensemble" made literal.
-
-<p class="bl-source">Source: <code>src/world/Ensemble.jl</code> — <code>Ensemble&#123;E,A,B&#125;</code> and <code>step!(::Ensemble)</code>.</p>
-
-## Capacities & qualities — what we characterise
-
-The ladder says *what* the objects are; this says *what we ask of them*. Every rung is the
-same **class of entity**, so one class-level question holds at any scale: which
-**capacities for behavioural complexity** does a collective have, and which **qualities**
-produce them?
-
-- **Capacities** — responsiveness, adaptation, coordination, entrainment, individuation,
-  memory. An **open, evolving set**, not a fixed taxonomy: a capacity is a general way of
-  dealing with behavioural complexity, never a specific task won. Here a task is a *test of
-  a capacity*, and capacities are carved by the tasks that probe them — we design tasks and
-  refine capacity definitions together, closer to construct-validation than to a
-  leaderboard. (Speculative and programmatic — a frame, not a settled catalogue.)
-- **Qualities** — the dynamical and structural properties that make a capacity work:
-  criticality, timescale separation, coupling, oscillation. These are the descriptors of
-  [Analysis](/analysis/), and they are the real object of study.
-
-Roughly, today's tasks cluster on **responsiveness** (wall = avoidance, tracking/pong =
-pursuit, cartpole = stabilising an unstable equilibrium) and touch **coordination** (the
-swarm); **adaptation** and **memory** — the capacities this framing is most about — are the
-frontier no current task yet demands. A task **elicits** a capacity; a calibrated
-[score](/scoring/) **indicates** it; the sweep, ablation, and diversity search **map**
-capacity to quality across the class. We characterise the class; we do not optimise-to-solve.
-
-## The sensorimotor contract
-
-Each tick, for every agent, the same pipeline runs — perceive first, then all move:
+`Embodiment` is intentionally one type. Its component graph is the variation surface:
 
 ```text
-percept ─receptors(body,·)→ R ─step!(reservoir,R)→ spikes
-        ─effectors(reservoir,·)→ E ─motor(body,·)→ actuation
+geometry
+sensors → encoders → receptor ports
+actuators → commands → dynamics
+physiology → feedback receptors, effects, viability
+traits + runtime state
 ```
 
-`observe` computes every agent's percept from the *current* world **before** any agent
-moves, and `actuate!` commits all motions after. So there is no within-tick
-order-dependence — a synchronous, local update.
+Every configured component has a stable ID. Receptor and effector ports are namespaced by
+the owning component ID, so recording, overrides, and development target identities rather
+than tuple positions. `component_slots(body)` exposes the graph without requiring callers to
+inspect concrete storage types.
 
-## Locality & self-organisation (the core limit)
+The three checked-in presets illustrate the range without introducing special body types:
 
-The non-negotiable commitment: **local, self-organising, no homunculus.**
+- `examples/embodiments/bilateral_insect.toml` — paired field probes, a bilateral contrast
+  encoder, unicycle locomotion, and two regulated variables;
+- `examples/embodiments/differential_robot.toml` — an RGB-like spectral camera and
+  differential drive;
+- `examples/embodiments/planar_uav.toml` — spectral vision, paired radio probes, and planar
+  force/yaw dynamics.
 
-- **Within a node**, coupling is "local without space" — at the level of dendrites and synapses, never a global signal.
-- **Between agents**, coupling is *only through the environment* — on the torus, agents influence each other purely by being **seen** (their sensor geometry *is* the interaction topology). There is no explicit alignment or attraction term; collective order is emergent.
+These names are presets, not claims of high-fidelity organism or vehicle simulation.
 
-The two deliberate relaxations are opt-in and documented: physical collision
-resolution, and the within-agent normalisation of the receptor vector.
+## One ensemble, homogeneous or mixed
+
+An `Ensemble` is a population of **1…N** agents. A single-agent task is an ensemble of one;
+a dyad and a swarm use the same lifecycle. Homogeneous agents retain a concrete fast path.
+Mixed concrete agent/body types are grouped behind function barriers, while stable
+`EntityID`s preserve world identity independently of group or slot:
+
+```julia
+ids = entity_ids(ensemble)
+agent = agent_at_slot(ensemble, 2)
+
+foreach_group(ensemble) do group
+    @info group_ids(group) group_slots(group)
+end
+```
+
+The current runtime is **fixed-population**: identities survive grouping and death, but the
+core loop does not yet schedule births, replacement, or lineage transitions.
+
+## The synchronous lifecycle
+
+Each tick separates observation, neural update, world mutation, and physiology:
+
+```text
+world sample
+  → sensor samples
+  → encoder receptor vector + physiology feedback
+  → reservoir step and readout
+  → actuator decode into typed command
+  → dynamics integration / world action
+  → environmental effects and exposures
+  → physiology update and viability
+  → recording by stable entity/component IDs
+```
+
+All agents sample the same pre-action world state before commands are applied. An
+environment decides **what happened**—contact, resource exposure, collision—while the body
+decides **what an effect means** for its physiology. This ownership keeps ecological rules
+out of the neural model and internal regulation out of the world.
+
+## Capacities and qualities
+
+The ladder says what the objects are; experiments ask what they can do. A task probes a
+capacity such as responsiveness, coordination, adaptation, or memory. Analyses describe
+qualities that may support those capacities—criticality, timescale separation, coupling,
+and oscillation. Scores are calibrated indicators, not universal measures of cognition.
+
+The commitment is local and self-organising: no global steering term is hidden in the
+reservoir or body. Agents couple through what their environment lets them sense and affect.
+Physical contact is explicit, and sensor geometry can itself define the interaction
+topology.
+
+<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>, <code>src/world/Embodiment.jl</code>, <code>src/world/Ensemble.jl</code>, <code>src/world/Environments.jl</code>.</p>

@@ -21,8 +21,11 @@ const _AMBERSOFT = Makie.RGBf(BL.BL_AMBERSOFT...)
 const _INKMUTED  = Makie.RGBf(BL.BL_INKMUTED...)
 const _BRAND_RAMP = Makie.cgrad([_PAPER, _TEAL, _INK])
 const _CATEGORICAL = (_TEAL, _AMBER, _INKSOFT, _TEALSOFT, _AMBERSOFT, _INKMUTED)
+const _OBJECT_MARKERS = (:circle, :diamond, :rect, :hexagon, :utriangle)
 
 _series_color(i::Integer) = i <= length(_CATEGORICAL) ? _CATEGORICAL[i] : _INKMUTED
+_object_color(i::Integer) = _CATEGORICAL[mod1(Int(i), length(_CATEGORICAL))]
+_object_marker(i::Integer) = _OBJECT_MARKERS[mod1(Int(i), length(_OBJECT_MARKERS))]
 
 function _style_axis!(ax)
     ax.backgroundcolor = _PAPER
@@ -290,6 +293,61 @@ function _draw_source!(ax, sim)
     return ax
 end
 
+function _object_sample(sim, frame=nothing)
+    samples = _channel(sim, :objects)
+    isempty(samples) && return Any[]
+    index = frame === nothing ? length(samples) : clamp(Int(frame), 1, length(samples))
+    return samples[index]
+end
+
+function _circle_points(position, radius::Real; n::Integer=48)
+    radius_ = Float64(radius)
+    return [
+        Makie.Point2f(
+            Float64(position[1]) + radius_ * cos(theta),
+            Float64(position[2]) + radius_ * sin(theta),
+        )
+        for theta in range(0.0, 2pi; length=Int(n))
+    ]
+end
+
+function _draw_objects!(ax, sim, frame=nothing)
+    for (index, object) in enumerate(_object_sample(sim, frame))
+        hasproperty(object, :position) || continue
+        active = hasproperty(object, :active) ? Bool(object.active) : true
+        type_index = hasproperty(object, :type_index) ? max(1, Int(object.type_index)) : index
+        color = _object_color(type_index)
+        alpha = active ? 1.0 : 0.16
+        radius = hasproperty(object, :radius) ? Float64(object.radius) : 0.0
+        if radius > 0.0
+            Makie.poly!(
+                ax,
+                _circle_points(object.position, radius);
+                color=(color, active ? 0.12 : 0.025),
+                strokecolor=(color, active ? 0.58 : 0.16),
+                strokewidth=1.0,
+            )
+        end
+        Makie.scatter!(
+            ax,
+            [Float64(object.position[1])],
+            [Float64(object.position[2])];
+            marker=_object_marker(type_index),
+            markersize=active ? 14 : 10,
+            color=(color, alpha),
+            strokecolor=(_PAPER, active ? 0.9 : 0.2),
+            strokewidth=1.0,
+        )
+    end
+    return ax
+end
+
+function _alive_sample(sim, frame::Integer)
+    samples = _channel(sim, :body_alive)
+    isempty(samples) && return nothing
+    return Bool.(samples[clamp(Int(frame), 1, length(samples))])
+end
+
 function _draw_bounds!(ax, sim)
     bounds = _plot_bounds(sim)
     bounds === nothing && return ax
@@ -391,6 +449,7 @@ end
 function _draw_swarm!(ax, sim)
     _draw_bounds!(ax, sim)
     _draw_source!(ax, sim)
+    _draw_objects!(ax, sim)
     poses = _latest_pose_rows(sim)
     # agents are teal boids: the glyph points along its heading (no separate tail)
     _draw_agent_boids!(ax, poses)
@@ -742,8 +801,11 @@ function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
             Makie.empty!(axw)
             bounds === nothing || _draw_bounds!(axw, sim)
             _draw_source!(axw, sim)
+            _draw_objects!(axw, sim, f)
             frame_poses = NTuple{3,Float64}[]
+            dead_poses = NTuple{3,Float64}[]
             frame_colors = agent_colors === nothing ? nothing : similar(agent_colors, 0)
+            alive_state = _alive_sample(sim, f)
             for (ai, tr) in enumerate(tracks)
                 isempty(tr) && continue
                 ff = min(f, length(tr))
@@ -753,10 +815,25 @@ function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
                 bx, by = _wrap_break(tx, ty, bounds)
                 has_col = agent_colors !== nothing && ai <= length(agent_colors)
                 Makie.lines!(axw, bx, by; color=(has_col ? agent_colors[ai] : _TEAL, 0.4), linewidth=2)
-                push!(frame_poses, tr[ff])
-                has_col && push!(frame_colors, agent_colors[ai])
+                is_alive = alive_state === nothing || ai > length(alive_state) || alive_state[ai]
+                if is_alive
+                    push!(frame_poses, tr[ff])
+                    has_col && push!(frame_colors, agent_colors[ai])
+                else
+                    push!(dead_poses, tr[ff])
+                end
             end
             _draw_agent_boids!(axw, frame_poses; colors=frame_colors)
+            if !isempty(dead_poses)
+                Makie.scatter!(
+                    axw,
+                    [pose[1] for pose in dead_poses],
+                    [pose[2] for pose in dead_poses];
+                    marker=:xcross,
+                    markersize=14,
+                    color=(_INKSOFT, 0.75),
+                )
+            end
             ttl = "tick $f / $nt"
             if !isempty(pol)
                 pf = Float64(pol[min(f, length(pol))]); mf = Float64(mill[min(f, length(mill))])

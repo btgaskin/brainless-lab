@@ -2,6 +2,10 @@
 
 This directory is a copy-and-edit scaffold for a group project that uses BrainlessLab.jl without forking the framework. The worked example is deliberately Falandays-style: a small online-plastic reservoir self-organizes during the rollout. There is no evolution step.
 
+If you do not write Julia, ask a coding agent to read the repository root `AGENTS.md`, then
+copy and adapt this template from a plain-language task description. The agent should propose
+observations, actions, metrics, controls, and calibration before editing.
+
 ## Files
 
 - `my_node.jl` defines `MyNode <: Reservoir`, a leaky homeostatic reservoir with online recurrent-weight and target adaptation, then registers it as `:my_node`.
@@ -52,6 +56,7 @@ step!(node, receptors)      # returns a spike vector
 effectors(node, spikes)     # maps spikes to the task effector vector
 effectors(node)             # optional convenience method
 reset!(node)                # resets dynamic rollout state
+n_nodes(node)               # keeps an inactive body's stable agent slot sized correctly
 n_receptors(node)
 n_effectors(node)
 ```
@@ -61,7 +66,7 @@ n_effectors(node)
 Important Julia gotcha: when extending BrainlessLab generics from outside the package, import the names you extend:
 
 ```julia
-import BrainlessLab: step!, effectors, n_receptors, n_effectors, reset!
+import BrainlessLab: step!, effectors, n_nodes, n_receptors, n_effectors, reset!
 ```
 
 Do not rely on `using BrainlessLab` for method extension. Without `import`, Julia may create or call the wrong method surface, and `simulate` will not see your node contract.
@@ -82,6 +87,17 @@ default_window(env or Type)
 ```
 
 `my_task.jl` keeps the task small: a one-dimensional agent tracks a sinusoidal target. Two receptors encode whether the target is to the right or left. Two effectors push right or left. The score is `1 - mean_abs_error / 2`, clamped to `[0, 1]`.
+
+This template uses an already-vectorized `TaskWorld`, so the task setup supplies a direct
+`Embodiment`: sensor and encoder relay the receptor vector, while the direct actuator relays
+the task-specific effector vector. For a physical/ecological project, compose an
+`Embodiment` from geometry, sensors, encoders, an actuator, compatible dynamics, and optional
+physiology, then place it in an `ObjectWorld`. Start from one of
+`../../embodiments/*.toml`; let `portspec(body)` determine the reservoir dimensions.
+
+Component and port IDs should be stable names, not inferred tuple positions. New physical
+sensors extend `sample_world_sensor!(sensor, world, motion_state)`, returning the sensor's
+raw sample vector; body encoders still own the conversion to reservoir receptors.
 
 ## Custom Metric
 
@@ -123,7 +139,7 @@ Benchmark artifacts are written under `bench/runs/` and include resolved config,
 
 1. Copy this directory outside the framework checkout or rename it in place.
 2. Rename `MyNode`, `MyNodeParams`, `MyTrackingEnv`, `MY_TASK`, `:my_node`, and `:my_task`.
-3. Keep receptor and effector counts aligned: `TaskSpec.n_receptors` must match the vector from `sense(env)`, and the node constructor receives that count.
+3. Keep receptor and effector counts aligned: for a vector task, `TaskSpec.n_receptors` must match `sense(env)`; for a composed body, use `portspec(body)` as the source of truth.
 4. Keep online plasticity inside `step!`; no evolution is needed for a Falandays-style first experiment.
 5. Add task-specific metrics to `metrics(env, window)` first. Use `register_metric!` for reusable analysis functions that can be resolved by symbol.
 6. Start with `simulate` and `visualize`; move to `bench/` only after the single run behaves sensibly.
@@ -134,6 +150,8 @@ The docs live in the Astro/Starlight site (<https://brainless-lab.pages.dev>, or
 
 - [Nodes — overview](https://brainless-lab.pages.dev/nodes/overview/)
 - [Environments & Tasks](https://brainless-lab.pages.dev/environments-tasks/)
-- [Receptors & Effectors](https://brainless-lab.pages.dev/receptors-effectors/)
+- [Embodiment](https://brainless-lab.pages.dev/receptors-effectors/)
 - [Extending it](https://brainless-lab.pages.dev/extending/)
+- [Research workflow](https://brainless-lab.pages.dev/research-workflow/)
+- [Agentic workflow](https://brainless-lab.pages.dev/agentic-workflow/)
 - `../../../bench/README.md`

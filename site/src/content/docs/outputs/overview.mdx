@@ -100,9 +100,9 @@ here `cell_004`) carries `representative.gif`, `criticality_timeseries.csv`, and
 
 ## (d) Reading the headline result
 
-`README.md` is the summary. It restates the baseline and cost, then gives a **callout per
-axis** — the best value found, whether the axis flagged a breakdown (a dead/liveness-failed
-cell), and whether the regime flipped:
+`README.md` is the development summary. It restates the baseline and cost, then gives a
+**callout per axis**—the best observed value in this grid, whether the axis flagged a
+breakdown (a dead/liveness-failed cell), and whether the regime flipped:
 
 ```text
 ## Callouts
@@ -114,11 +114,14 @@ Dead/liveness-failed cells flagged: 1 / 7.
 Cells with recorded errors: 0 / 7.
 ```
 
-The read: performance climbs with wiring density and swarm size, and the sparsest reservoir
+This is a synthetic worked tutorial unless an immutable run bundle is linked. Its
+development read is that performance climbs with wiring density and swarm size, and the sparsest reservoir
 (`node.link_p = 0.05`) tips into a dead/liveness-failed regime — the breakdown the sweep was
 built to find. For the numbers behind a callout, open `results.csv` (aggregates across
 seeds) or a cell's `metrics.csv` (per seed); `sigma_mr` and `spectral_radius` are meant to
 be read **together**, since homeostatic rate control can pin σ while $\rho(W)$ still moves.
 
-That whole tree — config, manifest, CSVs, figures, GIF — is what a published result links
-to, so anyone can trace the headline back to the code and seeds that made it.
+That whole tree—config, manifest, CSVs, figures, GIF—is a useful run artifact. Promotion to
+evidence additionally requires the frozen protocol, full provenance, seed ledger,
+inferential-unit declaration, analysis version, and checksums described in the
+[Research workflow](/research-workflow/).

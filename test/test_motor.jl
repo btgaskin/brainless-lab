@@ -2,7 +2,7 @@ using BrainlessLab
 using Random
 using Test
 
-# Historical (pre-motor) VEN differential-drive arithmetic, inlined verbatim so the
+# Historical pre-policy differential-drive arithmetic, inlined verbatim so the
 # default KinematicMotor can be asserted byte-identical to it.
 function _old_integrate_motion(pos, heading, speed, hr, e, torus;
                                top_speed=0.2, accel_time=5.0,
@@ -29,20 +29,20 @@ _falandays_reservoir(n, nr, ne; seed=1) =
 @testset "Motor defaults and registry" begin
     m = KinematicMotor()
     @test m isa Motor
-    @test m.scheme === :ven_differential
+    @test m.scheme === :differential
     @test m.readout === :spike_fraction
     @test m.turn_gain == 1.0
     @test !m.allow_reverse && !m.brake
-    # Kinematic constants match the historical VEN defaults.
+    # Kinematic constants match the historical situated-body defaults.
     @test m.top_speed == 0.2 && m.accel_time == 5.0
     @test m.top_heading_rate == pi / 8.0 && m.h_accel_time == 5.0 && m.dt == 1.0
 
     @test BrainlessLab.PASSTHROUGH_MOTOR === KinematicMotor()  # both isbits + all-default
-    @test resolve_motor(:ven_kinematics) === KinematicMotor
-    @test motor(PassthroughBody()) === BrainlessLab.PASSTHROUGH_MOTOR
-    @test motor(PassthroughBody(VENMorphology())) === BrainlessLab.PASSTHROUGH_MOTOR
-    custom = KinematicMotor(scheme=:ven_signed)
-    @test motor(PassthroughBody(VENMorphology(), custom)) === custom
+    @test resolve_motor(:situated_kinematics) === KinematicMotor
+    @test readout_policy(Embodiment()) === BrainlessLab.PASSTHROUGH_MOTOR
+    @test readout_policy(situated_embodiment(SituatedSensorLayout())) === BrainlessLab.PASSTHROUGH_MOTOR
+    custom = KinematicMotor(scheme=:signed_differential)
+    @test readout_policy(situated_embodiment(SituatedSensorLayout(), custom)) === custom
 end
 
 @testset "KinematicMotor genome is opt-in and bounded" begin
@@ -107,7 +107,7 @@ end
     @test readout(KinematicMotor(readout=:window_rate), sorn, ss) == effectors(sorn, ss)
 end
 
-@testset "Default integrate_motion is byte-identical to the old arithmetic" begin
+@testset "Default integration is byte-identical to the old arithmetic" begin
     torus = Torus(15.0)
     m = KinematicMotor()
     rng = MersenneTwister(3)
@@ -117,7 +117,7 @@ end
         speed = rand(rng) * 0.3
         hr = (rand(rng) - 0.5) * 0.5
         e = [rand(rng), rand(rng), rand(rng)]
-        new = BrainlessLab.integrate_motion(m, pos, heading, speed, hr, e, torus)
+        new = integrate!(m, pos, heading, speed, hr, e, torus)
         old = _old_integrate_motion(pos, heading, speed, hr, e, torus)
         @test new === old   # exact bit-identity, not just ≈
     end
@@ -163,36 +163,36 @@ end
     end
 end
 
-@testset ":ven_signed + allow_reverse produces reverse motion" begin
+@testset ":signed_differential + allow_reverse produces reverse motion" begin
     torus = Torus(15.0)
     st0 = ((5.0, 5.0), 0.0, 0.0, 0.0)
     e_reverse = [0.5, 0.5, 0.0]   # thrust=0 -> signed drive = 2*0-1 = -1 (full reverse)
 
     # allow_reverse: speed crosses zero and stays negative (travels backward).
-    mrev = KinematicMotor(scheme=:ven_signed, allow_reverse=true)
+    mrev = KinematicMotor(scheme=:signed_differential, allow_reverse=true)
     st = st0
     for _ in 1:15
-        st = BrainlessLab.integrate_motion(mrev, st..., e_reverse, torus)
+        st = integrate!(mrev, st..., e_reverse, torus)
     end
     @test st[3] < 0.0                     # negative speed == reverse
 
     # no allow_reverse: the same signed drive brakes to a standstill, never reverses.
-    mbrake = KinematicMotor(scheme=:ven_signed, allow_reverse=false)
+    mbrake = KinematicMotor(scheme=:signed_differential, allow_reverse=false)
     st = st0
     for _ in 1:15
-        st = BrainlessLab.integrate_motion(mbrake, st..., e_reverse, torus)
+        st = integrate!(mbrake, st..., e_reverse, torus)
     end
     @test st[3] == 0.0                    # clamped to a stop
 
     # unknown scheme is rejected.
-    @test_throws ArgumentError BrainlessLab.integrate_motion(
+    @test_throws ArgumentError integrate!(
         KinematicMotor(scheme=:bogus), (0.0, 0.0), 0.0, 0.0, 0.0, [0.5, 0.5, 0.5], torus)
 end
 
-@testset ":ven_signed + reverse changes swarm trajectories vs the default" begin
+@testset ":signed_differential + reverse changes swarm trajectories vs the default" begin
     common = (node=:falandays_base, n_agents=8, n_nodes=40, ticks=60, seed=11,
               record=(:poses,))
     base = simulate(:torus; common..., motor=KinematicMotor())
-    rev = simulate(:torus; common..., motor=KinematicMotor(scheme=:ven_signed, allow_reverse=true))
+    rev = simulate(:torus; common..., motor=KinematicMotor(scheme=:signed_differential, allow_reverse=true))
     @test getchannel(base.recorder, :poses) != getchannel(rev.recorder, :poses)
 end

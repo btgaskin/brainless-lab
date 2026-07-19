@@ -71,6 +71,57 @@ RngNoise(rng::R) where {R<:AbstractRNG} = RngNoise{R}(rng, nothing)
 RngNoise(seed::Integer) = RngNoise(MersenneTwister(Int(seed)), Int(seed))
 RngNoise(; seed::Integer=0) = RngNoise(seed)
 
+"""
+    AgentNoiseFactory(factory)
+
+Defer construction of a mutable node-noise source until an agent is built.
+`factory(agent_index)` receives the agent's stable one-based build slot. Use
+this when a custom noise source needs an explicit per-agent construction rule.
+"""
+struct AgentNoiseFactory{F}
+    factory::F
+end
+
+"""
+    agent_noise_source(source, agent_index)
+
+Materialize an agent-owned node-noise source. The default clones mutable source
+state, `RngNoise(seed)` derives the reproducible stream `seed + agent_index - 1`,
+and [`AgentNoiseFactory`](@ref) delegates to its factory. Custom noise sources
+may extend this function when `deepcopy` is not the appropriate ownership rule.
+"""
+function agent_noise_source(source, agent_index::Integer)
+    Int(agent_index) >= 1 || throw(ArgumentError("agent noise index must be positive"))
+    return deepcopy(source)
+end
+
+function agent_noise_source(source::RngNoise, agent_index::Integer)
+    index = Int(agent_index)
+    index >= 1 || throw(ArgumentError("agent noise index must be positive"))
+    if source.seed !== nothing
+        return RngNoise(Base.checked_add(source.seed, index - 1))
+    end
+    index == 1 && return deepcopy(source)
+
+    # An externally supplied RNG has no recoverable seed. Split it
+    # deterministically without advancing the caller's source; agent one keeps
+    # the exact supplied stream and later agents receive independently owned
+    # streams derived from successive UInt64 draws of a private copy.
+    splitter = deepcopy(source.rng)
+    derived = UInt64(0)
+    for _ in 1:(index - 1)
+        derived = rand(splitter, UInt64)
+    end
+    seed = Int(mod(derived, UInt64(typemax(Int))))
+    return RngNoise(seed)
+end
+
+function agent_noise_source(factory::AgentNoiseFactory, agent_index::Integer)
+    index = Int(agent_index)
+    index >= 1 || throw(ArgumentError("agent noise index must be positive"))
+    return factory.factory(index)
+end
+
 mutable struct RecordedNoise
     draws::Matrix{Float64}
     idx::Int
@@ -132,6 +183,8 @@ effectors(r::ReservoirInstance, spikes) = effectors(r.model, r.connectome, spike
 effectors(r::ReservoirInstance) = effectors(r, r.state.spikes)
 n_receptors(r::ReservoirInstance) = n_receptors(r.io)
 n_effectors(r::ReservoirInstance) = n_effectors(r.io)
+n_nodes(r::ReservoirInstance) =
+    hasproperty(r.state, :spikes) ? length(r.state.spikes) : length(r.state.spike_buffer)
 activations(r::ReservoirInstance) = r.state.acts
 weights(r::ReservoirInstance) = r.conn.wmat
 
@@ -378,6 +431,25 @@ function _ensure_unsigned_degree!(recurrent_mask::BitMatrix, input_mask::BitMatr
     return input_mask
 end
 
+function _ensure_unsigned_degree!(
+    recurrent_mask::BitMatrix,
+    input_mask::BitMatrix,
+    rng::AbstractRNG,
+    input_probabilities::Vector{Float64},
+)
+    all(>(0.0), input_probabilities) &&
+        return _ensure_unsigned_degree!(recurrent_mask, input_mask, rng)
+    eligible = findall(>(0.0), input_probabilities)
+    isempty(eligible) && return input_mask
+    n_nodes = size(input_mask, 2)
+    @inbounds for node in 1:n_nodes
+        degree = count(@view recurrent_mask[:, node]) + count(@view input_mask[:, node])
+        degree == 0 || continue
+        input_mask[rand(rng, eligible), node] = true
+    end
+    return input_mask
+end
+
 function _normalize_weight_init_mode(mode)
     sym = Symbol(mode)
     sym === :normal && return :legacy_normal
@@ -431,6 +503,7 @@ function FalandaysReservoir(
     input_weight=nothing,
     weight_init_mode=:excitatory,
     link_p::Real=0.1,
+    input_link_p=nothing,
     drive=NoDrive(),
     sign=Unsigned(),
     rectify=nothing,
@@ -467,11 +540,28 @@ function FalandaysReservoir(
         bernoulli_mask(n_nodes, n_nodes, link_p, rng; diagonal=false) :
         throw(ArgumentError("unknown topology :$topology"))
 
-    input_mask = bernoulli_mask(n_receptors_, n_nodes, link_p, rng; diagonal=true)
+    input_probabilities = if input_link_p === nothing
+        nothing
+    else
+        values = Float64.(collect(input_link_p))
+        length(values) == n_receptors_ || throw(DimensionMismatch(
+            "input_link_p needs one probability per receptor ($(n_receptors_)); got $(length(values))",
+        ))
+        all(p -> 0.0 <= p <= 1.0, values) ||
+            throw(ArgumentError("input_link_p probabilities must lie in [0, 1]"))
+        values
+    end
+    input_mask = input_probabilities === nothing ?
+        bernoulli_mask(n_receptors_, n_nodes, link_p, rng; diagonal=true) :
+        bernoulli_mask(input_probabilities, n_nodes, rng; diagonal=true)
     output_mask = bernoulli_mask(n_nodes, n_effectors_, link_p, rng; diagonal=true)
 
     if repair_masks && !(axis isa Dale)
-        _ensure_unsigned_degree!(recurrent_mask, input_mask, rng)
+        if input_probabilities === nothing
+            _ensure_unsigned_degree!(recurrent_mask, input_mask, rng)
+        else
+            _ensure_unsigned_degree!(recurrent_mask, input_mask, rng, input_probabilities)
+        end
     end
     repair_masks && _ensure_output_mask!(output_mask, rng)
 

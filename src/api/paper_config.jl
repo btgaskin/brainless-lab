@@ -81,7 +81,7 @@ const FALANDAYS_PAPER_CONFIG = Dict{Symbol,FalandaysPaperTaskConfig}(
         weight_init_mode=:collective_dale_smallworld,
         movement_amp=0.0,
         arena="15x15 periodic torus",
-        sensor_bank="64 VEN receptors: two reserved channels plus 62 bearing sensors",
+        sensor_bank="64 receptors: two reserved channels plus 62 bearing sensors",
         source="MultipleAgents/MultipleAgents.jl",
     ),
 )

@@ -138,6 +138,26 @@ function bernoulli_mask(rows::Integer, cols::Integer, p::Real, rng::AbstractRNG=
     return mask
 end
 
+function bernoulli_mask(probabilities::AbstractVector{<:Real}, cols::Integer, rng::AbstractRNG=Random.default_rng(); diagonal::Bool=true)
+    cols_ = Int(cols)
+    cols_ >= 0 || throw(ArgumentError("cols must be non-negative"))
+    values = Float64.(probabilities)
+    all(p -> 0.0 <= p <= 1.0, values) ||
+        throw(ArgumentError("all receptor probabilities must lie in [0, 1]"))
+
+    rows = length(values)
+    mask = falses(rows, cols_)
+    @inbounds for j in 1:cols_, i in 1:rows
+        mask[i, j] = rand(rng) < values[i]
+    end
+    if !diagonal && rows == cols_
+        @inbounds for i in 1:rows
+            mask[i, i] = false
+        end
+    end
+    return mask
+end
+
 function directed_watts_strogatz(n::Integer, k::Integer, beta::Real, rng::AbstractRNG=Random.default_rng())
     n = Int(n)
     k = Int(round(k))

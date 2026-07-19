@@ -1,9 +1,8 @@
 # experiments/
 
-A fifth CLI tool, a peer to `bench`/`profile`/`sweep`/`calibration`: a top-level
-directory with a `run.jl` entrypoint, run against the **root project** (like
-`sweep`/`calibration`; `bench`/`profile` only carry their own `Project.toml`
-because they pull in viz/stats deps that experiments don't need).
+The multi-run protocol surface. It complements one-run simulation, task calibration,
+profiling, sweeps, ablations, benchmarks, and evolution; see the site's Tooling page for the
+capability map. `experiments/run.jl` uses the **root project**.
 
 It holds composed, reproducible experiment protocols that are **not part of the
 core library** — core stays lean (the settled Falandays baseline, the validated
@@ -33,7 +32,8 @@ julia --project=. experiments/run.jl freeze_onset seeds=0:9 tasks=tracking,pong 
 `key=val` values parse as Int (`600`), Float (`0.5`), range (`0:9`), comma-list
 (`tracking,pong` → Symbols; `1,2,4,8` → Ints), else a Symbol. Each run writes
 `experiments/runs/<name>/<UTCstamp>_<gitsha>/` with `results.json` + `manifest.txt`
-(node, tasks, ticks, seeds, git SHA, timestamp) — enough to reproduce exactly.
+(node, tasks, ticks, seeds, git SHA, timestamp). That is a traceable exploratory run, not
+an exact-reproduction or promoted-evidence guarantee.
 
 ## Layout
 
@@ -47,15 +47,40 @@ experiments/
   tracking_leak_lrate_factorial.jl  # experiment (:tracking_leak_lrate_factorial)
   figures/        # CairoMakie figure scripts (own env; read a run's results.json)
   runs/           # scratch/exploratory outputs (git-ignored)
-  results/        # published run-dirs, committed & traceable to a study/figure
+  results/        # curated evidence bundles, committed & traceable to a study/figure
 ```
 
-**Data retention.** Exploratory runs land in the git-ignored `runs/`. When a run backs
-a published figure or docs page, promote its run-dir to the committed
-`results/<experiment>/<stamp>_<sha>/` — small here (`results.json` is a few hundred KB).
-For a genuinely large run (raw `results.json` in the MB–GB range) don't commit the blob:
-keep `manifest.txt` + a slimmed aggregate summary in `results/`, and leave the full
-per-seed data where it is (an external archive), noted in the manifest.
+**Data retention.** Exploratory runs land in the git-ignored `runs/`. Committing a directory
+under `results/` makes it reviewable; it does not by itself promote the scientific result.
+Large raw data may live in an external archive, but the immutable URI and checksum belong in
+the committed bundle.
+
+## Evidence states and promotion
+
+Every study page declares `exploratory`, `tuned`, `frozen`, `confirmed`, `promoted`, or
+`retired`. `frozen` is a fixed protocol whose sealed outcomes remain unopened; `confirmed`
+means the frozen protocol has been executed on those blocks.
+Development outputs, selected winners, and representative runs remain exploratory unless a
+frozen protocol is evaluated on untouched randomized blocks.
+
+A promoted bundle requires:
+
+- frozen protocol and analysis plan;
+- resolved config and selected parameters;
+- full git SHA plus dirty-worktree status;
+- Julia version and Project/Manifest hashes;
+- named seed ledger with disjoint-stage and overlap checks;
+- per-block results and declared paired contrasts;
+- inferential unit, exclusions, and dead/failed-run policy;
+- analysis-code version or hash;
+- schema-versioned summary JSON;
+- figure inputs and representative-selection rule;
+- checksums for every promoted artifact;
+- immutable external-archive URI and hash when raw data is not committed.
+
+Do not hardcode numerical prose from a scratch run. Site figures and claims should read from
+the promoted summary. Opening sealed data and then changing a parameter, endpoint, exclusion,
+or analysis restarts the evidence cycle.
 
 `harness.jl` composes only the **public** `BrainlessLab` API (`simulate`,
 `sim.metrics.score`, `normalized_score`, …), so experiments survive core refactors:
@@ -76,8 +101,21 @@ per-seed data where it is (an external archive), noted in the manifest.
 Keep it public-API-only; reaching into `BrainlessLab` internals is a signal the
 piece wants to be a registered analysis or a core feature instead.
 
+Before adding a protocol, follow the site's Research workflow: calibrate the task, choose
+controls that match the claim, separate development and confirmation seeds, name the
+independent block, and plan power prospectively from a fresh variance pilot.
+
 Natural next studies on this seam:
 - **What sets the onset tick** — sweep `freeze_tick × lrate_targ|threshold_mult`
   and read `onset_tick` as a function of the homeostatic rate.
 - **Which plasticity carries the load** — `freeze_sweep(...; verb=:clamp_target)`
   (targets only) vs `:freeze_plasticity` (weights + targets).
+
+## Physical composition
+
+New ecological experiments that need independently composed physical cameras,
+field probes, actuators, dynamics, and physiology should start from the public
+`ObjectWorld` surface. The copy-ready examples under `examples/embodiments/`
+show both levels: `object_world_quickstart.jl` exposes the live `Ensemble` and
+`Recorder`, while `object_world_task.jl` adds a `TaskSpec` and returns the
+standardized `SimResult`.

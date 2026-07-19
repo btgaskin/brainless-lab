@@ -44,6 +44,7 @@ effectors(r::NullRandomReservoir, spikes) = copy(r.effector_buffer)
 effectors(r::NullRandomReservoir) = effectors(r, r.spikes)
 n_receptors(r::NullRandomReservoir) = r.n_receptors_
 n_effectors(r::NullRandomReservoir) = r.n_effectors_
+n_nodes(r::NullRandomReservoir) = length(r.spikes)
 
 function reset!(r::NullRandomReservoir)
     fill!(r.spikes, 0.0)

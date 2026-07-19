@@ -2,35 +2,35 @@ using Random
 
 const _TWO_PI = 2.0 * pi
 
-# The bearing-geometry constants are now realizations of the default SensorSpec
+# The bearing-geometry constants are realizations of the default AbstractSensor
 # (`BEARING_DEFAULT`, from Sensor.jl, included before Body.jl). The values are
 # unchanged: the default sensor is the historical two-eye 62-ray fan, so
 # SENS_ANGLES_* and the receptor-bank widths derived below stay byte-identical to
-# the pre-SensorSpec constants (62 bearings, a 64-wide bank, acoustic lead at 65).
+# the historical constants (62 bearings, a 64-wide bank, acoustic lead at 65).
 const SENS_ANGLES_DEG = angles_deg(BEARING_DEFAULT)
 const SENS_ANGLES_RAD = angles_rad(BEARING_DEFAULT)
-const VEN_BEARING_SENSOR_COUNT = n_sensors(BEARING_DEFAULT)
-const VEN_BANK_RECEPTORS = 2 + VEN_BEARING_SENSOR_COUNT
-const VEN_FORAGE_RECEPTORS = 2 * VEN_BANK_RECEPTORS
-const VEN_ACOUSTIC_RECEPTOR_INDEX = VEN_BANK_RECEPTORS + 1
+const DEFAULT_BEARING_SENSOR_COUNT = n_sensors(BEARING_DEFAULT)
+const DEFAULT_BEARING_BANK_RECEPTORS = 2 + DEFAULT_BEARING_SENSOR_COUNT
+const DEFAULT_FORAGE_RECEPTORS = 2 * DEFAULT_BEARING_BANK_RECEPTORS
+const DEFAULT_SIGNAL_RECEPTOR_INDEX = DEFAULT_BEARING_BANK_RECEPTORS + 1
 
 # Conspecific receptor-bank width. Colour sensing lays out one `n_sensors`-wide
 # bearing bank per colour behind the 2 reserved leads (2 + C*nb); colour-blind
 # keeps the single (2 + nb)-wide bank. C == 1 colour_sensing reproduces the
-# colour-blind width. `n_sensors` defaults to VEN_BEARING_SENSOR_COUNT (62) so
-# direct callers stay byte-identical; a SensorSpec supplies its own ray count.
-_ven_conspecific_width(colour_sensing::Bool, n_colours::Integer; n_sensors::Integer=VEN_BEARING_SENSOR_COUNT) =
+# colour-blind width. `n_sensors` defaults to DEFAULT_BEARING_SENSOR_COUNT (62) so
+# direct callers stay byte-identical; an AbstractSensor supplies its own ray count.
+_legacy_conspecific_width(colour_sensing::Bool, n_colours::Integer; n_sensors::Integer=DEFAULT_BEARING_SENSOR_COUNT) =
     colour_sensing ? (2 + Int(n_colours) * Int(n_sensors)) : (2 + Int(n_sensors))
 
 # The acoustic/source region starts right after the conspecific bank(s). Under
-# colour this replaces the hardcoded index 65 (VEN_ACOUSTIC_RECEPTOR_INDEX).
-_ven_acoustic_index(colour_sensing::Bool, n_colours::Integer; n_sensors::Integer=VEN_BEARING_SENSOR_COUNT) =
-    _ven_conspecific_width(colour_sensing, n_colours; n_sensors=n_sensors) + 1
+# colour this replaces the historical hardcoded index 65.
+_legacy_signal_index(colour_sensing::Bool, n_colours::Integer; n_sensors::Integer=DEFAULT_BEARING_SENSOR_COUNT) =
+    _legacy_conspecific_width(colour_sensing, n_colours; n_sensors=n_sensors) + 1
 
-# The VEN swarm agent is now stateless: per-agent physical state (position,
+# The situated swarm agent is stateless: per-agent physical state (position,
 # heading, speed, heading-rate) and per-agent source_gain live on the
 # environment as index-addressed arrays (see TorusEnvironment / ForageEnvironment),
-# and the body is a `PassthroughBody{VENMorphology}` (defined in Morphology.jl).
+# and the body is an `Embodiment`.
 # The uniform kinematic constants and the effector-decode scheme now live on a
 # `KinematicMotor` (see Motor.jl), carried on the body and on SwarmConfig.motor;
 # `agent_radius` is a SwarmConfig field. The shared kinematic helpers below stay
@@ -38,17 +38,17 @@ _ven_acoustic_index(colour_sensing::Bool, n_colours::Integer; n_sensors::Integer
 
 velocity_hat(heading::Real) = (Float64(cos(heading)), Float64(sin(heading)))
 
-_ven_float_vector(x) = Vector{Float64}(vec(Float64.(x)))
-_ven_float_vector(x::Vector{Float64}) = x
+_component_float_vector(x) = Vector{Float64}(vec(Float64.(x)))
+_component_float_vector(x::Vector{Float64}) = copy(x)
 
-function _ven_output_acts(output_acts)
-    vals = _ven_float_vector(output_acts)
+function _bounded_situated_effectors(output_acts)
+    vals = _component_float_vector(output_acts)
     length(vals) in (3, 4) ||
-        throw(DimensionMismatch("VEN motor decode requires 3 or 4 effector values, got $(length(vals))"))
+        throw(DimensionMismatch("situated actuator requires 3 or 4 effector values, got $(length(vals))"))
     return clamp.(vals, 0.0, 1.0)
 end
 
-ven_emitted_signal(e) = length(e) >= 4 ? clamp(Float64(e[4]), 0.0, 1.0) : 0.0
+emitted_signal(e) = length(e) >= 4 ? clamp(Float64(e[4]), 0.0, 1.0) : 0.0
 
 # `integrate_motion(::KinematicMotor, ...)` (the agent kinematics) now lives in
 # Motor.jl, dispatched on the motor so alternative command maps can be swapped in.
@@ -69,12 +69,12 @@ function _normalize_bank!(bank::AbstractVector{Float64}, mode::Symbol, sigma::Re
     mode === :raw && return bank
     total = sum(bank)
     total > 0.0 || return bank
-    if mode === :hard
+    if mode === :hard || mode === :sum
         bank ./= total
     elseif mode === :divisive
         bank ./= (Float64(sigma) + total)
     else
-        throw(ArgumentError("unknown VEN norm mode :$(mode); use :hard, :raw, or :divisive"))
+        throw(ArgumentError("unknown sensor-bank norm mode :$(mode); use :sum, :hard, :raw, or :divisive"))
     end
     return bank
 end
@@ -87,9 +87,9 @@ function assemble_inputs(
     gain::Real=1.0,
     n_colours::Integer=1,
     colour_sensing::Bool=false,
-    n_sensors::Integer=VEN_BEARING_SENSOR_COUNT,
+    n_sensors::Integer=DEFAULT_BEARING_SENSOR_COUNT,
 )
-    sens = _ven_float_vector(sens_agents_vec)
+    sens = _component_float_vector(sens_agents_vec)
     nb = Int(n_sensors)
 
     if colour_sensing
@@ -137,9 +137,9 @@ function assemble_forage_inputs(
     conspecific_gain::Real=1.0,
     n_colours::Integer=1,
     colour_sensing::Bool=false,
-    n_sensors::Integer=VEN_BEARING_SENSOR_COUNT,
+    n_sensors::Integer=DEFAULT_BEARING_SENSOR_COUNT,
 )
-    source_sens = _ven_float_vector(source_sens_vec)
+    source_sens = _component_float_vector(source_sens_vec)
     nb = Int(n_sensors)
     length(source_sens) == nb ||
         throw(DimensionMismatch("source vision requires $(nb) sensors, got $(length(source_sens))"))
@@ -173,14 +173,14 @@ function _accumulate_circular_target!(
     from_pos,
     target_position,
     target_radius::Real,
-    torus::Torus,
+    arena::Union{Torus,WalledArena},
     max_d::Float64;
     vision_range=nothing,
 )
     radius = max(0.0, Float64(target_radius))
     target_pos = (Float64(target_position[1]), Float64(target_position[2]))
 
-    target_dist = tdistance(torus, from_pos, target_pos)
+    target_dist = arena_distance(arena, from_pos, target_pos)
     if vision_range !== nothing && target_dist > Float64(vision_range)
         return false
     end
@@ -190,7 +190,7 @@ function _accumulate_circular_target!(
         return true
     end
 
-    neighbor_angle = bearing(torus, from_pos, target_pos)
+    neighbor_angle = arena_bearing(arena, from_pos, target_pos)
     perpendicular_angle =
         neighbor_angle > 0.0 ? neighbor_angle - pi / 2.0 : neighbor_angle + pi / 2.0
     offset = (
@@ -199,7 +199,7 @@ function _accumulate_circular_target!(
     )
     edge_a = (target_pos[1] + offset[1], target_pos[2] + offset[2])
 
-    edge_angle_a = bearing(torus, from_pos, edge_a)
+    edge_angle_a = arena_bearing(arena, from_pos, edge_a)
     ref_d = mod(edge_angle_a - neighbor_angle + pi, _TWO_PI) - pi
     ref_dist = abs(ref_d)
 
@@ -215,7 +215,7 @@ function _accumulate_circular_target!(
     return false
 end
 
-# `encoding` is the SensorSpec activation encoding — a Symbol (:binary/:graded) or
+# `encoding` is the AbstractSensor activation encoding — a Symbol (:binary/:graded) or
 # a legacy Real `sens_agent_dist` (0 => :binary, ≠0 => :graded), resolved via
 # `_sensor_encoding`. The branch is RNG-neutral: neither encoding draws, so the
 # noise block below preserves the historical draw order exactly.
@@ -259,7 +259,7 @@ function _sense_circular_targets(
     heading::Real,
     target_positions,
     target_radii,
-    torus::Torus,
+    arena::Union{Torus,WalledArena},
     sens_angles_rad,
     sens_agent_dist,
     sensory_noise::Real,
@@ -270,7 +270,7 @@ function _sense_circular_targets(
         throw(DimensionMismatch("target position/radius counts differ"))
 
     sensor_angles = Float64.(vec(collect(sens_angles_rad))) .+ Float64(heading)
-    max_d = max_dist(torus)
+    max_d = arena_max_distance(arena)
     intersections = fill(max_d, length(sensor_angles))
 
     for idx in eachindex(target_positions, target_radii)
@@ -280,7 +280,7 @@ function _sense_circular_targets(
             from_pos,
             target_positions[idx],
             target_radii[idx],
-            torus,
+            arena,
             max_d;
             vision_range=vision_range,
         )
@@ -303,27 +303,29 @@ function sense_agents(
     positions::AbstractVector,
     skip::Integer,
     agent_radius::Real,
-    torus::Torus,
+    arena::Union{Torus,WalledArena},
     sens_angles_rad=SENS_ANGLES_RAD,
     sens_agent_dist=0,
     sensory_noise::Real=0,
     rng=nothing;
     vision_range=nothing,
+    active_mask=nothing,
 )
     sensor_angles = Float64.(vec(collect(sens_angles_rad))) .+ Float64(heading)
-    max_d = max_dist(torus)
+    max_d = arena_max_distance(arena)
     intersections = fill(max_d, length(sensor_angles))
     skip_i = Int(skip)
 
     @inbounds for j in eachindex(positions)
         j == skip_i && continue
+        active_mask === nothing || active_mask[j] || continue
         done = _accumulate_circular_target!(
             intersections,
             sensor_angles,
             pos,
             positions[j],
             agent_radius,
-            torus,
+            arena,
             max_d;
             vision_range=vision_range,
         )
@@ -353,13 +355,14 @@ function sense_agents_coloured(
     colours::AbstractVector,
     skip::Integer,
     agent_radius::Real,
-    torus::Torus,
+    arena::Union{Torus,WalledArena},
     sens_angles_rad=SENS_ANGLES_RAD,
     sens_agent_dist=0,
     sensory_noise::Real=0,
     rng=nothing;
     n_colours::Integer=1,
     vision_range=nothing,
+    active_mask=nothing,
 )
     length(colours) == length(positions) ||
         throw(DimensionMismatch("colours ($(length(colours))) must match positions ($(length(positions)))"))
@@ -367,7 +370,7 @@ function sense_agents_coloured(
     nc >= 1 || throw(ArgumentError("n_colours must be at least 1"))
 
     sensor_angles = Float64.(vec(collect(sens_angles_rad))) .+ Float64(heading)
-    max_d = max_dist(torus)
+    max_d = arena_max_distance(arena)
     nb = length(sensor_angles)
     skip_i = Int(skip)
 
@@ -377,6 +380,7 @@ function sense_agents_coloured(
         fill!(intersections, max_d)
         for j in eachindex(positions)
             j == skip_i && continue
+            active_mask === nothing || active_mask[j] || continue
             Int(colours[j]) == c || continue
             done = _accumulate_circular_target!(
                 intersections,
@@ -384,7 +388,7 @@ function sense_agents_coloured(
                 pos,
                 positions[j],
                 agent_radius,
-                torus,
+                arena,
                 max_d;
                 vision_range=vision_range,
             )
@@ -406,7 +410,7 @@ function sense_source(
     pos,
     heading::Real,
     source_position,
-    torus::Torus,
+    arena::Union{Torus,WalledArena},
     sens_angles_rad=SENS_ANGLES_RAD,
     sens_agent_dist=0,
     sensory_noise::Real=0,
@@ -420,9 +424,37 @@ function sense_source(
         heading,
         (source_pos,),
         (Float64(source_radius),),
-        torus,
+        arena,
         sens_angles_rad,
         sens_agent_dist,
+        sensory_noise,
+        rng;
+        vision_range=vision_range,
+    )
+end
+
+
+"""Bearing-cone vision of an arbitrary set of circular situated objects."""
+function sense_objects(
+    pos,
+    heading::Real,
+    positions,
+    radii,
+    arena::Union{Torus,WalledArena},
+    sens_angles_rad=SENS_ANGLES_RAD,
+    encoding=0,
+    sensory_noise::Real=0,
+    rng=nothing;
+    vision_range=nothing,
+)
+    return _sense_circular_targets(
+        pos,
+        heading,
+        positions,
+        radii,
+        arena,
+        sens_angles_rad,
+        encoding,
         sensory_noise,
         rng;
         vision_range=vision_range,

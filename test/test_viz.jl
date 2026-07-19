@@ -38,4 +38,35 @@ using Test
         @test isfile(gif)
         rm(gif; force=true)
     end
+
+    rec = Recorder(enabled=(:poses, :objects, :body_alive))
+    for t in 1:4
+        record!(rec, :poses, [(4.0 + 0.2t, 5.0, 0.0)])
+        record!(rec, :objects, [(
+            object=1,
+            type_index=1,
+            kind=:beacon,
+            bank=:beacon,
+            position=(7.0, 5.0),
+            radius=0.5,
+            active=true,
+            remaining=typemax(Int),
+            capacity=nothing,
+        )])
+        record!(rec, :body_alive, [t < 4])
+        tick!(rec)
+    end
+    physical_sim = SimResult(
+        rec,
+        (;),
+        :synthetic,
+        :falandays_base,
+        (environment=(bounds=(0.0, 10.0, 0.0, 10.0),),),
+    )
+    @test swarmplot(physical_sim) isa Makie.Figure
+    @test visualize(physical_sim; panels=[:swarm]) isa Makie.Figure
+    gif = tempname() * ".gif"
+    @test animate(physical_sim; path=gif, maxframes=2, framerate=2) == gif
+    @test isfile(gif)
+    rm(gif; force=true)
 end

@@ -12,6 +12,7 @@ examples/output/
 /demo/runs/
 /bench/runs/
 /experiments/runs/
+/experiments/results/homeostatic_needs_v2/
 /bench/genomes/
 /bench/Manifest.toml
 /bench/output/

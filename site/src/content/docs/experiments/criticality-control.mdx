@@ -1,6 +1,16 @@
 ---
-title: Criticality is not the control variable
-description: Does the Falandays homeostat tune the reservoir to criticality, and is that what makes it work? Across tracking, the Oosawa drive, and a 48-agent forage swarm, the branching ratio near 1 is a homeostatically-defended byproduct — welded to ≈1 across the whole functional range and only movable by silencing the reservoir. Criticality and function are confounded, not separable by tuning.
+title: Criticality across tested perturbations
+description: Exploratory probes of whether the Falandays branching ratio can be varied independently of function across the tested tracking, drive, and foraging settings.
+evidence:
+  status: exploratory
+  id: criticality-control-working-note
+  protocol_version: "0"
+  randomization_unit: one seeded reservoir or multi-agent world
+  n_independent_blocks: 3
+  block_summary: minimum 3 and maximum 10 independent seeds per reported probe
+  primary_endpoint: varies by probe; no frozen co-primary endpoint
+  artifact_path: none; exploratory scripts and tables
+  limitations: ad-hoc perturbations, small samples, and no fixed-weight confirmatory comparison
 ---
 
 **Question.** The [Falandays](/nodes/falandays/) homeostatic rule holds each reservoir's branching
@@ -8,29 +18,29 @@ ratio $m$ near $1$ — the textbook signature of self-organized criticality. Thi
 question directly and end-to-end: is $m$ the *controlled* variable, is it an independently *tunable*
 knob, and is function driven by proximity to $m \approx 1$? Following the arc from the node in
 isolation, to the [Oosawa](/nodes/falandays/#the-oosawa-drive-a-variant-for-contrast) drive we
-actually run, to the 48-agent [forage](/experiments/social-foraging/) swarm, the answer is a
-consistent **no** — but a *specific* no. At the node, $m \approx 1$ is an **ambiguous byproduct** of
-rate homeostasis. Under the Oosawa drive, the deficit-gated term is a **starvation backstop** that
-shifts $m$ only when the reservoir is under-fed. And across the foraging swarm, $m$ is **welded to
-$\approx 1$ over the entire functional range** — you can move it below $0.9$ *only* by silencing the
-reservoir, which kills foraging. So criticality and function are **confounded**: "the reservoir is
-working" and "$m \approx 1$" turn out to be the *same* condition. Whether criticality *causes* good
-function is therefore **not answerable by tuning this node**.
+actually run, to the 48-agent [forage](/experiments/social-foraging/) swarm, the tested
+settings show a consistent pattern—but not an exhaustive impossibility result. At the node,
+$m \approx 1$ is an **ambiguous byproduct** of
+rate homeostasis. Under the Oosawa drive, threshold-gap-modulated membrane noise changes the
+operating regime. Across the tested foraging settings, every functioning cell had
+$m\approx1$, while the only observed sub-$0.9$ cell was nearly silent. These exploratory
+probes therefore did not separate criticality from function; they do not show that such a
+separation is impossible.
 
 **Design.** Six probes along that arc: (A) the target-mechanism sweep on the single-agent `:wall`
 base — the node-level *ambiguity* result; (B) tracking, `base` vs the Oosawa drive — where the
-easy-base "freeze the target for free" result **reverses**; (C) a single-agent forage confirmation;
-(D) a `noise_gain` sweep across contexts that shows the drive is a *starvation backstop*; (E) the
-48-agent transmission config, asking whether $m$ tracks foraging performance; and (F) the decisive
-attempt to *move* $m$ on the swarm — and why you cannot. A short collective null-test (the flat
+easy-base "freeze the target for free" result **reverses**; (C) a single-agent forage probe;
+(D) a `noise_gain` sweep across contexts that characterizes the threshold-gap drive; (E) the
+48-agent transmission config, asking whether $m$ tracks foraging performance; and (F) a bounded
+attempt to *move* $m$ on the swarm, reporting the range reached in the tested grid. A short collective null-test (the flat
 swarm $m$ against a circular-shift surrogate) is kept as a supporting measurement caveat.
 
 :::note[The honest posture]
 This is a *dissection*, not a leaderboard. We are not asking how high $m$ climbs or how good the
-score gets — we are asking **which actuator regulates what**, and whether the branching ratio near
-$1$ is a tuned target, a driver of function, or neither. It turns out to be a **defended byproduct**,
-inseparable from function by any tuning of this node. Where a claim is a spot-check rather than a
-promoted study, it is flagged as such — and one earlier phrasing, "$m$ **decoupled** from
+score gets—we are asking **which actuator regulates what**, and whether the branching ratio near
+$1$ is a tuned target, a driver of function, or neither. In the tested settings it is consistent
+with a **defended-byproduct hypothesis** and was not separated from function. Where a claim is a
+spot-check rather than a promoted study, it is flagged as such — and one earlier phrasing, "$m$ **decoupled** from
 performance," is **retired** here (see [the honest conclusion](#the-honest-conclusion)).
 :::
 
@@ -57,7 +67,8 @@ of whether the reservoir is under-fed.
 ## Experiment A — node-level ambiguity on the wall base
 
 **On the wall base, $m \approx 1$ is ambiguous — it reads the same at the healthy plateau, at
-saturation, and at silent collapse — so it cannot be the controlled variable.** Substrate `:wall`,
+saturation, and at silent collapse — so this estimate alone cannot identify whether $m$ is a
+controlled variable.** Substrate `:wall`,
 `node=:falandays_base`, single agent, **10 seeds, $T = 2000$**. We measure three things at once:
 **nav** = normalized wall score (function — note it *ceilings at 1.0*, because wall is easy, so the
 **failures** are the signal, not the ceiling), **rate** = mean firing rate (activity), and **$m$** =
@@ -113,12 +124,12 @@ Four findings, each read straight off the table:
   $0.1 \to 4.0$ walks rate $0.29 \to 0.39$ and $m$ $0.976 \to 0.923$). But driving the set-point
   *too fast* — `lrate_targ` $\ge 0.1$ — **destabilizes the loop into collapse** (rate $\to 0$, nav
   $\to 0$). The target is a slow governor, not a fast corrector.
-- **(iv) $m$ is not the controlled variable — and this is the headline.** It sits between $0.92$ and
-  $0.99$ whenever the controller works *at all*, and — decisively — it is **ambiguous**:
+- **(iv) The estimated $m$ is non-discriminative — and this is the headline.** It sits between $0.92$ and
+  $0.99$ whenever the controller works *at all*, and it is **ambiguous**:
   $m \approx 0.99$ shows up at the healthy plateau (`lrate_targ` $= 0$), at full saturation
   (`threshold_mult` $= 0.5$, $m = 0.991$, broken), and at dead silence (`threshold_mult` $= 3.0$,
   $m = 0.995$, nav $0.000$) alike. A number that is the *same* at the working point, at saturation,
-  and at silence is not a control target.
+  and at silence cannot by itself identify a control target.
 
 ![m vs firing rate, colored by function — m≈1 appears at the healthy plateau, at saturation, and at silent collapse](/experiments/criticality-control/m-rate-plane.png)
 
@@ -168,7 +179,7 @@ Four findings:
   ($0.05$–$0.52$) while $m$ barely moves. The ambiguity of Experiment A reappears on the node we use:
   function moves, $m$ does not.
 
-## Foraging confirmation
+## Single-agent foraging probe
 
 **On the task we actually run, the same picture holds: freezing the target hurts *and* pushes $m$
 back up toward the base pin, and the floor is inert whenever the swarm is fed.** Single-agent forage,
@@ -188,38 +199,36 @@ starve a network the drive would otherwise feed — consistent with the tracking
 [social-foraging](/experiments/social-foraging/) tuning where the Oosawa `noise_gain` sweet spot is
 $0.2$–$0.3$.
 
-## The drive is a starvation backstop — how noise moves criticality
+## The threshold-gap drive — how noise moves criticality
 
-**The Oosawa drive fires *nothing* until the reservoir is under-fed, so it moves $m$ only where the
-task fails to feed it: it lifts $m$ in the input-poor tracking task and does nothing to $m$ in the
-already-fed forage swarm.** The cleanest evidence is that with the drive off, the Oosawa node *is* the
-base:
+**The implemented Oosawa term scales Gaussian membrane noise with the positive gap to firing
+threshold. It is generally active below that threshold, including at the homeostatic target when
+`threshold_mult > 1`.** The probes below show context-dependent associations between its gain,
+rate, and $m$; they do not establish a physiological starvation switch. With the drive gain at
+zero, the Oosawa preset reduces to the base update:
 
-- **`oosawa` with `noise_gain=0` is byte-identical to `base` in the forage swarm.** Forage / rate /
-  $m$: blind $0.550 / 0.247 / 0.993$; sighted $0.552 / 0.309 / 0.991$ — **exact**, 4 seeds. The
-  deficit-gated drive is a pure *backstop*: at `noise_gain=0` it contributes nothing, so the two
-  presets coincide bit-for-bit.
+- **`oosawa` with `noise_gain=0` matches `base` in the tested forage runs.** Forage / rate /
+  $m$: blind $0.550 / 0.247 / 0.993$; sighted $0.552 / 0.309 / 0.991$ — 4 seeds. At
+  `noise_gain=0`, the state-dependent drive contributes nothing.
 - **Tracking (input-poor): noise *moves* $m$.** As `noise_gain` rises $0 \to 0.4$, $m$ climbs from
   $\approx 0.62$ (noise $0$, genuinely **subcritical**) to $\approx 0.98$, and rate $0.17 \to 0.81$.
   Here the drive **is** the activity source, so it is what carries the reservoir up to $m \approx 1$.
   *(Honesty flag: the clean $0.62 \to 0.98$ range is a **single-seed** read. A 5-seed run gave a
   narrower $0.89 \to 0.98$ and a noisy frac30 — the direction is solid, the exact bottom of the range
   is not.)*
-- **Forage swarm (fed): noise does *not* move $m$.** Across `noise_gain` $0 \to 0.8$, $m$ stays
+- **Forage swarm: the tested gain did not move $m$.** Across `noise_gain` $0 \to 0.8$, $m$ stays
   pinned $\approx 0.98$–$0.99$ in both blind and sighted conditions; the drive only bumps the *rate*
-  at the top of the range. The task input already feeds the reservoir, so the starvation backstop
-  never engages the way it does in tracking.
+  at the top of the range. This may reflect task input and the adaptive target, but the current
+  observations do not record when the drive amplitude is zero or establish why the contexts differ.
 - **Sighted vs blind raises the operating point, not the criticality.** Turning on conspecific vision
   floats the target up ($1.49 \to 3.27$) and lifts the rate, but $m$ stays $\approx 0.99$. Social
   input is *more feed*, not *more criticality*.
 
-**Synthesis.** $m \approx 1$ is the *"adequately fed"* state. The allostatic target floats to absorb
-whatever feed is present — task input **plus** drive — pinning $m$ near $1$ whenever the reservoir is
-fed, and falling subcritical only when it is genuinely starved. `base` and `oosawa` therefore differ
-**only** where `base` would otherwise starve: the drive is the backstop that keeps a blind or
-input-poor network out of the subcritical basement. This is the same rate-pinning the [tracking
-sweep](/experiments/tracking-param-sweep/) reported ($m \approx 0.99$ across the healthy interior,
-$\rho(W)$ only flagging boundedness) — seen here as a function of *feed* rather than of parameters.
+**Working hypothesis.** In these settings, task input, threshold-gap noise, and the adaptive target
+jointly place functioning reservoirs in a regime where $m$ remains near $1$. The same rate-pinning
+pattern appeared in the [tracking sweep](/experiments/tracking-param-sweep/). Testing the mechanism
+requires recording drive amplitude directly and using a frozen intervention that changes $m$
+without simultaneously changing rate or task input.
 
 ## Does it correspond to foraging performance?
 
@@ -241,53 +250,53 @@ It is tempting to read "performance moves, $m$ doesn't" as *criticality is irrel
 It is not. **If $m$ never varies, its effect on function was never tested.** A flat $m$ beside a
 varying performance shows only that the **noise** acts on the behaviour — it says nothing about
 whether criticality, *had it varied*, would have mattered. To make any causal claim we must actually
-**move $m$**. The next section tries — and shows why, on this node, you can't.
+**move $m$**. The next section reports the range reached in this exploratory grid.
 :::
 
-## Trying to vary m to actually test it — and why you can't
+## Trying to vary m in the tested grid
 
-**Every attempt to push the 48-agent swarm off $m \approx 1$ either fails to move $m$ at all, or moves
-it only by *silencing* the reservoir — which destroys foraging. There is no functional,
-sub-critical swarm to test performance against.** Two sweeps on the canonical 48-agent config:
+**Within these two exploratory sweeps, attempts to push the 48-agent swarm off $m \approx 1$ either
+did not move $m$ appreciably or produced a nearly silent reservoir. No functional subcritical cell
+was observed in this grid.** Two sweeps on the canonical 48-agent config:
 
-- **Target/floor sweep.** Across every target and `targ_min` setting — functional and dead alike —
-  $m$ is **stuck at $0.980$–$0.995$**. The homeostat re-tunes the weights to hold $m$ near $1$
-  regardless of where the set-point is put, so the target knobs cannot move it.
+- **Target/floor sweep.** Across every tested target and `targ_min` setting — functional and dead
+  alike — $m$ remained at **$0.980$–$0.995$**. This is consistent with weight-mediated
+  stabilization, but the sweep does not establish that mechanism or show that target knobs cannot
+  move $m$ outside the tested range.
 - **Feed sweep (`input_weight`, `link_p`).** The *only* configuration with $m$ below $0.9$ was
-  `input_weight=0.25`, which gave $m = 0.867$ **but rate $= 0.001$ (silent)** and social forage
-  $\approx$ the $0.456$ null — a *dead* reservoir, not a working sub-critical one. Every configuration
+  `input_weight=0.25`, which gave $m = 0.867$ **but rate $= 0.001$ (nearly silent)** and social forage
+  $\approx$ the $0.456$ null — not a working sub-critical reservoir. Every configuration
   that actually forages sat at $m = 0.977$–$0.993$. Structural change (`link_p`) **barely moved $m$**
-  at all, because the weight rule re-tunes to hold $m \approx 1$ against structural perturbation too.
+  in this grid, again consistent with—but not proof of—weight-mediated stabilization.
 
 ![Foraging performance vs reservoir m — every functional swarm sits at m≈0.98–0.99; the only sub-0.9 point is silent](/experiments/criticality-control/forage-confound.png)
 
-*Every 48-agent config from the noise, target/floor, and feed sweeps, plotted as foraging performance
+*Every tested 48-agent config from the noise, target/floor, and feed sweeps, plotted as foraging performance
 vs reservoir $m$, coloured by firing rate. Every swarm that actually forages (social well above the
 $0.456$ null) sits at **$m \approx 0.98$–$0.99$**; the single sub-$0.9$ point is a **silenced**
-reservoir (rate $\approx 0$, performance at null). There is no functional-subcritical reservoir to
-test performance against.*
+reservoir (rate $\approx 0$, performance at null). This grid contains no
+functional-subcritical comparison.*
 
-## The honest conclusion
+## The bounded conclusion
 
-**On this node, criticality and function are *confounded*, and the causal question is *not answerable
-by tuning*.** $m$ is a homeostatically **defended invariant**, not a knob: the weight rule re-tunes to
-hold it near $1$ against input *and* structural perturbation, and $m$ also rises with the drive — so
-you can never move $m$ while holding rate, drive, and function fixed. The three findings compose. At
-the node, $m \approx 1$ is *ambiguous* (Experiment A — same value at health, saturation, silence).
-Across the swarm's whole functional range, $m$ is *welded* to $\approx 0.98$–$0.99$ (the confound
-figure). And the only way to push $m$ below $0.9$ is to *silence* the reservoir, which kills
-foraging. So "the reservoir is working" and "$m \approx 1$" are the **same condition**.
+**In the tested settings, criticality and function remain confounded, so these probes do not answer
+the causal question.** The observations are consistent with—but do not establish—the hypothesis
+that weight adaptation defends an $m\approx1$ regime across some input and structural
+perturbations. At the node, $m\approx1$ is ambiguous because similar values occur at health,
+saturation, and silence. In the tested swarm grid, functioning cells clustered around
+$m=0.98$–$0.99$, and the only observed sub-$0.9$ point was nearly silent.
 
 We therefore **retire the word "decoupled."** An earlier framing called $m$ "decoupled from
 performance." But a flat, pinned $m$ **cannot demonstrate decoupling** — if $m$ never varies, its
-effect on function was never tested. The honest relation is neither "decoupled" nor "coupled" but
-**inseparable**: criticality and function are confounded, and no tuning of *this* node can separate
-them. What survives is narrow and defensible — $m \approx 1$ is a **byproduct / defended correlate of
-a working reservoir**, not a tuned target and not an independently-set cause.
+effect on function was never tested. The honest relation is **not separated here**: criticality
+and function are confounded in this grid. What survives is narrow: $m\approx1$ is an observed
+correlate of functioning reservoirs in these settings, not a demonstrated tuned target or
+independently set cause. A fixed-weight comparison or direct intervention on branching dynamics is
+needed before making a stronger invariance claim.
 
 This **refines, and does not contradict,** the [social-foraging](/experiments/social-foraging/)
-page's "function without criticality." Function is not governed by a criticality *dial* — because on
-this node **no such dial exists to turn.**
+page's "function without criticality." These probes did not find an independent criticality dial in
+the tested parameter region.
 
 ## The collective null — a supporting measurement caveat
 
@@ -308,19 +317,19 @@ across conspecific-gain (cg) and vision-range (vr):
 | 16 | 4.0 | 0.963 | 0.150 | 0.969 / 0.958 → **1.01** |
 | 2 | 2.5 | 0.954 | 0.149 | 0.975 / 0.923 → **1.06** |
 
-Three things line up, and they rule out the two innocent explanations for a flat $m \approx 1$:
+Three observations narrow the interpretation of a flat $m \approx 1$ in this small spot-check:
 
-- **$m_\text{agent}$ is flat $\approx 0.95$–$0.98$** across the cells — exactly what an allostatic
-  rate-pin predicts, and exactly the pinning the [tracking sweep](/experiments/tracking-param-sweep/)
-  already reported.
+- **$m_\text{agent}$ is flat $\approx 0.95$–$0.98$** across the cells — consistent with an
+  allostatic rate-stabilization hypothesis and with the narrow range the
+  [tracking sweep](/experiments/tracking-param-sweep/) reported.
 - **Activity is only $\approx 0.12$–$0.15$ — nowhere near saturation.** So the flat $m$ is *not* the
   saturation artifact (a network firing flat-out also reads $m \to 1$); this swarm fires sparsely and
   still shows $m \approx 0.97$.
 - **The crossshift-null ratio is $\approx 1.0$** ($1.01$–$1.07$). $m_\text{agent}$ barely exceeds a
   surrogate whose inter-agent timing has been shuffled away — so essentially *all* of the branching
-  signal survives destroying the cross-agent structure. The $m \approx 0.97$ is a **pinned
-  single-agent statistic** riding on 48 independently rate-regulated reservoirs, **not** a collective
-  critical avalanche.
+  signal survives destroying the cross-agent structure. In this spot-check, the $m \approx 0.97$
+  estimate is therefore indistinguishable from a predominantly within-agent statistic; it does not
+  establish a collective critical avalanche.
 
 :::note[This is a spot-check, and a caveat — not a clean claim]
 Experiment D is **5 representative cells**, with **3 seeds** for $m$/activity and **1 seed $\times$
@@ -330,16 +339,17 @@ subordinate to the main arc, not an independent result. It should be scaled (20+
 cg $\times$ vr landscape) before promotion to a run-dir study.
 :::
 
-## The real test — a fixed-weight, evolved reservoir (future work)
+## A cleaner proposed test — a fixed-weight, evolved reservoir (future work)
 
-**The only clean way to test criticality's causal role is a *different node family, evolved* — not a
-tuning sweep of this one.** To ask whether criticality *causes* good function, you must be able to
-**set** $m$ and hold it while function is optimised. This homeostat forbids exactly that: it defends
-$m \approx 1$ against every knob. The clean instrument is instead a **fixed-weight reservoir** — the
+**One clean proposed way to test criticality's causal role is a *different node family, evolved*,
+rather than another tuning sweep of this one.** To ask whether criticality *causes* good function,
+the design should independently manipulate a criticality-relevant quantity while function is
+optimised. The tested sweeps did not expose such an independent dial. A suitable candidate is a
+**fixed-weight reservoir** — the
 compartmental / CTRNN nodes — where $m$ is **set by the spectral radius $\rho(W)$ of a *static* weight
 matrix**, with **no homeostat defending it**, and the reservoir is **evolved** for the task
-*separately at each $m$ level*. Only then is $m$ an independent variable whose causal effect on
-function is identifiable.
+*separately at each $m$ level*. That design would make the manipulated network regime more
+independent of the task optimization and improve causal identifiability.
 
 Per [Larremore, Shew & Restrepo](/notes/spectral-radius-criticality/), the right control quantity for
 that sweep is the topology-general critical point $\lambda(W) = 1$, of which the branching criterion
@@ -431,10 +441,10 @@ battery, and the fixed-weight evolved test) is the natural next step.
 ## Open questions
 
 :::note[The honest posture]
-None of this says criticality is irrelevant *in general*. It says that in **this designed homeostatic
-node**, the branching ratio near $1$ is a *defended byproduct* of rate homeostasis — confounded with
-function and not separable by any tuning. That is a claim about *this instrument*, deliberately kept
-narrow.
+None of this says criticality is irrelevant *in general*. In **this designed homeostatic node**, the
+observed branching-ratio estimate near $1$ is consistent with a weight-mediated stabilization
+hypothesis, remains confounded with function, and was not separated by the tested tuning grid. That
+is a bounded observation about *this instrument*.
 :::
 
 1. **Seed counts are modest** (3–10 across these probes). Most sharply, the clean tracking
@@ -443,10 +453,8 @@ narrow.
 2. **The tracking `frac30` has ignition-mixture noise** — as the [tracking
    sweep](/experiments/tracking-param-sweep/) documents, performance over random inits is a
    chance-pinned failure mode plus a viable tail, so single-config frac30 numbers carry that variance.
-3. **"Not answerable by tuning" is a statement about *this homeostatic node*,** not about criticality
-   in general. The homeostat's defence of $m \approx 1$ is precisely what forecloses the causal test
-   here.
+3. **The current tuning grid did not answer the question for *this homeostatic node*.** That is not a
+   statement about all possible interventions on this node or about criticality in general.
 4. **The fixed-weight / evolved test is the open route.** A static-$\rho(W)$ reservoir (compartmental
-   / CTRNN), evolved for the task at each $\lambda(W)$ level, is the only design in which $m$ is an
-   independent variable — and the only clean way to finally ask whether criticality *causes* good
-   function.
+   / CTRNN), evolved for the task at each $\lambda(W)$ level, is one promising design for making the
+   network regime a more independent variable and testing whether it causally affects function.

@@ -606,8 +606,23 @@ end
 
 function _task_groups(cfg::BenchConfig, rows::Vector{TrialRow}, task::Symbol)
     groups = Dict{Symbol,Vector{Float64}}()
+    expected_seeds = nothing
     for neuron in cfg.neurons
-        groups[neuron] = [row.norm_score for row in rows if row.task == task && row.neuron == neuron]
+        selected = sort(
+            [
+                row for row in rows if
+                row.task == task && row.neuron == neuron && isempty(row.flagged)
+            ];
+            by=row -> row.seed,
+        )
+        seeds = [row.seed for row in selected]
+        if !isempty(seeds)
+            expected_seeds === nothing && (expected_seeds = seeds)
+            seeds == expected_seeds || throw(ArgumentError(
+                "benchmark task :$(task) does not share one paired seed ledger across unflagged cells",
+            ))
+        end
+        groups[neuron] = [row.norm_score for row in selected]
     end
     return groups
 end
@@ -657,7 +672,8 @@ function _build_stats_json(cfg::BenchConfig, rows::Vector{TrialRow}, summaries, 
             rng=rng,
         )
         task_stats[String(task)] = Dict{String,Any}(
-            "omnibus_kw_p" => analysis.omnibus_kw_p,
+            "omnibus_repeated_measures_p" => analysis.omnibus_rm_p,
+            "omnibus_method" => "within-seed condition-label permutation",
             "pairwise" => [_rowdict(row) for row in analysis.pairwise],
             "baseline" => [_rowdict(row) for row in analysis.baseline],
         )
@@ -785,11 +801,11 @@ function _write_report(path::AbstractString, cfg::BenchConfig, summaries, stats_
             any_sig = true
             println(io)
             println(io, "### $(String(task))")
-            println(io, "| neuron | delta_mean | CI | p | holm_p | bh_q | cliffs_delta | power | min_n_for_080 |")
-            println(io, "|---|---:|---:|---:|---:|---:|---:|---:|---:|")
+            println(io, "| neuron | paired mean difference | paired CI | sign-flip p | holm_p | bh_q | paired superiority |")
+            println(io, "|---|---:|---:|---:|---:|---:|---:|")
             for row in sig_rows
                 ci = "[$(_fmt(row["delta_ci_lo"])), $(_fmt(row["delta_ci_hi"]))]"
-                println(io, "| $(row["neuron"]) | $(_fmt(row["delta_mean"])) | $ci | $(_fmt(row["p"])) | $(_fmt(row["holm_p"])) | $(_fmt(row["bh_q"])) | $(_fmt(row["cliffs_delta"])) | $(_fmt(row["achieved_power"])) | $(row["min_n_for_080"] === nothing ? "NA" : string(row["min_n_for_080"])) |")
+                println(io, "| $(row["neuron"]) | $(_fmt(row["delta_mean"])) | $ci | $(_fmt(row["p"])) | $(_fmt(row["holm_p"])) | $(_fmt(row["bh_q"])) | $(_fmt(row["paired_superiority"])) |")
             end
         end
         any_sig || println(io, "No Holm-significant baseline-relative findings at alpha=$(cfg.alpha).")
@@ -950,14 +966,19 @@ function _overall_ranking(summaries, neurons, tasks_)
     rows = NamedTuple[]
     for neuron in neurons
         values = Float64[]
+        eligible = true
         for task in tasks_
             row = lookup[(neuron, task)]
-            isfinite(Float64(row.mean)) && push!(values, Float64(row.mean))
+            if !isempty(row.flagged) || !isfinite(Float64(row.mean))
+                eligible = false
+                break
+            end
+            push!(values, Float64(row.mean))
         end
         push!(rows, (
             neuron=neuron,
-            mean=isempty(values) ? NaN : Statistics.mean(values),
-            n_tasks=length(values),
+            mean=eligible && !isempty(values) ? Statistics.mean(values) : NaN,
+            n_tasks=eligible ? length(values) : 0,
         ))
     end
     return sort(rows; by=row -> (isfinite(row.mean) ? row.mean : -Inf), rev=true)
@@ -995,7 +1016,7 @@ function _write_readme(path::AbstractString, cfg::BenchConfig, summaries, stats_
         println(io, "Primary outputs:")
         println(io, "- `summary.csv` -- per-neuron x task summary statistics.")
         println(io, "- `results_raw.csv` -- raw per-trial scores.")
-        println(io, "- `stats.json` -- omnibus, pairwise, and baseline-relative nonparametric tests.")
+        println(io, "- `stats.json` -- within-seed repeated-measures, paired sign-flip, and paired-bootstrap results.")
         println(io, "- `figures/` -- house-palette comparison heatmap and task bars.")
         println(io, "- `cells/` -- per-cell scores, representative figure, and best/representative/worst GIFs when enabled.")
 

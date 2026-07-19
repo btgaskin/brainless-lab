@@ -433,6 +433,7 @@ end
 effectors(r::SORNReservoir) = effectors(r, r.x)
 n_receptors(r::SORNReservoir) = r.n_receptors_
 n_effectors(r::SORNReservoir) = r.n_effectors_
+n_nodes(r::SORNReservoir) = length(r.x)
 plasticity(::SORNReservoir) = OnlinePlasticity()
 
 function reset!(r::SORNReservoir)

@@ -1,0 +1,157 @@
+---
+title: Agentic workflow
+description: Use coding agents to operate and extend BrainlessLab while preserving human control, reproducibility, and scientific validity.
+---
+
+BrainlessLab is designed to be operated with a coding agent, including by people who do not
+write Julia. Agentic does not mean unsupervised publication. The agent can translate intent,
+inspect contracts, run tools, implement changes, and collect evidence; the researcher still
+owns the question, risk boundary, interpretation, and decision to promote a result.
+
+## The repository is the agent's handbook
+
+The root `AGENTS.md` tells a compatible agent to read:
+
+- `skills/brainless-lab/SKILL.md` for the platform's concepts, public seams, and scientific
+  discipline;
+- `skills/julia/SKILL.md` for Julia dispatch, performance, testing, and package hygiene.
+
+These files travel with the repository. You do not need to install a hidden prompt or teach
+the agent the architecture from memory.
+
+## What an agent may safely do
+
+Without changing scientific scope, an agent can:
+
+- discover registered nodes, tasks, analyses, and components;
+- instantiate the pinned environment;
+- run checked-in examples and tests;
+- explain results in ordinary language;
+- create an isolated branch or worktree;
+- implement an approved, bounded change;
+- run development sweeps with a declared cap;
+- prepare plots and traceable exploratory artifacts;
+- audit documentation against the code.
+
+It should pause for a human decision before:
+
+- changing the research question or primary endpoint;
+- opening a sealed evaluation set;
+- increasing a costly search beyond the agreed cap;
+- deleting user data or historical evidence;
+- changing fixture expectations or baseline semantics;
+- publishing, pushing, opening a PR, or mutating an external system when that was not
+  requested.
+
+## A good request has six parts
+
+```text
+Outcome:
+Scientific question:
+What may change:
+What must remain fixed:
+Evidence status and seed stage:
+Required checks and artifacts:
+```
+
+You can omit technical details. The agent should discover exact types, paths, and commands
+from the repository.
+
+Example:
+
+```text
+Outcome: add a three-channel directional sensor to a reusable body preset.
+Scientific question: can the reservoir localize two source types from local observations?
+What may change: one new sensor or encoder plus a preset and example.
+What must remain fixed: Falandays baseline behavior and existing tasks.
+Evidence status: mechanism conformance only; do not tune behavior.
+Required checks: exact port widths, orientation tests, reset/replay, ObjectWorld smoke run,
+full package tests, site build, and updated extension docs.
+```
+
+## The safe change loop
+
+1. **Orient.** Read repository instructions and inspect the real public surface.
+2. **Restate.** Translate the request into an outcome, boundary, and verification plan.
+3. **Isolate.** Use a branch or worktree and preserve existing dirty changes.
+4. **Conform first.** Test component mechanics before behavioral optimization.
+5. **Implement narrowly.** Prefer composition and dispatch to concrete-type conditionals.
+6. **Verify proportionately.** Focused tests first, then package, API, example, and site
+   gates as required.
+7. **Review independently.** For broad changes, ask another agent to inspect architecture,
+   usability, and scientific claims without editing.
+8. **Handoff.** Report exact checks, remaining limitations, and evidence status.
+
+## Safeguards already in the platform
+
+- pinned Julia dependencies and fixture-validated baseline behavior;
+- strict embodiment TOML and stable component IDs;
+- readiness metadata tied to test, docs, and example paths;
+- deterministic seedable runs and channel-gated recorders;
+- bounded sweep cell counts and resumable run directories;
+- separate development, run, and visualization layers;
+- task-specific scoring gates and registered null/intervention surfaces;
+- public examples that can be executed as conformance tests.
+
+These reduce mistakes; they do not automatically validate a research design. The
+[Research workflow](/research-workflow/) supplies the evidence discipline.
+
+## Prompt recipes
+
+### Explain an existing run
+
+```text
+Run this checked-in example without editing it. Explain the body, observations, actions,
+reservoir, world, score, and evidence status. Report warnings and what cannot be inferred.
+```
+
+### Design a task
+
+```text
+Turn this question into an operational task. Before coding, propose observations, effectors,
+reset/warmup, randomized quantities, primary metric, gates, degenerate policies, calibration
+oracle, causal controls, and invalid comparisons.
+```
+
+### Add a node
+
+```text
+Decide whether this is a parameter preset, intervention, drive, or genuinely new Reservoir.
+Use the narrowest public seam. Add constructor/width/reset/replay tests, a runnable example,
+registration if discoverability is useful, and docs. Do not alter baseline fixtures.
+```
+
+### Add an analysis
+
+```text
+Define the analysis input channels, output, level, independent unit, minimum data,
+diagnostics, relevant null/surrogate, known estimator biases, and behavior on missing or
+failed runs before implementing it. Register it as experimental until validation exists.
+```
+
+### Run a sweep
+
+```text
+Resolve and show all sweep cells before running. Use development-only seeds, cap the cells
+and runtime, retain failed cells, and do not call the best observed cell an optimum or open
+the confirmation set.
+```
+
+### Prepare confirmation
+
+```text
+Audit the frozen protocol without opening sealed outcomes. Verify independent blocks,
+paired randomization, disjoint seed stages, smallest meaningful effect, prospective sample
+size, endpoints, exclusions, nulls, and promotion artifacts.
+```
+
+## Current limits
+
+BrainlessLab does not yet provide a graphical study builder, automatic preregistration
+service, permissions sandbox, or one-click evidence promotion gate. Agent execution inherits
+the permissions and external tools of the environment in which it runs. Review diffs and
+external actions, keep backups, and do not grant broader authority than the task requires.
+
+The low-code path is real: configs, examples, discovery, and repository guidance remove much
+of the need to write Julia. The no-code path is currently agent-assisted exploration and
+operation, not an autonomous research guarantee.

@@ -23,12 +23,12 @@ are evolvable genotype data handled by `pack_params`, `unpack_params`, and
 abstract type Reservoir end
 
 """
-    Body
+    AbstractBody
 
 Abstract supertype for embodied structures that connect reservoirs to an environment
 or task.
 """
-abstract type Body end
+abstract type AbstractBody end
 
 """
     Environment
@@ -114,6 +114,30 @@ Return the number of effector channels emitted by an object.
 function n_effectors end
 
 """
+    n_nodes(reservoir)
+
+Return the number of nodes in a reservoir. This is used by the generic
+ensemble loop when an inactive body must retain its stable agent slot without
+advancing neural state.
+"""
+function n_nodes end
+
+"""
+    portspec(body)
+
+Return the receptor/effector port contract exposed by a body.
+"""
+function portspec end
+
+"""
+    receptor_link_profile(body, default_probability)
+
+Return `nothing` when every receptor inherits the reservoir's ordinary input
+probability, otherwise return one probability per receptor.
+"""
+function receptor_link_profile end
+
+"""
     pack_params(object, args...)
 
 Pack evolvable parameters into a flat genotype representation.
@@ -170,11 +194,54 @@ evolvable genotype data.
 function load_state! end
 
 """
-    observe(object, args...)
+    prepare_step!(environment, bodies)
 
-Return task, environment, body, or reservoir observations.
+Advance environment-owned lifecycle state that must be visible to every agent
+before the synchronous observation phase. The default is a no-op.
 """
-function observe end
+prepare_step!(::Environment, bodies) = nothing
+
+"""
+    bind_entity_ids!(environment, ids)
+
+Bind the stable ensemble identities associated with the environment's world
+slots. Environments that record interactions can specialize this hook; the
+default leaves environments without identity-aware state unchanged.
+"""
+bind_entity_ids!(::Environment, ids) = nothing
+
+"""
+    remember_receptors!(environment, receptor_vectors)
+
+Optional hook receiving the exact vectors delivered to reservoirs after body
+encoding. Environments that compute input-history metrics can retain them here.
+"""
+function remember_receptors! end
+remember_receptors!(::Environment, receptor_vectors) = nothing
+
+"""
+    interaction_events(environment)
+
+Return world-global interaction events from the most recent tick. Environments
+without an interaction surface leave this generic inapplicable.
+"""
+function interaction_events end
+
+"""
+    object_snapshot(environment)
+
+Return a stable, recordable snapshot of external objects. Environments without
+objects leave this generic inapplicable.
+"""
+function object_snapshot end
+
+"""
+    conspecific_contacts(environment)
+
+Return entity-aligned conspecific contact counts for the most recent tick.
+Environments without this surface leave the generic inapplicable.
+"""
+function conspecific_contacts end
 
 """
     bounds(object, args...)
@@ -191,45 +258,112 @@ Return a visualizable pose tuple, or `nothing`.
 function pose end
 
 """
-    actuate!(object, command, args...)
+    apply_commands!(object, command, args...)
 
 Apply an actuation command to an object.
 """
-function actuate! end
+function apply_commands! end
 
 """
-    receptors(object, args...)
+    update!(body, effects)
+
+Commit end-of-tick body state changes from environment effects. Stateless
+bodies implement this as a no-op; physiological bodies use it for their own
+state transition.
+"""
+function update! end
+
+"""
+    alive(body)
+
+Return whether a body participates in sensing, neural stepping, actuation,
+interactions, and metrics.
+"""
+function alive end
+
+"""
+    inactive_command(body)
+
+Return a neutral command with the same public command type that `decode!` emits
+for `body`. The generic vector-body fallback returns a zero effector vector;
+bodies with typed commands must specialize this method.
+"""
+function inactive_command end
+
+"""
+    expose!(body, effect)
+
+Apply one typed environment effect to a body.
+"""
+function expose! end
+
+"""
+    sense!(object, args...)
 
 Return receptor values available to a reservoir or body.
 """
-function receptors end
+function sense! end
 
 """
-    encode_receptors(object, args...)
+    encode!(object, args...)
 
 Encode a raw percept into receptor values for a reservoir or body.
 """
-function encode_receptors end
+function encode! end
 
 """
-    decode_effectors(object, args...)
+    encoder_sources(encoder)
+
+Return the stable sensor component IDs consumed by `encoder`, or `nothing`
+when the encoder uses the conventional whole-bank/positional composition
+rules. Source-aware encoders should return a non-empty tuple of symbols.
+"""
+function encoder_sources end
+
+"""
+    decode!(object, args...)
 
 Decode reservoir effectors into an actuation command for a body or morphology.
 """
-function decode_effectors end
+function decode! end
 
 """
-    integrate_motion!(object, args...)
+    integrate!(object, args...)
 
 Integrate a body's kinematic state from decoded actuation commands.
 """
-function integrate_motion! end
+function integrate! end
 
 """
-    readout(motor, reservoir, spikes)
+    rawspec(object)
 
-Re-express a reservoir's output as an effector command vector under a `Motor`'s
-readout scheme. The result is passed on to `decode_effectors`. Every scheme is a
+Describe the raw physical samples produced by a sensor, sensor bank, body, or
+environment before receptor encoding.
+"""
+function rawspec end
+
+"""
+    sample!(object, args...)
+
+Sample raw physical observations. Stateful sensors update their response state
+in this phase; stateless sources may return an immutable or freshly allocated
+sample.
+"""
+function sample! end
+
+"""
+    component_state(object)
+
+Return recordable state keyed by stable component identifiers. The default for
+an embodied object with no recordable component state is an empty named tuple.
+"""
+function component_state end
+
+"""
+    readout(policy, reservoir, spikes)
+
+Re-express a reservoir's output as an effector command vector under a readout
+policy. The result is passed on to `decode!`. Every scheme is a
 memoryless, bias-free re-expression of the reservoir's own output through the
 same effector projection: the default returns `effectors(reservoir, spikes)`
 unchanged, and graded schemes only substitute a different (still projected)
@@ -238,11 +372,11 @@ slice of the reservoir's internal state.
 function readout end
 
 """
-    motor(body)
+    readout_policy(body)
 
-Return the `Motor` (effector-decode policy) carried by a `Body`.
+Return the reservoir readout policy carried by an `AbstractBody`.
 """
-function motor end
+function readout_policy end
 
 """
     metrics(object, args...)
@@ -250,6 +384,11 @@ function motor end
 Return named diagnostic metrics for a task, rollout, or system.
 """
 function metrics end
+
+# Environments may participate in the synchronous runtime without defining an
+# objective or diagnostic surface. Specialized environments can extend this
+# public generic; rollout code treats the empty named tuple as "no metrics".
+metrics(::Environment, window::Integer=1) = NamedTuple()
 
 """
     apply_drive!(drive, object, args...)
@@ -285,3 +424,18 @@ function tell! end
 Return the current result or summary from an evolution strategy.
 """
 function result end
+
+"""
+    develop(genotype_or_spec, context, args...)
+
+Develop immutable genotype parameters into a fresh runtime-independent
+phenotype blueprint. Dynamic runtime state is constructed afresh and is never
+part of the genotype representation.
+"""
+function develop end
+
+"""Mutate an immutable genotype using an explicit random-number generator."""
+function mutate end
+
+"""Recombine structurally compatible immutable genotypes."""
+function recombine end

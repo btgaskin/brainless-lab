@@ -1,103 +1,180 @@
 ---
 title: Environments & Tasks
-description: Single-agent tasks and the swarm — their receptor/effector contracts, scoring, and the foraging experiment.
+description: "How task metadata, composed bodies, ObjectWorld, and the established situated adapter fit together."
 ---
 
-The **task** you pick fixes the `Environment` and the `(n_receptors, n_effectors)` the
-whole stack is built to — it shapes the assembly *and* supplies the score. Single-agent
-tasks use a passthrough morphology over a `TaskWorld`; the swarm uses a shared
-`PassthroughBody(VENMorphology(...), KinematicMotor(...))` — bearing vision in,
-movement kinematics out — in a `TorusEnvironment` / `ForageEnvironment`.
+A **task** chooses a world, one body per agent, rollout defaults, and optional scoring
+metadata. A **world** owns external state and relations. A body owns sensing, encoding,
+actuation, dynamics, and physiology. The reservoir is built from the body's resolved port
+contract rather than from task-specific constants.
 
-## Single-agent tasks
+```text
+TaskSpec ─setup→ TaskSetup(Environment, Bodies)
+                         ├─ portspec(body) sizes each Reservoir
+                         └─ Ensemble runs the synchronous lifecycle
+```
 
-| Task | R | E | senses / acts with |
+`TaskSpec.n_receptors` and `n_effectors` are optional default metadata retained for
+compatibility. Use `resolved_task_ports(task; task_options...)` when dimensions depend on a
+composed setup. A task may set `score_key=nothing`; `:torus` is a first-class task without a
+single scalar objective.
+
+## Existing vector-valued task worlds
+
+The established single-agent tasks already emit reservoir-shaped vectors. Their setup uses
+a direct `Embodiment`: `DirectRelaySensor` + `IdentityEncoder` preserve the receptor vector,
+and `DirectRelayActuator` returns the task-specific effector vector to the adapter.
+
+| task | R | E | senses / acts with |
 |---|---:|---:|---|
-| `:wall` | 2 | 2 | two ray-cast wall sensors; differential wheel speeds |
-| `:tracking` | 62 | 2 | two eyes × 31 Gaussian bearing sensors; eye-rotation command |
-| `:pong` / `:pong_hitrate` | 46 | 2 | ball-bearing bins; paddle vote/differential |
-| `:cartpole` (+ hard/swingup/long) | 8 | 2 | 4 state dims × 2 polarities; binary force vote |
+| `:wall` | 2 | 2 | two wall sensors; differential wheel vote |
+| `:tracking` | 62 | 2 | two eyes × 31 bearing sensors; eye rotation |
+| `:pong` / `:pong_hitrate` | 46 | 2 | ball-bearing bins; paddle vote |
+| `:cartpole` (+ hard/swingup/long) | 8 | 2 | four state dimensions × two polarities; force vote |
 
-Effector semantics are **intentionally non-uniform**: channel 1 in Pong is not the same
-physical quantity as channel 1 in cartpole. And a task here is a **test of a capacity**, not
-a problem to be won (which capacity — wall = avoidance, tracking/pong = pursuit, cartpole =
-stabilising an unstable equilibrium — is set out in [Concepts](/concepts/)).
-`normalized_score(task, raw)` maps each task's raw metric onto $[0,1]$ against calibrated
-**anchors** — a null floor and an analytic (or reference) ceiling, each carrying its
-provenance. The *normalised* value is a capacity-indicator ("how far past chance toward the
-reference"), so it **is** comparable across tasks within a ceiling kind; only the *raw*
-scores are not. See [Scoring](/scoring/).
+Effector semantics are intentionally non-uniform: channel 1 in Pong is not channel 1 in
+cartpole. `normalized_score` maps each task's raw metric between declared anchors, but it is
+not a universal physical unit. See the [Task reference](/task-reference/) for operational
+questions, controls, gates, and comparison limits; then read [Scoring](/scoring/) and
+[Contracts](/contracts/).
 
-<p class="bl-source">Source: <code>src/envs/</code> (the <code>TaskWorld</code>s), <code>src/tasks/Tasks.jl</code> (<code>TaskSpec</code>), <code>src/tasks/Scoring.jl</code> / <code>Calibration.jl</code> (anchors, <code>calibrate_task</code>).</p>
+## `ObjectWorld`: generic ecological composition
 
-## The swarm
+`ObjectWorld` is the generic physical environment for composed embodiments. It currently
+supports:
 
-`VENMorphology` turns bearing vision into receptors and `KinematicMotor` turns effectors
-into motion. The default `BearingSensor()` is the historical **62**-ray fan (two eyes × 31
-angles) padded to **64** inputs; the default motor has **3** effectors (`e3` forward
-acceleration, `e2−e1` heading acceleration). Coupling is **vision** — agents influence each
-other only by being seen, so the sensor geometry *is* the interaction topology; collective
-order is emergent, not imposed.
-
-The swarm sensor is explicit: pass `sensor=BearingSensor(...)` or `sensor=bearing_eyes(...)`
-to change the bearing angles and `:binary` / `:graded` encoding. `colour_sensing=true`
-splits the conspecific bank into one bearing bank per colour class (`n_colours`), while the
-default (`n_colours=1`, `colour_sensing=false`) is a no-op.
-
-<p class="bl-source">Source: <code>src/world/Morphology.jl</code> (<code>VENMorphology</code>, <code>PassthroughBody</code>), <code>src/world/Sensor.jl</code> (<code>BearingSensor</code>), <code>src/world/Motor.jl</code> (<code>KinematicMotor</code>), <code>src/world/Environments.jl</code> (<code>TorusEnvironment</code>).</p>
-
-## The foraging experiment
-
-`:forage` adds a **source** the agents can find, sensed via a *second* bearing-vision
-bank using the same `SensorSpec` geometry (with its own gain) alongside the conspecific bank.
-The headline manipulation is
-**social vs blind**:
-
-- **social** — agents see each other *and* the source;
-- **blind** — the same `N` agents see the source but are blind to each other (and don't collide).
-
-The scientific question: does social vision speed convergence to the source — i.e. do
-agents use each other's presence as a guide? Metrics: mean distance-to-source, fraction
-within a capture radius, and time-to-first-arrival.
+- a `Torus` or `WalledArena`;
+- fixed agent motion states and stable `EntityID` bindings;
+- static circular object populations with stable `ObjectID`s;
+- persistent, finite-capacity, and delayed-respawn resources;
+- named analytic scalar fields;
+- per-body `SpectralCamera` and `MountedFieldProbe` sampling;
+- typed contact effects such as `Exposure(:energy, 0.2)`;
+- one actuator/dynamics command pair per body.
 
 ```julia
-simulate(:forage; node=:falandays_base, n_agents=12, conspecific_vision=true)   # social
-simulate(:forage; node=:falandays_base, n_agents=12, conspecific_vision=false)  # blind
+include("examples/embodiments/object_world_task.jl")
+sim = run_object_world_task(ticks=25, seed=11)
+
+sim isa SimResult
+getchannel(sim.recorder, :objects)
+getchannel(sim.recorder, :poses)
 ```
 
-<p class="bl-source">Source: <code>src/world/Environments.jl</code> (<code>ForageEnvironment</code>), <code>src/world/Metrics.jl</code> (foraging metrics).</p>
+`object_world_task.jl` is the tested, copy-ready `ObjectWorld` → `TaskSpec` → `SimResult`
+path. Its setup callable accepts the standard `seed`, `rng`, `body`, and `n_nodes`
+keywords. The smaller `object_world_quickstart.jl` demonstrates the lower-level path and
+returns the live `Ensemble` and `Recorder` for direct inspection.
 
-## Acoustic signalling
+Object appearance is explicit. `AbstractObjectAppearance` is the extension boundary;
+`NoAppearance()` is non-spectral, while `SpectralAppearance` couples a reflectance to camera
+sampling. `rgb_appearance` is a convenient approximate RGB-to-spectrum constructor and
+`spectral_reflectance` retrieves the optical surface. With `illuminant=nothing`, `ObjectWorld`
+supplies a unit illuminant on each camera's own wavelength grid. Pass an explicit compatible
+`SpectralIlluminant` when lighting itself is an experimental variable.
 
-Foraging agents can optionally **call** to one another. Set `signalling=true` and each
-swarm morphology grows a fourth effector, `:signal` — a continuous emission intensity in
-$[0,1]$ that does *not* move the agent — plus one scalar `:acoustic` receptor. The receptor
-reuses a reserved input slot, so with the default 62-ray sensor the count stays **128**; the
-reservoir is simply built `(128, 4)` instead of `(128, 3)`.
+Object populations and analytic fields are independent. `ObjectType.bank` labels object and
+render channels; it does not create a scalar field. A `MountedFieldProbe` reads the named field
+explicitly supplied in `world.fields`; fields are not automatically centred on object
+populations. Add or extend a field type when an experiment needs a source-centred gradient.
 
-Hearing is **loudness only, with no direction** — an agent can tell *how much* calling is
-happening nearby but not *where* it comes from. Agent *i* reads:
+`sample_world_sensor!(sensor, world, motion_state)` is the extension seam for another
+physical sensor kind. It returns that component's raw sample vector; the body's encoder
+still owns the mapping to reservoir receptors. The `!` permits mutation of sensor or RNG
+state; callers do not supply a destination buffer, and the contract does not promise zero
+allocation.
 
-```
-heard_i = signal_gain · clamp( Σ_{j ≠ i} emit_j · exp(−d_ij / signal_range),  0, 1 )
-```
+Contacts produce `ObjectInteractionEvent`s and body effects. Query
+`interaction_events(world)` and `object_snapshot(world)` without inspecting world storage.
+`bind_entity_ids!` explicitly associates stable ensemble identities with world slots.
+When several agents contact the same finite-capacity object in one tick, a seeded draw over
+stable-ID-sorted contenders chooses the recipient. This is reproducible and independent of storage
+grouping without permanently privileging the smallest identity.
 
-- **Self-excluded** (`j ≠ i`) — an agent never hears its own call.
-- **Distance fall-off** — `exp(−d/signal_range)` over torus distance; `signal_range` is the
-  e-folding distance.
-- **Saturates** — the `clamp(·, 0, 1)` ceiling equals *one caller right next to you*, so a
-  dense cluster can't read louder than a single adjacent shout. With `signal_gain=1` the
-  receptor sits on the same $[0,1]$ scale as vision.
-- **One-tick delay** — emissions made on tick *t* are heard on *t+1* (the `observe → actuate`
-  order), a small acoustic propagation lag.
+Direct `ObjectWorld` composition exposes `Ensemble` + `Recorder`. Add a `TaskSpec` when the
+experiment needs the standardized `SimResult`, rollout defaults, or scoring contract.
+Entity-aligned channels such as `:poses`, `:receptors`, `:components`, `:needs`,
+`:feedback`, `:body_alive`, and `:deaths` contain `EntityFrame`s with `.ids` beside their
+values. `:interactions` and `:objects` contain world-global per-tick event vectors and object
+snapshots.
+
+### Current limits
+
+`ObjectWorld` is deliberately small: objects are static circles, fields are analytic, and
+populations are fixed. It does not yet provide moving non-agent entities, births,
+replacement, lineage scheduling, arbitrary meshes, or a general event system. Physical
+composition currently permits one actuator/dynamics command per body. Add ecological
+complexity only where an experiment requires it.
+
+`EmbodiedEnvironment` is the lower-level callback-driven physical runtime. Its sampler is a
+callable `(body, motion_state, tick, arena) → raw samples`; the environment integrates the
+body's command and projects motion into the arena. Use it for a focused custom sampler that
+does not need `ObjectWorld`'s standard objects, fields, appearances, identities, or events.
+
+<p class="bl-source">Source: <code>src/world/Arena.jl</code>, <code>src/world/ObjectWorld.jl</code>, <code>src/world/SpectralVision.jl</code>, <code>src/world/SpatialFields.jl</code>.</p>
+
+## Multiple needs belong to physiology
+
+An `Embodiment` can carry `RegulatedPhysiology` with any number of named
+`RegulatedVariable`s. The world does not know a homeostatic equation: it emits typed
+`Exposure`s when relations occur. The physiology applies matching changes, drift, bounds,
+feedback, and failure.
+
+This makes energy, hydration, temperature, security, or social contact composable without a
+new world loop. A regulated variable defines its setpoint and deficit rule, response curve,
+feedback mode, gain, stochastic emission probability, reservoir link probability, and
+failure policy. Feedback remains off unless explicitly enabled.
+
+All environmental effects for a tick are accumulated before physiology is updated. Failure
+is then evaluated on the post-effect state, so a resource contact on a threshold tick can
+rescue an agent. Once dead, an embodiment remains in its stable slot but no longer steps,
+moves, senses, or interacts.
+
+## The established situated adapter
+
+`SituatedEnvironment` preserves the existing `:torus`, `:forage`, and signalling
+behavior. It owns established bearing-bank assembly, collective
+collision rules, signalling, histories, and their analysis channels. Bodies are still
+ordinary `Embodiment`s, built with `SituatedSensorLayout`, `SituatedEncoder`,
+`SituatedActuator`, and `KinematicMotor`.
+
+This is an adapter, not the generic physical component runtime. Its historical default
+collective bank uses 62 bearing rays with two reserved channels, yielding 64 receptors and
+three kinematic effectors. `:forage` adds a source bank, yielding 128 receptors by default.
+Colour-selective conspecific banks and acoustic signalling are adapter features.
 
 ```julia
-simulate(:forage; node=:falandays_base, n_agents=12,
-         signalling=true, signal_range=3.0, signal_gain=1.0,
-         record=[:effectors])   # emission is effector channel 4
+simulate(:torus; node=:falandays_base, n_agents=12)
+
+simulate(:forage;
+    node=:falandays_base,
+    n_agents=12,
+    conspecific_vision=false,
+)
 ```
 
-With `signalling=false` (the default) the task is byte-for-byte the base forage experiment,
-and non-forage swarms are unaffected.
+The foraging comparison switches conspecific vision while preserving population size and
+source sensing. Optional signalling adds a `:signal` effector and scalar `:acoustic`
+receptor. Hearing is self-excluding, exponentially distance-attenuated, saturated, and
+one-tick delayed by the synchronous sample/apply order.
 
-<p class="bl-source">Source: <code>src/world/Environments.jl</code> (<code>ForageEnvironment</code> hearing), <code>src/world/Morphology.jl</code> / <code>src/world/Body.jl</code> (the <code>:signal</code> effector and <code>:acoustic</code> receptor).</p>
+`SituatedEnvironment` should be used when reproducing or extending those established tasks.
+Use `ObjectWorld` when the experiment is about independently composed physical sensors,
+actuators, dynamics, appearances, fields, and object effects.
+
+<p class="bl-source">Source: <code>src/world/Environments.jl</code>, <code>src/world/Embodiment.jl</code>, <code>src/world/Motor.jl</code>, <code>src/world/Metrics.jl</code>.</p>
+
+## Writing a task
+
+For a small vector-valued task, implement a `TaskWorld` (`sense`, `step!`, `reset!`,
+`metrics`, dimensions, and defaults), wrap it in `TaskSpec`, and use a direct embodiment.
+For an ecological task, construct bodies plus an `ObjectWorld` in the setup callable. In
+both cases, keep the ownership test simple:
+
+- world: external geometry, objects, fields, encounters, effects;
+- body: physical components, receptor/effector semantics, physiology;
+- reservoir: neural dynamics only;
+- task: composition, defaults, and scoring metadata.
+
+The copy-ready vector-task scaffold lives in `examples/templates/new_project/`; the three
+embodiment presets live in `examples/embodiments/`.

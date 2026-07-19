@@ -1,20 +1,23 @@
 ---
 title: Tooling
-description: The four verbs — benchmark, profile, sweep, ablate — their commands, run-dirs, and outputs.
+description: Choose the right surface for one simulation, calibration, profiling, sweeping, ablation, benchmarking, evolution, or a composed experiment.
 ---
 
-Four verbs, each a distinct job, each writing a self-describing **run-dir**:
-`manifest.toml` (git SHA + seeds + versions) · CSVs · `figures/*.png` in the house
-palette · a `README.md` callout with the headline result.
+Choose a tool from the question you are asking. The tools are related, but they do not share
+one evidence status or one output schema.
 
-| Verb | Job | Run-dir |
-| --- | --- | --- |
-| **`benchmark`** | a **roster of nodes** across a task grid — rank and compare, with baseline-relative statistics | `bench/runs/<UTCstamp>_<shortgit>_<id>/` |
-| **`profile`** | **one node, in depth** — the full analytic suite + a behaviour GIF per task | `profile/runs/<node>/<UTCstamp>_<shortgit>_<id>/` |
-| **`sweep`** | **perturb** parameter axes, measure signatures per cell | `sweeps/<id>/` |
-| **`ablate`** | a config-free preset sweep: baseline vs each registered ablation | `sweeps/ablate_<node>_<task>/` |
+| Intent | Surface | Typical evidence state | Output |
+| --- | --- | --- | --- |
+| run one closed loop | `simulate` | conformance or exploration | in-memory `SimResult` |
+| establish task floor/ceiling | `calibration/` | task calibration | anchor report |
+| characterize one node | `profile/` | exploration | timestamped profile run-dir |
+| perturb parameters | `sweep/run.jl` | development/tuning | resumable `sweeps/<id>/` |
+| remove a mechanism | `sweep/run.jl ablate` | exploration or a frozen control | resumable ablation sweep |
+| compare a roster on a task grid | `bench/` | conditional benchmark | timestamped benchmark run-dir |
+| search a fixed genome | `evolve` / training tools | training only | checkpoints and manifests |
+| execute a multi-run protocol | `experiments/` | any declared status | experiment-specific run-dir |
 
-`benchmark` and `profile` timestamp each run (`<UTCstamp>_<shortgit>_<id>`, so repeats
+`bench` and `profile` timestamp each run (`<UTCstamp>_<shortgit>_<id>`, so repeats
 never collide). `sweep` and `ablate` instead key the run-dir on the sweep **id** — a
 re-run with the same id resumes/overwrites in place (completed cells are skipped), which
 is why `sweeps/` is not timestamped.
@@ -25,20 +28,26 @@ once (they `Pkg.develop` the repo they live in):
 
 ```bash
 cd bench    && julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.instantiate()'
-cd profile  && julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.add(["CairoMakie","Statistics","Printf","TOML"]); Pkg.instantiate()'
+cd profile  && julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.instantiate()'
 ```
 
-`sweep` and `ablate` run against the **top-level** project, so no separate instantiate —
-just the repo's own `julia --project=. -e 'using Pkg; Pkg.instantiate()'`.
+`sweep`, `ablate`, `calibration`, and `experiments` run against the **top-level** project,
+so no separate instantiate — just the repo's own
+`julia --project=. -e 'using Pkg; Pkg.instantiate()'`.
 :::
 
 ## The commands
 
-Every command is the real entrypoint. `benchmark` and `profile` are their own directories
-with a local project; `sweep` and `ablate` are the **same** `sweep/run.jl` (`ablate` is a
-subcommand, not a separate directory).
+`bench` and `profile` are their own directories with local projects; `sweep` and
+`ablate` share `sweep/run.jl`. Calibration and composed experiments use the root project.
 
 ```bash
+# one headless rollout — from the repo root
+julia --project=. examples/quickstart.jl
+
+# task score anchors — from the repo root
+julia --project=. calibration/run_calibration.jl
+
 # benchmark — from bench/, roster across a task grid
 cd bench && julia --project=. run.jl --neurons falandays_base,compartmental_structured --tasks wall,pong
 
@@ -50,6 +59,9 @@ julia --project=. sweep/run.jl configs/sweep_falandays_wall.toml
 
 # ablate — same runner, a subcommand: NODE TASK, no config needed
 julia --project=. sweep/run.jl ablate falandays_base wall
+
+# composed protocols — discover first
+julia --project=. experiments/run.jl --list
 ```
 
 Discover a sweep's tunable axes before writing a config:
@@ -77,6 +89,12 @@ baseline = "falandays_base"
 # meaningful benchmark). A cell needing a trained genome that has none falls
 # back to untrained and is flagged "trained-required-but-untrained".
 ```
+
+Benchmark rankings are conditional on this roster, task set, task weighting, preparation
+policy, and seed design. A fallback cell flagged `trained-required-but-untrained` must not
+enter an unqualified ranking. Shared trial seeds can make within-task model contrasts
+paired; training, selection, and evaluation seeds must remain disjoint. Agents and ticks
+within one rollout do not multiply the independent sample size.
 
 <p class="bl-source">Source: <code>bench/README.md</code>; <code>bench/configs/core.toml</code>; <code>bench/run.jl</code>.</p>
 
@@ -120,5 +138,9 @@ shown together) · a `README.md` callout (best value / breakdown point / regime 
 `cells/cell_NNN/` holding each cell's `metrics.csv` and manifest. Behaviour GIFs are
 **opt-in**: add a `[capture]` block (`group = …`) to record a representative GIF per cell,
 otherwise the numeric metrics are the whole output.
+
+“Best value” means best observed cell in this development grid. It is not a confirmed
+optimum. Freeze a selected candidate and evaluate it on untouched blocks before making a
+general performance claim.
 
 <p class="bl-source">Source: <code>src/run/Sweep.jl</code> (<code>run_sweep</code>, <code>ablate</code>, <code>sweepable_axes</code>); CLI <code>sweep/run.jl</code>; examples in <code>configs/sweep_*.toml</code>.</p>

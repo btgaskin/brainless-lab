@@ -74,9 +74,9 @@ end
         record=Symbol[],
     )
     agent = setup.ensemble.agents[1]
-    morphology = default_morphology(agent.body)
+    layout = situated_sensor(agent.body)
     @test n_receptors(agent.reservoir) == 128
-    @test n_receptors(morphology) == 128
+    @test n_sensors(layout) == 128
     @test n_effectors(agent.reservoir) == 3
 
     torus = Torus(10.0)
@@ -95,16 +95,19 @@ end
     )
     environment = ForageEnvironment(torus, positions; config=config, rng=MersenneTwister(7))
 
-    # observe now returns the fully-encoded reservoir inputs (128-wide); the agent
-    # bodies are stateless and only length-checked.
-    bodies = [PassthroughBody(), PassthroughBody()]
-    inputs = observe(environment, bodies)
+    # The compatibility facade still receives fully composed bodies so its
+    # geometry and actuator contracts match the main runtime.
+    bodies = [
+        situated_embodiment(SituatedSensorLayout(source_bank=true); radius=agent_radius)
+        for _ in 1:2
+    ]
+    inputs = sample!(environment, bodies)
     @test length(inputs[1]) == 128
     @test all(iszero, @view(inputs[1][1:64]))           # conspecific-blind
     @test maximum(@view(inputs[1][65:128])) ≈ 2.0       # source bank × source_gain
 
     before = copy(environment.positions)
-    actuate!(environment, bodies, [zeros(3), zeros(3)])
+    apply_commands!(environment, bodies, [zeros(3), zeros(3)])
     after = copy(environment.positions)
     @test after != before                                # collision resolution separates them
     @test tdistance(torus, after[1], after[2]) >= 2.0 * agent_radius - 1e-9
@@ -129,7 +132,7 @@ end
     @test explicit_default.config.environment.source_vision_range === nothing
 
     torus = Torus(10.0)
-    bodies = [PassthroughBody()]
+    bodies = [situated_embodiment(SituatedSensorLayout(source_bank=true))]
     source_kwargs = (
         n_agents=1,
         space_size=10.0,
@@ -153,8 +156,8 @@ end
         config=SwarmConfig(; source_kwargs..., source_vision_range=1.5),
         rng=MersenneTwister(3),
     )
-    unlimited_inputs = observe(unlimited, bodies)
-    limited_inputs = observe(limited, bodies)
+    unlimited_inputs = sample!(unlimited, bodies)
+    limited_inputs = sample!(limited, bodies)
     @test maximum(@view(unlimited_inputs[1][65:128])) > 0.0
     @test all(iszero, @view(limited_inputs[1][65:128]))
     @test unlimited_inputs[1][65:128] != limited_inputs[1][65:128]
@@ -167,7 +170,10 @@ end
         source_gain=1.0,
         capture_radius=0.5,
     )
-    conspecific_bodies = [PassthroughBody(), PassthroughBody()]
+    conspecific_bodies = [
+        situated_embodiment(SituatedSensorLayout(source_bank=true))
+        for _ in 1:2
+    ]
     conspecific_positions = [(1.0, 5.0), (3.0, 5.0)]
     unlimited_conspecific = ForageEnvironment(
         torus,
@@ -183,8 +189,8 @@ end
         config=SwarmConfig(; conspecific_kwargs..., source_vision_range=1.5),
         rng=MersenneTwister(4),
     )
-    unlimited_conspecific_inputs = observe(unlimited_conspecific, conspecific_bodies)
-    limited_conspecific_inputs = observe(limited_conspecific, conspecific_bodies)
+    unlimited_conspecific_inputs = sample!(unlimited_conspecific, conspecific_bodies)
+    limited_conspecific_inputs = sample!(limited_conspecific, conspecific_bodies)
     @test maximum(@view(unlimited_conspecific_inputs[1][1:64])) > 0.0
     @test limited_conspecific_inputs[1][1:64] == unlimited_conspecific_inputs[1][1:64]
     @test limited_conspecific_inputs[2][1:64] == unlimited_conspecific_inputs[2][1:64]

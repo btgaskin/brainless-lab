@@ -1,0 +1,143 @@
+---
+title: Task reference
+description: Operational questions, observations, actions, metrics, controls, and comparison limits for the built-in BrainlessLab task families.
+---
+
+A task is an operational contract, not a label for a universal ability. Before using one,
+inspect its observations, effectors, reset and warmup behavior, randomized quantities,
+primary metric, gates, anchors, and degenerate policies. `tasks()` is the live list;
+`TaskSpec` and the task source are authoritative when this summary and code differ.
+
+## Built-in task families
+
+| Family | Operational question | Primary outcome | Essential control or gate | Main comparison limit |
+| --- | --- | --- | --- | --- |
+| `:wall` | does the agent move while avoiding the boundary? | navigation score | movement/liveness gate; random action | a stationary policy must not win; score is not comparable to tracking |
+| `:tracking` | does gaze remain near a moving target? | task tracking score and angular-error descriptors | analytic chance geometry and blind input | target schedule and warmup define difficulty |
+| `:pong`, `:pong_hitrate` | does the paddle intercept the ball? | score or hit rate | random-action calibration; liveness | discrete hits need enough episodes; controller semantics are task-specific |
+| `:cartpole` variants | does the cart keep or recover the pole under the declared regime? | task score | analytic/random floor and episode gate | balance, swing-up, hard, and long variants are different contracts |
+| `:torus` | what collective organization emerges without a scalar objective? | no score; polarization, milling, cohesion | vision-off and circular-shift nulls as appropriate | descriptors are not competence scores |
+| `:forage` | do agents approach a source under local sensing? | forage score plus distance/arrival descriptors | random action; blind/sham conspecific information | source geometry, sensing, population, and duration define the task |
+
+The related variants share code but do not automatically share a calibrated score
+distribution. Read raw metrics and gates before aggregating them.
+
+## Resolved default contracts
+
+These are the current `TaskSpec` defaults. A run can override ticks, window, body, or task
+kwargs; record the resolved values rather than relying on this table in an artifact.
+
+| Task | R / E | ticks / window | primary raw metric | floor / ceiling |
+| --- | ---: | ---: | --- | ---: |
+| `:wall` | 2 / 2 | 1000 / 200 | `nav_score` | random-action 0.763125 / analytic 1 |
+| `:tracking` | 62 / 2 | 1000 / 200 | `track_score` | analytic chance 0 / perfect alignment 1 |
+| `:pong`, `:pong_hitrate` | 46 / 2 | 2000 / 1000 | `hit_rate` | random-action 0.356151 / analytic 1 |
+| `:cartpole` | 8 / 2 | 1000 / 1000 | `score` | analytic 0 / 1 |
+| `:cartpole_hard` | 8 / 2 | 1500 / 1500 | `score` | analytic 0 / 1 |
+| `:cartpole_swingup` | 8 / 2 | 1500 / 1500 | `mean_uprightness` | random-action 0.156904 / analytic 1 |
+| `:cartpole_long` | 8 / 2 | 1000 / 1000 | `score` | analytic 0 / 1 |
+| `:torus` | 64 / 3 | 1000 / 1000 | none | not scored |
+| `:forage` | 128 / 3 | 1000 / 1000 | `forage_score` | random-action 0.455687 / agents-on-source 1 |
+
+The numerical random floors are calibrated artifacts with their seed and commit provenance
+stored on the `ScoreAnchor`; they are not universal constants.
+
+### Wall
+
+Two body-relative wall signals drive two bounded effectors in a square arena. Reset restores
+or resamples pose from the environment's seeded RNG. `nav_score` multiplies collision-free
+rate by a lenient movement gate over the trailing window, so freezing cannot win. The older
+distance-minus-collision `score` is recorded but is not the `TaskSpec` objective.
+
+### Tracking
+
+Two eyes each carry 31 angular samples around a moving target. The two effectors turn gaze
+differentially; the target advances and reverses direction on its schedule. Defaults start
+deterministically, while `randomize_start=true` seeds gaze, target phase, and direction.
+`track_score` is mean cosine error over the trailing window; mean absolute error and the
+fraction within 30 degrees are descriptors.
+
+### Pong
+
+Forty-six angular samples encode ball bearing from the paddle. Two bounded effectors move
+the paddle in opposing directions. A reset seeds ball height and vertical direction; a hit
+or miss resets the ball rather than ending the fixed-horizon rollout. `:pong` and
+`:pong_hitrate` currently select the same `hit_rate` objective and anchors, so retain the
+task symbol in provenance even when their current score contracts coincide.
+
+### Cart-pole variants
+
+Four signed physical variables are split into eight nonnegative receptor channels. Two
+effectors select an opposing bang-bang cart force with a dead zone. The seeded reset
+randomizes the declared initial state. A failure marks the environment done and later
+observations become zero, while the outer rollout retains its fixed horizon. Balance,
+hard, swing-up, and long variants change initialization, regime, duration, or raw objective;
+do not pool them as repeated measurements of one task.
+
+### Torus and forage
+
+The established situated adapter pads 62 conspecific bearing rays to a 64-receptor bank.
+Three effectors control heading and forward acceleration through `KinematicMotor`.
+`:torus` has no scalar objective: use declared collective descriptors and nulls. `:forage`
+adds a second 64-wide source bank, for 128 receptors total, and scores source approach and
+arrival. Seeded worlds randomize agent poses and task geometry according to resolved
+configuration. Vision, physical coupling, source sensing, colour channels, and signalling
+are separate settings; blindness does not automatically disable collisions or motion.
+
+## What every task description should record
+
+### Observations and actions
+
+State receptor width and the physical or task meaning of each bank. State effector width,
+normalization, limits, and the action produced. A numerical vector is not a complete task
+description.
+
+### Episode semantics
+
+State initialization, randomized quantities, reset behavior, warmup, episode length,
+termination, and whether task/world state persists between runs. Record which random streams
+are shared within a paired comparison.
+
+### Outcome contract
+
+Name one primary raw outcome, any descriptors, all liveness or validity gates, floor and
+ceiling provenance, and behavior on failure or death. A task with no scalar objective should
+set `score_key=nothing`.
+
+### Degenerate policies
+
+Test static action, random action, blind sensing, boundary behavior, and an oracle/reference
+policy. Document any shortcut that produces a high metric without the intended behavior.
+
+### Preparation and comparison
+
+Say whether a node adapts online, requires a trained genome, or is evaluated from fixed
+parameters. Training, tuning, and evaluation seeds must be disjoint. Scores are comparable
+within the declared task contract; equal normalization bounds do not make different tasks
+commensurate.
+
+## Task calibration report
+
+Before using a new task to select reservoirs, record:
+
+- oracle/reference performance and failure modes;
+- static and random-action distributions;
+- blind/off and claim-specific sham controls;
+- liveness, saturation, and mortality rates;
+- travel, response, restoration, and episode timescales;
+- sensitivity to initial state and world layout;
+- the usable parameter region where the task is neither trivial nor impossible.
+
+Calibration worlds are development data and do not become confirmatory evaluation blocks.
+
+## Where the contract lives
+
+Existing vector tasks implement `TaskWorld` and are wrapped in `TaskSpec`. Generic physical
+tasks compose `Embodiment`, `ObjectWorld`, and `TaskSpec`. The copy-ready examples are:
+
+- `examples/templates/new_project/my_task.jl`;
+- `examples/embodiments/object_world_task.jl`.
+
+See [Environments & Tasks](/environments-tasks/) for the runtime lifecycle,
+[Scoring](/scoring/) for anchors, and [Extending](/extending/) for the implementation and
+test checklist.

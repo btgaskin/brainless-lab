@@ -2,18 +2,19 @@
 
 ## What it actually means
 
-A piece of code is **type stable** if the compiler can infer a single, concrete type for every
-variable and every expression, using only the types of the function's arguments — not their
-runtime values. "Concrete" matters specifically: `Int64` and `Float64` are concrete; `Real`,
-`Number`, `Any`, and an unparameterized `Vector` (`Vector{T} where T`) are not. A field, variable,
-or return value typed as something abstract can't be given a fixed memory layout at compile time,
-so the compiler has to fall back on heap-allocated, pointer-chasing, runtime-dispatched code —
-the dynamic-language slow path, in a language that otherwise avoids it.
+A function is conventionally called **type stable** when its return type can be inferred from the
+types of its arguments rather than their runtime values. For performance work, the broader
+question is whether inference knows sufficiently precise types throughout the hot path. `Int64`
+and `Float64` are concrete; `Real`, `Number`, `Any`, and an unparameterized `Vector`
+(`Vector{T} where T`) are not. Imprecise inference can lead to dynamic dispatch, boxing, or
+allocations downstream, but it does not guarantee that all three occur. Julia also specializes
+small unions effectively, so a result such as `Union{Nothing,Int}` is not automatically a
+performance problem.
 
-This is the single biggest lever on Julia performance, and it's also a *correctness/maintainability*
-signal: type-stable code is what `JET.jl`-style static analysis can actually reason about, what
-the compiler can inline and specialize well, and what tends to have fewer accidental bugs, because
-"the type changed somewhere I didn't expect" is itself usually the bug.
+Inference quality is often a major Julia performance lever, and it can also be a useful
+maintainability signal: precise types give the compiler and tools such as `JET.jl` more information
+to reason with. It is not a universal correctness requirement; heterogeneous setup and I/O
+boundaries can be perfectly legitimate when their cost is contained.
 
 ## Detecting instability
 
@@ -29,11 +30,10 @@ end
 @code_warntype put_in_vec_and_sum(1)
 ```
 
-Read the `Body::` line at the top of the output. If it's an abstract type (`Any`, a `Union`, or
-similar) instead of something concrete like `Int64`, the function is not type-stable. In a REPL,
-unstable lines are colored red. The locals section will also show `v::Vector{Any}` here — the
-literal `[]` has no element type information, so `push!`-ing into it produces an `Any`-typed
-container, and everything downstream (`sum(v)`) inherits that uncertainty.
+Read the `Body::` line at the top of the output and inspect red or imprecisely inferred values in
+the hot path. `Any` is a strong warning; a small concrete union may be entirely acceptable. The
+locals section will show `v::Vector{Any}` here — the literal `[]` has no element type information,
+so downstream operations cannot specialize on its elements.
 
 **Limitation:** `@code_warntype` only shows you *one* function body. Calls to other functions are
 opaque — if the instability is two or three calls deep, this won't show it to you directly.
@@ -114,10 +114,10 @@ struct Particle{T<:Real}
 end
 ```
 
-`isconcretetype(Real)` is `false`; `isconcretetype(Particle{Float64})` is `true`. The unparametrized
-version forces every field access to go through a boxed pointer. This matters enormously for
-anything holding per-agent or per-neuron state in a simulation loop — exactly the kind of struct
-that gets created thousands or millions of times.
+`isconcretetype(Real)` is `false`; `isconcretetype(Particle{Float64})` is `true`. The
+unparameterized version hides the concrete stored type from code compiled for `Particle`, which
+can require runtime dispatch and may box values depending on representation and use. This matters
+for per-agent or per-neuron state accessed repeatedly in a simulation loop.
 
 A subtlety: `isconcretetype(Vector{Real})` is actually `true` — but it's still slow in practice,
 because each *element* of the vector is independently boxed (the vector itself is a concrete
@@ -137,15 +137,15 @@ function maybe_float(n)
 end
 ```
 
-Even Julia's own `findfirst` is type-unstable in exactly this way — it returns an index or
-`nothing` depending on whether anything matched. This is sometimes acceptable (see "function
-barriers" below for how to contain it), but avoid introducing it gratuitously in your own hot-path
-code.
+A small union such as the index-or-`nothing` result from `findfirst` is commonly union-split and
+efficient. Runtime-dependent returns become concerning when inference widens to `Any`, when many
+unrelated alternatives prevent useful specialization, or when an imprecise value enters a hot
+loop. Use the tools below rather than rejecting every union by inspection.
 
 ### 4. Closures that capture a reassigned variable
 
-This is the least obvious one and worth internalizing as its own category, because it produces
-correct-looking code that is silently 10-100x slower with no warning:
+This is worth recognizing as its own category because it can produce correct-looking code with
+avoidable boxing and runtime dispatch:
 
 ```julia
 function abmult(r1::Int)
@@ -196,8 +196,8 @@ function _process_typed(data::Vector{T}) where T   # stable from here down
 end
 ```
 
-The instability "stops" at the barrier; everything inside `_process_typed` is compiled as if `T`
-were known from the start, because it *is* known once you're inside that call. This is the
+The imprecision can stop at the barrier; `_process_typed` specializes for the concrete type
+actually passed at runtime. This is the
 standard way to write a `setup`-then-`run-many-iterations` function (also a good idea for clarity
 on its own): do the ambiguous part once, then call into a stable core that runs in a loop.
 

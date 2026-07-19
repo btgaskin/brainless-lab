@@ -21,6 +21,7 @@ generics:
 step!(r, R)          -> spikes    # advance one tick; return the spike/rate vector
 effectors(r, spikes) -> E         # map spikes to an E-vector of length n_effectors(r)
 reset!(r)                         # zero the runtime state, restore initial weights
+n_nodes(r)                       # node population width, including inactive ticks
 n_receptors(r)                    # R-width this node was built for
 n_effectors(r)                    # E-width this node was built for
 ```
@@ -30,7 +31,7 @@ method is one implementation of it; you are *adding methods* to the framework's 
 generics, so you must **import the names you extend**:
 
 ```julia
-import BrainlessLab: step!, effectors, reset!, n_receptors, n_effectors
+import BrainlessLab: step!, effectors, reset!, n_nodes, n_receptors, n_effectors
 import BrainlessLab: NodeModel, Reservoir, register_node!
 ```
 
@@ -57,8 +58,29 @@ abstraction and will `DimensionMismatch` the moment it meets another task. Keep 
 threaded through every stochastic choice (wiring, weight init, noise) so a run is
 reproducible.
 
+Implement `n_nodes(r)` from stable reservoir state, for example `length(r.spikes)`. The
+generic ensemble uses it to emit a correctly sized zero vector when a dead or inactive body
+keeps its stable slot without advancing neural state.
+
 The smoke test for "am I task-agnostic" is that `simulate(:wall; node=:mynode)` and
 `simulate(:cartpole; node=:mynode)` both build and run without you touching the node.
+
+If the constructor accepts a body-specific vector of receptor connection probabilities,
+declare the keyword as a capability:
+
+```julia
+register_node!(
+    :mynode,
+    MyNode;
+    genome_type=MyNodeParams,
+    receptor_profile_keyword=:input_link_p,
+)
+```
+
+This is how regulated-variable `link_p` reaches a compatible reservoir without a symbol check.
+For mutable stochastic node inputs, high-level multi-agent builds give each agent an owned source.
+`RngNoise(seed)` derives seeds `seed`, `seed + 1`, and so on; use `AgentNoiseFactory` or extend
+`agent_noise_source` when a custom source needs a different split rule.
 
 ## Three families — and what each decides about *how you test it*
 

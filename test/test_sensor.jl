@@ -4,7 +4,7 @@ using Test
 
 const BL = BrainlessLab
 
-# The historical 62-ray VEN bearing fan, hardcoded verbatim so the default sensor is
+# The historical 62-ray bearing fan, hardcoded verbatim so the default sensor is
 # pinned to a literal (not just re-derived from the same expression).
 const _SENSOR_DEFAULT_ANGLES_DEG = Float64[
     90.0, 86.0, 82.0, 78.0, 74.0, 70.0, 66.0, 62.0, 58.0, 54.0, 50.0, 46.0, 42.0, 38.0,
@@ -17,7 +17,7 @@ const _SENSOR_DEFAULT_ANGLES_DEG = Float64[
 @testset "Default sensor is a strict byte-identical no-op" begin
     s = BL.BEARING_DEFAULT
     @test s isa BearingSensor
-    @test s isa SensorSpec
+    @test s isa AbstractSensor
     @test resolve_sensor(:bearing_cone) === BearingSensor
 
     # canonical geometry pinned to the literal 62-vector
@@ -31,15 +31,15 @@ const _SENSOR_DEFAULT_ANGLES_DEG = Float64[
     @test BL.SENS_ANGLES_DEG == _SENSOR_DEFAULT_ANGLES_DEG
     @test BL.SENS_ANGLES_RAD == _SENSOR_DEFAULT_ANGLES_DEG .* (pi / 180.0)
     @test BL.angles_rad(s) == BL.SENS_ANGLES_RAD
-    @test BL.VEN_BEARING_SENSOR_COUNT == 62
-    @test BL.VEN_BANK_RECEPTORS == 64
-    @test BL.VEN_ACOUSTIC_RECEPTOR_INDEX == 65
+    @test BL.DEFAULT_BEARING_SENSOR_COUNT == 62
+    @test BL.DEFAULT_BEARING_BANK_RECEPTORS == 64
+    @test BL.DEFAULT_SIGNAL_RECEPTOR_INDEX == 65
 
-    # default morphology widths + ports unchanged
-    @test n_receptors(VENMorphology()) == 64
-    @test n_receptors(VENMorphology(sensor=BearingSensor())) == 64
-    ports_default = ports(portspec(VENMorphology())).receptors
-    ports_explicit = ports(portspec(VENMorphology(sensor=BearingSensor()))).receptors
+    # default situated-sensor widths + ports unchanged
+    @test n_receptors(portspec(SituatedSensorLayout())) == 64
+    @test n_receptors(portspec(SituatedSensorLayout(sensor=BearingSensor()))) == 64
+    ports_default = ports(portspec(SituatedSensorLayout())).receptors
+    ports_explicit = ports(portspec(SituatedSensorLayout(sensor=BearingSensor()))).receptors
     @test [p.id for p in ports_default] == [p.id for p in ports_explicit]
     @test [p.placement for p in ports_default] == [p.placement for p in ports_explicit]
 end
@@ -113,11 +113,11 @@ end
 @testset "Non-default geometry: receptor width tracks 2 + n_sensors and runs" begin
     s = bearing_eyes(n_per_eye=15, half_fov_deg=45.0)   # two eyes -> 30 rays
     @test n_sensors(s) == 30
-    @test n_receptors(VENMorphology(sensor=s)) == 2 + 30
-    @test n_receptors(VENMorphology(sensor=s, source_bank=true)) == (2 + 30) + (2 + 30)
+    @test n_receptors(portspec(SituatedSensorLayout(sensor=s))) == 2 + 30
+    @test n_receptors(portspec(SituatedSensorLayout(sensor=s, source_bank=true))) == (2 + 30) + (2 + 30)
 
     # ports carry the spec's actual angle placement, generalized off n_sensors.
-    rec_ports = ports(portspec(VENMorphology(sensor=s))).receptors
+    rec_ports = ports(portspec(SituatedSensorLayout(sensor=s))).receptors
     @test length(rec_ports) == 32
     @test [p.id for p in rec_ports[3:end]] == [Symbol("bearing_", i) for i in 1:30]
     @test [p.placement for p in rec_ports[3:end]] == BL.angles_deg(s)
@@ -147,7 +147,7 @@ end
     @test n_sensors(gated) == 52
     @test length(BL.angles_deg(gated)) == 52
     @test BL.angles_deg(gated) == BL.angles_deg(BL.BEARING_DEFAULT)[mask]
-    @test n_receptors(VENMorphology(sensor=gated)) == 2 + 52
+    @test n_receptors(portspec(SituatedSensorLayout(sensor=gated))) == 2 + 52
 
     # A wrong-length mask is rejected.
     @test_throws DimensionMismatch BearingSensor(enabled=trues(5))
