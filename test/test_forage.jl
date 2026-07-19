@@ -212,3 +212,93 @@ end
     b = simulate(:forage; kwargs...)
     @test a.metrics.mean_distance_to_source == b.metrics.mean_distance_to_source
 end
+
+@testset "situated routing precedence and complete provenance" begin
+    exclusions = Set((:n_agents, :n_nodes, :link_p, :seed))
+    @test BrainlessLab._SWARM_ENVIRONMENT_KWARGS ==
+          Set(name for name in fieldnames(SituatedConfig) if !(name in exclusions))
+
+    effects = (Exposure(:social, 0.2),)
+    setup = BrainlessLab._build_ensemble(
+        :forage,
+        :falandays_base;
+        ticks=1,
+        seed=51,
+        n_agents=2,
+        n_nodes=10,
+        record=Symbol[],
+        env_kwargs=(vision_range=1.0,),
+        environment_kwargs=(vision_range=2.0,),
+        swarm_kwargs=(vision_range=3.0,),
+        task_kwargs=(vision_range=4.0,),
+        vision_range=5.0,
+        conspecific_contact_radius=0.0,
+        conspecific_contact_effects=effects,
+        source_position=(7.0, 6.0),
+        colours=[1, 0],
+        n_colours=2,
+    )
+    environment = setup.ensemble.environment
+    @test environment.config.vision_range == 5.0
+    @test environment.config.conspecific_contact_radius == 0.0
+    @test environment.config.conspecific_contact_effects == effects
+
+    no_bare = BrainlessLab._build_ensemble(
+        :torus,
+        :falandays_base;
+        ticks=1,
+        seed=52,
+        n_agents=2,
+        n_nodes=10,
+        record=Symbol[],
+        env_kwargs=(vision_range=1.0,),
+        environment_kwargs=(vision_range=2.0,),
+        swarm_kwargs=(vision_range=3.0,),
+        task_kwargs=(vision_range=4.0,),
+    )
+    @test no_bare.ensemble.environment.config.vision_range == 4.0
+end
+
+@testset "situated contact provenance and task-layer errors" begin
+    effects = (Exposure(:social, 0.2),)
+    sim = simulate(
+        :forage;
+        node=:falandays_base,
+        ticks=1,
+        seed=53,
+        n_agents=2,
+        n_nodes=10,
+        record=Symbol[],
+        conspecific_contact_radius=0.0,
+        conspecific_contact_effects=effects,
+        source_position=(7.0, 6.0),
+        colours=[1, 0],
+        n_colours=2,
+    )
+    config = sim.config.environment
+    @test all(name -> hasproperty(config, name), fieldnames(SituatedConfig))
+    @test config.conspecific_contact_radius == 0.0
+    @test only(config.conspecific_contact_effects) ==
+          (kind=:exposure, name=:social, amount=0.2)
+    @test config.source_position == (7.0, 6.0)
+    @test config.colours == [1, 0]
+    @test length(config.initial_positions) == 2
+    @test length(config.initial_headings) == 2
+    @test length(config.source_gains) == 2
+
+    err = try
+        simulate(
+            :wall;
+            node=:falandays_base,
+            ticks=1,
+            n_nodes=10,
+            record=Symbol[],
+            conspecific_contact_radius=1.0,
+        )
+        nothing
+    catch caught
+        caught
+    end
+    @test err isa ArgumentError
+    @test occursin("only valid for multi-agent task setups", sprint(showerror, err))
+end

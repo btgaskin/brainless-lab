@@ -274,6 +274,21 @@ end
 
 _empty_segregation() = (same_dist=0.0, cross_dist=0.0, assortativity=0.0)
 
+function _situated_history_window(m::AbstractSituatedEnvironment, window::Integer)
+    isempty(m.history) && return (start=1, stop=0, steps=0)
+    available = minimum(length, m.history)
+    steps = min(max(Int(window), 0), available)
+    return (start=available - steps + 1, stop=available, steps=steps)
+end
+
+function _activity_at(m::AbstractSituatedEnvironment, tick::Integer)
+    index = Int(tick)
+    if 1 <= index <= length(m.activity_history)
+        return m.activity_history[index]
+    end
+    return m.active_agents
+end
+
 """
     segregation(m::AbstractSituatedEnvironment, window)
 
@@ -281,24 +296,23 @@ Window-averaged colour assortativity over the last `window` recorded poses, usin
 the per-agent `m.colours`. Registered as the `:segregation` swarm metric.
 """
 function segregation(m::AbstractSituatedEnvironment, window::Integer)
-    window = Int(window)
-    active = hasproperty(m, :active_agents) ? findall(m.active_agents) : collect(eachindex(m.history))
-    if window <= 0 || isempty(active) || any(i -> isempty(m.history[i]), active)
-        return _empty_segregation()
-    end
+    span = _situated_history_window(m, window)
+    span.steps <= 0 && return _empty_segregation()
 
-    steps = min(window, minimum(i -> length(m.history[i]), active))
-    steps <= 0 && return _empty_segregation()
-
-    n_agents = length(active)
     same = Float64[]
     cross = Float64[]
     assort = Float64[]
-    positions = zeros(Float64, n_agents, 2)
-    for k in 1:steps
+    for tick in span.start:span.stop
+        active = findall(_activity_at(m, tick))
+        if isempty(active)
+            push!(same, 0.0)
+            push!(cross, 0.0)
+            push!(assort, 0.0)
+            continue
+        end
+        positions = zeros(Float64, length(active), 2)
         @inbounds for (row, i) in enumerate(active)
-            hist = m.history[i]
-            pose = hist[length(hist) - steps + k]
+            pose = m.history[i][tick]
             positions[row, 1] = pose[1]
             positions[row, 2] = pose[2]
         end
@@ -361,38 +375,73 @@ function input_stability(input_history)
     return _mean(values)
 end
 
-_empty_swarm_metrics() = (
+function _activity_input_stability(m::AbstractSituatedEnvironment, span)
+    span.steps < 2 && return 0.0
+    similarities = Float64[]
+    for tick in max(span.start + 1, 2):span.stop
+        previous_activity = _activity_at(m, tick - 1)
+        current_activity = _activity_at(m, tick)
+        @inbounds for agent in eachindex(m.input_history)
+            previous_activity[agent] && current_activity[agent] || continue
+            history = m.input_history[agent]
+            length(history) >= tick || continue
+            a = history[tick - 1]
+            b = history[tick]
+            dot_ab = 0.0
+            norm_a = 0.0
+            norm_b = 0.0
+            for index in eachindex(a, b)
+                av = Float64(a[index])
+                bv = Float64(b[index])
+                dot_ab += av * bv
+                norm_a += av * av
+                norm_b += bv * bv
+            end
+            denom = sqrt(norm_a) * sqrt(norm_b)
+            denom > 0.0 && push!(similarities, dot_ab / denom)
+        end
+    end
+    return _mean(similarities)
+end
+
+_activity_summary(active_agents) = (
+    active_count=count(identity, active_agents),
+    active_fraction=_active_fraction(active_agents),
+)
+
+_empty_swarm_metrics(active_agents=Bool[]) = (;
     polarization=0.0,
     milling=0.0,
     mean_nearest_neighbor_distance=0.0,
     mean_pairwise_distance=0.0,
     cohesion=0.0,
     input_stability=0.0,
+    _activity_summary(active_agents)...,
 )
 
 function swarm_metrics(m::AbstractSituatedEnvironment, window::Integer)
-    window = Int(window)
-    active = hasproperty(m, :active_agents) ? findall(m.active_agents) : collect(eachindex(m.history))
-    if window <= 0 || isempty(active) || any(i -> isempty(m.history[i]), active)
-        return _empty_swarm_metrics()
-    end
-
-    steps = min(window, minimum(i -> length(m.history[i]), active))
-    steps <= 0 && return _empty_swarm_metrics()
+    span = _situated_history_window(m, window)
+    span.steps <= 0 && return _empty_swarm_metrics(m.active_agents)
 
     polarizations = Float64[]
     millings = Float64[]
     nearest = Float64[]
     pairwise = Float64[]
 
-    n_agents = length(active)
-    for k in 1:steps
-        positions = zeros(Float64, n_agents, 2)
-        headings = zeros(Float64, n_agents)
+    for tick in span.start:span.stop
+        active = findall(_activity_at(m, tick))
+        if isempty(active)
+            push!(polarizations, 0.0)
+            push!(millings, 0.0)
+            push!(nearest, 0.0)
+            push!(pairwise, 0.0)
+            continue
+        end
+        positions = zeros(Float64, length(active), 2)
+        headings = zeros(Float64, length(active))
 
         @inbounds for (row, i) in enumerate(active)
-            hist = m.history[i]
-            pose = hist[length(hist) - steps + k]
+            pose = m.history[i][tick]
             positions[row, 1] = pose[1]
             positions[row, 2] = pose[2]
             headings[row] = pose[3]
@@ -409,21 +458,14 @@ function swarm_metrics(m::AbstractSituatedEnvironment, window::Integer)
     mean_nn = _mean(nearest)
     mean_pairwise = _mean(pairwise)
 
-    input_histories = Any[]
-    for i in active
-        hist = m.input_history[i]
-        take = min(steps, length(hist))
-        start = length(hist) - take + 1
-        push!(input_histories, hist[start:length(hist)])
-    end
-
-    return (
+    return (;
         polarization=_mean(polarizations),
         milling=_mean(millings),
         mean_nearest_neighbor_distance=mean_nn,
         mean_pairwise_distance=mean_pairwise,
         cohesion=mean_nn + mean_pairwise,
-        input_stability=input_stability(input_histories),
+        input_stability=_activity_input_stability(m, span),
+        _activity_summary(m.active_agents)...,
     )
 end
 
@@ -443,27 +485,24 @@ _empty_forage_only_metrics(window::Integer=0) = (
 )
 
 function _forage_only_metrics(m::Union{ForageEnvironment,SituatedEnvironment{ForageMode}}, window::Integer)
-    window = Int(window)
-    active = hasproperty(m, :active_agents) ? findall(m.active_agents) : collect(eachindex(m.history))
-    if window <= 0 || isempty(active) || any(i -> isempty(m.history[i]), active)
-        return _empty_forage_only_metrics(window)
-    end
-
-    steps = min(window, minimum(i -> length(m.history[i]), active))
-    steps <= 0 && return _empty_forage_only_metrics(window)
+    span = _situated_history_window(m, window)
+    span.steps <= 0 && return _empty_forage_only_metrics(window)
 
     total_distance = 0.0
     within_count = 0
     total_count = 0
-    first_arrival = steps
+    first_arrival = span.steps
     found_arrival = false
     capture_radius = Float64(m.config.capture_radius)
 
-    @inbounds for k in 1:steps
+    # Goal competence retains the full initial cohort. Activity-aware filtering is
+    # appropriate for collective descriptors, but removing failed agents from this
+    # denominator would let mortality improve the task score.
+    cohort = eachindex(m.history)
+    @inbounds for (offset, tick) in enumerate(span.start:span.stop)
         any_arrived = false
-        for i in active
-            hist = m.history[i]
-            pose = hist[length(hist) - steps + k]
+        for i in cohort
+            pose = m.history[i][tick]
             d = tdistance(m.torus, (pose[1], pose[2]), m.source_position)
             total_distance += d
             total_count += 1
@@ -473,7 +512,7 @@ function _forage_only_metrics(m::Union{ForageEnvironment,SituatedEnvironment{For
             end
         end
         if any_arrived && !found_arrival
-            first_arrival = k
+            first_arrival = offset
             found_arrival = true
         end
     end

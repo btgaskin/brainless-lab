@@ -416,7 +416,11 @@ function _record_swarm_metrics!(rec::Recorder, m::AbstractSituatedEnvironment, p
     (wants_polarization || wants_milling) || return rec
 
     active = hasproperty(m, :active_agents) ? findall(m.active_agents) : collect(eachindex(poses))
-    isempty(active) && return rec
+    if isempty(active)
+        wants_polarization && record!(rec, :polarization, 0.0)
+        wants_milling && record!(rec, :milling, 0.0)
+        return rec
+    end
     active_poses = poses[active]
     headings = [pose[3] for pose in active_poses]
     if wants_polarization
@@ -622,6 +626,7 @@ readout(m::Motor, w::NoisyInput, spikes) = readout(m, getfield(w, :inner), spike
 function _step_homogeneous!(c::Ensemble, store::HomogeneousStore)
     agents = store.agents
     bodies = _agent_bodies(store)
+    sync_activity!(c.environment, bodies)
     prepare_step!(c.environment, bodies)
     percepts = sample!(c.environment, bodies)
     length(percepts) == length(agents) ||
@@ -659,8 +664,7 @@ function _step_homogeneous!(c::Ensemble, store::HomogeneousStore)
         body_effects = effects === nothing ? () : effects[i]
         update!(bodies[i], body_effects)
     end
-    applicable(_sync_active_agents!, c.environment, bodies) &&
-        _sync_active_agents!(c.environment, bodies)
+    sync_activity!(c.environment, bodies)
     c.t += 1
 
     if c.recorder isa Recorder
@@ -709,6 +713,7 @@ end
 
 function _step_grouped!(c::Ensemble, store::GroupedStore)
     bodies = _agent_bodies(store)
+    sync_activity!(c.environment, bodies)
     prepare_step!(c.environment, bodies)
     percepts = sample!(c.environment, bodies)
     n = nagents(store)
@@ -731,8 +736,7 @@ function _step_grouped!(c::Ensemble, store::GroupedStore)
     foreach_group(store) do group
         _update_agent_group!(group, effects)
     end
-    applicable(_sync_active_agents!, c.environment, bodies) &&
-        _sync_active_agents!(c.environment, bodies)
+    sync_activity!(c.environment, bodies)
     c.t += 1
 
     if c.recorder isa Recorder

@@ -154,6 +154,41 @@ end
     @test state.angular_velocity == before.angular_velocity
 end
 
+@testset "embodied activity owns reset and active-only motion metrics" begin
+    active_body = _preset_body(:bilateral_insect)
+    inactive_body = _preset_body(:bilateral_insect)
+    inactive_body.physiology.is_alive = false
+    environment = EmbodiedEnvironment(
+        WalledArena(20.0),
+        [
+            MotionState2D(position=(3.0, 4.0), velocity=(3.0, 4.0)),
+            MotionState2D(position=(7.0, 8.0), velocity=(8.0, 6.0)),
+        ],
+        _runtime_sampler,
+    )
+    sync_activity!(environment, [active_body, inactive_body])
+    @test environment.initial_active_agents == BitVector([true, false])
+    @test environment.active_agents == BitVector([true, false])
+    @test Tuple(environment.states[1].velocity) == (3.0, 4.0)
+    @test Tuple(environment.states[2].velocity) == (0.0, 0.0)
+    @test metrics(environment) == (
+        mean_speed=5.0,
+        active_count=1,
+        active_fraction=0.5,
+    )
+    environment.states[1].position = (9.0, 9.0)
+    environment.states[1].velocity = (0.0, 0.0)
+    fill!(environment.active_agents, false)
+    environment.tick = 7
+    reset!(environment)
+    @test environment.tick == 0
+    @test Tuple(environment.states[1].position) == (3.0, 4.0)
+    @test Tuple(environment.states[1].velocity) == (3.0, 4.0)
+    @test Tuple(environment.states[2].position) == (7.0, 8.0)
+    @test Tuple(environment.states[2].velocity) == (0.0, 0.0)
+    @test environment.active_agents == BitVector([true, false])
+end
+
 @testset "embodiment runtime configuration retains the component graph" begin
     robot = _preset_body(:differential_robot)
     config = BrainlessLab._body_config(robot)

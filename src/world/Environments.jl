@@ -43,8 +43,11 @@ own dynamics component, then projected back into the arena boundary.
 """
 mutable struct EmbodiedEnvironment{A<:Union{Torus,WalledArena},F} <: Environment
     arena::A
+    initial_states::Vector{MotionState2D}
     states::Vector{MotionState2D}
     sampler::F
+    initial_active_agents::BitVector
+    active_agents::BitVector
     tick::Int
 end
 
@@ -53,9 +56,36 @@ function EmbodiedEnvironment(
     states,
     sampler,
 )
-    states_ = MotionState2D[state for state in states]
+    states_ = MotionState2D[_copy_motion_state(state) for state in states]
     isempty(states_) && throw(ArgumentError("EmbodiedEnvironment requires at least one motion state"))
-    return EmbodiedEnvironment{typeof(arena),typeof(sampler)}(arena, states_, sampler, 0)
+    initial_states = _copy_motion_state.(states_)
+    active = trues(length(states_))
+    return EmbodiedEnvironment{typeof(arena),typeof(sampler)}(
+        arena,
+        initial_states,
+        states_,
+        sampler,
+        copy(active),
+        active,
+        0,
+    )
+end
+
+function sync_activity!(environment::EmbodiedEnvironment, bodies)
+    length(bodies) == length(environment.active_agents) || throw(DimensionMismatch(
+        "EmbodiedEnvironment has $(length(environment.active_agents)) slots for $(length(bodies)) bodies",
+    ))
+    capture_initial = environment.tick == 0
+    @inbounds for index in eachindex(bodies)
+        active = alive(bodies[index])
+        environment.active_agents[index] = active
+        capture_initial && (environment.initial_active_agents[index] = active)
+        if !active
+            environment.states[index].velocity = (0.0, 0.0)
+            environment.states[index].angular_velocity = 0.0
+        end
+    end
+    return nothing
 end
 
 function sample!(environment::EmbodiedEnvironment, bodies)
@@ -115,8 +145,42 @@ function apply_commands!(environment::EmbodiedEnvironment, bodies, commands)
     return [() for _ in bodies]
 end
 
+function reset!(environment::EmbodiedEnvironment)
+    @inbounds for index in eachindex(environment.states)
+        initial = environment.initial_states[index]
+        state = environment.states[index]
+        state.position = initial.position
+        state.heading = initial.heading
+        state.velocity = initial.velocity
+        state.angular_velocity = initial.angular_velocity
+        if !environment.initial_active_agents[index]
+            state.velocity = (0.0, 0.0)
+            state.angular_velocity = 0.0
+        end
+    end
+    copyto!(environment.active_agents, environment.initial_active_agents)
+    environment.tick = 0
+    return environment
+end
+
+function _active_mean_speed(states, active_agents)
+    count_active = count(identity, active_agents)
+    count_active == 0 && return 0.0
+    total = 0.0
+    @inbounds for index in eachindex(states)
+        active_agents[index] || continue
+        total += linear_speed(states[index])
+    end
+    return total / count_active
+end
+
+_active_fraction(active_agents) =
+    isempty(active_agents) ? 0.0 : count(identity, active_agents) / length(active_agents)
+
 metrics(environment::EmbodiedEnvironment, window::Integer=1) = (
-    mean_speed=sum(linear_speed, environment.states) / length(environment.states),
+    mean_speed=_active_mean_speed(environment.states, environment.active_agents),
+    active_count=count(identity, environment.active_agents),
+    active_fraction=_active_fraction(environment.active_agents),
 )
 
 Base.@kwdef struct SituatedConfig
@@ -206,12 +270,15 @@ mutable struct SituatedEnvironment{M<:SituatedMode,A,R<:AbstractRNG} <: Abstract
     visual_coupling::Bool
     physical_coupling::Bool
     sensory_noise::Float64
+    initial_rng::R
     rng::R
     sens_angles_rad::Vector{Float64}
     history::Vector{Vector{NTuple{3,Float64}}}
     input_history::Vector{Vector{Vector{Float64}}}
     last_inputs::Union{Nothing,Vector{Vector{Float64}}}
+    initial_active_agents::BitVector
     active_agents::BitVector
+    activity_history::Vector{BitVector}
     last_conspecific_contacts::BitVector
     interaction_effects::Vector{Vector{Any}}
     tick::Int
@@ -361,6 +428,9 @@ function _make_situated_environment(
     n = length(pos)
     heads = _coerce_headings(headings, n)
     history, input_history = _empty_torus_histories(n)
+    initial_rng = deepcopy(rng)
+    runtime_rng = deepcopy(rng)
+    active = trues(n)
     return SituatedEnvironment(
         mode,
         arena,
@@ -377,12 +447,15 @@ function _make_situated_environment(
         Bool(config.visual_coupling),
         Bool(config.physical_coupling),
         Float64(config.sensory_noise),
-        rng,
+        initial_rng,
+        runtime_rng,
         angles_rad(config.sensor),
         history,
         input_history,
         nothing,
-        trues(n),
+        copy(active),
+        active,
+        BitVector[],
         falses(n),
         [Any[] for _ in 1:n],
         0,
@@ -716,7 +789,6 @@ end
 
 function _collective_percepts(m::SituatedEnvironment, bodies)
     _require_situated_width(m, bodies)
-    _sync_active_agents!(m, bodies)
     n = length(m.positions)
     inputs = Vector{NamedTuple{(:conspecific,),Tuple{Vector{Float64}}}}(undef, n)
     @inbounds for i in 1:n
@@ -741,7 +813,6 @@ end
 
 function sample!(m::SituatedEnvironment{ForageMode}, bodies)
     _require_situated_width(m, bodies)
-    _sync_active_agents!(m, bodies)
     n = length(m.positions)
     T = NamedTuple{(:conspecific,:source,:source_gain,:acoustic),Tuple{Vector{Float64},Vector{Float64},Float64,Float64}}
     inputs = Vector{T}(undef, n)
@@ -929,19 +1000,36 @@ function _resolve_conspecific_interactions!(m::AbstractSituatedEnvironment, bodi
     return resolved
 end
 
-function _sync_active_agents!(m::AbstractSituatedEnvironment, bodies)
+function sync_activity!(m::AbstractSituatedEnvironment, bodies)
+    _require_situated_width(m, bodies)
+    capture_initial = m.tick == 0 && isempty(m.activity_history)
     @inbounds for i in eachindex(bodies)
-        m.active_agents[i] = alive(bodies[i])
+        active = alive(bodies[i])
+        m.active_agents[i] = active
+        capture_initial && (m.initial_active_agents[i] = active)
+        if !active
+            m.speeds[i] = 0.0
+            m.heading_rates[i] = 0.0
+            m.last_signal[i] = 0.0
+        end
+    end
+    if m.tick > length(m.activity_history)
+        m.tick == length(m.activity_history) + 1 || throw(ArgumentError(
+            "situated activity history is out of sync with world tick $(m.tick)",
+        ))
+        push!(m.activity_history, copy(m.active_agents))
     end
     return nothing
 end
+
+sync_activity!(m::Union{TorusEnvironment,ForageEnvironment}, bodies) =
+    sync_activity!(m.world, bodies)
 
 function apply_commands!(m::AbstractSituatedEnvironment, bodies, Es)
     _require_situated_width(m, bodies)
     n = length(m.positions)
     length(Es) == n ||
         throw(DimensionMismatch("expected one effector vector per agent"))
-    _sync_active_agents!(m, bodies)
 
     @inbounds for i in 1:n
         m.active_agents[i] || continue
@@ -981,6 +1069,30 @@ function apply_commands!(m::AbstractSituatedEnvironment, bodies, Es)
     m.tick += 1
     return effects
 end
+
+function reset!(m::SituatedEnvironment)
+    copyto!(m.positions, m.initial_positions)
+    copyto!(m.headings, m.initial_headings)
+    fill!(m.speeds, 0.0)
+    fill!(m.heading_rates, 0.0)
+    copyto!(m.source_gains, _source_gains(m.config, length(m.positions)))
+    fill!(m.last_signal, 0.0)
+    m.visual_coupling = Bool(m.config.visual_coupling)
+    m.physical_coupling = Bool(m.config.physical_coupling)
+    m.sensory_noise = Float64(m.config.sensory_noise)
+    m.rng = deepcopy(m.initial_rng)
+    foreach(empty!, m.history)
+    foreach(empty!, m.input_history)
+    m.last_inputs = nothing
+    copyto!(m.active_agents, m.initial_active_agents)
+    empty!(m.activity_history)
+    fill!(m.last_conspecific_contacts, false)
+    foreach(empty!, m.interaction_effects)
+    m.tick = 0
+    return m
+end
+
+reset!(m::Union{TorusEnvironment,ForageEnvironment}) = (reset!(m.world); m)
 
 function _default_situated_window(m::AbstractSituatedEnvironment)
     isempty(m.history) && return 0

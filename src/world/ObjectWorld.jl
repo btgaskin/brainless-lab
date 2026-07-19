@@ -62,6 +62,7 @@ mutable struct ObjectWorld{
     initial_rng::R
     rng::R
     entity_ids::Vector{EntityID}
+    initial_active_agents::BitVector
     active_agents::BitVector
     last_interactions::Vector{ObjectInteractionEvent}
     interaction_effects::Vector{Vector{Any}}
@@ -147,6 +148,7 @@ function ObjectWorld(
     effects = [Any[] for _ in states_]
     initial_rng = deepcopy(rng)
     runtime_rng = deepcopy(rng)
+    active = trues(length(states_))
     return ObjectWorld{
         typeof(arena),typeof(kinds),typeof(fields_),typeof(illuminant),typeof(rng),
     }(
@@ -160,20 +162,23 @@ function ObjectWorld(
         initial_rng,
         runtime_rng,
         ids,
-        trues(length(states_)),
+        copy(active),
+        active,
         ObjectInteractionEvent[],
         effects,
         0,
     )
 end
 
-function _sync_active_agents!(world::ObjectWorld, bodies)
+function sync_activity!(world::ObjectWorld, bodies)
     length(bodies) == length(world.active_agents) || throw(DimensionMismatch(
         "ObjectWorld has $(length(world.active_agents)) slots for $(length(bodies)) bodies",
     ))
+    capture_initial = world.tick == 0
     @inbounds for index in eachindex(bodies)
         active = alive(bodies[index])
         world.active_agents[index] = active
+        capture_initial && (world.initial_active_agents[index] = active)
         if !active
             world.states[index].velocity = (0.0, 0.0)
             world.states[index].angular_velocity = 0.0
@@ -442,6 +447,10 @@ function reset!(world::ObjectWorld)
         state.heading = initial.heading
         state.velocity = initial.velocity
         state.angular_velocity = initial.angular_velocity
+        if !world.initial_active_agents[index]
+            state.velocity = (0.0, 0.0)
+            state.angular_velocity = 0.0
+        end
     end
     for object in world.objects
         kind = world.object_types[object.type_index]
@@ -453,24 +462,19 @@ function reset!(world::ObjectWorld)
     empty!(world.last_interactions)
     foreach(empty!, world.interaction_effects)
     world.rng = deepcopy(world.initial_rng)
-    fill!(world.active_agents, true)
+    copyto!(world.active_agents, world.initial_active_agents)
     world.tick = 0
     return world
 end
 
 function _active_mean_speed(world::ObjectWorld)
-    count_active = count(identity, world.active_agents)
-    count_active == 0 && return 0.0
-    total = 0.0
-    @inbounds for index in eachindex(world.states)
-        world.active_agents[index] || continue
-        total += linear_speed(world.states[index])
-    end
-    return total / count_active
+    return _active_mean_speed(world.states, world.active_agents)
 end
 
 metrics(world::ObjectWorld, window::Integer=1) = (
     mean_speed=_active_mean_speed(world),
+    active_count=count(identity, world.active_agents),
+    active_fraction=_active_fraction(world.active_agents),
     active_objects=count(object -> object.active, world.objects),
     contacts=length(world.last_interactions),
 )

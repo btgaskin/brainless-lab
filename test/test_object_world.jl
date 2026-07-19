@@ -268,6 +268,11 @@ end
     @test !world.active_agents[1]
     @test all(iszero, world.states[1].velocity)
     @test metrics(world).mean_speed == 0.0
+    @test metrics(world).active_count == 0
+    @test metrics(world).active_fraction == 0.0
+    reset!(world)
+    @test world.active_agents == world.initial_active_agents == BitVector([false])
+    @test all(iszero, world.states[1].velocity)
 end
 
 @testset "documented object-world TaskSpec example runs" begin

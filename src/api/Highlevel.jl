@@ -1195,54 +1195,42 @@ function _environment_config(world::TaskWorld)
     )
 end
 
-function _environment_config(m::TorusEnvironment)
-    size = Float64(m.torus.size)
-    return (
-        kind=:torus,
+function _situated_config_value(m::SituatedEnvironment, name::Symbol)
+    name === :n_agents && return length(m.positions)
+    name === :visual_coupling && return m.visual_coupling
+    name === :physical_coupling && return m.physical_coupling
+    name === :sensory_noise && return m.sensory_noise
+    name === :motor && return _motor_config(m.config.motor)
+    name === :sensor && return _sensor_config(m.config.sensor)
+    name === :colours && return copy(m.colours)
+    name === :conspecific_contact_effects &&
+        return Tuple(_effect_config(effect) for effect in m.config.conspecific_contact_effects)
+    value = getfield(m.config, name)
+    return value isa AbstractArray ? copy(value) : value
+end
+
+function _situated_environment_config(m::SituatedEnvironment, kind::Symbol)
+    size = Float64(m.arena.size)
+    names = fieldnames(SituatedConfig)
+    values = Tuple(_situated_config_value(m, name) for name in names)
+    effective = NamedTuple{names}(values)
+    return (;
+        kind,
         bounds=(0.0, size, 0.0, size),
-        size=size,
-        n_agents=length(m.positions),
-        vision_range=m.config.vision_range,
-        motor=_motor_config(m.config.motor),
-        agent_radius=Float64(m.config.agent_radius),
-        norm_mode=m.config.norm_mode,
-        norm_sigma=Float64(m.config.norm_sigma),
-        conspecific_gain=Float64(m.config.conspecific_gain),
-        sensor=_sensor_config(m.config.sensor),
-        n_colours=Int(m.config.n_colours),
-        colour_sensing=Bool(m.config.colour_sensing),
-        colours=copy(m.colours),
+        size,
+        effective...,
+        source_gains=copy(m.source_gains),
+        initial_positions=Tuple(m.initial_positions),
+        initial_headings=Tuple(m.initial_headings),
+        initial_active_agents=Tuple(m.initial_active_agents),
     )
 end
 
-function _environment_config(m::ForageEnvironment)
-    size = Float64(m.torus.size)
-    return (
-        kind=:forage,
-        bounds=(0.0, size, 0.0, size),
-        size=size,
-        n_agents=length(m.positions),
-        vision_range=m.config.vision_range,
-        source_vision_range=m.config.source_vision_range,
-        source_position=m.source_position,
-        source_gain=Float64(m.config.source_gain),
-        n_lookouts=m.config.n_lookouts,
-        motor=_motor_config(m.config.motor),
-        agent_radius=Float64(m.config.agent_radius),
-        norm_mode=m.config.norm_mode,
-        norm_sigma=Float64(m.config.norm_sigma),
-        conspecific_gain=Float64(m.config.conspecific_gain),
-        sensor=_sensor_config(m.config.sensor),
-        signalling=Bool(m.config.signalling),
-        signal_range=Float64(m.config.signal_range),
-        signal_gain=Float64(m.config.signal_gain),
-        capture_radius=Float64(m.config.capture_radius),
-        conspecific_vision=Bool(m.config.conspecific_vision),
-        n_colours=Int(m.config.n_colours),
-        colour_sensing=Bool(m.config.colour_sensing),
-        colours=copy(m.colours),
-    )
-end
+_environment_config(m::TorusEnvironment) =
+    _situated_environment_config(m.world, :torus)
+
+_environment_config(m::ForageEnvironment) =
+    _situated_environment_config(m.world, :forage)
 
 _environment_config(m::SituatedEnvironment{CollectiveMode}) =
     _environment_config(TorusEnvironment(m))
@@ -1277,33 +1265,19 @@ function network_snapshot(r::CompartmentalReservoir)
     )
 end
 
-const _SWARM_ENVIRONMENT_KWARGS = Set{Symbol}((
-    :space_size,
-    :sens_agent_dist,
-    :vision_range,
-    :source_vision_range,
-    :sensory_noise,
-    :sensory_scaling,
-    :visual_coupling,
-    :physical_coupling,
-    :conspecific_vision,
-    :source_position,
-    :source_gain,
-    :n_lookouts,
-    :norm_mode,
-    :norm_sigma,
-    :conspecific_gain,
-    :signalling,
-    :signal_range,
-    :signal_gain,
-    :capture_radius,
-    :n_colours,
-    :colour_sensing,
-    :colours,
-    :motor,
-    :sensor,
-    :agent_radius,
-    :record_inputs,
+const _SITUATED_NON_ENVIRONMENT_KWARGS = Set{Symbol}((
+    :n_agents,
+    :n_nodes,
+    :link_p,
+    :seed,
+))
+const _SWARM_ENVIRONMENT_KWARGS = Set{Symbol}(
+    name for name in fieldnames(SituatedConfig)
+    if !(name in _SITUATED_NON_ENVIRONMENT_KWARGS)
+)
+const _SITUATED_CONTACT_KWARGS = Set{Symbol}((
+    :conspecific_contact_radius,
+    :conspecific_contact_effects,
 ))
 
 function _extract_swarm_environment_kwargs!(options::Dict{Symbol,Any}, swarm_kwargs)
@@ -1401,8 +1375,17 @@ function _build_ensemble(task_spec::TaskSpec, node::Symbol; ticks=nothing, seed=
     if is_swarm
         task_options = _extract_swarm_environment_kwargs!(options, task_options)
         n_agents !== nothing && (task_options[:n_agents] = Int(n_agents))
-    elseif !isempty(_merge_kwdicts(swarm_kwargs))
-        throw(ArgumentError("swarm_kwargs is only valid for a multi-agent task setup"))
+    else
+        !isempty(_merge_kwdicts(swarm_kwargs)) &&
+            throw(ArgumentError("swarm_kwargs is only valid for a multi-agent task setup"))
+        invalid_contacts = sort!(Symbol[
+            key for key in _SITUATED_CONTACT_KWARGS
+            if haskey(options, key) || haskey(task_options, key)
+        ])
+        isempty(invalid_contacts) || throw(ArgumentError(
+            "situated conspecific contact options $(invalid_contacts) are only valid for " *
+            "multi-agent task setups such as :torus or :forage",
+        ))
     end
 
     node_kwargs = _merge_kwdicts(node_kwargs, options)

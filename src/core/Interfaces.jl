@@ -259,7 +259,7 @@ function object_snapshot end
 """
     conspecific_contacts(environment)
 
-Return entity-aligned conspecific contact counts for the most recent tick.
+Return entity-aligned conspecific contact indicators for the most recent tick.
 Environments without this surface leave the generic inapplicable.
 """
 function conspecific_contacts end

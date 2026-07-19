@@ -416,6 +416,7 @@ end
 
     step!(ensemble)
     @test environment.active_agents == BitVector([false, true])
+    @test environment.activity_history == BitVector[BitVector([false, true])]
     dead_position = environment.positions[1]
     dead_effectors = copy(agents[1].reservoir.effector_buffer)
     @test all(iszero, sample!(environment, bodies)[2].conspecific)
@@ -425,5 +426,31 @@ end
     @test environment.positions[1] == dead_position
     @test agents[1].reservoir.effector_buffer == dead_effectors
     @test length(environment.history[1]) == length(environment.history[2]) == 2
+    @test environment.activity_history ==
+          BitVector[BitVector([false, true]), BitVector([false, true])]
+    @test metrics(environment, 2).active_count == 1
+    @test metrics(environment, 2).active_fraction == 0.5
     @test segregation(environment, 2) == (same_dist=0.0, cross_dist=0.0, assortativity=0.0)
+end
+
+@testset "situated historical metrics use activity at each recorded tick" begin
+    environment = TorusEnvironment(
+        Torus(10.0),
+        NTuple{2,Float64}[(2.0, 2.0), (8.0, 8.0)];
+        headings=[0.0, pi],
+        config=SwarmConfig(n_agents=2, space_size=10.0, record_inputs=false),
+        rng=MersenneTwister(44),
+    ).world
+    environment.history[1] = [(2.0, 2.0, 0.0), (2.0, 2.0, 0.0)]
+    environment.history[2] = [(8.0, 8.0, pi), (8.0, 8.0, pi)]
+    environment.activity_history = BitVector[
+        BitVector([true, true]),
+        BitVector([false, true]),
+    ]
+    environment.active_agents .= (false, true)
+
+    result = swarm_metrics(environment, 2)
+    @test result.polarization ≈ 0.5 atol=1e-12
+    @test result.active_count == 1
+    @test result.active_fraction == 0.5
 end
