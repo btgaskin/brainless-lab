@@ -194,12 +194,33 @@ evolvable genotype data.
 function load_state! end
 
 """
+    network_snapshot(reservoir)
+
+Return an optional, visualization-oriented description of a reservoir's network.
+Reservoirs without an exposed network return `nothing`.
+
+This is a read-only inspection hook. Dynamic runtime state belongs to
+`snapshot_state`; evolvable parameters belong to `pack_params`.
+"""
+network_snapshot(::Reservoir) = nothing
+
+"""
     prepare_step!(environment, bodies)
 
 Advance environment-owned lifecycle state that must be visible to every agent
 before the synchronous observation phase. The default is a no-op.
 """
 prepare_step!(::Environment, bodies) = nothing
+
+"""
+    sync_activity!(environment, bodies)
+
+Synchronize environment-owned lifecycle state with the current activity of
+`bodies`. The ensemble calls this before observation and after body updates so
+sensing, metrics, and rendering share one activity boundary. The default is a
+no-op.
+"""
+sync_activity!(::Environment, bodies) = nothing
 
 """
     bind_entity_ids!(environment, ids)

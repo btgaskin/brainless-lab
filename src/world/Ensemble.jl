@@ -26,6 +26,9 @@ struct EntityFrame{T,V<:AbstractVector{T}} <: AbstractVector{T}
         length(ids_) == length(values) || throw(DimensionMismatch(
             "EntityFrame has $(length(ids_)) IDs but $(length(values)) values",
         ))
+        allunique(ids_) || throw(ArgumentError(
+            "EntityFrame IDs must be unique; got $(ids_)",
+        ))
         return new{T,V}(ids_, values)
     end
 end
