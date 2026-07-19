@@ -1348,6 +1348,7 @@ function _simulation_config(
         n_nodes=Int(n_nodes),
         environment=_environment_config(c.environment),
         agents=agent_configs,
+        entity_ids=Tuple(ids),
         bodies=Tuple(agent.body for agent in agent_configs),
         networks=Tuple(agent.network for agent in agent_configs),
         ablation=ablation,

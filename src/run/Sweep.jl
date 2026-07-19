@@ -1728,18 +1728,57 @@ function _write_empty_csv(path::AbstractString, header)
 end
 
 function _null_result_row(measure::AbstractString, result, n_shifts::Integer)
+    n_requested = hasproperty(result, :n_requested) ? Int(result.n_requested) : Int(n_shifts)
+    n_valid = hasproperty(result, :n_valid) ? Int(result.n_valid) : n_requested
+    status = n_valid == n_requested ? "ok" : n_valid == 0 ? "invalid" : "partial"
     return Dict{String,Any}(
         "measure" => measure,
+        "status" => status,
+        "error" => "",
         "real" => _finite_or_nan(result.real),
         "null_mean" => _finite_or_nan(result.null_mean),
         "null_std" => _finite_or_nan(result.null_std),
         "ratio" => _finite_or_nan(result.ratio),
+        "pvalue" => hasproperty(result, :pvalue) ? _finite_or_nan(result.pvalue) : NaN,
+        "n_valid" => n_valid,
+        "n_requested" => n_requested,
+        "n_shifts" => n_requested,
+        "alternative" => String(hasproperty(result, :alternative) ? result.alternative : :unknown),
+    )
+end
+
+function _null_error_row(measure::AbstractString, error, n_shifts::Integer)
+    return Dict{String,Any}(
+        "measure" => measure,
+        "status" => "error",
+        "error" => sprint(showerror, error),
+        "real" => NaN,
+        "null_mean" => NaN,
+        "null_std" => NaN,
+        "ratio" => NaN,
+        "pvalue" => NaN,
+        "n_valid" => 0,
+        "n_requested" => Int(n_shifts),
         "n_shifts" => Int(n_shifts),
+        "alternative" => "greater",
     )
 end
 
 function _write_null_test(path::AbstractString, sim::SimResult, schema::SweepColumnSchema, capture::SweepCaptureOptions, cell_index::Integer)
-    header = ["measure", "real", "null_mean", "null_std", "ratio", "n_shifts"]
+    header = [
+        "measure",
+        "status",
+        "error",
+        "real",
+        "null_mean",
+        "null_std",
+        "ratio",
+        "pvalue",
+        "n_valid",
+        "n_requested",
+        "n_shifts",
+        "alternative",
+    ]
     capture.n_shifts <= 0 && return _write_empty_csv(path, header)
 
     rows = Dict{String,Any}[]
@@ -1748,17 +1787,17 @@ function _write_null_test(path::AbstractString, sim::SimResult, schema::SweepCol
     for spec in schema.ensemble_specs
         rng = MersenneTwister(seed + length(rows))
         measure_name = "sigma_mr_agent__$(spec.id)"
-        result = try
-            crossshift_null(
+        try
+            result = crossshift_null(
                 sim,
                 s -> branching_ratio_mr(s; level=:agent, kmax=kmax, observable=spec).m_mr;
                 n_shifts=capture.n_shifts,
                 rng=rng,
             )
-        catch
-            (real=NaN, null_mean=NaN, null_std=NaN, ratio=NaN)
+            push!(rows, _null_result_row(measure_name, result, capture.n_shifts))
+        catch error
+            push!(rows, _null_error_row(measure_name, error, capture.n_shifts))
         end
-        push!(rows, _null_result_row(measure_name, result, capture.n_shifts))
     end
 
     null_measures = (
@@ -1769,12 +1808,12 @@ function _write_null_test(path::AbstractString, sim::SimResult, schema::SweepCol
     )
     for (name, fn) in null_measures
         rng = MersenneTwister(seed + length(rows))
-        result = try
-            crossshift_null(sim, fn; n_shifts=capture.n_shifts, rng=rng)
-        catch
-            (real=NaN, null_mean=NaN, null_std=NaN, ratio=NaN)
+        try
+            result = crossshift_null(sim, fn; n_shifts=capture.n_shifts, rng=rng)
+            push!(rows, _null_result_row(name, result, capture.n_shifts))
+        catch error
+            push!(rows, _null_error_row(name, error, capture.n_shifts))
         end
-        push!(rows, _null_result_row(name, result, capture.n_shifts))
     end
 
     return _write_rows_csv(path, rows; header=header)

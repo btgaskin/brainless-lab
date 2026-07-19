@@ -49,6 +49,7 @@ end
     )
     @test length(world.object_types) == 1
     @test getfield.(world.objects, :type_index) == [1, 1]
+    @test [object.type_index for object in object_snapshot(world)] == [1, 1]
     @test [object.kind for object in object_snapshot(world)] ==
           [:resource, :resource]
 

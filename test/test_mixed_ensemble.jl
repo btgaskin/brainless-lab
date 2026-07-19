@@ -297,6 +297,15 @@ end
 end
 
 @testset "entity-aware recording and manifests" begin
+    sparse = EntityFrame([42, 7], ["forty-two", "seven"])
+    @test entity_index(sparse, 42) == 1
+    @test entity_value(sparse, EntityID(7)) == "seven"
+    aligned = align_entities(sparse, [7, 42])
+    @test aligned.ids == EntityID.([7, 42])
+    @test aligned.values == ["seven", "forty-two"]
+    @test_throws ArgumentError EntityFrame([7, 7], [1, 2])
+    @test_throws ArgumentError align_entities(sparse, [7, 8])
+
     recorder = Recorder(enabled=(:spikes, :receptors, :effectors, :body_alive, :deaths))
     ensemble = Ensemble(_mixed_agents(), _MixedEnvironment(); ids=[7, 8, 9], recorder=recorder)
     step!(ensemble)
@@ -321,6 +330,7 @@ end
     @test config.n_agents == 3
     @test Tuple(agent.id for agent in config.agents) == Tuple(EntityID.((7, 8, 9)))
     @test Tuple(agent.slot for agent in config.agents) == (1, 2, 3)
+    @test config.entity_ids == Tuple(EntityID.((7, 8, 9)))
     @test length(config.bodies) == length(config.networks) == 3
     @test !hasproperty(config, :network)
 end

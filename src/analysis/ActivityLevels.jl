@@ -83,11 +83,23 @@ function _analysis_agent_node_vectors(entry, name::Symbol, t::Integer)
     throw(ArgumentError("$(name) needs numeric recorder entries; bad entry at tick $(t)"))
 end
 
+function _analysis_aligned_entity_samples(raw, name::Symbol)
+    isempty(raw) && return raw
+    has_frames = any(entry -> entry isa EntityFrame, raw)
+    has_frames || return raw
+    all(entry -> entry isa EntityFrame, raw) || throw(ArgumentError(
+        "$(name) cannot mix EntityFrame and positional samples in one recorder channel",
+    ))
+    ids = copy(first(raw).ids)
+    return [align_entities(entry, ids).values for entry in raw]
+end
+
 function _analysis_agent_node_matrices(sim::SimResult, channel::Symbol, name::Symbol)
     channel in (:rate, :rates) &&
         throw(ArgumentError("$(name) needs per-node reservoir channels; :$(channel) only records per-agent rates"))
     raw = getchannel(sim.recorder, channel)
     isempty(raw) && throw(ArgumentError("$(name) needs the :$(channel) channel recorded; run simulate(...; record=(:$(channel), ...))"))
+    raw = _analysis_aligned_entity_samples(raw, name)
 
     n_ticks = length(raw)
     first = _analysis_agent_node_vectors(raw[1], name, 1)
@@ -121,6 +133,7 @@ end
 
 function _analysis_rate_matrix_from_raw(raw, name::Symbol)
     isempty(raw) && throw(ArgumentError("$(name) needs the :rate channel recorded; run simulate(...; record=(:rate, ...))"))
+    raw = _analysis_aligned_entity_samples(raw, name)
 
     n_ticks = length(raw)
     rows = Vector{Vector{Float64}}(undef, n_ticks)
@@ -519,6 +532,7 @@ end
 
 function _analysis_pose_matrices(raw, name::Symbol)
     isempty(raw) && throw(ArgumentError("$(name) needs the :poses channel recorded; run simulate(...; record=(:poses, ...))"))
+    raw = _analysis_aligned_entity_samples(raw, name)
     first_entry = raw[1]
     first_entry isa AbstractVector ||
         throw(ArgumentError("$(name) needs :poses entries shaped as vectors of (x, y, heading) tuples"))

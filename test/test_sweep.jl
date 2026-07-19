@@ -431,6 +431,24 @@ end
     null_rows = _csv_rows(joinpath(captured_dir, "null_test.csv"))
     @test any(row -> row["measure"] == "susceptibility_agent", null_rows)
     @test any(row -> row["measure"] == "sigma_mr_agent__graded", null_rows)
+    @test all(row -> haskey(row, "status") && haskey(row, "error"), null_rows)
+    @test all(row -> haskey(row, "n_valid") && haskey(row, "n_requested"), null_rows)
+    @test all(row -> haskey(row, "alternative") && haskey(row, "pvalue"), null_rows)
+    partial_null = BrainlessLab._null_result_row(
+        "partial",
+        (
+            real=1.0,
+            null_mean=1.0,
+            null_std=0.0,
+            ratio=1.0,
+            pvalue=1.0,
+            n_valid=2,
+            n_requested=3,
+            alternative=:greater,
+        ),
+        3,
+    )
+    @test partial_null["status"] == "partial"
     @test all(cell -> isfile(joinpath(cell["result_path"], "metrics.csv")), uncaptured)
     @test all(cell -> !isfile(joinpath(cell["result_path"], "criticality_timeseries.csv")), uncaptured)
 

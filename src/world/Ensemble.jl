@@ -41,6 +41,49 @@ Base.getindex(frame::EntityFrame, index::Int) = frame.values[index]
 Base.iterate(frame::EntityFrame, state...) = iterate(frame.values, state...)
 Base.copy(frame::EntityFrame) = EntityFrame(copy(frame.ids), copy(frame.values))
 
+_entity_id(id::EntityID) = id
+_entity_id(id::Integer) = EntityID(id)
+
+"""
+    entity_index(frame, id)
+
+Return the position of stable entity `id` in `frame`. Integer identifiers are
+interpreted as `EntityID` values, never as positional indexes.
+"""
+function entity_index(frame::EntityFrame, id::Union{EntityID,Integer})
+    id_ = _entity_id(id)
+    index = findfirst(==(id_), frame.ids)
+    index === nothing && throw(ArgumentError(
+        "EntityFrame does not contain $(id_); available IDs are $(frame.ids)",
+    ))
+    return index
+end
+
+"""
+    entity_value(frame, id)
+
+Return the value associated with stable entity `id`.
+"""
+entity_value(frame::EntityFrame, id::Union{EntityID,Integer}) =
+    frame.values[entity_index(frame, id)]
+
+"""
+    align_entities(frame, ids)
+
+Return an `EntityFrame` ordered by the requested stable IDs. The requested IDs
+must describe exactly the same entity set as `frame`; this prevents analyses
+from silently dropping or duplicating entities when recorder order changes.
+"""
+function align_entities(frame::EntityFrame, ids)
+    ids_ = EntityID[_entity_id(id) for id in ids]
+    allunique(ids_) || throw(ArgumentError("requested entity IDs must be unique; got $(ids_)"))
+    length(ids_) == length(frame) || throw(DimensionMismatch(
+        "requested $(length(ids_)) entities from a frame containing $(length(frame))",
+    ))
+    values = [entity_value(frame, id) for id in ids_]
+    return EntityFrame(ids_, values)
+end
+
 struct AgentGroupKey
     agent_type::DataType
     n_receptors::Int

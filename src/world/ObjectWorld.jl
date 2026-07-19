@@ -201,6 +201,7 @@ function object_snapshot(world::ObjectWorld)
         kind = world.object_types[object.type_index]
         (
             id=object.id,
+            type_index=object.type_index,
             kind=kind.name,
             bank=kind.bank,
             position=object.position,
