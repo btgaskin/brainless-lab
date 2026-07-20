@@ -139,6 +139,11 @@ Two orthogonal splits, and conflating them is the second-most-common mistake:
 - **`snapshot_state` / `load_state!`** — transient *runtime state*: activations, learned
   weights, spike buffers, noise index. For replay and reset, never for the search space.
 
+A reservoir wrapper must forward the whole public behavioral contract, not merely fields:
+widths, traits/window timing, recording, `network_snapshot`, readout, interventions, and
+state snapshot/load. `getproperty` does not forward Julia dispatch. Include wrapper-owned
+RNG or lag state in the snapshot and test next-step continuation after loading it.
+
 Do not hide evolvable numbers in `snapshot_state`, and do not let `pack_params` leak dynamic
 state — an optimizer that mutates a "parameter" that is really an activation will corrupt the
 rollout. Then register with the genome type so `bench`/`evolve` can size it from the public

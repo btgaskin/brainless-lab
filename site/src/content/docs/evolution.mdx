@@ -99,7 +99,10 @@ The current seam is intentionally bounded:
 - genes target existing real scalar TOML parameters only;
 - actuator/dynamics compatibility is validated before search;
 - bilateral encoders must reference two existing distinct sensor IDs;
-- physical development requires one geometry, at least one sensor, one actuator, and one
+- every runnable standard embodiment requires at least one sensor and actuator, with
+  geometry, dynamics, and physiology each singular;
+- physical development additionally requires exactly one geometry, actuator, and dynamics
+  component; multiple actuators are only valid for a non-physical composition with no
   dynamics component;
 - component addition/removal, variable sensor count, graph topology, runtime births,
   replacement, and lineage scheduling are outside the contract.

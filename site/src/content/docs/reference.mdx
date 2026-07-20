@@ -115,6 +115,8 @@ Objects use `ObjectType` with optional `appearance`, capacity, effects, and resp
 `AbstractObjectAppearance` is the extension boundary. Built-ins are `NoAppearance` and
 `SpectralAppearance`; `rgb_appearance` provides a convenient spectral approximation. The current world is fixed-population with static
 circular objects and one physical actuator/dynamics command per body.
+Each `object_snapshot` row includes both stable object identity and `type_index`; repeated
+instances of one `ObjectType` therefore keep one rendering category.
 
 Object banks and analytic fields are independent: assigning an object `bank` does not emit a
 field. `MountedFieldProbe`s sample only fields explicitly present in `world.fields`. With no
@@ -161,6 +163,19 @@ body = materialize_embodiment(develop(genotype, context))
 
 Discovery/helpers: `paramdim`, `paramspace`, `pack_params`, `unpack_params`,
 `development_seed`, `validate_development_structure`, and `composite_genome`.
+
+`materialize_blueprint` remains an inspection surface and can resolve registered component
+families that the standard runtime does not compose. `materialize_embodiment`,
+`DevelopmentSpec`, and `develop` validate runnable structure early: sensors and actuators
+are required, geometry/dynamics/physiology are singular, and physical development requires
+exactly one geometry, actuator, and dynamics component.
+
+## Network inspection
+
+`network_snapshot(reservoir)` is an optional read-only visualization hook. A `SimResult`
+stores per-agent entries in `config.agents` and plural compatibility projections in
+`config.networks`; singular `config.network` is read only for legacy replay. On a
+multi-network result, use `networkplot(sim; entity=EntityID(...))`.
 
 ## Ablations
 
