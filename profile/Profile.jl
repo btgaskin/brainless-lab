@@ -588,13 +588,16 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
                 factor_values[f] = Float64.(resolve_analysis(f)(sim))   # length T
             end
         end
+        outcome = task_outcome(sim)
+        outcome === nothing &&
+            throw(ArgumentError("node profiles require a scored task; :$(task) has no objective"))
 
         return (
             sim=s == 1 ? sim : nothing,
             per_tick=br.per_tick,
             sigma=br.sigma,
             sigma_mr=sigma_mr_value,
-            score=Float64(sim.metrics.score),
+            score=outcome.raw,
             liveness=hasproperty(sim.metrics, :alive) && Bool(sim.metrics.alive) ? 1.0 : 0.0,
             rate_mean=hasproperty(sim.metrics, :rate_mean) ? _finite_or_nan(sim.metrics.rate_mean) : NaN,
             rate_var=hasproperty(sim.metrics, :rate_var) ? _finite_or_nan(sim.metrics.rate_var) : NaN,
@@ -924,7 +927,7 @@ function _write_html_stub(path::AbstractString, node_sym::Symbol, results)
 end
 
 """
-    node_profile(node_sym=:falandays_base; tasks=DEFAULT_TASKS, n_seeds=8,
+    node_profile(node_sym=:falandays; tasks=DEFAULT_TASKS, n_seeds=8,
                  out_root=joinpath(@__DIR__, "runs"), out_dir=nothing,
                  canonical_N=CANONICAL_N, gifs=true, report=false)
 
@@ -937,7 +940,7 @@ opt-in stub so the old rich report can be revived later. Returns a NamedTuple
 with the run directory and primary artifact paths.
 """
 function node_profile(
-    node_sym::Symbol=:falandays_base;
+    node_sym::Symbol=:falandays;
     tasks=DEFAULT_TASKS,
     n_seeds::Integer=8,
     out_root::AbstractString=joinpath(@__DIR__, "runs"),

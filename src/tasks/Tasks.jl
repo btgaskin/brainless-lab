@@ -228,7 +228,7 @@ const WALL_TASK = TaskSpec(
     :wall,
     WallEnv;
     floor=null_anchor(0.763125, "null=null_random, score_key=nav_score, seeds 0:7, git d420563, 2026-07-04"),
-    ceiling=analytic(1.0; note="nav_score max = collision-free navigation while moving (a true analytic optimum); untrained falandays_base ref measured ~0.013 << null 0.763, so the analytic optimum is the honest ceiling, not a reference agent"),
+    ceiling=analytic(1.0; note="nav_score max = collision-free navigation while moving (a true analytic optimum); untrained falandays ref measured ~0.013 << null 0.763, so the analytic optimum is the honest ceiling, not a reference agent"),
     score_key=:nav_score,
     descriptor_keys=[:collisions_window, :distance_window],
 )

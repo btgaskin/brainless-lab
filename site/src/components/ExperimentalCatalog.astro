@@ -1,0 +1,343 @@
+---
+import { getCollection } from 'astro:content';
+
+interface Props {
+  family?: string;
+}
+
+const { family } = Astro.props;
+const familyLabels: Record<string, string> = {
+  reservoirs: 'Reservoirs',
+  embodiment: 'Embodiment',
+  'worlds-tasks': 'Worlds & tasks',
+  collectives: 'Collectives',
+  analyses: 'Analyses',
+  evolution: 'Evolution',
+};
+const familyRoutes: Record<string, string> = {
+  reservoirs: '/experimental/reservoirs/',
+  embodiment: '/experimental/embodiment/',
+  'worlds-tasks': '/experimental/worlds-tasks/',
+  collectives: '/experimental/collectives/',
+  analyses: '/experimental/analyses/',
+  evolution: '/experimental/evolution/',
+};
+const allFeatures = (
+  await getCollection('docs', ({ data }) => Boolean(data.experimental))
+).sort((a, b) => a.data.title.localeCompare(b.data.title));
+const features = family
+  ? allFeatures.filter((entry) => entry.data.experimental?.family === family)
+  : allFeatures;
+const tags = [
+  ...new Set(features.flatMap((entry) => entry.data.experimental?.tags ?? [])),
+].sort();
+const catalogId = `experimental-${family ?? 'all'}`;
+const routeFor = (id: string) => `/${id.replace(/\/index$/, '')}/`;
+---
+
+<section class="catalog" data-experimental-catalog>
+  {
+    !family && (
+      <nav class="family-nav" aria-label="Experimental feature families">
+        {Object.entries(familyLabels).map(([key, label]) => {
+          const count = allFeatures.filter(
+            (entry) => entry.data.experimental?.family === key,
+          ).length;
+          return (
+            <a href={familyRoutes[key]}>
+              {label} <span>{count}</span>
+            </a>
+          );
+        })}
+      </nav>
+    )
+  }
+
+  <form class="catalog-filters" role="search" aria-label="Filter Experimental features">
+    <label>
+      Search
+      <input
+        id={`${catalogId}-search`}
+        type="search"
+        placeholder="Name, tag, or capability"
+        data-catalog-search
+      />
+    </label>
+    {
+      !family && (
+        <label>
+          Family
+          <select id={`${catalogId}-family`} data-catalog-family>
+            <option value="">All families</option>
+            {Object.entries(familyLabels).map(([value, label]) => (
+              <option value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+      )
+    }
+    <label>
+      Readiness
+      <select id={`${catalogId}-readiness`} data-catalog-readiness>
+        <option value="">All readiness</option>
+        <option value="available">Available</option>
+        <option value="integrated">Integrated</option>
+      </select>
+    </label>
+    <label>
+      Tag
+      <select id={`${catalogId}-tag`} data-catalog-tag>
+        <option value="">All tags</option>
+        {tags.map((tag) => <option value={tag}>{tag}</option>)}
+      </select>
+    </label>
+    <button type="button" data-catalog-clear>Clear</button>
+  </form>
+
+  <p class="catalog-count" data-catalog-count aria-live="polite">
+    Showing {features.length} of {features.length} features.
+  </p>
+
+  <div class="feature-grid">
+    {
+      features.map((entry) => {
+        const item = entry.data.experimental;
+        if (!item) return null;
+        const search = [
+          entry.data.title,
+          entry.data.description,
+          item.family,
+          item.readiness,
+          ...item.tags,
+        ]
+          .join(' ')
+          .toLowerCase();
+        return (
+          <article
+            data-catalog-item
+            data-family={item.family}
+            data-readiness={item.readiness}
+            data-tags={item.tags.join(' ')}
+            data-search={search}
+          >
+            <div class="card-top">
+              <span class="readiness">{item.readiness}</span>
+              <span>{familyLabels[item.family]}</span>
+            </div>
+            <h2>
+              <a href={routeFor(entry.id)}>{entry.data.title}</a>
+            </h2>
+            <p>{entry.data.description}</p>
+            <ul class="tags" aria-label={`Tags for ${entry.data.title}`}>
+              {item.tags.map((tag) => <li>{tag}</li>)}
+            </ul>
+            <p class="card-links">
+              <a href={routeFor(entry.id)}>Feature record →</a>
+              <a href={item.core_page}>Core contract →</a>
+            </p>
+          </article>
+        );
+      })
+    }
+  </div>
+  <p class="catalog-empty" data-catalog-empty hidden>
+    No features match these filters.
+  </p>
+</section>
+
+<script>
+  document.querySelectorAll('[data-experimental-catalog]').forEach((catalog) => {
+    if (!(catalog instanceof HTMLElement)) return;
+    const search = catalog.querySelector('[data-catalog-search]');
+    const family = catalog.querySelector('[data-catalog-family]');
+    const readiness = catalog.querySelector('[data-catalog-readiness]');
+    const tag = catalog.querySelector('[data-catalog-tag]');
+    const count = catalog.querySelector('[data-catalog-count]');
+    const empty = catalog.querySelector('[data-catalog-empty]');
+    const items = [...catalog.querySelectorAll('[data-catalog-item]')];
+    const value = (control: Element | null) =>
+      control instanceof HTMLInputElement || control instanceof HTMLSelectElement
+        ? control.value.trim().toLowerCase()
+        : '';
+    const update = () => {
+      const query = value(search);
+      const wantedFamily = value(family);
+      const wantedReadiness = value(readiness);
+      const wantedTag = value(tag);
+      let shown = 0;
+      items.forEach((item) => {
+        if (!(item instanceof HTMLElement)) return;
+        const tags = (item.dataset.tags ?? '').split(' ');
+        const visible =
+          (!query || (item.dataset.search ?? '').includes(query)) &&
+          (!wantedFamily || item.dataset.family === wantedFamily) &&
+          (!wantedReadiness || item.dataset.readiness === wantedReadiness) &&
+          (!wantedTag || tags.includes(wantedTag));
+        item.hidden = !visible;
+        if (visible) shown += 1;
+      });
+      if (count) count.textContent = `Showing ${shown} of ${items.length} features.`;
+      if (empty instanceof HTMLElement) empty.hidden = shown !== 0;
+    };
+    [search, family, readiness, tag].forEach((control) => {
+      control?.addEventListener('input', update);
+      control?.addEventListener('change', update);
+    });
+    catalog.querySelector('[data-catalog-clear]')?.addEventListener('click', () => {
+      [search, family, readiness, tag].forEach((control) => {
+        if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement) {
+          control.value = '';
+        }
+      });
+      update();
+      if (search instanceof HTMLInputElement) search.focus();
+    });
+  });
+</script>
+
+<style>
+  .catalog {
+    margin-top: 1.25rem;
+  }
+
+  .family-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 1rem 0 1.5rem;
+  }
+
+  .family-nav a {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.4rem;
+    text-decoration: none;
+  }
+
+  .family-nav span {
+    color: var(--sl-color-gray-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .catalog-filters {
+    display: grid;
+    grid-template-columns: minmax(14rem, 2fr) repeat(3, minmax(9rem, 1fr)) auto;
+    gap: 0.75rem;
+    align-items: end;
+    padding: 1rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    background: var(--sl-color-bg-nav);
+  }
+
+  .catalog-filters label {
+    display: grid;
+    gap: 0.3rem;
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-xs);
+    font-weight: 700;
+  }
+
+  .catalog-filters input,
+  .catalog-filters select,
+  .catalog-filters button {
+    min-height: 2.35rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid var(--sl-color-gray-4);
+    border-radius: 0.3rem;
+    background: var(--sl-color-bg);
+    color: var(--sl-color-white);
+    font: inherit;
+  }
+
+  .catalog-filters button {
+    cursor: pointer;
+  }
+
+  .catalog-count {
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-sm);
+  }
+
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+    gap: 1rem;
+  }
+
+  .feature-grid article {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    background: var(--sl-color-bg-nav);
+  }
+
+  .feature-grid h2 {
+    margin: 0.65rem 0 0.4rem;
+    font-size: var(--sl-text-xl);
+  }
+
+  .feature-grid p {
+    margin: 0.35rem 0;
+  }
+
+  .card-top,
+  .card-links {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-xs);
+    text-transform: capitalize;
+  }
+
+  .readiness {
+    color: var(--sl-color-text-accent);
+    font-weight: 700;
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin: auto 0 0.8rem;
+    padding: 1rem 0 0;
+    list-style: none;
+  }
+
+  .tags li {
+    padding: 0.08rem 0.4rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 999px;
+    font-size: var(--sl-text-xs);
+  }
+
+  .card-links {
+    justify-content: flex-start;
+    text-transform: none;
+  }
+
+  .catalog-empty {
+    padding: 1rem;
+    border: 1px dashed var(--sl-color-gray-4);
+    text-align: center;
+  }
+
+  @media (max-width: 58rem) {
+    .catalog-filters {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (max-width: 34rem) {
+    .catalog-filters {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

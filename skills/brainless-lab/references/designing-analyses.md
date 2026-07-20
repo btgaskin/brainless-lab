@@ -16,7 +16,9 @@ forage runs are a concrete reminder: measures that looked collective did not bea
 See also `usage-and-workflows.md` (recording, the `SimResult` surface),
 `cli-tools.md` (the sweep `[analytics] measures` set), and
 `designing-environments-and-tasks.md` (what channels a task can emit). Prose:
-<https://brainless-lab.pages.dev/analysis/> and <https://brainless-lab.pages.dev/notes/criticality-and-information/>.
+<https://brainless-lab.pages.dev/core/runs-results/>,
+<https://brainless-lab.pages.dev/experimental/analyses/>, and
+<https://brainless-lab.pages.dev/notes/criticality-and-information/>.
 
 ## The analysis contract
 
@@ -90,12 +92,12 @@ res = crossshift_null(sim, s -> susceptibility(s; level=:agent);
 
 The `measure_fn` must return a `Number` or a NamedTuple with a known scalar field
 (`:m_mr`, `:susceptibility`, `:correlation_length`, or a contact-graph component field).
-Read `ratio = real / null_mean`: near 1 means the measure is indistinguishable from
-independent agents (shared drive, not coupling). Because the null strips *both* real
-coupling and common-source drive, the cleanest coupling readout the library supports is a
-**difference of conditions** — e.g. vision-on minus vision-off — rather than the raw
-`ratio` of a single run; a measure that only clears the null in absolute terms may still be
-common-source once you difference against a blind control.
+Read `ratio = real / null_mean` as a descriptive effect-size summary, not an equivalence
+test: a value near 1 does not establish absence of coupling. Interpret the declared-tail
+Monte Carlo `pvalue` against `null_values`, the selected `alternative`, and effective
+`n_valid`. Because circular shifts disrupt *both* inter-agent coupling and common-source
+timing, pair the surrogate with a causal condition appropriate to the claim—e.g.
+vision-on minus vision-off—rather than interpreting the raw ratio of one run alone.
 
 Two further rigor points baked into the code:
 
@@ -130,6 +132,11 @@ Two further rigor points baked into the code:
 5. **Register honestly.** `register_analysis!(:my_measure, my_measure; label="… (experimental)")`
    and keep the experimental flag until the null test and a finite-size sanity check pass.
 6. **Make sure the channel is recorded** — see below.
+
+Registration and a passing null-test implementation establish software readiness, not
+construct validity. Keep non-core analyses in the
+[Experimental catalog](https://brainless-lab.pages.dev/experimental/), with source, example,
+and test metadata, until their scientific interpretation has independent evidence.
 
 ```julia
 using Statistics

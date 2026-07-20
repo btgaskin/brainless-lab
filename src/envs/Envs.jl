@@ -134,6 +134,7 @@ mutable struct TrackingEnv{R} <: TaskWorld
     phi_history::Vector{Float64}
     eye_offsets_deg::NTuple{2,Float64}
     sensor_offsets_deg::Vector{Float64}
+    sensory_gain::Float64
     stim_speed_rad::Float64
     movement_amp::Float64
     theta0::Float64
@@ -147,11 +148,15 @@ function TrackingEnv(;
     movement_amp::Real=10.0,
     eye_offset_deg::Real=30.0,
     sensor_offsets_deg::AbstractVector{<:Real}=collect(-60.0:4.0:60.0),
+    sensory_gain::Real=1.0,
     randomize_start::Bool=false,
     theta0=nothing,
     phi0=nothing,
     direction0=nothing,
 )
+    gain = Float64(sensory_gain)
+    isfinite(gain) && gain >= 0.0 ||
+        throw(ArgumentError("tracking sensory_gain must be finite and non-negative"))
     th0 = theta0 !== nothing ? Float64(theta0) : (randomize_start ? 2pi * rand(rng) : pi / 2.0)
     ph0 = phi0 !== nothing ? Float64(phi0) : (randomize_start ? 2pi * rand(rng) : 0.0)
     dir0 = direction0 !== nothing ? Float64(direction0) : (randomize_start ? (rand(rng, Bool) ? 1.0 : -1.0) : 1.0)
@@ -166,6 +171,7 @@ function TrackingEnv(;
         Float64[],
         (Float64(eye_offset_deg), -Float64(eye_offset_deg)),
         collect(Float64, sensor_offsets_deg),
+        gain,
         Float64(stim_speed_rad),
         Float64(movement_amp),
         th0,
@@ -178,7 +184,7 @@ TrackingEnv(seed::Integer; kwargs...) = TrackingEnv(; rng=MersenneTwister(seed),
 TrackingEnv(rng; kwargs...) = TrackingEnv(; rng=rng, kwargs...)
 
 n_receptors(::Type{<:TrackingEnv}) = 62
-n_receptors(::TrackingEnv) = n_receptors(TrackingEnv)
+n_receptors(env::TrackingEnv) = 2 * length(env.sensor_offsets_deg)
 n_effectors(::Type{<:TrackingEnv}) = 2
 n_effectors(::TrackingEnv) = n_effectors(TrackingEnv)
 default_ticks(::Type{<:TrackingEnv}) = 1000
@@ -195,11 +201,27 @@ function sense(env::TrackingEnv)
         for sensor_offset in env.sensor_offsets_deg
             angle = theta_deg + eye_offset + sensor_offset
             delta = _angle_delta_deg(angle, phi_deg)
-            values[idx] = abs(delta) <= 4.0 ? 1.0 : exp(-(delta * delta) / 10.0)
+            response = abs(delta) <= 4.0 ? 1.0 : exp(-(delta * delta) / 10.0)
+            values[idx] = env.sensory_gain * response
             idx += 1
         end
     end
     return values
+end
+
+"""
+    tracking_reference_policy(env)
+
+Return a bounded two-effector command that turns directly toward the tracking
+target. This state-aware policy is a task-opportunity reference for calibration;
+it is not a candidate neural controller.
+"""
+function tracking_reference_policy(env::TrackingEnv)
+    isfinite(env.movement_amp) && env.movement_amp > 0.0 ||
+        throw(ArgumentError("tracking reference policy requires a positive finite movement_amp"))
+    required_deg = rad2deg(_wrap_rad(env.phi - env.theta))
+    turn = clamp(required_deg / env.movement_amp, -1.0, 1.0)
+    return turn >= 0.0 ? (turn, 0.0) : (0.0, -turn)
 end
 
 function step!(env::TrackingEnv, effectors)
@@ -285,9 +307,13 @@ mutable struct PongEnv{R} <: TaskWorld
     miss_flags::Vector{Int}
     align_flags::Vector{Float64}
     sensor_angles_deg::Vector{Float64}
+    sensory_gain::Float64
 end
 
-function PongEnv(; rng=Random.default_rng())
+function PongEnv(; rng=Random.default_rng(), sensory_gain::Real=1.0)
+    gain = Float64(sensory_gain)
+    isfinite(gain) && gain >= 0.0 ||
+        throw(ArgumentError("pong sensory_gain must be finite and non-negative"))
     env = PongEnv(
         rng,
         1000.0,
@@ -308,6 +334,7 @@ function PongEnv(; rng=Random.default_rng())
         Int[],
         Float64[],
         collect(-90.0:4.0:90.0),
+        gain,
     )
     _reset_ball!(env)
     return env
@@ -344,11 +371,23 @@ function sense(env::PongEnv)
         @inbounds for (i, angle) in enumerate(env.sensor_angles_deg)
             delta = _angle_delta_deg(bearing, angle)
             if abs(delta) <= 2.0
-                sensors[i] = 1.0
+                sensors[i] = env.sensory_gain
             end
         end
     end
     return sensors
+end
+
+"""
+    pong_reference_policy(env)
+
+Return a bounded two-effector command that aligns the paddle with the observed
+ball height. This state-aware policy is a task-opportunity reference for
+calibration; it is not a candidate neural controller.
+"""
+function pong_reference_policy(env::PongEnv)
+    displacement = clamp((env.ball_y - env.paddle_y) / 100.0, -1.0, 1.0)
+    return displacement >= 0.0 ? (displacement, 0.0) : (0.0, -displacement)
 end
 
 function step!(env::PongEnv, effectors)

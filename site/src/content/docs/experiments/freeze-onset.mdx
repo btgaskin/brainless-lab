@@ -30,13 +30,13 @@ julia -t auto --project=. experiments/run.jl freeze_onset
 The observations below are hypotheses from current exploratory runs. They require a committed
 protocol, sample count, uncertainty analysis, and untouched replication before promotion.
 
-**The current tracking runs show a sharp onset aligned with a saturation crash.** For tracking,
-freezing at tick ≤ ~6 locks in the hyper-excitable *initial* weights: the network saturates
-(population rate → 1) and does nothing. The instant the homeostat's first correction crashes the
-rate — around **tick 7** — freezing starts to yield a working tracker. The transition is a cliff,
-not a ramp, and it sits exactly on the rate crash.
+**An unbundled development trace suggested a sharp onset aligned with a saturation crash.** In
+that tracking trace, freezing at tick ≤ ~6 locked in the hyper-excitable *initial* weights: the
+network saturated (population rate → 1) and did nothing. Around **tick 7 in that trace**, after
+the homeostat's first correction sharply reduced the rate, freezing began to yield a working
+tracker. This is a hypothesis-generating trace, not an estimated population transition.
 
-**It is not a universal law — the degenerate state differs by task.**
+**In the same undocumented working traces, the degenerate state differed by task.**
 
 - **Tracking:** clean dead→alive onset; the frozen-init network *saturates*, and the task score
   resolves it.
@@ -53,7 +53,7 @@ the signal that separates the regimes. This is the same rate-pinning caveat that
 [tracking parameter sweep](/experiments/tracking-param-sweep/).
 :::
 
-**Freezing *after* self-organization.** In the current runs, freezing well past the onset
+**Freezing *after* self-organization.** In the same working traces, freezing well past the onset
 (e.g. tick 1800), the learned
 recurrent structure largely persists as a working configuration on its own — but freezing the
 weights lets the population activity slowly de-regulate, while freezing only the homeostatic

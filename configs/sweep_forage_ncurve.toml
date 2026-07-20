@@ -1,7 +1,7 @@
 # Confirmation sweep on the frozen HEAD (30b1af2): foraging vs network size
 # across BOTH prior ranges in one run / one scoring calibration, to test the
 # inverted-U (peak ~N=100) suggested by the two incomparable earlier sweeps.
-# falandays_base, n_agents=6, vision on, source_gain=1 (all held).
+# falandays, n_agents=6, vision on, source_gain=1 (all held).
 # Run with:
 #   julia --project=. sweep/run.jl configs/sweep_forage_ncurve.toml
 
@@ -13,7 +13,7 @@ max_cells = 200
 max_rollouts = 80
 
 [baseline]
-node = "falandays_base"
+node = "falandays"
 task = "forage"
 N = 100
 n_agents = 6

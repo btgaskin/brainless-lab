@@ -2,7 +2,7 @@
 title: Tracking parameter sweep
 description: An exploratory map of where the Falandays object-tracking reservoir tracks and which dynamical signatures accompany the observed viable region.
 evidence:
-  status: exploratory
+  status: tuned
   id: tracking-parameter-sweep-2026-07-08
   protocol_version: "1"
   randomization_unit: one seeded reservoir and task rollout
@@ -14,8 +14,8 @@ evidence:
 ---
 
 **Question.** The authors-faithful Falandays object-tracking reservoir self-organizes online. Over
-its homeostatic parameters, *where* does a random-init reservoir **reliably track** — the
-**viability space** — and what internal signature distinguishes viable from non-viable dynamics?
+its homeostatic parameters, *where* does a random-init reservoir clear a declared **development
+viability threshold**, and what internal signature accompanies viable versus non-viable dynamics?
 
 **Design.** A one-at-a-time sweep over six parameters (`leak`, `lrate_targ`, `lrate_wmat`,
 `input_amp`, `movement_amp`, `eye_offset`) around the locked paper baseline, plus a
@@ -30,8 +30,8 @@ julia -t auto --project=. experiments/run.jl tracking_leak_lrate_factorial
 
 **Performance is chance-anchored.** The viability variable is **`frac_within_30deg`** — the
 fraction of post-warmup ticks the gaze is within 30° of the target. Its chance floor (a random
-gaze against a sweeping stimulus) is a clean **1/6 ≈ 0.167**; a seed "reliably tracks" when it
-clears that floor with margin (> 0.25).
+gaze against a sweeping stimulus) is a clean **1/6 ≈ 0.167**; a seed is called
+**development-viable** when it clears that floor with margin (> 0.25).
 
 :::note[The honest posture]
 The authors-faithful baseline is a **weak, unreliable tracker** — most random inits sit near chance
@@ -48,9 +48,9 @@ Mean ± sd would average "some track, some die" into a misleading "mediocre," so
 
 ![Per-seed fraction-within-30° for each parameter, with the chance floor and per-seed regime colouring](/experiments/tracking-sweep/viability_strips.png)
 
-The recalibrated **fraction of inits that reliably track** (with a bootstrap CI), per axis:
+The recalibrated **fraction of development-viable inits** (with a bootstrap CI), per axis:
 
-![Fraction of random inits that reliably beat chance, per parameter, with bootstrap CI](/experiments/tracking-sweep/frac_viable.png)
+![Fraction of random inits that clear the development viability threshold, per parameter, with bootstrap CI](/experiments/tracking-sweep/frac_viable.png)
 
 Reading the panels (viable fraction = share of 100 inits clearing the 0.25 bar):
 
@@ -101,8 +101,8 @@ controls. Pooling every seed across every cell, its tail (p90) separates viable 
 
 Pooled over 3,200 seed-by-cell observations, the relationship is **modest**—viable runs average a
 set-point-error tail of 0.31 vs 0.39 for non-viable, and the correlation with `track_score` is
-−0.16. The honest reading is *asymmetric*: a **high** set-point error reliably flags a *dead*
-network (the right-hand cluster is almost entirely non-viable), but a **low** error is
+−0.16. The honest reading is *asymmetric*: in this development grid, a **high** set-point
+error is associated with the non-viable cluster, while a **low** error is
 **necessary, not sufficient** for tracking. So `node_target_error` earns its place as the most
 *mechanistically motivated candidate*—native to the homeostat's own control objective, not an
 imported criticality proxy—working as a development-set failure detector. These are repeated
@@ -122,5 +122,5 @@ The exact run-dirs behind these figures are committed at
 
 Figures are generated from `results.json` by `experiments/figures/tracking_figures.jl` (CairoMakie),
 so every figure traces to the recorded run. The committed bundle is traceable but remains
-exploratory under the current evidence schema; a committed directory alone does not make a
-study sealed or promoted.
+**tuned development evidence** under the current evidence schema; a committed directory
+alone does not make a study sealed or promoted.

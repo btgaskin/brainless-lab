@@ -13,11 +13,11 @@ evidence:
   limitations: ad-hoc perturbations, small samples, and no fixed-weight confirmatory comparison
 ---
 
-**Question.** The [Falandays](/nodes/falandays/) homeostatic rule holds each reservoir's branching
+**Question.** The [Falandays](/core/falandays/) homeostatic rule holds each reservoir's branching
 ratio $m$ near $1$ — the textbook signature of self-organized criticality. This page asks the causal
 question directly and end-to-end: is $m$ the *controlled* variable, is it an independently *tunable*
 knob, and is function driven by proximity to $m \approx 1$? Following the arc from the node in
-isolation, to the [Oosawa](/nodes/falandays/#the-oosawa-drive-a-variant-for-contrast) drive we
+isolation, to the [Oosawa](/experimental/features/noise-drive-variants/) drive we
 actually run, to the 48-agent [forage](/experiments/social-foraging/) swarm, the tested
 settings show a consistent pattern—but not an exhaustive impossibility result. At the node,
 $m \approx 1$ is an **ambiguous byproduct** of
@@ -28,7 +28,7 @@ probes therefore did not separate criticality from function; they do not show th
 separation is impossible.
 
 **Design.** Six probes along that arc: (A) the target-mechanism sweep on the single-agent `:wall`
-base — the node-level *ambiguity* result; (B) tracking, `base` vs the Oosawa drive — where the
+base — the node-level *ambiguity* result; (B) tracking, canonical Falandays vs the Oosawa drive — where the
 easy-base "freeze the target for free" result **reverses**; (C) a single-agent forage probe;
 (D) a `noise_gain` sweep across contexts that characterizes the threshold-gap drive; (E) the
 48-agent transmission config, asking whether $m$ tracks foraging performance; and (F) a bounded
@@ -46,8 +46,8 @@ performance," is **retired** here (see [the honest conclusion](#the-honest-concl
 
 ## The rule — two actuators, one error
 
-Each node runs the **allostatic** Falandays reservoir (full update and learning equations in
-[Nodes → Falandays](/nodes/falandays/); we do not re-derive them here). The error is the post-spike
+Each node runs the Falandays reservoir with an **adaptive activity target** (full update and
+learning equations in [Core → Falandays](/core/falandays/); we do not re-derive them here). The error is the post-spike
 distance from set-point, $e = \text{acts} - \text{target}$, and **two homeostatic actuators share
 that one error**:
 
@@ -58,9 +58,9 @@ that one error**:
   $\text{target} \mathrel{+}= e \cdot \texttt{lrate\_targ}$, and is **floored** at `targ_min`. The
   spike threshold is $\text{target} \cdot \texttt{threshold\_mult}$.
 
-So the target is an **allostatic** (moving, floored) set-point, not a fixed one. The `targ_min` floor
+So the target is a **moving, floored activity target**, not a fixed one. The `targ_min` floor
 matters below: when activity runs *below* set-point for long stretches, the error is persistently
-negative, the target drifts *down*, and it **clamps** onto `targ_min` — turning the allostatic
+negative, the target drifts *down*, and it **clamps** onto `targ_min` — turning the adaptive
 set-point into an effectively *fixed* one. Whether the floor is live or inert becomes a clean readout
 of whether the reservoir is under-fed.
 
@@ -69,7 +69,7 @@ of whether the reservoir is under-fed.
 **On the wall base, $m \approx 1$ is ambiguous — it reads the same at the healthy plateau, at
 saturation, and at silent collapse — so this estimate alone cannot identify whether $m$ is a
 controlled variable.** Substrate `:wall`,
-`node=:falandays_base`, single agent, **10 seeds, $T = 2000$**. We measure three things at once:
+`node=:falandays`, single agent, **10 seeds, $T = 2000$**. We measure three things at once:
 **nav** = normalized wall score (function — note it *ceilings at 1.0*, because wall is easy, so the
 **failures** are the signal, not the ceiling), **rate** = mean firing rate (activity), and **$m$** =
 pooled MR (multistep-regression) branching ratio (criticality). One knob moves at a time from the
@@ -148,7 +148,7 @@ disambiguate. Our figure draws that ambiguity explicitly.
 
 ## The node we use — tracking, base vs the Oosawa drive
 
-**The Oosawa drive runs the reservoir hotter and *less* critical than the base, and it reverses
+**The Oosawa drive runs the reservoir hotter with a lower estimated branching ratio than the base, and it reverses
 Experiment A's "freeze the target for free" — under the drive, the target adaptation is
 load-bearing.** The forage swarm and every live demo run `:falandays_oosawa`, not the plain base, so
 the node we actually use gets its own dissection. Substrate `:tracking`, single agent, **6 seeds,
@@ -161,15 +161,15 @@ $T = 3000$**, default parameters:
 
 Four findings:
 
-- **(a) The drive runs it hotter and *less* critical.** The Oosawa term nearly doubles the firing
+- **(a) The drive runs it hotter with a lower estimated branching ratio.** The Oosawa term nearly doubles the firing
   rate ($0.36 \to 0.82$) and pushes $m$ *down*, away from $1$ ($0.986 \to 0.945$). So "the node we
-  use" is the *less* critical of the two — the drive trades a little branching-ratio proximity for a
+  use" is farther from $m=1$ by this estimator — the drive trades a little branching-ratio proximity for a
   much livelier reservoir.
 - **(b) The floor mechanism is drive-dependent — and it is the tell.** The base is low-activity, so
   its error runs persistently negative, the target drifts down, and it **sinks onto the floor**: 26%
-  of node-targets are clamped at `targ_min`, i.e. the "allostatic" set-point is behaving like a
+  of node-targets are clamped at `targ_min`, i.e. the adaptive target is behaving like a
   *fixed* one. The Oosawa drive pushes activity up, so the target **floats free to $\approx 2.1$**,
-  with only $\sim 1\%$ clamped — the set-point is genuinely allostatic and the floor is **inert**. The
+  with only $\sim 1\%$ clamped — the target is free to adapt and the floor is **inert**. The
   floor is a starvation indicator: live when the reservoir is under-fed, dead when the drive feeds it.
 - **(c) CORRECTION to Experiment A.** On the Oosawa node, **freezing the target halves function**
   (frac30 $0.302 \to 0.158$). The target adaptation *is* load-bearing under the drive — the exact
@@ -214,8 +214,8 @@ zero, the Oosawa preset reduces to the base update:
   $\approx 0.62$ (noise $0$, genuinely **subcritical**) to $\approx 0.98$, and rate $0.17 \to 0.81$.
   Here the drive **is** the activity source, so it is what carries the reservoir up to $m \approx 1$.
   *(Honesty flag: the clean $0.62 \to 0.98$ range is a **single-seed** read. A 5-seed run gave a
-  narrower $0.89 \to 0.98$ and a noisy frac30 — the direction is solid, the exact bottom of the range
-  is not.)*
+  narrower $0.89 \to 0.98$ and a noisy frac30. The same direction appeared in that five-seed
+  check, but its magnitude and robustness remain unresolved.)*
 - **Forage swarm: the tested gain did not move $m$.** Across `noise_gain` $0 \to 0.8$, $m$ stays
   pinned $\approx 0.98$–$0.99$ in both blind and sighted conditions; the drive only bumps the *rate*
   at the top of the range. This may reflect task input and the adaptive target, but the current
@@ -320,16 +320,16 @@ across conspecific-gain (cg) and vision-range (vr):
 Three observations narrow the interpretation of a flat $m \approx 1$ in this small spot-check:
 
 - **$m_\text{agent}$ is flat $\approx 0.95$–$0.98$** across the cells — consistent with an
-  allostatic rate-stabilization hypothesis and with the narrow range the
+  adaptive-target rate-stabilization hypothesis and with the narrow range the
   [tracking sweep](/experiments/tracking-param-sweep/) reported.
 - **Activity is only $\approx 0.12$–$0.15$ — nowhere near saturation.** So the flat $m$ is *not* the
   saturation artifact (a network firing flat-out also reads $m \to 1$); this swarm fires sparsely and
   still shows $m \approx 0.97$.
-- **The crossshift-null ratio is $\approx 1.0$** ($1.01$–$1.07$). $m_\text{agent}$ barely exceeds a
+- **The crossshift-null ratio is descriptively close to $1.0$** ($1.01$–$1.07$). $m_\text{agent}$ barely exceeds a
   surrogate whose inter-agent timing has been shuffled away — so essentially *all* of the branching
   signal survives destroying the cross-agent structure. In this spot-check, the $m \approx 0.97$
-  estimate is therefore indistinguishable from a predominantly within-agent statistic; it does not
-  establish a collective critical avalanche.
+  estimate is therefore close to a predominantly within-agent statistic in this spot-check; the
+  ratio alone is not an equivalence test and does not establish a collective critical avalanche.
 
 :::note[This is a spot-check, and a caveat — not a clean claim]
 Experiment D is **5 representative cells**, with **3 seeds** for $m$/activity and **1 seed $\times$
@@ -367,11 +367,11 @@ activity, and criticality off the same run:
 using BrainlessLab, Statistics
 
 s = 1
-sim = simulate(:wall; node=:falandays_base,
+sim = simulate(:wall; node=:falandays,
     lrate_targ=0.0, targ_min=1.0, threshold_mult=2.0, lrate_wmat=1.0,  # move one at a time
     ticks=2000, seed=s)
 
-nav  = sim.metrics.nav_score                              # function (ceilings at 1.0 on :wall)
+nav  = task_outcome(sim).normalized                       # function (ceilings at 1.0 on :wall)
 rate = sim.metrics.rate_mean                              # activity
 m    = branching_ratio_mr(sim; level=:pooled).m_mr        # criticality (byproduct)
 ```
@@ -387,10 +387,10 @@ using BrainlessLab, Statistics
 
 s = 1
 sim = simulate(:tracking; node=:falandays_oosawa,
-    noise_gain=0.8, targ_min=1.0,           # noise_gain=0 ⇒ byte-identical to :falandays_base
+    noise_gain=0.8, targ_min=1.0,           # noise_gain=0 ⇒ canonical :falandays update
     record=(:rate, :targets), ticks=3000, seed=s)   # :rate is needed by the branching estimator
 
-frac30 = sim.metrics.frac_within_30deg                    # function (tracking); forage_score on :forage
+frac30 = task_outcome(sim).raw                            # function (tracking); forage_score on :forage
 rate   = sim.metrics.rate_mean
 m      = branching_ratio_mr(sim; level=:pooled).m_mr      # reservoir MR estimate (:node for a swarm)
 
@@ -402,7 +402,7 @@ mean_target  = mean(nodes)
 pct_at_floor = 100 * mean(abs.(nodes .- 1.0) .< 1e-6)     # targ_min = 1.0 here
 ```
 
-Swap `:tracking` for the 48-agent `:forage` config (read `sim.metrics.forage_score`, and
+Swap `:tracking` for the 48-agent `:forage` config (read `task_outcome(sim).raw`, and
 `branching_ratio_mr(sim; level=:agent, observable=(kind=:align, neighbor_radius=vr)).m_mr` for the
 swarm) to reproduce the foraging and confound sweeps.
 
@@ -449,7 +449,8 @@ is a bounded observation about *this instrument*.
 
 1. **Seed counts are modest** (3–10 across these probes). Most sharply, the clean tracking
    $m$-vs-noise range ($0.62 \to 0.98$) is a **single-seed** read; the 5-seed run compresses it to
-   $0.89 \to 0.98$ with a noisy frac30. The *direction* is robust; the exact sub-critical floor is not.
+   $0.89 \to 0.98$ with a noisy frac30. The same direction appeared in that check, but its
+   magnitude, robustness, and exact sub-critical floor remain unresolved.
 2. **The tracking `frac30` has ignition-mixture noise** — as the [tracking
    sweep](/experiments/tracking-param-sweep/) documents, performance over random inits is a
    chance-pinned failure mode plus a viable tail, so single-config frac30 numbers carry that variance.

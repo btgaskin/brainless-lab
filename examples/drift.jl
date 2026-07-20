@@ -5,10 +5,11 @@ let
     mkpath(output_dir)
 
     sim = simulate(:wall; node=:falandays, ticks=300, seed=23, record=[:spikes, :rate, :poses])
+    outcome = task_outcome(sim)
     fig = driftplot(sim; bin=6)
 
     save(joinpath(output_dir, "drift.png"), fig)
 
-    println("drift example score=$(round(sim.metrics.score; digits=3))")
+    println("drift example normalized task outcome=$(round(outcome.normalized; digits=3))")
     println("saved figures to $(output_dir)")
 end

@@ -1,8 +1,8 @@
 ---
 title: "Social foraging: transmission, search efficiency, and interaction topology"
-description: A swarm of allostatic Falandays nodes foraging on a torus — a chance-discovery transmission effect (social − blind), a search-efficiency currency ΔK, and where collective function sits relative to the interaction graph's percolation. Exploratory sweeps, honestly flagged.
+description: Tuned development observations from Falandays reservoirs foraging on a torus — a candidate social-minus-blind contrast, a search-efficiency currency ΔK, and a proposed comparison to interaction-graph percolation.
 evidence:
-  status: exploratory
+  status: tuned
   id: social-foraging-working-note
   protocol_version: "0"
   randomization_unit: one seeded multi-agent world
@@ -23,7 +23,7 @@ otherwise-separate axes from the literature: the *criticality/topology* axis of
 of [Chis-Ciure & Levin (2025)](/notes/cognition-all-the-way-down/).
 
 :::note[The honest posture]
-These are **exploratory sweeps** — a handful of seeds and ad-hoc scripts — not yet promoted to the
+These are **tuned development sweeps** — a handful of seeds and ad-hoc scripts — not yet promoted to the
 `experiments/` run-dir framework. They **map a regime and demonstrate a method**; they are not the
 finalized study. Read the effect sizes as directional and the ΔK method as the contribution, not
 the magnitude. Where a claim is a *hint from a curve* rather than a *measured result*, it is
@@ -32,10 +32,12 @@ flagged as such.
 
 ## The node, and the task
 
-Each agent is driven by the **allostatic** Falandays reservoir (see [Nodes → Falandays](/nodes/falandays/)
+Each agent is driven by a Falandays reservoir with an **adaptive activity target** (see
+[Core → Falandays](/core/falandays/)
 and [The collective](/collective/)). Two facts about the rule matter for reading everything below.
-It is **allostatic, not fixed-setpoint homeostatic**: the target itself drifts toward the node's own
-firing rate, so the network chases a moving set-point rather than a hard-wired one. And the plasticity
+The target drifts toward the node's own firing rate, so the network regulates around a moving
+activity target rather than a hard-wired set-point. This neural adaptation is distinct from an
+organism-level allostatic model of competing physiological needs. The plasticity
 is **eligibility-gated homeostatic**, *not* STDP — the **sign** of $\Delta w$ is set by the
 postsynaptic error $(\text{acts} - \text{target})$, while "fired last tick" only **gates which weights
 are eligible** to move. The baseline's tested wall, tracking, and pong trajectories agree with
@@ -64,7 +66,7 @@ $$
 \Delta\Delta = \text{forage\_score}_\text{social} - \text{forage\_score}_\text{blind}.
 $$
 
-## The regime — the discovery
+## The selected development regime
 
 **A source-anchored clump acts as a slow attractor: a chance discovery accumulates the swarm, and
 the benefit grows with time.** The canonical regime is the runnable config below.
@@ -79,7 +81,7 @@ sim = simulate(:forage;
     motor=KinematicMotor(top_speed=0.1),
     visual_coupling=true, conspecific_vision=true,   # false = BLIND control
     ticks=3000, seed=1)
-sim.metrics.forage_score
+task_outcome(sim)  # (key=:forage_score, raw=..., normalized=...)
 ```
 
 In one tuned development setting, the observed means were **social 0.683 / blind 0.590 /
@@ -244,7 +246,8 @@ brainless nodes → collective; same $K$, opposite direction.
 - [**Chis-Ciure & Levin (2025)**](/notes/cognition-all-the-way-down/) is the **function/search-efficiency
   axis**: $K$, which **requires** a goal state.
 
-**Our contribution: forage HAS a goal, so the swarm sits on both axes.** For our parameters
+**The comparison this task enables.** Forage has a goal, so the swarm can be placed on both
+axes. For our parameters
 ($L = 12$, $N = 48$) the percolation threshold is $v_r^{\text{conn}} \approx 1.9$. The `vision_range`
 table shows ΔΔ **still climbing at $v_r = 4$**, where the giant component is already $1.00$ — i.e.
 **function keeps improving in the fully-connected phase, *above* percolation**, precisely where their
@@ -263,7 +266,7 @@ graph, by contrast, has **no edges at all**. This emergent, source-anchored conn
 random geometric graph — is what carries the transmission.*
 
 **A self-organisation hypothesis.** Bessone & Plantec **set** the micro order-parameter
-($p^{\text{micro}}$) directly. Across our tested settings, the allostatic node's branching-ratio
+($p^{\text{micro}}$) directly. Across our tested settings, the adaptive-target node's branching-ratio
 estimate remained near $1$, which is consistent with—but does not establish—weight-mediated
 stabilization. What we tune is a **local rule**; the observed interaction topology is a **downstream
 product** we never specify directly. A stronger test (proposed, **not yet run**) is
@@ -273,9 +276,9 @@ geometric graph cannot do.
 
 ## Reproduce it
 
-**Transmission (ΔΔ).** Run the canonical [regime block](#the-regime--the-discovery) twice, flipping
+**Transmission (ΔΔ).** Run the canonical [regime block](#the-selected-development-regime) twice, flipping
 `conspecific_vision` (`true` = SOCIAL, `false` = BLIND); ΔΔ is the difference of
-`sim.metrics.forage_score`.
+the two `task_outcome(sim).raw` values.
 
 **Search efficiency (ΔK).** Run the three-condition ladder:
 
@@ -297,11 +300,12 @@ $\tau = -T / \ln(1 - \text{reach\_frac})$; then $K$ and ΔK by the formulas abov
 
 **Interaction graph.** Two agents are linked if their **torus** distance $\le$ `vision_range`; compute
 the giant-component fraction by union-find over the recorded `:poses`. The library's
-[analysis layer](/analysis/) provides `contact_graph_clusters` and the `branching_ratio_mr` /
+[Experimental analysis suite](/experimental/features/analysis-suite/) provides
+`contact_graph_clusters` and the `branching_ratio_mr` /
 `crossshift_null` machinery for the criticality-side measurements.
 
 :::note[Provenance]
-These sweeps are **exploratory** — a handful of seeds, ad-hoc scripts — and are **not yet promoted** to
+These sweeps are **tuned development work** — a handful of seeds, ad-hoc scripts — and are **not yet promoted** to
 the `experiments/` run-dir framework (`results.json` + `manifest.txt`, git SHA, seed lists) that backs
 the [tracking sweep](/experiments/tracking-param-sweep/). They map a regime and demonstrate a method.
 The **finalized study** — 20+ seeds, circular-shift nulls, and the ΔK-vs-criticality **displacement
@@ -313,17 +317,18 @@ grid** — is the natural next step.
 :::note[The honest posture]
 The criticality↔function link is a **hint from the percolation curve, not a measured result.** The
 branching/avalanche curve on the *same* axis as ΔK is not yet done, and our prior is that a
-macro-criticality signature may be **flat or absent** (the allostat rate-pins $m \approx 1$). If it is,
-the headline honestly **degrades to "function *without* criticality"** — still a clean, publishable
-distinction, just a different one.
+macro-criticality signature may be **flat or absent** (the adaptive activity target may
+rate-pin $m \approx 1$). If it is, the prospective interpretation becomes **"function
+*without* criticality"** rather than displacement. Either interpretation still requires the
+declared same-axis measurement and confirmation.
 :::
 
 1. **Is the link real, or is it "function without criticality"?** The displacement is inferred from a
    connectivity curve, not measured against a branching/avalanche score on the shared axis. The
-   allostatic rate-pinning may forbid a *varying* criticality signature altogether.
+   adaptive-target rate-pinning may forbid a *varying* criticality signature altogether.
 2. **ΔK magnitude is small** (≈ 0.4). The contribution is the method — a common currency for every
    lever — not the number.
-3. **The additivity interaction is a finding, not a bug.** ΔK is **largest when individual competence
+3. **The selected development cells suggest a non-additive interaction.** ΔK is **largest when individual competence
    is low** (a hard source) — so the social and individual channels are **not independent**, and the
    clean additive-across-independent-subproblems decomposition does not hold here. Mapping ΔK across a
    source-difficulty axis is the natural probe.

@@ -1,4 +1,4 @@
-# Cross-scale equivalence sweep (falandays_base, link_p at default).
+# Cross-scale equivalence sweep (falandays, link_p at default).
 # Associated dimensions: task.N (network population) <-> env.n_agents (ensemble
 # population); env.conspecific_vision is the collective-coupling / blind control.
 # Goal: does network criticality respond to N the way ensemble criticality
@@ -15,7 +15,7 @@ max_cells = 200
 max_rollouts = 160
 
 [baseline]
-node = "falandays_base"
+node = "falandays"
 task = "forage"
 N = 100
 n_agents = 6

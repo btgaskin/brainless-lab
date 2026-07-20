@@ -1,4 +1,4 @@
-# falandays_base: sweep size (N), swarm setup (n_agents), and SOURCE ENERGY
+# falandays: sweep size (N), swarm setup (n_agents), and SOURCE ENERGY
 # (source_gain — how hard the source drives activity through the reservoir).
 # Dense arena (15) so agents reliably reach the source and the activity readout
 # (rate_mean, susceptibility, spectral radius) is clean. One-at-a-time: each axis
@@ -14,7 +14,7 @@ max_cells = 200
 max_rollouts = 80
 
 [baseline]
-node = "falandays_base"
+node = "falandays"
 task = "forage"
 N = 100
 n_agents = 6

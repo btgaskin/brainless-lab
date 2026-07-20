@@ -36,3 +36,63 @@ using Test
     @test :collisions_window in WALL_TASK.descriptor_keys
     @test :distance_window in WALL_TASK.descriptor_keys
 end
+
+@testset "Task outcomes follow declared objectives" begin
+    for (task, key) in ((:wall, :nav_score), (:tracking, :track_score), (:pong, :hit_rate))
+        sim = simulate(task; node=:null_random, ticks=12, seed=9, record=Symbol[])
+        outcome = task_outcome(sim)
+        @test outcome.key === key
+        @test outcome.raw === Float64(getproperty(sim.metrics, key))
+        @test outcome.normalized === normalized_score(resolve_task(task), outcome.raw)
+    end
+
+    wall = simulate(:wall; node=:null_random, ticks=12, seed=10, record=Symbol[])
+    @test task_outcome(wall).raw === Float64(wall.metrics.nav_score)
+
+    torus = simulate(
+        :torus;
+        node=:null_random,
+        n_agents=3,
+        n_nodes=8,
+        ticks=8,
+        seed=3,
+        record=Symbol[],
+    )
+    @test task_outcome(torus) === nothing
+
+    direct_scored = TaskSpec(
+        :direct_scored,
+        WALL_TASK.setup;
+        default_ticks=4,
+        default_window=4,
+        floor=analytic(0.0),
+        ceiling=analytic(1.0),
+        score_key=:nav_score,
+    )
+    direct_scored_sim = simulate(
+        direct_scored;
+        node=:null_random,
+        ticks=4,
+        seed=2,
+        record=Symbol[],
+    )
+    @test task_outcome(direct_scored_sim).key === :nav_score
+
+    direct_unscored = TaskSpec(
+        :direct_unscored,
+        TORUS_TASK.setup;
+        default_ticks=4,
+        default_window=4,
+        score_key=nothing,
+    )
+    direct_unscored_sim = simulate(
+        direct_unscored;
+        node=:null_random,
+        n_agents=3,
+        n_nodes=8,
+        ticks=4,
+        seed=2,
+        record=Symbol[],
+    )
+    @test task_outcome(direct_unscored_sim) === nothing
+end

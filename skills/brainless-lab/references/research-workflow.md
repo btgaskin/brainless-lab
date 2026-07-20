@@ -57,4 +57,10 @@ inferential unit, failure/exclusion policy, analysis version, schema-versioned s
 figure inputs, representative-selection rule, checksums, and immutable external archive
 hashes where needed.
 
-The canonical prose is `site/src/content/docs/research-workflow.mdx`.
+Software readiness is independent of this ladder. An Experimental feature marked
+`available` or `integrated` may be suitable for use without validating a scientific claim;
+likewise, a confirmed study may use a small stable Core surface. Report both states
+separately, together with `task_outcome(sim)` when the task declares a scalar objective.
+
+The canonical prose is `site/src/content/docs/core/design-study.mdx`; Experimental
+capability records live under `site/src/content/docs/experimental/`.

@@ -1,9 +1,11 @@
 @testset "built-in physical component catalog" begin
     expected = Set((
         (:geometry, :disc),
+        (:physiology, :none),
         (:physiology, :regulated),
         (:sensor, :spectral_camera),
         (:sensor, :field_probe),
+        (:encoder, :identity),
         (:encoder, :bilateral_contrast),
         (:actuator, :forward_turn),
         (:actuator, :differential_drive),
@@ -15,13 +17,31 @@
     registered = Set((descriptor.family, descriptor.kind) for descriptor in components())
     @test expected ⊆ registered
     @test length(BUILTIN_COMPONENT_DESCRIPTORS) == length(expected)
-    @test all(descriptor -> descriptor.readiness === :integrated, BUILTIN_COMPONENT_DESCRIPTORS)
+    expected_core = Set((
+        (:geometry, :disc),
+        (:physiology, :none),
+        (:sensor, :spectral_camera),
+        (:encoder, :identity),
+        (:actuator, :differential_drive),
+        (:dynamics, :differential_drive),
+    ))
+    core = Set(
+        (descriptor.family, descriptor.kind)
+        for descriptor in BUILTIN_COMPONENT_DESCRIPTORS
+        if descriptor.readiness === :core
+    )
+    @test core == expected_core
+    @test all(
+        descriptor -> descriptor.readiness in (:integrated, :core),
+        BUILTIN_COMPONENT_DESCRIPTORS,
+    )
 
     rows = readiness()
     @test all(key -> any(row -> (row.family, row.kind) == key, rows), expected)
     markdown = readiness_markdown()
-    @test occursin("| :geometry | :disc | :experimental | :integrated |", markdown)
-    @test occursin("| :sensor | :spectral_camera | :experimental | :integrated |", markdown)
+    @test occursin("| :geometry | :disc | :experimental | :core |", markdown)
+    @test occursin("| :sensor | :spectral_camera | :experimental | :core |", markdown)
+    @test occursin("| :encoder | :identity | :experimental | :core |", markdown)
     @test occursin(":bilateral_contrast_contract", markdown)
     @test component_info(:sensor, :spectral_camera).parameters.required ==
           (:channels, :field_of_view_deg, :rays, :range)

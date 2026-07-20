@@ -18,7 +18,7 @@ begin
 end
 
 # ╔═╡ d7e5aa79-2ac1-4593-8a55-663ba5efc8fc
-sim = simulate(:wall; node=:falandays, ticks=ticks)
+sim = simulate(:tracking; node=:falandays, ticks=ticks)
 
 # ╔═╡ 9d60bb22-6a39-4de9-9386-196b9402d477
 fig = visualize(sim)
@@ -26,7 +26,7 @@ fig = visualize(sim)
 # ╔═╡ 43d1f267-0a82-4593-9a72-fb2a8f71f2d0
 begin
     save(joinpath(output_dir, "pluto_quickstart.png"), fig)
-    sim.metrics.score
+    task_outcome(sim)
 end
 
 # ╔═╡ 7b2e9dc9-7828-43ef-bb04-c41155e47f93

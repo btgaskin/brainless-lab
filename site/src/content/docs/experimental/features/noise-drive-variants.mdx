@@ -1,0 +1,20 @@
+---
+title: State-dependent and sensory-noise Falandays variants
+description: Experimental membrane-drive and receptor-noise mechanisms that preserve the Falandays reservoir contract.
+experimental:
+  family: reservoirs
+  readiness: integrated
+  tags: [falandays, spontaneous-activity, noisy-input, interventions]
+  core_page: /core/reservoirs/
+  source_paths: [src/nodes/Drives.jl, src/nodes/NoisyInput.jl]
+  example_paths: [examples/variant_tour.jl]
+  test_paths: [test/test_noisy_input.jl, test/test_falandays.jl]
+---
+
+These variants add state-dependent membrane noise or stochastic receptor input while
+retaining the shared reservoir interface. The variant tour runs the canonical baseline,
+Oosawa drive, and sensory-noise condition through one task-facing path.
+
+They are not part of the authors-faithful `:falandays` baseline. Oosawa-inspired
+spontaneous activity is a modeling interpretation, not validation of a physiological
+mechanism.

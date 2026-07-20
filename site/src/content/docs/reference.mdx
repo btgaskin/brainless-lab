@@ -86,18 +86,19 @@ The built-in configured kinds are:
 
 - `:geometry/:disc`
 - `:sensor/:spectral_camera`, `:sensor/:field_probe`
-- `:encoder/:bilateral_contrast`
+- `:encoder/:identity`, `:encoder/:bilateral_contrast`
 - `:actuator/:forward_turn`, `:actuator/:differential_drive`,
   `:actuator/:planar_force_yaw`
 - `:dynamics/:unicycle`, `:dynamics/:differential_drive`,
   `:dynamics/:planar_rigid_body`
-- `:physiology/:regulated`
+- `:physiology/:none`, `:physiology/:regulated`
 
 Readiness levels are ordered `:available`, `:integrated`, `:core`; the filter is a minimum.
 Available means discoverable/materializable; integrated adds standard runtime, exact
 serialization, docs, and an executable example; core is a stable/default contract with named
-core-test coverage. The built-in physical catalog currently claims `:integrated` through
-the tested `ObjectWorld` path. Every descriptor still has `status=:experimental`.
+core-test coverage. The minimal differential-robot kit is `:core`; the other built-in
+physical components are `:integrated`. Every descriptor still has
+`status=:experimental`, independently of readiness.
 
 ## Generic world surface
 
@@ -126,7 +127,7 @@ explicit illuminant, spectral cameras receive a unit illuminant on their own wav
 
 | symbol | family | status |
 |---|---|---|
-| `:falandays_base` (`:falandays`) | Falandays | stable authors-faithful reservoir baseline |
+| `:falandays` (`:falandays_base` compatibility alias) | Falandays | stable authors-faithful reservoir baseline |
 | `:falandays_extended` | Falandays | experimental combined variant |
 | `:falandays_noisy`, `_ablated`, `_hemispheric`, `_oosawa`, `_dendritic`, `_spatial`, `_delayed` | Falandays | experimental variants |
 | `:compartmental_dense`, `:compartmental_structured` | CTRNN | evolution required |

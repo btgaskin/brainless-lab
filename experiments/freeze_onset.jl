@@ -47,7 +47,7 @@ function run_freeze_onset(; tasks=[:tracking, :wall, :pong],
                 "  alive_rate=", round(sw.rate_mean[end], digits=3))
     end
 
-    json = "{\n\"experiment\":\"freeze_onset\",\"node\":\"falandays_base\"," *
+    json = "{\n\"experiment\":\"freeze_onset\",\"node\":\"falandays\"," *
            "\"window\":$window,\"nseeds\":$(length(seeds)),\"verb\":\"freeze_plasticity\"," *
            "\"freeze_ticks\":$(jarr(Float64.(collect(freeze_ticks)))),\n\"tasks\":{\n" *
            join(blocks, ",\n") * "\n}\n}\n"
@@ -55,7 +55,7 @@ function run_freeze_onset(; tasks=[:tracking, :wall, :pong],
     dir = run_dir("freeze_onset")
     write_text(dir, "results.json", json)
     write_text(dir, "manifest.txt",
-        "experiment = freeze_onset\nnode = falandays_base\ntasks = $(collect(tasks))\n" *
+        "experiment = freeze_onset\nnode = falandays\ntasks = $(collect(tasks))\n" *
         "freeze_ticks = $(collect(freeze_ticks))\nwindow = $window\nseeds = $(collect(seeds))\n" *
         "verb = freeze_plasticity\ngit = $(git_sha())\nstamp = $(stamp())\n")
     return dir

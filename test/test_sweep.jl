@@ -112,9 +112,11 @@ end
 
     tracking_axes = [axis.path for axis in sweepable_axes(:falandays_base, :tracking)]
     @test "env.stim_speed_rad" in tracking_axes
+    @test "env.sensory_gain" in tracking_axes
     @test !("env.lam" in tracking_axes)
-    @test only(sweep_env_axes(TrackingEnv)).path == "env.stim_speed_rad"
-    @test isempty(sweep_env_axes(PongEnv))
+    @test Set(axis.path for axis in sweep_env_axes(TrackingEnv)) ==
+          Set(("env.stim_speed_rad", "env.sensory_gain"))
+    @test only(sweep_env_axes(PongEnv)).path == "env.sensory_gain"
 
     tracking_env = TrackingEnv(; stim_speed_rad=0.03)
     @test tracking_env.stim_speed_rad == 0.03

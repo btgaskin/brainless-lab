@@ -24,7 +24,7 @@ const _SWEEP_PNG_1X1 = UInt8[
 ]
 
 Base.@kwdef struct SweepBaseline
-    node::Symbol = :falandays_base
+    node::Symbol = :falandays
     task::Symbol = :wall
     N::Union{Nothing,Int} = nothing
     ticks::Union{Nothing,Int} = nothing
@@ -190,7 +190,7 @@ function _baseline_from_dict(path::AbstractString, data)
 
     table = data["baseline"]
     table isa AbstractDict || throw(ArgumentError("[baseline] must be a TOML table"))
-    node = _as_sweep_symbol(_get(table, "node", "falandays_base"))
+    node = _as_sweep_symbol(_get(table, "node", "falandays"))
     task = _as_sweep_symbol(_get(table, "task", "wall"))
     base = SweepBaseline(
         node=_canonical_model_sym(node),
@@ -487,7 +487,14 @@ end
 
 function sweep_env_axes(::Type{<:TrackingEnv})::Vector{SweepAxisInfo}
     return [
+        SweepAxisInfo(path="env.sensory_gain", default=1.0, range=">= 0", description="tracking receptor-response gain; 0 is the blind control"),
         SweepAxisInfo(path="env.stim_speed_rad", default=deg2rad(1.0), range="> 0", description="tracking stimulus angular speed in radians per tick"),
+    ]
+end
+
+function sweep_env_axes(::Type{<:PongEnv})::Vector{SweepAxisInfo}
+    return [
+        SweepAxisInfo(path="env.sensory_gain", default=1.0, range=">= 0", description="Pong receptor-response gain; 0 is the blind control"),
     ]
 end
 
@@ -508,7 +515,7 @@ function sweep_struct_axes(prefix::AbstractString, ::BearingSensor)::Vector{Swee
     ]
 end
 
-function sweepable_axes(node=:falandays_base, task=:wall)
+function sweepable_axes(node=:falandays, task=:wall)
     node_sym = _validate_sweep_node(node)
     task_sym = _validate_sweep_task(task)
     task_obj = resolve_task(task_sym)
@@ -1115,16 +1122,12 @@ end
 _has_metric(metrics_nt, key::Symbol) = key in propertynames(metrics_nt)
 
 function _sim_score(sim::SimResult)
-    task_obj = resolve_task(sim.task)
-    task_obj isa TaskSpec || throw(ArgumentError(
-        "registered task :$(sim.task) must be a TaskSpec",
-    ))
-    if !has_objective(task_obj)
+    outcome = task_outcome(sim)
+    if outcome === nothing
         @warn "task descriptors are not competence scores; request descriptor columns instead" task = sim.task maxlog = 1
         return NaN, NaN, "none"
     end
-    raw = _metric_value(sim.metrics, task_obj.score_key)
-    return normalized_score(task_obj, raw), Float64(raw), string(task_obj.score_key)
+    return outcome.normalized, outcome.raw, string(outcome.key)
 end
 
 function _copy_descriptor_metrics!(row::Dict{String,Any}, sim::SimResult, warnings::Vector{String})

@@ -1,0 +1,19 @@
+---
+title: ObjectWorld physical composition
+description: A fixed-population 2-D world for static objects, analytic fields, spectral appearance, typed effects, and composed bodies.
+experimental:
+  family: worlds-tasks
+  readiness: integrated
+  tags: [object-world, spectral-vision, fields, resources, effects]
+  core_page: /core/worlds-tasks-populations/
+  source_paths: [src/world/ObjectWorld.jl, src/world/Arena.jl, src/world/SpectralVision.jl, src/world/SpatialFields.jl]
+  example_paths: [examples/embodiments/object_world_quickstart.jl, examples/embodiments/object_world_task.jl]
+  test_paths: [test/test_object_world.jl, test/test_object_world_arbitration.jl, test/test_spectral_vision.jl]
+---
+
+`ObjectWorld` closes composed bodies through a small physical world with stable object
+identity, resource arbitration, simplified appearance, fields, and typed effects. Both
+direct `Ensemble` and `TaskSpec` examples exercise the path.
+
+It models static circles in a simplified two-dimensional arena. It is not a general
+rigid-body, optical, robotic, or ecological simulator.

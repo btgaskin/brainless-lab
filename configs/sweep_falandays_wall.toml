@@ -13,7 +13,7 @@ seeds = [0, 1, 2, 3]
 max_cells = 200
 
 [baseline]
-node = "falandays_base"
+node = "falandays"
 task = "wall"
 N = 100
 ticks = 2000

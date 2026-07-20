@@ -231,7 +231,7 @@ function calibrate_task(
     task;
     null=:null_random,
     reference=nothing,
-    reference_model=:falandays_base,
+    reference_model=:falandays,
     seeds=0:7,
     ticks=nothing,
     window=nothing,
@@ -299,9 +299,9 @@ function write_calibration_report(
     io::IO=stdout;
     task_names=(:wall, :pong, :pong_hitrate, :cartpole_swingup, :forage),
     references=Dict{Symbol,Any}(
-        :wall => (model=FalandaysParams(), model_sym=:falandays_base),
-        :pong => (model=FalandaysParams(), model_sym=:falandays_base),
-        :pong_hitrate => (model=FalandaysParams(), model_sym=:falandays_base),
+        :wall => (model=FalandaysParams(), model_sym=:falandays),
+        :pong => (model=FalandaysParams(), model_sym=:falandays),
+        :pong_hitrate => (model=FalandaysParams(), model_sym=:falandays),
     ),
     kwargs...,
 )

@@ -2,17 +2,17 @@
 # Load my_node.jl and my_task.jl before running the benchmark so the symbols are
 # registered in BrainlessLab.
 
-neurons = ["falandays_base", "my_node"]
+neurons = ["falandays", "my_node"]
 tasks = ["my_task"]
 
 n_trials = 5
 n_nodes = 80
 ticks = 300
 seed_base = 2000
-baseline = "falandays_base"
+baseline = "falandays"
 alpha = 0.05
 gifs = false
 
 [prep]
-falandays_base = "untrained"
+falandays = "untrained"
 my_node = "untrained"

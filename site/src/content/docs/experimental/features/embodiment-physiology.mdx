@@ -1,0 +1,21 @@
+---
+title: Regulated physiology and the body-component catalog
+description: Optional multiple-variable physiology and discoverable physical implementations composed behind the stable Core embodiment contract.
+experimental:
+  family: embodiment
+  readiness: integrated
+  tags: [embodiment, sensors, actuators, physiology, homeostasis]
+  core_page: /core/embodiment/
+  source_paths: [src/world/Embodiment.jl, src/world/PhysicalComponents.jl, src/world/Homeostasis.jl, src/run/EmbodimentConfig.jl]
+  example_paths: [examples/embodiments/object_world_quickstart.jl, examples/embodiments/bilateral_insect.toml]
+  test_paths: [test/test_embodiment_runtime.jl, test/test_embodiment_config.jl, test/test_homeostasis.jl]
+---
+
+The stable Core `Embodiment` contract composes identified physical parts. This feature
+record tracks the current discoverable sensor, encoder, actuator, dynamics, and physiology
+implementations, including optional regulated variables. Configuration round trips, the
+object-world quickstart, and focused runtime tests exercise that composition.
+
+Integration does not establish biological or robotic fidelity. Multiple regulated variables,
+feedback, and absorbing failure are implemented mechanisms; successful multi-need
+self-regulation requires a separately calibrated experiment.

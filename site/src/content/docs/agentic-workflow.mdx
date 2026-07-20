@@ -80,7 +80,9 @@ full package tests, site build, and updated extension docs.
    gates as required.
 7. **Review independently.** For broad changes, ask another agent to inspect architecture,
    usability, and scientific claims without editing.
-8. **Handoff.** Report exact checks, remaining limitations, and evidence status.
+8. **Handoff.** Report the canonical `task_outcome` (key, raw value, and normalized value
+   when defined), exact checks, software readiness, study evidence status, and remaining
+   limitations as separate facts.
 
 ## Safeguards already in the platform
 
@@ -94,7 +96,15 @@ full package tests, site build, and updated extension docs.
 - public examples that can be executed as conformance tests.
 
 These reduce mistakes; they do not automatically validate a research design. The
-[Research workflow](/research-workflow/) supplies the evidence discipline.
+[Design a study](/core/design-study/) guide supplies the evidence discipline.
+
+## Core contracts and Experimental capabilities
+
+Use the [Core handbook](/core/getting-started/) for stable composition contracts and the
+[Experimental catalog](/experimental/) for discoverable capabilities that may still be
+changing. An `integrated` Experimental record has standard docs, examples, and tests; that is
+software readiness, not scientific validation or evidence promotion. The evidence record on
+an experiment page describes the study, independently of component readiness.
 
 ## Prompt recipes
 
@@ -102,7 +112,8 @@ These reduce mistakes; they do not automatically validate a research design. The
 
 ```text
 Run this checked-in example without editing it. Explain the body, observations, actions,
-reservoir, world, score, and evidence status. Report warnings and what cannot be inferred.
+reservoir, world, `task_outcome` (key, raw, normalized), software readiness, and study evidence
+status. Report warnings and what cannot be inferred.
 ```
 
 ### Design a task

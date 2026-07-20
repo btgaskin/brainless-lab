@@ -39,6 +39,64 @@ using Test
     @test collective.weight_init_mode === :collective_dale_smallworld
 end
 
+@testset "Falandays canonical name and compatibility alias" begin
+    @test resolve_node(:falandays) === resolve_node(:falandays_base)
+    @test genome_type(:falandays) === FalandaysParams
+    @test genome_type(:falandays_base) === FalandaysParams
+    @test node_receptor_profile_keyword(:falandays) === :input_link_p
+    @test node_receptor_profile_keyword(:falandays_base) === :input_link_p
+    @test :falandays_base in variants()
+    @test !(:falandays_node in variants())
+
+    for task in (:wall, :tracking, :pong)
+        canonical = BrainlessLab._build_ensemble(
+            task,
+            :falandays;
+            ticks=1,
+            seed=17,
+            record=Symbol[],
+        )
+        alias = BrainlessLab._build_ensemble(
+            task,
+            :falandays_base;
+            ticks=1,
+            seed=17,
+            record=Symbol[],
+        )
+        canonical_reservoir = canonical.ensemble.agents[1].reservoir
+        alias_reservoir = alias.ensemble.agents[1].reservoir
+
+        @test canonical.n_nodes == alias.n_nodes == falandays_paper_config(task).nnodes
+        @test canonical_reservoir.params == alias_reservoir.params
+        @test canonical_reservoir.recurrent_mask == alias_reservoir.recurrent_mask
+        @test canonical_reservoir.wmat0 == alias_reservoir.wmat0
+        @test canonical_reservoir.input_wmat == alias_reservoir.input_wmat
+        @test canonical_reservoir.output_mask == alias_reservoir.output_mask
+    end
+
+    canonical = simulate(
+        :wall;
+        node=:falandays,
+        ticks=20,
+        seed=37,
+        record=(:spikes, :rate, :poses),
+    )
+    alias = simulate(
+        :wall;
+        node=:falandays_base,
+        ticks=20,
+        seed=37,
+        record=(:spikes, :rate, :poses),
+    )
+    @test canonical.node === :falandays
+    @test alias.node === :falandays_base
+    @test canonical.metrics == alias.metrics
+    for channel in (:spikes, :rate, :poses)
+        @test getchannel(canonical.recorder, channel) ==
+              getchannel(alias.recorder, channel)
+    end
+end
+
 @testset "Falandays base constructor defaults" begin
     faithful = FalandaysReservoir(5, 2, 2; seed=1, link_p=0.0, input_amp=4.0)
     @test faithful.rectify == false

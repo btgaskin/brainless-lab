@@ -29,7 +29,7 @@ unit. Bootstrap the independent randomized run or block—not agents or ticks ne
 
 A nonsignificant contrast can mean low power, large uncertainty, or a small effect. It does
 not establish “no effect”; that claim needs a declared equivalence margin and an equivalence
-procedure. See the [Research workflow](/research-workflow/).
+procedure. See [Design a study](/core/design-study/).
 
 For a concrete, runnable end-to-end example that collects these measures at both scales
 from a single forage rollout — per-agent branching, node/agent susceptibility,
@@ -101,7 +101,7 @@ which are settled.
 
 ## Cross-level — the same measure at two scales
 
-The point of the whole programme: measure the *same* signature at the **node** scale and
+One experimental programme supported by the platform measures the *same* signature at the **node** scale and
 the **agent** scale, and ask where each sits relative to its *own* critical point — because
 [information transmission is expected to peak near criticality](/notes/criticality-and-information/),
 so locating the transition at each scale is the prerequisite for everything downstream.
@@ -114,13 +114,11 @@ Every criticality estimator takes a `level`:
 Not every measure is comparable across levels — this matters, because plotting an
 incomparable pair against each other is a real inferential error. **Susceptibility** is the
 natural candidate pair: node ($\chi = N\,\mathrm{Var}[\text{synchrony}]$) and agent
-($\chi = n\,\mathrm{Var}[\text{polarization}]$) are formally the same quantity. But a powered
-re-test refuted the apparent agent-scale signal against the circular-shift null, and
-**branching** fails it outright (agent-scale branching is dominated by *within-agent*
-maneuvers). So, stated honestly: **no ensemble-scale criticality measure has yet survived the
-null as a validated cross-level quantity** — agent-branching is a labelled negative control,
-and agent-susceptibility is not (yet) trustworthy either. Node-scale measures stand on their
-own; cross-level pairing remains an open, actively-nulled question. When a pair does survive,
+($\chi = n\,\mathrm{Var}[\text{polarization}]$) are formally the same quantity. In current
+**unpromoted project observations**, neither agent susceptibility nor agent branching cleared
+the circular-shift null; agent branching also appeared dominated by within-agent maneuvers.
+These are working constraints, not promoted cross-level results. Node-scale measures stand on
+their own; cross-level pairing remains an open, actively-nulled question. When a pair does survive,
 compare its *peak positions* as a control parameter is swept, not raw magnitudes (the
 prefactors $N\approx100$ vs $n\approx6$ differ by an order of magnitude).
 
@@ -154,11 +152,12 @@ snapshots are retained; an unknown non-entity channel is an error by default rat
 being left deceptively aligned.
 
 The result retains `real`, `null_mean`, `null_std`, and `ratio`, and also reports the full
-`null_values`, `pvalue`, `alternative`, `n_requested`, and effective `n_valid`. A `ratio`
-near $1$ means the apparent coupling is indistinguishable from the null, while the
-p-value makes the declared tail and finite surrogate count explicit. Because the null strips both real
-coupling *and* common-source drive, read the coupling as the vision-on minus vision-off
-difference, not the raw ratio.
+`null_values`, `pvalue`, `alternative`, `n_requested`, and effective `n_valid`. The `ratio` is
+descriptive: a value near $1$ does not establish equivalence or absence of coupling. Interpret
+the declared-tail Monte Carlo `pvalue` against the full null distribution and finite
+`n_valid`. Because circular shifts disrupt both inter-agent coupling and common-source timing,
+pair this null with a causal condition appropriate to the claim—for example, vision-on versus
+vision-off—rather than reading the raw ratio alone.
 
 <p class="bl-source">Source: <code>src/analysis/NullTest.jl</code> — <code>crossshift_null</code>.</p>
 

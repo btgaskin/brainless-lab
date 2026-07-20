@@ -1,4 +1,4 @@
-# falandays_base + Oosawa drive: tune the drive scaling (drive.noise_gain — the
+# falandays + Oosawa drive: tune the drive scaling (drive.noise_gain — the
 # target-deficit-modulated exploration noise). Internal energy injection, vs the
 # source_gain (external) sweep. Same baseline as forage_source_energy for
 # comparability; the no-drive baseline cell is the reference. Watch whether the
@@ -14,7 +14,7 @@ max_cells = 200
 max_rollouts = 80
 
 [baseline]
-node = "falandays_base"
+node = "falandays"
 task = "forage"
 N = 100
 n_agents = 6
@@ -27,7 +27,7 @@ window = 1200
 "env.sensory_noise" = 0.05
 
 [axes]
-# Any nonzero drive.* flips falandays_base onto the Oosawa drive.
+# Any nonzero drive.* flips falandays onto the Oosawa drive.
 "drive.noise_gain" = [0.1, 0.25, 0.5, 1.0, 2.0]
 
 [analytics]

@@ -177,9 +177,12 @@ standardized `SimResult`, rollout defaults, and optional scoring.
 are runtime truth. Use `score_key=nothing` when the task is characterized by multiple
 collective/ecological measures rather than one objective.
 
-`normalized_score` maps the task's raw score between its own floor and ceiling, clamped to
-`[0,1]`. Prefer measured null anchors with provenance over guessed zero floors. A saturated
-value is outside the anchors, not physically equal to another task's result.
+`task_outcome(sim)` is the canonical handoff: it returns `(key, raw, normalized)` from the
+task contract recorded in the result, and returns `nothing` when `score_key=nothing`.
+Legacy metric fields remain diagnostics. The normalized value maps the task's raw outcome
+between its own floor and ceiling, clamped to `[0,1]`. Prefer measured null anchors with
+provenance over guessed zero floors. A saturated value is outside the anchors, not
+physically equal to another task's result.
 
 ## One to many, including mixed agents
 
@@ -221,8 +224,9 @@ Register configured components with a `ComponentDescriptor` carrying:
   with named core-test coverage).
 
 Registration validates evidence and refuses duplicate keys without `replace=true`.
-Readiness is scoped evidence, while status remains experimental. The built-in physical
-catalog currently claims `:integrated` through the tested `ObjectWorld` quickstart.
+Readiness is scoped software evidence, while scientific status remains separate. The
+minimal differential-robot kit is `:core`; other built-in physical components remain
+`:integrated`, and `ObjectWorld` remains an Experimental composition feature.
 
 ## Pitfalls
 
@@ -242,3 +246,9 @@ catalog currently claims `:integrated` through the tested `ObjectWorld` quicksta
 
 See also `designing-nodes.md`, `designing-analyses.md`, `usage-and-workflows.md`, and
 `cli-tools.md`.
+
+The canonical public contracts are in
+[Core: worlds, tasks, and populations](https://brainless-lab.pages.dev/core/worlds-tasks-populations/)
+and [Core: embodiment](https://brainless-lab.pages.dev/core/embodiment/). List non-core
+capabilities in the [Experimental catalog](https://brainless-lab.pages.dev/experimental/);
+software readiness there does not promote a study or validate a biological interpretation.

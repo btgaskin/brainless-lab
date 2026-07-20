@@ -271,6 +271,8 @@ export TaskWorld,
     WallEnv,
     TrackingEnv,
     PongEnv,
+    tracking_reference_policy,
+    pong_reference_policy,
     CartPoleEnv,
     CartPoleVariantEnv,
     CartPoleHardEnv,
@@ -283,6 +285,7 @@ export TaskWorld,
 
 export TaskSpec,
     TaskSetup,
+    task_outcome,
     setup_task,
     is_multiagent,
     resolved_task_ports,
@@ -697,13 +700,13 @@ register_node!(
     _falandays_native;
     genome_type=FalandaysParams,
     receptor_profile_keyword=:input_link_p,
-) # alias of :falandays_base
+)
 register_node!(
     :falandays_base,
     _falandays_native;
     genome_type=FalandaysParams,
     receptor_profile_keyword=:input_link_p,
-)
+) # compatibility alias of :falandays
 register_node!(
     :falandays_noisy,
     _falandays_noisy_native;

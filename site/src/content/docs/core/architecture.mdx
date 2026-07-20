@@ -1,0 +1,133 @@
+---
+title: Architecture
+description: The core BrainlessLab abstractions, ownership boundaries, and synchronous closed-loop lifecycle.
+---
+
+BrainlessLab uses one composition from a single agent to a mixed population:
+
+```text
+NodeModel → Reservoir → AbstractBody → Agent → Ensemble{Environment}
+                                                    ↓
+                                                  Task
+                                                    ↓
+                                             Runner → Run
+                                                    ↘
+                                                   Recorder
+```
+
+A reservoir contains nodes. An ensemble contains embodied agents. The same `step!` lifecycle
+runs an ensemble of one and an ensemble of many.
+
+## The public objects
+
+- **`NodeModel`** stores node-family parameters.
+- **`Reservoir`** stores a population of nodes, wiring, and dynamic state.
+- **`AbstractBody`** is the dispatch boundary between a reservoir and a world.
+- **`Embodiment`** is the generic concrete body composition.
+- **`Agent`** pairs one reservoir with one body.
+- **`Environment`** owns external state and relations.
+- **`Ensemble`** advances one or more agents synchronously.
+- **`TaskSpec`** supplies setup, rollout defaults, and optional score metadata.
+- **`Recorder`** samples declared channels off the simulation hot path.
+- **`SimResult`** carries a recorder, metrics, task, node, and resolved configuration.
+
+## Ownership is explicit
+
+| Concern | Owner |
+| --- | --- |
+| neural state, wiring, and neural adaptation when implemented | reservoir |
+| physical footprint | geometry component |
+| raw physical sample | sensor plus world sampling method |
+| raw sample to receptor channels | encoder |
+| effector values to bounded command | actuator |
+| command to motion | dynamics |
+| optional internal regulation, feedback, effects, and viability | physiology |
+| external geometry, objects, fields, encounters, and effects | environment |
+| setup, defaults, score anchors, and task label | task |
+| sampled traces | recorder |
+
+The environment can report `Exposure(:energy, 0.2)`. If the body has regulated
+physiology, the physiology decides what `:energy` means. The reservoir does not know that
+the effect came from food.
+
+## One synchronous tick
+
+```text
+prepare world
+  → sample every body from the same pre-action state
+  → sample sensors and encode receptor ports
+  → append any physiology feedback receptors
+  → step each reservoir and read its effectors
+  → decode typed commands
+  → apply the full command frame
+  → collect world effects
+  → update any physiology and viability state
+  → record state by stable identity
+```
+
+No agent sees another agent's already-applied action from the same tick. This invariant
+matters for causal timing and replay.
+
+## Ports join the body and reservoir
+
+The body declares named receptor and effector ports:
+
+```julia
+spec = portspec(body)
+n_receptors(spec)
+n_effectors(spec)
+ports(spec)
+```
+
+The high-level builder creates a reservoir with these widths. The reservoir stays
+task-agnostic. The body gives output channels their physical or task meaning.
+
+## Identity is stable
+
+`EntityID` identifies an agent independently of its world slot or runtime group.
+`ObjectID` does the same for a world object. Component IDs identify geometry, sensors,
+encoders, actuators, dynamics, and physiology within a body.
+
+Use public accessors:
+
+```julia
+entity_ids(ensemble)
+agent_at_slot(ensemble, 2)
+body_at_slot(ensemble, 2)
+component_slots(body)
+```
+
+Entity-aligned recorder channels use `EntityFrame`. Its IDs remain attached to its values.
+Do not infer identity from a vector position.
+
+## Composition and discovery
+
+Julia methods are the public extension mechanism. Registries add discoverable names for
+configuration:
+
+```julia
+variants()
+tasks()
+components()
+analyses()
+ablations()
+```
+
+Use a registry when selection by name is useful. Use direct typed composition when a name
+does not add value. A registry does not replace the Julia contract.
+
+## No hidden controller
+
+The canonical Falandays reservoir has online local adaptation. It has no trained readout
+and no task-specific controller inside the reservoir. Other reservoir families can use
+different adaptation contracts and need not be homeostatic.
+
+Tasks and bodies still impose an experimental interface. Good performance therefore
+supports a claim only under the declared task, body, controls, and parameter regime.
+
+The generic physical, ecological, and heterogeneous layers are experimental. The canonical
+Falandays node has a narrower validated implementation boundary. Read
+[The Falandays node](/core/falandays/) and [Platform limits](/platform-limits/) before
+making a fidelity claim.
+
+<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>, <code>src/world/Embodiment.jl</code>, <code>src/world/Ensemble.jl</code>, <code>src/tasks/Tasks.jl</code>, <code>src/core/Recorder.jl</code>.</p>

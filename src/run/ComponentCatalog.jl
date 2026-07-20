@@ -405,6 +405,35 @@ function _resolve_regulated_physiology(config::ComponentConfig)
     )
 end
 
+function _resolve_no_physiology(config::ComponentConfig)
+    parameters = _component_parameters(
+        config;
+        allowed=(:unknown_effects,),
+    )
+    policy = _symbol_parameter(config, parameters, :unknown_effects, :reject)
+    unknown_effects = if policy === :reject
+        RejectUnknownEffects()
+    elseif policy === :ignore
+        IgnoreUnknownEffects()
+    else
+        _component_parameter_error(config, ":unknown_effects must be reject or ignore")
+    end
+    return NoPhysiology(; unknown_effects)
+end
+
+function _resolve_identity_encoder(config::ComponentConfig)
+    parameters = _component_parameters(
+        config;
+        allowed=(:ports, :sources),
+        required=(:ports,),
+    )
+    port_ids = _symbol_tuple(config, parameters, :ports)
+    source_ids = hasproperty(parameters, :sources) ?
+        _symbol_tuple(config, parameters, :sources) :
+        ()
+    return IdentityEncoder(port_ids; sources=source_ids)
+end
+
 
 const _CAMERA_CHANNEL_CENTRES_NM = Dict(
     :ultraviolet => 365.0,
@@ -652,22 +681,29 @@ function _builtin_component_descriptor(
     conformance::Symbol,
     conformance_path::AbstractString,
     example_path::AbstractString,
+    readiness::Symbol=:integrated,
+    docs_path::AbstractString="site/src/content/docs/contracts.mdx",
+    core_tests=(),
 )
     return ComponentDescriptor(
         family,
         kind,
         resolver;
-        readiness=:integrated,
+        readiness,
         capabilities=capabilities,
         parameters=parameters,
         conformance=conformance,
         conformance_path=conformance_path,
-        docs_path="site/src/content/docs/contracts.mdx",
+        docs_path,
         example_path=example_path,
+        core_tests,
     )
 end
 
 function _register_builtin_component_catalog!()
+    core_docs = "site/src/content/docs/core/embodiment.mdx"
+    robot_example = "examples/embodiments/differential_robot.toml"
+    robot_tests = (:core_differential_robot_roundtrip, :core_object_world_runtime)
     descriptors = (
         _builtin_component_descriptor(
             :geometry, :disc, _resolve_disc;
@@ -675,7 +711,21 @@ function _register_builtin_component_catalog!()
             parameters=(required=(:radius,), optional=()),
             conformance=:disc_geometry_contract,
             conformance_path="test/test_physical_components.jl",
-            example_path="examples/embodiments/differential_robot.toml",
+            example_path=robot_example,
+            readiness=:core,
+            docs_path=core_docs,
+            core_tests=robot_tests,
+        ),
+        _builtin_component_descriptor(
+            :physiology, :none, _resolve_no_physiology;
+            capabilities=(:config_materialization, :explicit_no_physiology),
+            parameters=(required=(), optional=(:unknown_effects,)),
+            conformance=:no_physiology_contract,
+            conformance_path="test/test_core_platform.jl",
+            example_path=robot_example,
+            readiness=:core,
+            docs_path=core_docs,
+            core_tests=(:core_differential_robot_roundtrip, :core_no_physiology_default),
         ),
         _builtin_component_descriptor(
             :physiology, :regulated, _resolve_regulated_physiology;
@@ -694,7 +744,10 @@ function _register_builtin_component_catalog!()
             ),
             conformance=:spectral_camera_contract,
             conformance_path="test/test_spectral_vision.jl",
-            example_path="examples/embodiments/differential_robot.toml",
+            example_path=robot_example,
+            readiness=:core,
+            docs_path=core_docs,
+            core_tests=robot_tests,
         ),
         _builtin_component_descriptor(
             :sensor, :field_probe, _resolve_field_probe;
@@ -719,6 +772,17 @@ function _register_builtin_component_catalog!()
             example_path="examples/embodiments/bilateral_insect.toml",
         ),
         _builtin_component_descriptor(
+            :encoder, :identity, _resolve_identity_encoder;
+            capabilities=(:config_materialization, :identity_encoding, :stable_sensor_sources),
+            parameters=(required=(:ports,), optional=(:sources,)),
+            conformance=:identity_encoder_contract,
+            conformance_path="test/test_core_platform.jl",
+            example_path=robot_example,
+            readiness=:core,
+            docs_path=core_docs,
+            core_tests=(:core_differential_robot_roundtrip, :core_identity_encoder_composition),
+        ),
+        _builtin_component_descriptor(
             :actuator, :forward_turn, _resolve_forward_turn;
             capabilities=(:config_materialization, :effector_decode),
             parameters=(required=(:max_forward, :max_turn), optional=(:allow_reverse,)),
@@ -732,7 +796,10 @@ function _register_builtin_component_catalog!()
             parameters=(required=(:max_speed,), optional=(:allow_reverse,)),
             conformance=:differential_drive_actuator_contract,
             conformance_path="test/test_physical_components.jl",
-            example_path="examples/embodiments/differential_robot.toml",
+            example_path=robot_example,
+            readiness=:core,
+            docs_path=core_docs,
+            core_tests=robot_tests,
         ),
         _builtin_component_descriptor(
             :actuator, :planar_force_yaw, _resolve_planar_force_yaw;
@@ -756,7 +823,10 @@ function _register_builtin_component_catalog!()
             parameters=(required=(:wheel_base,), optional=(:dt,)),
             conformance=:differential_drive_dynamics_contract,
             conformance_path="test/test_physical_components.jl",
-            example_path="examples/embodiments/differential_robot.toml",
+            example_path=robot_example,
+            readiness=:core,
+            docs_path=core_docs,
+            core_tests=robot_tests,
         ),
         _builtin_component_descriptor(
             :dynamics, :planar_rigid_body, _resolve_planar_rigid_body;

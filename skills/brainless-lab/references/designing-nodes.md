@@ -10,7 +10,8 @@ without a single `if node == :yours` branch anywhere in the framework.
 This file is design guidance. For the task side, see `designing-environments-and-tasks.md`;
 for measures over a run, `designing-analyses.md`; for the CLI/evolution flow,
 `cli-tools.md` and `usage-and-workflows.md`. The canonical web references are
-<https://brainless-lab.pages.dev/extending/> and <https://brainless-lab.pages.dev/contracts/>.
+<https://brainless-lab.pages.dev/core/extend/> and
+<https://brainless-lab.pages.dev/core/reservoirs/>.
 
 ## The contract is a design contract
 
@@ -116,7 +117,7 @@ knob. Those belong as **kwargs**, not new structs. The registered variants are e
 preset kwarg bundles over one constructor.
 
 ```julia
-simulate(:wall; node=:falandays_base, sign=:dale,
+simulate(:wall; node=:falandays, sign=:dale,
          topology=:watts_strogatz, drive=OosawaDrive(...))
 ```
 
@@ -167,6 +168,12 @@ Get a clean `simulate` on at least two tasks before touching `bench`/`evolve` â€
 benchmark that dies on tick 1 wastes a sweep. The copy-to-start scaffold lives at
 `examples/templates/new_project/my_node.jl` (a self-contained homeostatic reservoir with all
 methods, the genome/state split, and registration) plus its `README.md`.
+
+Document stable reservoir contracts in the
+[Core reservoirs guide](https://brainless-lab.pages.dev/core/reservoirs/). A non-core
+capability belongs in the [Experimental catalog](https://brainless-lab.pages.dev/experimental/)
+with repository-backed source, example, and test paths. `available` or `integrated` is
+software readiness, not validation of a neural or biological claim.
 
 **Naming:** this project deliberately keeps **"Reservoir"** (these are untrained /
 self-organizing populations, not trained "networks"). Do not rename `<: Reservoir` to

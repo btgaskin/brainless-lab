@@ -83,7 +83,7 @@ the promoted summary. Opening sealed data and then changing a parameter, endpoin
 or analysis restarts the evidence cycle.
 
 `harness.jl` composes only the **public** `BrainlessLab` API (`simulate`,
-`sim.metrics.score`, `normalized_score`, …), so experiments survive core refactors:
+`task_outcome`, …), so experiments survive core refactors:
 
 - `freeze_sweep(task; freeze_ticks, window, seeds, verb)` — normalized score + rate
   vs. the tick an intervention is applied, with a matched full-learning control.

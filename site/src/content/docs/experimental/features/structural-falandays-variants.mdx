@@ -1,0 +1,19 @@
+---
+title: Structural Falandays mechanism variants
+description: Experimental dendritic, delayed, spatial, and hemispheric mechanisms composed around the Falandays update.
+experimental:
+  family: reservoirs
+  readiness: available
+  tags: [falandays, dendrites, delays, spatial-wiring, hemispheres]
+  core_page: /core/reservoirs/
+  source_paths: [src/nodes/Dendritic.jl, src/nodes/Delays.jl, src/nodes/Spatial.jl, src/nodes/Wiring.jl]
+  example_paths: []
+  test_paths: [test/test_dendritic.jl, test/test_delays.jl, test/test_spatial.jl]
+---
+
+These mechanisms vary recurrent structure, eligibility, or transmission while keeping the
+Falandays family recognizable. Focused tests cover their local contracts.
+
+They remain `available` because there is no single canonical end-to-end example establishing
+one integrated organism or task interpretation. Their tests do not extend authors-fixture
+fidelity to the variants.

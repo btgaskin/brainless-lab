@@ -1,0 +1,21 @@
+---
+title: Extended task catalog and calibration utilities
+description: Experimental task implementations, calibrated anchors, controls, and nonuniform sensorimotor setups composed through the stable Core task-outcome contract.
+experimental:
+  family: worlds-tasks
+  readiness: integrated
+  tags: [tasks, scoring, calibration, controls]
+  core_page: /core/worlds-tasks-populations/
+  source_paths: [src/tasks/Tasks.jl, src/tasks/Scoring.jl, src/tasks/Calibration.jl, src/api/Highlevel.jl]
+  example_paths: [examples/quickstart.jl]
+  test_paths: [test/scoring_anchors.jl, test/scoring_calibration.jl, test/test_api.jl]
+---
+
+`TaskSpec` and `task_outcome(sim)` are stable Core contracts: a task names its setup,
+rollout defaults, optional primary metric, and anchors, and the result exposes that declared
+key with task-native and normalized values. This feature record tracks the extended task
+implementations, calibration utilities, and control surfaces composed through that contract.
+
+Calibration and outcome contracts operationalize behavior. They do not validate the named
+cognitive capacity, make raw metrics comparable across tasks, or turn one rollout into an
+independent scientific result.

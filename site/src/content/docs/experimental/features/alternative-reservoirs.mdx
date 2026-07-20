@@ -1,0 +1,20 @@
+---
+title: SORN and compartmental reservoirs
+description: Mechanistically distinct experimental reservoir families for online self-organization or evolved fixed-weight dynamics.
+experimental:
+  family: reservoirs
+  readiness: available
+  tags: [sorn, compartmental, ctrnn, evolution]
+  core_page: /core/reservoirs/
+  source_paths: [src/nodes/SORN.jl, src/nodes/Compartmental.jl, src/nodes/CompartmentalReservoir.jl]
+  example_paths: []
+  test_paths: [test/test_sorn.jl, test/test_compartmental.jl]
+---
+
+SORN supplies online STDP, intrinsic plasticity, and normalization. Compartmental reservoirs
+instead use fixed-weight dynamics intended for evolution or another explicit preparation
+procedure.
+
+SORN criticality and evolved task behavior remain unvalidated scientific claims. An
+untrained compartmental reservoir is not a fair performance comparison with the
+online-plastic canonical Falandays reservoir.

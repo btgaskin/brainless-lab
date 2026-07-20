@@ -13,7 +13,7 @@ let
 
     sim = simulate(
         :forage;
-        node=:falandays_base,
+        node=:falandays,
         ticks=96,
         window=96,
         seed=42,

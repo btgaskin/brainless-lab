@@ -108,7 +108,7 @@ function sensor_block(s::AbstractSensor)
     )
 end
 
-function compose_genome(; node=:falandays_base, motor=nothing, sensor=nothing, node_template=nothing)
+function compose_genome(; node=:falandays, motor=nothing, sensor=nothing, node_template=nothing)
     blocks = GenomeBlock[]
     node === nothing || push!(blocks, node_block(node; template=node_template))
     motor === nothing || push!(blocks, motor_block(motor))
@@ -169,8 +169,8 @@ function swarm_rollout(
     swarm_kwargs[:n_agents] = Int(n_agents)
     ensemble, _ = _make_ensemble(
         task_spec,
-        :falandays_base,
-        resolve_node(:falandays_base);
+        :falandays,
+        resolve_node(:falandays);
         seed=Int(seed),
         n_nodes=Int(n_nodes),
         record=[:pose],

@@ -1,7 +1,7 @@
 # Oosawa-drive forage criticality sweep.
 # Question: does target-deficit membrane noise (OosawaDrive) un-pin the near-
-# critical branching that the falandays_base homeostat clamps? Any nonzero
-# drive.* value flips falandays_base onto the Oosawa drive; noise_gain=0.0 is
+# critical branching that the falandays homeostat clamps? Any nonzero
+# drive.* value flips falandays onto the Oosawa drive; noise_gain=0.0 is
 # the drive with zero injection (~= base) and the NoDrive baseline anchors it.
 # Run with:
 #   julia --project=. sweep/run.jl configs/sweep_forage_oosawa.toml
@@ -14,7 +14,7 @@ max_cells = 200
 max_rollouts = 80
 
 [baseline]
-node = "falandays_base"
+node = "falandays"
 task = "forage"
 N = 80
 n_agents = 6

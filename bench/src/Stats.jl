@@ -184,7 +184,7 @@ function benjamini_hochberg(pvals)
     return adjusted
 end
 
-function analyze_task(group_vectors::AbstractDict; baseline::Symbol=:falandays_base,
+function analyze_task(group_vectors::AbstractDict; baseline::Symbol=:falandays,
         alpha::Real=0.05, nboot::Integer=2000, nperm::Integer=10_000,
         rng::AbstractRNG=Random.Xoshiro(0))
     names = sort([name for name in keys(group_vectors) if !isempty(group_vectors[name])]; by=String)

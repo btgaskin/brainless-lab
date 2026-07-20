@@ -62,7 +62,7 @@ the core deps to "fix" it — the weakdep split is deliberate.
 
 This distinction is load-bearing and easy to blur; keep it sharp in code, docs, and claims.
 
-- **`:falandays_base`** (alias `:falandays`) is the settled, validated, **authors-faithful** published Falandays
+- **`:falandays`** (`:falandays_base` is a compatibility alias) is the settled, validated, **authors-faithful** published Falandays
   homeostatic spiking reservoir with its exact constants. It is the reference participants rely on. Validation
   is numerical trajectory parity with the tested local authors-derived reference construction, within the
   declared tolerance, not paper fidelity for every component — say "authors-faithful," not "paper-faithful."
@@ -111,7 +111,7 @@ Read the matching reference before building:
   design scoring against a meaningful floor/ceiling.
 - **A new analysis / measure** → `references/designing-analyses.md`. Read this even just to *interpret* results.
 
-The site `extending.mdx` maps the remaining public families: drive, intervention, physical component,
+The Core [extension guide](https://brainless-lab.pages.dev/core/extend/) maps the remaining public families: drive, intervention, physical component,
 physiology, optimizer/development, metric, and view. Prefer a parameter preset or composed value to a new
 type when the contract has not changed.
 
@@ -126,6 +126,18 @@ The independent randomized block or run is normally the inferential unit. Agents
 world do not multiply sample size. The null follows the claim: random action, blind/off, matched sham or
 shift, mechanism ablation, model baseline, and oracle/reference answer different questions. Exact replay is
 a regression control, not a causal null.
+
+Software readiness is orthogonal to study evidence. The
+[Core handbook](https://brainless-lab.pages.dev/core/getting-started/) documents stable
+composition contracts; the
+[Experimental catalog](https://brainless-lab.pages.dev/experimental/) lists capabilities
+with repository-backed source, example, and test metadata. `available` and `integrated`
+describe software readiness, not construct validity or evidence promotion.
+
+Use `task_outcome(sim)` as the canonical task result handoff. It returns
+`(key, raw, normalized)` for the objective declared by the task and `nothing` when the task
+declares no scalar objective. Legacy metric fields remain diagnostics and may be useful, but
+they do not define the cross-task outcome contract.
 
 ## Rigor: null-test every measure
 
@@ -172,7 +184,8 @@ memory.
 
 Keep **"Reservoir"** for the node collective (the nodes are untrained by default) — not "Network"; this naming
 was chosen deliberately, don't re-propose the rename. User-facing documentation lives in the Astro/Starlight
-site under `site/` (published at <https://brainless-lab.pages.dev>); the old `docs/*.md` set is retired.
+site under `site/` (published at <https://brainless-lab.pages.dev>); canonical contracts live
+under `/core/`, experimental capabilities under `/experimental/`, and the old `docs/*.md` set is retired.
 
 Use the current public body vocabulary exactly: `AbstractBody` is the dispatch boundary and `Embodiment` is the
 generic concrete composition. Its stable-ID components are geometry, sensors, encoders, actuators, dynamics,
@@ -180,10 +193,14 @@ physiology, traits, and state. `ObjectWorld` is the generic fixed-population phy
 `SituatedEnvironment` remains an adapter for the established torus, forage, and signalling behavior.
 Do not introduce organism-specific body classes when component values express the difference.
 
-For discoverable physical parts, query `components()` / `component_info(...)`; readiness is evidence-scoped:
+For discoverable physical parts, query `components()` / `component_info(...)`; readiness is software-scoped:
 `:available` is discoverable/materializable, `:integrated` adds standard runtime + exact serialization + docs +
-an executable example, and `:core` is stable/default with named core-test coverage. Status remains experimental.
-The built-in physical catalog is currently integrated through `ObjectWorld`. Embodiment TOML materializes through
+an executable example, and `:core` is stable/default with named core-test coverage. Scientific
+evidence status remains a separate study property.
+The minimal differential-robot kit has `:core` software readiness: disc geometry, explicit
+no-physiology, spectral camera, identity encoder, differential-drive actuation, and
+differential-drive dynamics. Other built-in physical components remain `:integrated`.
+`ObjectWorld` is still an Experimental composition feature. Embodiment TOML materializes through
 `read_embodiment_config` → `materialize_blueprint` or `materialize_embodiment`. `DevelopmentSpec` evolves bounded
 real scalar paths on stable component IDs into a fresh runnable phenotype. Paths may use one-based tuple indices
 or stable named collection members such as `variables.energy.gain`; it does not vary structure, schedule
