@@ -2,7 +2,7 @@ using Random
 
 import BrainlessLab
 import BrainlessLab: NodeModel, Reservoir
-import BrainlessLab: step!, effectors, n_receptors, n_effectors, reset!
+import BrainlessLab: step!, effectors, n_nodes, n_receptors, n_effectors, reset!
 import BrainlessLab: snapshot_state, load_state!, pack_params, unpack_params, paramdim
 import BrainlessLab: plasticity, OnlinePlasticity, register_node!
 
@@ -250,6 +250,7 @@ end
 
 n_receptors(r::MyNode) = r.n_receptors
 n_effectors(r::MyNode) = r.n_effectors
+n_nodes(r::MyNode) = length(r.spikes)
 
 function snapshot_state(r::MyNode)
     return (

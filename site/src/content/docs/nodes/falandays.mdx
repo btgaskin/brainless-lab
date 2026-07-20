@@ -45,7 +45,7 @@ local: a node aggregates only its own afferents.
 <p class="bl-source">Source: the membrane update, threshold, and spike in <code>src/nodes/Falandays.jl</code> (<code>step!</code>); the homeostatic rules in <code>src/nodes/Axes.jl</code> (<code>learn!</code>, <code>_update_targets!</code>).</p>
 
 :::caution[Authors' fidelity]
-The 2021 Falandays paper's equation 5 lost its numeric coefficient in a copy/paste
+The Falandays paper's equation 5 lost its numeric coefficient in a copy/paste
 (as did the connection-probability symbols). BrainlessLab resolves it by following the
 **authors' own code**: `:falandays_base` is validated against dumped trajectories from
 a faithful Julia reconstruction of the authors' construction (`test/oracle/authors_falandays.jl`,
@@ -113,16 +113,18 @@ not passing that mode value directly.
 ## The Oosawa drive (a variant, for contrast)
 
 `:falandays_oosawa` is *not* a substrate change — it adds a term to the update: a
-**target-gated membrane noise** that keeps a blind network alive by variance, not by
+**firing-threshold-gap-modulated membrane noise** that keeps a blind network alive by variance, not by
 deterministic self-excitation.
 
 $$
 a_i \leftarrow a_i + \eta_i\,\sigma_i, \qquad \sigma_i = \text{noise}_0 + g\cdot\max\!\big(0,\; \mu T_i - a_i\big),\quad \eta_i \sim \mathcal N(0,1)
 $$
 
-When a node sits below its firing threshold (starved), $\sigma_i$ grows and it keeps
-randomly crossing threshold; at set-point $\sigma_i \to \text{noise}_0$. So `oosawa`
-belongs on a *dynamics* page, not the base↔extended substrate contrast.
+When a node sits below its firing threshold, $\sigma_i$ grows and can push it across that
+threshold. The state-dependent term turns off only at or above $\mu T_i$. For the usual
+$\mu>1$, it therefore remains active when $a_i=T_i$; this implementation is
+**threshold-gap-modulated**, not a set-point-deficit switch. So `oosawa` belongs on a
+*dynamics* page, not the base↔extended substrate contrast.
 
 ### The biology: Oosawa's spontaneous activity
 
@@ -151,8 +153,9 @@ node's update:
   "active" cells (Paramecium, ~3 mV) *produce* large fluctuations, "quiet" cells (nerve
   axon, ~0.03 mV) *suppress* them. And the *frequency* of spontaneous events is regulated
   by internal state (in thermotaxis, fewer direction-changes when heading toward the
-  preferred temperature). That regulation is exactly the node's **target-modulated gain** —
-  $\sigma_i$ ramps up when a node is starved and switches off at set-point.
+  preferred temperature). The node makes a narrower modelling move: its
+  **threshold-gap-modulated gain** grows with $\max(0,\mu T_i-a_i)$. It should not be read
+  as a faithful physiological energy or set-point-deficit model.
 
 **Why it matters here.** The Oosawa drive keeps a **blind or input-starved network alive
 by variance** rather than deterministic self-excitation — an endogenous source of
@@ -172,6 +175,6 @@ The model reimplemented here as `:falandays_base` is from:
 > 1811–1834 (2024). [doi:10.1007/s11571-023-09988-2](https://doi.org/10.1007/s11571-023-09988-2)
 
 BrainlessLab is an independent reimplementation and extension; it is not affiliated with or
-endorsed by the original authors. "Authors-faithful" refers to bit-fidelity against a
-reconstruction of the authors' code (see the fidelity note above), not to paper-fidelity for
-every component.
+endorsed by the original authors. "Authors-faithful" refers to numerical parity of the tested
+reservoir state trajectories with a local authors-derived reference construction, within the
+declared tolerance (see the fidelity note above), not to paper fidelity for every component.

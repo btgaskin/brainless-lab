@@ -1,0 +1,101 @@
+---
+title: Platform limits
+description: What BrainlessLab currently models, what remains simplified or experimental, and which claims the platform cannot establish alone.
+---
+
+BrainlessLab is a laboratory for a particular question: what behavior and dynamical
+signatures can arise when self-organising, neuron-like reservoirs are closed through bodies
+and tasks without a trained readout or hand-written controller? It is not a general robotics
+simulator, neuroscience model, benchmark authority, or proof that a behavior is cognitive.
+
+## Scientific scope
+
+The core object is a self-organising neural substrate and its closed sensorimotor loop.
+Tasks operationalize behavior; analyses describe internal or collective dynamics; sweeps,
+ablations, and controls test how those observations change.
+
+The platform can support evidence about an explicitly implemented mechanism under declared
+simulation conditions. It cannot by itself establish:
+
+- biological fidelity beyond the validated implementation boundary;
+- cognition, intelligence, autonomy, or motivation as natural kinds;
+- transfer to animals, physical robots, or unmodeled environments;
+- optimality outside the searched parameter and task region;
+- causal necessity without an appropriate intervention and control;
+- equivalence from a nonsignificant difference;
+- criticality from a power law or one scalar estimator.
+
+## Baseline fidelity
+
+Fixture parity for `:falandays_base` validates the Julia node update against the local
+authors-derived reference construction on tested fixtures. It does not validate every body,
+task, experimental Falandays variant, ecological layer, or interpretation of the paper. The
+package's additional variants and platform components are its own experimental work.
+
+## Physical and ecological limits
+
+The generic `ObjectWorld` currently provides:
+
+- two-dimensional toroidal or walled arenas in simulation units;
+- fixed agent populations;
+- static circular objects;
+- named analytic scalar fields;
+- simplified spectral appearance and illumination;
+- typed contact or exposure effects;
+- one compatible actuator/dynamics command path per assembled body.
+
+It does not currently provide general meshes, rigid-body collision physics, fluid dynamics,
+moving non-agent objects, births, replacement, lineage scheduling, or structural evolution
+of the component graph. Death can make an existing agent inactive; it is not a population
+turnover system.
+
+Body presets named insect, robot, or UAV are reusable compositions, not high-fidelity models
+of a species or vehicle. Sensor geometry, noise, actuator limits, and environmental fields
+remain experimental assumptions that must be calibrated for each question.
+
+## Sensing limits
+
+Field probes sample explicitly supplied analytic fields. Object banks do not automatically
+emit gradients. Spectral cameras use a simplified channel basis and illuminant; they do not
+model a complete optical pipeline, wavelength-continuous material reflectance, diffraction,
+or atmospheric effects. Their ray casts do implement simplified geometric occlusion.
+Observations and action spaces remain task-designed.
+
+## Evolution and development limits
+
+`DevelopmentSpec` varies bounded scalar paths on a fixed component graph. It does not add or
+remove components, evolve arbitrary topology, encode runtime state, or schedule
+developmental events. The included optimizer is experimental infrastructure, and one
+optimization run does not characterize search variance.
+
+## Analysis limits
+
+Finite runs and finite populations constrain every estimator. In particular:
+
+- agent-scale statistics need enough independent agents and worlds;
+- avalanche fits need many events, threshold/bin sensitivity, competing-distribution checks,
+  and finite-size evidence;
+- spectral radius is a linear proxy, not a general nonlinear stability criterion;
+- transfer entropy needs adequate samples, stationarity checks, surrogate tests, and
+  multiple-pair correction;
+- shared input can mimic collective coupling;
+- dead, failed, or saturated runs require declared handling.
+
+The analysis pages label current caveats, but each new task and sampling regime still needs
+its own validation.
+
+## Software and workflow limits
+
+The public interfaces are intended to be generic, but the physical, heterogeneous, and
+ecological layers remain experimental. The current platform has fixed membership and no
+browser-based protocol builder, automatic preregistration, sealed-data service, or automated
+evidence-promotion command. Reproducibility means a traceable rerun in a declared environment;
+bit-for-bit guarantees apply only where explicit fixture tests establish them.
+
+Direct `Ensemble` simulation supports heterogeneous body and reservoir groups. Current
+TOML/config-driven optimization and several high-level builders still require one fixed
+receptor/effector layout for the population being materialized; they do not yet evolve
+variable port structure.
+
+See [Research workflow](/research-workflow/) for the evidence ladder and
+[Agentic workflow](/agentic-workflow/) for the current automation boundary.

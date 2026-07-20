@@ -1,11 +1,11 @@
-# The SensorSpec is the perception-geometry of the swarm layer: it is to sensing
+# An AbstractSensor is the perception-geometry of the situated layer: it is to sensing
 # what `Motor` is to action. It answers two questions — WHERE the sensory rays
 # point (the per-ray angle vector) and HOW a ray/target intersection becomes an
 # activation (the encoding) — and nothing else. The sense-cone math itself
 # (`sense_agents`/`sense_source`/`_sense_circular_targets`/...) is already
 # geometry-agnostic: it takes the angle vector + encoding as arguments. So a
-# SensorSpec is simply the SOURCE of that vector and encoding, carried on the
-# morphology and on `SwarmConfig` exactly as a `Motor` rides the body.
+# An AbstractSensor is simply the source of that vector and encoding, carried on the
+# embodiment and task configuration.
 #
 # The DEFAULT `BearingSensor()` is a strict byte-identical no-op: its angles are
 # the historical two-eye 62-ray fan and its `:binary` encoding is the old
@@ -17,13 +17,73 @@
 # than be imposed.
 
 """
-    SensorSpec
+    AbstractSensor
 
-Abstract supertype for perception-geometry specs carried by a `Morphology` /
-`SwarmConfig`. A spec supplies the sensory-ray angles and the intersection
+Abstract supertype for perception components carried by an `Embodiment`. A
+sensor supplies its physical placement and raw sampling contract; the bearing
+sensor additionally exposes the historical intersection
 encoding consumed by the (geometry-agnostic) sense-cone functions.
 """
-abstract type SensorSpec end
+abstract type AbstractSensor end
+
+"""Abstract supertype for components that map raw sensor samples to receptors."""
+abstract type AbstractEncoder end
+
+"""Fixed-width identity mapping from raw samples to named receptor ports."""
+struct IdentityEncoder{N,S<:Tuple} <: AbstractEncoder
+    port_ids::NTuple{N,Symbol}
+    source_ids::S
+
+    function IdentityEncoder(
+        port_ids::NTuple{N,Symbol},
+        source_ids::S,
+    ) where {N,S<:Tuple}
+        length(unique(port_ids)) == N ||
+            throw(ArgumentError("identity-encoder receptor port IDs must be unique"))
+        all(id -> id isa Symbol, source_ids) || throw(ArgumentError(
+            "identity-encoder source IDs must be symbols",
+        ))
+        length(unique(source_ids)) == length(source_ids) || throw(ArgumentError(
+            "identity-encoder source IDs must be unique",
+        ))
+        return new{N,S}(port_ids, source_ids)
+    end
+end
+
+IdentityEncoder{N}(port_ids::NTuple{N,Symbol}) where {N} = IdentityEncoder(port_ids, ())
+
+IdentityEncoder(ids; sources=()) = begin
+    ids_ = Tuple(Symbol(id) for id in ids)
+    sources_ = Tuple(Symbol(id) for id in sources)
+    IdentityEncoder(ids_, sources_)
+end
+
+function IdentityEncoder(width::Integer; prefix::Symbol=:receptor, sources=())
+    width_ = Int(width)
+    width_ >= 0 || throw(ArgumentError("identity-encoder width must be non-negative"))
+    return IdentityEncoder(
+        ntuple(i -> Symbol(prefix, :_, i), width_);
+        sources=sources,
+    )
+end
+
+encoder_sources(::AbstractEncoder) = nothing
+encoder_sources(encoder::IdentityEncoder) =
+    isempty(encoder.source_ids) ? nothing : encoder.source_ids
+
+n_receptors(encoder::IdentityEncoder) = length(encoder.port_ids)
+function portspec(encoder::IdentityEncoder)
+    receptors = Port{NoPlacement}[Port(id) for id in encoder.port_ids]
+    return PortSpec(length(receptors), 0, receptors, Port{NoPlacement}[])
+end
+
+function encode!(encoder::IdentityEncoder, samples)
+    values = _component_float_vector(samples)
+    length(values) == n_receptors(encoder) || throw(DimensionMismatch(
+        "identity encoder expected $(n_receptors(encoder)) samples, got $(length(values))",
+    ))
+    return values
+end
 
 # --- accessors (generic contract) ----------------------------------------------
 
@@ -47,7 +107,7 @@ function angles_deg end
 
 The active per-ray angles in radians. Generic: derived from [`angles_deg`](@ref).
 """
-angles_rad(s::SensorSpec) = angles_deg(s) .* (pi / 180.0)
+angles_rad(s::AbstractSensor) = angles_deg(s) .* (pi / 180.0)
 
 """
     encoding(spec)
@@ -57,9 +117,10 @@ The intersection→activation encoding symbol (`:binary` or `:graded`).
 function encoding end
 
 # Clear errors for a spec that has not implemented the contract.
-n_sensors(s::SensorSpec) = throw(ArgumentError("n_sensors not implemented for $(typeof(s))"))
-angles_deg(s::SensorSpec) = throw(ArgumentError("angles_deg not implemented for $(typeof(s))"))
-encoding(s::SensorSpec) = throw(ArgumentError("encoding not implemented for $(typeof(s))"))
+n_sensors(s::AbstractSensor) = throw(ArgumentError("n_sensors not implemented for $(typeof(s))"))
+angles_deg(s::AbstractSensor) = throw(ArgumentError("angles_deg not implemented for $(typeof(s))"))
+encoding(s::AbstractSensor) = throw(ArgumentError("encoding not implemented for $(typeof(s))"))
+rawspec(s::AbstractSensor) = (kind=Symbol(lowercase(string(nameof(typeof(s))))), width=n_sensors(s))
 
 # --- the one built-in sensor ---------------------------------------------------
 
@@ -98,7 +159,7 @@ end
                     angle_range_deg=(-180.0, 180.0), tuning_range_deg=(0.0, 0.0),
                     enabled=trues(0))
 
-The one built-in `SensorSpec`: a bank of bearing rays.
+The first built-in `AbstractSensor`: a bank of bearing rays.
 
   - `angles_deg` — the CANONICAL explicit per-ray placement (agent-frame degrees).
     Defaults to the historical two-eye 62-ray fan.
@@ -115,7 +176,7 @@ Evolution-bound fields, inert until the genome is packed/evolved:
   - `enabled` — per-ray on/off gate for a variable ray count. Empty means all rays
     are on (the byte-identical default); otherwise one bit per stored ray.
 """
-Base.@kwdef struct BearingSensor <: SensorSpec
+Base.@kwdef struct BearingSensor <: AbstractSensor
     angles_deg::Vector{Float64} = _default_bearing_angles_deg()
     encoding::Symbol = :binary
     tuning_deg::Float64 = 0.0
@@ -199,7 +260,7 @@ _tuning_evolvable(s::BearingSensor) = s.tuning_range_deg[1] != s.tuning_range_de
 """
     paramspace(spec)
 
-Labeled `(label, lo, hi)` bounds for each evolvable scalar of a `SensorSpec`. For
+Labeled `(label, lo, hi)` bounds for each evolvable scalar of an `AbstractSensor`. For
 `BearingSensor`: one `angle_<i>` per active ray (bounded by `angle_range_deg`),
 plus a trailing `tuning` entry iff `tuning_range_deg` is non-degenerate.
 """
@@ -270,6 +331,6 @@ end
 # Resolve the sense-cone activation encoding. A `Symbol` passes through; a legacy
 # Real `sens_agent_dist` maps 0 -> :binary (hit==1.0) and anything else -> :graded
 # (1 - d/max_d), so direct callers passing the old integer knob stay byte-identical
-# while a SensorSpec can supply :binary/:graded directly.
+# while an AbstractSensor can supply :binary/:graded directly.
 _sensor_encoding(enc::Symbol) = enc
 _sensor_encoding(dist::Real) = Float64(dist) == 0.0 ? :binary : :graded

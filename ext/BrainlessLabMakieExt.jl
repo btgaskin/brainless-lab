@@ -21,8 +21,11 @@ const _AMBERSOFT = Makie.RGBf(BL.BL_AMBERSOFT...)
 const _INKMUTED  = Makie.RGBf(BL.BL_INKMUTED...)
 const _BRAND_RAMP = Makie.cgrad([_PAPER, _TEAL, _INK])
 const _CATEGORICAL = (_TEAL, _AMBER, _INKSOFT, _TEALSOFT, _AMBERSOFT, _INKMUTED)
+const _OBJECT_MARKERS = (:circle, :diamond, :rect, :hexagon, :utriangle)
 
 _series_color(i::Integer) = i <= length(_CATEGORICAL) ? _CATEGORICAL[i] : _INKMUTED
+_object_color(i::Integer) = _CATEGORICAL[mod1(Int(i), length(_CATEGORICAL))]
+_object_marker(i::Integer) = _OBJECT_MARKERS[mod1(Int(i), length(_OBJECT_MARKERS))]
 
 function _style_axis!(ax)
     ax.backgroundcolor = _PAPER
@@ -146,11 +149,26 @@ end
 
 # Per-agent boid colours for colour-sensing swarm runs (nothing => single teal).
 const _GROUP_PALETTE = (_TEAL, Makie.RGBf(0.74, 0.32, 0.58), Makie.RGBf(0.30, 0.62, 0.35), _INK)
-function _agent_group_colors(sim)
+function _agent_group_colors(sim, ids=nothing)
     (sim isa BL.SimResult && hasproperty(sim.config, :environment)) || return nothing
     env = sim.config.environment
     (hasproperty(env, :n_colours) && Int(env.n_colours) > 1 && hasproperty(env, :colours)) || return nothing
-    return [_GROUP_PALETTE[mod(Int(c), length(_GROUP_PALETTE)) + 1] for c in collect(env.colours)]
+    colors = [_GROUP_PALETTE[mod(Int(c), length(_GROUP_PALETTE)) + 1] for c in collect(env.colours)]
+    ids === nothing && return colors
+    config_ids = _config_agent_ids(sim)
+    if config_ids === nothing
+        length(colors) == length(ids) || throw(DimensionMismatch(
+            "agent colour metadata has $(length(colors)) entries; expected $(length(ids))",
+        ))
+        return colors
+    end
+    length(config_ids) == length(colors) || throw(DimensionMismatch(
+        "agent colour metadata has $(length(colors)) entries for $(length(config_ids)) configured entities",
+    ))
+    by_id = Dict(id => color for (id, color) in zip(config_ids, colors))
+    return [get(by_id, id) do
+        throw(ArgumentError("agent colour metadata has no entry for $(id)"))
+    end for id in ids]
 end
 
 # Simple linear-interpolated percentile over finite values (0..100).
@@ -241,20 +259,69 @@ function _pose_rows(sample)
     return out
 end
 
-function _pose_tracks(sim)
+function _config_agent_ids(sim)
+    sim isa BL.SimResult || return nothing
+    config = sim.config
+    if hasproperty(config, :agents) && !isempty(config.agents)
+        all(agent -> hasproperty(agent, :id), config.agents) || throw(ArgumentError(
+            "visualization requires every sim.config.agents entry to carry an :id",
+        ))
+        return BL.EntityID[
+            agent.id isa BL.EntityID ? agent.id : BL.EntityID(agent.id)
+            for agent in config.agents
+        ]
+    elseif hasproperty(config, :entity_ids) && !isempty(config.entity_ids)
+        return BL.EntityID[
+            id isa BL.EntityID ? id : BL.EntityID(id)
+            for id in config.entity_ids
+        ]
+    end
+    return nothing
+end
+
+function _pose_track_data(sim)
     samples = _channel(sim, :poses)
+    isempty(samples) && return (ids=BL.EntityID[], tracks=Vector{NTuple{3,Float64}}[])
+    has_frames = any(sample -> sample isa BL.EntityFrame, samples)
+    if has_frames
+        all(sample -> sample isa BL.EntityFrame, samples) || throw(ArgumentError(
+            "visualization cannot mix EntityFrame and positional pose samples",
+        ))
+        ids = something(_config_agent_ids(sim), copy(first(samples).ids))
+        rows = [_pose_rows(BL.align_entities(sample, ids).values) for sample in samples]
+        tracks = [NTuple{3,Float64}[] for _ in ids]
+        for sample_rows in rows
+            length(sample_rows) == length(ids) || throw(DimensionMismatch(
+                "pose sample has $(length(sample_rows)) entries; expected $(length(ids))",
+            ))
+            for index in eachindex(ids)
+                push!(tracks[index], sample_rows[index])
+            end
+        end
+        return (ids=ids, tracks=tracks)
+    end
+
     rows = [_pose_rows(sample) for sample in samples]
     n_agents = isempty(rows) ? 0 : maximum(length, rows)
+    ids = something(_config_agent_ids(sim), BL.EntityID.(1:n_agents))
+    length(ids) == n_agents || throw(DimensionMismatch(
+        "simulation config contains $(length(ids)) entity IDs but poses contain $(n_agents) agents",
+    ))
     tracks = [NTuple{3,Float64}[] for _ in 1:n_agents]
 
     for sample_rows in rows
+        length(sample_rows) == n_agents || throw(DimensionMismatch(
+            "positional pose samples must retain width $(n_agents); got $(length(sample_rows))",
+        ))
         for i in eachindex(sample_rows)
             push!(tracks[i], sample_rows[i])
         end
     end
 
-    return tracks
+    return (ids=ids, tracks=tracks)
 end
+
+_pose_tracks(sim) = _pose_track_data(sim).tracks
 
 function _plot_bounds(sim)
     sim isa BL.SimResult || return nothing
@@ -288,6 +355,94 @@ function _draw_source!(ax, sim)
                    color=_AMBER, strokecolor=_PAPER, strokewidth=1.5)
     Makie.scatter!(ax, [source[1]], [source[2]]; marker=:circle, markersize=7, color=_PAPER)
     return ax
+end
+
+function _object_sample(sim, frame=nothing)
+    samples = _channel(sim, :objects)
+    isempty(samples) && return Any[]
+    index = frame === nothing ? length(samples) : clamp(Int(frame), 1, length(samples))
+    return samples[index]
+end
+
+function _circle_points(position, radius::Real; n::Integer=48)
+    radius_ = Float64(radius)
+    return [
+        Makie.Point2f(
+            Float64(position[1]) + radius_ * cos(theta),
+            Float64(position[2]) + radius_ * sin(theta),
+        )
+        for theta in range(0.0, 2pi; length=Int(n))
+    ]
+end
+
+function _stable_style_index(value)
+    hash = UInt64(0xcbf29ce484222325)
+    for byte in codeunits(string(value))
+        hash = (hash ⊻ UInt64(byte)) * UInt64(0x100000001b3)
+    end
+    return Int(mod(hash, UInt64(typemax(Int) - 1))) + 1
+end
+
+function _object_style_key(object, legacy_index::Integer)
+    if hasproperty(object, :type_index)
+        return (:type_index, max(1, Int(object.type_index)))
+    elseif hasproperty(object, :kind)
+        return (:kind, Symbol(object.kind))
+    end
+    return (:legacy_index, Int(legacy_index))
+end
+
+function _object_style_index(object, legacy_index::Integer)
+    key = _object_style_key(object, legacy_index)
+    return first(key) === :type_index || first(key) === :legacy_index ?
+        Int(last(key)) :
+        _stable_style_index(last(key))
+end
+
+function _draw_objects!(ax, sim, frame=nothing)
+    for (index, object) in enumerate(_object_sample(sim, frame))
+        hasproperty(object, :position) || continue
+        active = hasproperty(object, :active) ? Bool(object.active) : true
+        style_index = _object_style_index(object, index)
+        color = _object_color(style_index)
+        alpha = active ? 1.0 : 0.16
+        radius = hasproperty(object, :radius) ? Float64(object.radius) : 0.0
+        if radius > 0.0
+            Makie.poly!(
+                ax,
+                _circle_points(object.position, radius);
+                color=(color, active ? 0.12 : 0.025),
+                strokecolor=(color, active ? 0.58 : 0.16),
+                strokewidth=1.0,
+            )
+        end
+        Makie.scatter!(
+            ax,
+            [Float64(object.position[1])],
+            [Float64(object.position[2])];
+            marker=_object_marker(style_index),
+            markersize=active ? 14 : 10,
+            color=(color, alpha),
+            strokecolor=(_PAPER, active ? 0.9 : 0.2),
+            strokewidth=1.0,
+        )
+    end
+    return ax
+end
+
+function _alive_sample(sim, frame::Integer, ids=nothing)
+    samples = _channel(sim, :body_alive)
+    isempty(samples) && return nothing
+    sample = samples[clamp(Int(frame), 1, length(samples))]
+    if sample isa BL.EntityFrame
+        ids_ = ids === nothing ? sample.ids : ids
+        return Bool.(BL.align_entities(sample, ids_).values)
+    end
+    values = Bool.(sample)
+    ids === nothing || length(values) == length(ids) || throw(DimensionMismatch(
+        "alive-state sample has $(length(values)) entries; expected $(length(ids))",
+    ))
+    return values
 end
 
 function _draw_bounds!(ax, sim)
@@ -382,18 +537,35 @@ function _draw_agent_boids!(ax, poses; markersize=16, colors=nothing)
     return ax
 end
 
-function _latest_pose_rows(sim)
+function _latest_pose_data(sim)
     samples = _channel(sim, :poses)
-    isempty(samples) && return NTuple{3,Float64}[]
-    return _pose_rows(samples[end])
+    isempty(samples) && return (ids=BL.EntityID[], rows=NTuple{3,Float64}[])
+    sample = samples[end]
+    if sample isa BL.EntityFrame
+        ids = something(_config_agent_ids(sim), copy(sample.ids))
+        aligned = BL.align_entities(sample, ids)
+        return (ids=ids, rows=_pose_rows(aligned.values))
+    end
+    rows = _pose_rows(sample)
+    ids = something(_config_agent_ids(sim), BL.EntityID.(1:length(rows)))
+    length(ids) == length(rows) || throw(DimensionMismatch(
+        "simulation config contains $(length(ids)) entity IDs but poses contain $(length(rows)) agents",
+    ))
+    return (ids=ids, rows=rows)
 end
+
+_latest_pose_rows(sim) = _latest_pose_data(sim).rows
 
 function _draw_swarm!(ax, sim)
     _draw_bounds!(ax, sim)
     _draw_source!(ax, sim)
-    poses = _latest_pose_rows(sim)
-    # agents are teal boids: the glyph points along its heading (no separate tail)
-    _draw_agent_boids!(ax, poses)
+    _draw_objects!(ax, sim)
+    pose_data = _latest_pose_data(sim)
+    _draw_agent_boids!(
+        ax,
+        pose_data.rows;
+        colors=_agent_group_colors(sim, pose_data.ids),
+    )
 
     pol = _channel(sim, :polarization)
     mill = _channel(sim, :milling)
@@ -403,20 +575,88 @@ function _draw_swarm!(ax, sim)
     return ax
 end
 
-function _network_info(sim)
-    sim isa BL.SimResult || return nothing
-    hasproperty(sim.config, :network) || return nothing
-    return sim.config.network
+function _network_entries(sim)
+    sim isa BL.SimResult || throw(ArgumentError("network visualization requires a SimResult"))
+    config = sim.config
+    if hasproperty(config, :agents) && !isempty(config.agents)
+        entries = [
+            (
+                id=agent.id isa BL.EntityID ? agent.id : BL.EntityID(agent.id),
+                network=hasproperty(agent, :network) ? agent.network : nothing,
+                ordinal=index,
+            )
+            for (index, agent) in enumerate(config.agents)
+        ]
+        allunique([entry.id for entry in entries]) || throw(ArgumentError(
+            "sim.config.agents contains duplicate entity IDs",
+        ))
+        return entries
+    end
+    if hasproperty(config, :networks) && !isempty(config.networks)
+        ids = something(_config_agent_ids(sim), BL.EntityID.(1:length(config.networks)))
+        length(ids) == length(config.networks) || throw(DimensionMismatch(
+            "sim.config contains $(length(ids)) entity IDs for $(length(config.networks)) networks",
+        ))
+        return [
+            (id=id, network=network, ordinal=index)
+            for (index, (id, network)) in enumerate(zip(ids, config.networks))
+        ]
+    end
+    # Read-only support for recordings written before plural agent/network
+    # configuration became canonical.
+    if hasproperty(config, :network)
+        ids = _config_agent_ids(sim)
+        id = ids === nothing || isempty(ids) ? BL.EntityID(1) : only(ids)
+        return [(id=id, network=config.network, ordinal=1)]
+    end
+    return NamedTuple[]
 end
 
-function _network_state(sim, n::Integer)
+function _network_info(sim, entity=nothing)
+    entries = _network_entries(sim)
+    isempty(entries) && throw(ArgumentError("network visualization is unavailable: the simulation contains no network snapshots"))
+    selected = if entity === nothing
+        available = filter(entry -> entry.network !== nothing, entries)
+        isempty(available) && throw(ArgumentError(
+            "network visualization is unavailable: no reservoir exposes a network snapshot",
+        ))
+        length(available) == 1 || throw(ArgumentError(
+            "network visualization is ambiguous for $(length(available)) network-bearing entities; pass entity=<EntityID>",
+        ))
+        only(available)
+    else
+        id = entity isa BL.EntityID ? entity : entity isa Integer ? BL.EntityID(entity) :
+            throw(ArgumentError("network entity must be an EntityID or positive integer ID"))
+        index = findfirst(entry -> entry.id == id, entries)
+        index === nothing && throw(ArgumentError(
+            "network visualization cannot find $(id); available IDs are $([entry.id for entry in entries])",
+        ))
+        entries[index]
+    end
+    selected.network === nothing && throw(ArgumentError(
+        "network visualization is unavailable for $(selected.id): its reservoir exposes no network snapshot",
+    ))
+    return selected
+end
+
+function _network_state(sim, n::Integer, selected)
     spikes = _channel(sim, :spikes)
     if !isempty(spikes)
-        state = _flat_sample(spikes[end])
+        sample = spikes[end]
+        payload = if sample isa BL.EntityFrame
+            BL.entity_value(sample, selected.id)
+        elseif length(_network_entries(sim)) == 1
+            sample
+        elseif sample isa AbstractVector && length(sample) >= selected.ordinal
+            sample[selected.ordinal]
+        else
+            nothing
+        end
+        state = payload === nothing ? Float64[] : _flat_sample(payload)
         length(state) >= n && return state[1:n]
     end
 
-    net = _network_info(sim)
+    net = selected.network
     if net !== nothing && hasproperty(net, :state)
         state = Float64.(vec(net.state))
         length(state) >= n && return state[1:n]
@@ -425,11 +665,13 @@ function _network_state(sim, n::Integer)
     return zeros(Float64, n)
 end
 
-function _draw_network!(ax, sim)
-    net = _network_info(sim)
-    adjacency = net === nothing || !hasproperty(net, :adjacency) ?
-        zeros(Float64, 0, 0) :
-        Matrix{Float64}(net.adjacency)
+function _draw_network!(ax, sim; entity=nothing)
+    selected = _network_info(sim, entity)
+    net = selected.network
+    hasproperty(net, :adjacency) || throw(ArgumentError(
+        "network snapshot for $(selected.id) does not contain adjacency data",
+    ))
+    adjacency = Matrix{Float64}(net.adjacency)
     n = size(adjacency, 1)
     if n == 0
         ax.title = "Network"
@@ -448,12 +690,12 @@ function _draw_network!(ax, sim)
     end
     isempty(segments) || Makie.linesegments!(ax, segments; color=(_INKSOFT, 0.28), linewidth=0.5)
 
-    Makie.scatter!(ax, xs, ys; color=_network_state(sim, n), colormap=_BRAND_RAMP,
+    Makie.scatter!(ax, xs, ys; color=_network_state(sim, n, selected), colormap=_BRAND_RAMP,
                    markersize=8, strokecolor=_PAPER, strokewidth=0.35)
     Makie.hidedecorations!(ax)
     Makie.hidespines!(ax)
     ax.aspect = Makie.DataAspect()
-    ax.title = "Reservoir network"
+    ax.title = "Reservoir network — $(selected.id)"
     return ax
 end
 
@@ -560,9 +802,9 @@ function BL.swarmplot(sim::Union{BL.SimResult,BL.Recorder}; kwargs...)
     return fig
 end
 
-function BL.networkplot(sim::BL.SimResult; kwargs...)
+function BL.networkplot(sim::BL.SimResult; entity=nothing, kwargs...)
     fig, ax = _figure_axis(; kwargs...)
-    _draw_network!(ax, sim)
+    _draw_network!(ax, sim; entity=entity)
     return fig
 end
 
@@ -578,7 +820,7 @@ function BL.fitnessplot(curve; kwargs...)
     return fig
 end
 
-function _draw_panel!(ax, sim, panel::Symbol)
+function _draw_panel!(ax, sim, panel::Symbol; entity=nothing)
     if panel == :raster
         return _draw_raster!(ax, sim)
     elseif panel == :rate
@@ -588,7 +830,7 @@ function _draw_panel!(ax, sim, panel::Symbol)
     elseif panel == :swarm
         return _draw_swarm!(ax, sim)
     elseif panel == :network
-        return _draw_network!(ax, sim)
+        return _draw_network!(ax, sim; entity=entity)
     elseif panel == :drift
         return _draw_drift!(ax, sim)
     end
@@ -602,14 +844,19 @@ function _draw_panel!(ax, sim, panel::Symbol)
     throw(ArgumentError("registered view :$(panel) cannot draw as a visualize panel; define a method accepting (axis, sim)"))
 end
 
-function BL.visualize(sim::BL.SimResult; panels=[:raster, :rate, :trajectory], size=nothing)
+function BL.visualize(
+    sim::BL.SimResult;
+    panels=[:raster, :rate, :trajectory],
+    size=nothing,
+    entity=nothing,
+)
     panel_syms = Symbol.(collect(panels))
     fig_size = size === nothing ? (900, max(260, 260 * length(panel_syms))) : size
     fig = _bl_figure(fig_size)
     for (row, panel) in enumerate(panel_syms)
         ax = Makie.Axis(fig[row, 1])
         _style_axis!(ax)
-        _draw_panel!(ax, sim, panel)
+        _draw_panel!(ax, sim, panel; entity=entity)
     end
     return fig
 end
@@ -707,7 +954,9 @@ function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
                     branching::Bool=false, metric::Symbol=:rate)
     scenes = _channel(sim, :scene)
     isempty(scenes) || return _animate_scenes(sim, scenes, path, framerate, maxframes; branching=branching)
-    tracks = _pose_tracks(sim)
+    track_data = _pose_track_data(sim)
+    track_ids = track_data.ids
+    tracks = track_data.tracks
     rate = _rate_trace(sim)
     nt = isempty(tracks) ? length(rate) : maximum(length, tracks)
     nt == 0 && throw(ArgumentError("animate: nothing recorded (need :poses or :rate)"))
@@ -722,7 +971,7 @@ function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
     bylabel = use_dist ? "dist" : "rate"
     nb = length(bottom)
     bmax = nb == 0 ? 1.0 : max(1e-6, maximum((x for x in bottom if isfinite(x)); init=1e-6)) * 1.05
-    agent_colors = _agent_group_colors(sim)
+    agent_colors = _agent_group_colors(sim, track_ids)
 
     sigma = branching ? _branching_trace(sim) : Float64[]
     show_b = branching && !isempty(sigma)
@@ -742,8 +991,11 @@ function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
             Makie.empty!(axw)
             bounds === nothing || _draw_bounds!(axw, sim)
             _draw_source!(axw, sim)
+            _draw_objects!(axw, sim, f)
             frame_poses = NTuple{3,Float64}[]
+            dead_poses = NTuple{3,Float64}[]
             frame_colors = agent_colors === nothing ? nothing : similar(agent_colors, 0)
+            alive_state = _alive_sample(sim, f, track_ids)
             for (ai, tr) in enumerate(tracks)
                 isempty(tr) && continue
                 ff = min(f, length(tr))
@@ -753,10 +1005,25 @@ function BL.animate(sim::BL.SimResult; path::AbstractString="activity.gif",
                 bx, by = _wrap_break(tx, ty, bounds)
                 has_col = agent_colors !== nothing && ai <= length(agent_colors)
                 Makie.lines!(axw, bx, by; color=(has_col ? agent_colors[ai] : _TEAL, 0.4), linewidth=2)
-                push!(frame_poses, tr[ff])
-                has_col && push!(frame_colors, agent_colors[ai])
+                is_alive = alive_state === nothing || ai > length(alive_state) || alive_state[ai]
+                if is_alive
+                    push!(frame_poses, tr[ff])
+                    has_col && push!(frame_colors, agent_colors[ai])
+                else
+                    push!(dead_poses, tr[ff])
+                end
             end
             _draw_agent_boids!(axw, frame_poses; colors=frame_colors)
+            if !isempty(dead_poses)
+                Makie.scatter!(
+                    axw,
+                    [pose[1] for pose in dead_poses],
+                    [pose[2] for pose in dead_poses];
+                    marker=:xcross,
+                    markersize=14,
+                    color=(_INKSOFT, 0.75),
+                )
+            end
             ttl = "tick $f / $nt"
             if !isempty(pol)
                 pf = Float64(pol[min(f, length(pol))]); mf = Float64(mill[min(f, length(mill))])

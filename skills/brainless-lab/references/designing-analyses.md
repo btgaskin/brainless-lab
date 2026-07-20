@@ -48,16 +48,19 @@ correlation length, and the contact-graph clusters all carry that flag today.
 
 **Criticality (node scale).** For population activity $A(t)$, the branching ratio $m$ is
 how much activity one tick begets the next. The naive slope
-$\hat m = \sum A_t A_{t+1}/\sum A_t^2$ is **biased under subsampling** (a scalar summary of
-the population *is* subsampling), so prefer the Wilting–Priesemann multistep-regression
-estimator `branching_ratio_mr`: fit $r_k = b\,m^{k}$ across lags and read $m$ off the
-exponential decay. `branching_ratio` keeps the legacy through-origin `sigma` for
-back-compat visualizations only. Avalanche size/duration exponents ($\tau$, $\alpha$) with
-the crackling-noise check $\gamma_{\text{pred}} = (\alpha-1)/(\tau-1)$ come from
-`avalanches`; the spectral radius $\rho(W) = \max_i|\lambda_i(W)|$ from `spectral_radius`
-is the linear-stability read that complements the branching read. (Caveat: the Falandays
-homeostat pins the population rate, so $m\approx1$ can be *rate-pinned* rather than
-emergent — always read it beside $\rho(W)$.)
+$\hat m = \sum A_t A_{t+1}/\sum A_t^2$ can be **biased when only a subset or noisy
+projection of the underlying process is observed**, so prefer the Wilting–Priesemann
+multistep-regression estimator `branching_ratio_mr` when its model assumptions are
+appropriate: fit $r_k = b\,m^{k}$ across lags and read $m$ off the exponential decay.
+Reducing a fully observed population to one scalar total is not, by itself, proof that the
+subsampling assumptions hold. `branching_ratio` keeps the legacy through-origin `sigma`
+for back-compat visualizations only. Avalanche size/duration exponents ($\tau$, $\alpha$)
+with the crackling-noise check $\gamma_{\text{pred}} = (\alpha-1)/(\tau-1)$ come from
+`avalanches`; require enough events, competing-distribution checks, threshold/bin
+sensitivity, and finite-size evidence before a criticality claim. The spectral radius
+$\rho(W) = \max_i|\lambda_i(W)|$ from `spectral_radius` is a linear recurrent-matrix
+proxy, not a general stability criterion for a nonlinear plastic spiking system. (The
+Falandays homeostat can rate-pin $m\approx1$; read all three as diagnostics, not verdicts.)
 
 **Collective (agent scale).** Polarization and milling (from `Metrics.jl`), the
 `swarm_regime` classifier, `correlation_length` (velocity-*fluctuation* correlation, Cavagna
@@ -81,7 +84,8 @@ rate) are preserved while the *cross-agent alignment* is destroyed.
 using Random
 res = crossshift_null(sim, s -> susceptibility(s; level=:agent);
                       n_shifts=200, rng=MersenneTwister(11))
-# (; real, null_mean, null_std, ratio)  — ratio ≈ 1 ⇒ indistinguishable from null
+# Includes real, null_values, null_mean/std, ratio, pvalue,
+# n_valid, n_requested, and alternative.
 ```
 
 The `measure_fn` must return a `Number` or a NamedTuple with a known scalar field
@@ -103,20 +107,23 @@ Two further rigor points baked into the code:
   branching-windowed path even lets you `residualize` against a `drive` series
   (e.g. `:distance_to_source`) so a slow common trend does not masquerade as $m$.
 - **Subsampling bias.** The reason `branching_ratio_mr` exists at all: the single-lag
-  slope is systematically biased when you observe a scalar population summary rather than
-  every unit. The multi-lag exponential fit is invariant to that subsampling.
+  slope can be biased under partial/noisy observation. A scalar population summary is not
+  automatically a valid subsampling model; inspect the observation process and fit
+  diagnostics. The multi-lag estimator is more robust under its assumptions, not
+  universally invariant.
 
 ## Designing a NEW measure — the checklist
 
 1. **Define it over recorded channels**, not over live simulation state. If the channel
    you need is not captured, the measure cannot run — decide what to record (below).
 2. **Pick the scale.** Node-scale (`level=:node`, within each reservoir) or agent-scale
-   (`level=:agent`, the ensemble)? Follow the existing `_analysis_level` convention and
-   accept `level` as a keyword. Do not conflate the two: `:pooled` mixes distinct
-   reservoirs and is a population summary, not "the reservoir's" dynamics.
+   (`level=:agent`, the ensemble)? Validate supported symbols in your own public function.
+   Do not call underscore-prefixed package helpers: they are implementation details. Do not
+   conflate scales; pooling distinct reservoirs is a population summary, not "the
+   reservoir's" dynamics.
 3. **Provide a windowed variant** if the underlying dynamics are non-stationary. Reuse
-   `_branching_window_starts` / `_window_centers` so window/stride semantics match the rest
-   of the suite.
+   ordinary Julia ranges and return the window bounds or centers explicitly so semantics
+   are inspectable.
 4. **Write a null test.** Circular-shift (`crossshift_null`) for any cross-agent claim; a
    phase-randomization or event-shuffle null for a within-series claim. Report the effect
    size *against the null distribution*, not the bare value.
@@ -125,9 +132,25 @@ Two further rigor points baked into the code:
 6. **Make sure the channel is recorded** — see below.
 
 ```julia
+using Statistics
+
 function coactivation(sim::SimResult; level::Symbol=:agent)
-    level = _analysis_level(level, :coactivation)
-    rates = _analysis_rate_matrix(sim, :coactivation)   # ticks × agents
+    level === :agent ||
+        throw(ArgumentError("coactivation currently supports level=:agent"))
+    samples = getchannel(sim.recorder, :rate)
+    isempty(samples) &&
+        throw(ArgumentError("record :rate when running the simulation"))
+
+    n_agents = length(first(samples))
+    n_agents >= 2 ||
+        throw(ArgumentError("coactivation needs at least two agents"))
+    rates = Matrix{Float64}(undef, length(samples), n_agents)
+    for (tick, sample) in enumerate(samples)
+        length(sample) == n_agents ||
+            throw(DimensionMismatch("rate width changed at tick $tick"))
+        rates[tick, :] .= Float64.(collect(sample))
+    end
+
     C = cor(rates)
     return (; level, coactivation = mean(C[i,j] for i in axes(C,1) for j in axes(C,2) if i<j))
 end
@@ -149,10 +172,14 @@ Node measures need `:spikes` (or fall back to `:rate` × node count); agent meas
 `:poses` (and `:polarization`/`:milling` if you want to skip recomputation); the spectral
 radius needs its own `:spectral_radius` channel. That channel is expensive (an eigenvalue
 solve per sample), so **stride it** with `spectral_every=K` rather than recording every
-tick. Note `crossshift_null` knows how to shift the per-agent channels
-(`:poses`, `:rate`, `:spikes`, …) and drops the whole-ensemble scalars (`:polarization`,
-`:milling`, recomputed from shifted `:poses`); an unknown channel is left unshifted **with
-a warning**, because a surrogate that looks nulled but isn't is worse than none.
+tick. `crossshift_null` shifts every `EntityFrame` by stable `EntityID`, including
+receptors, component state, and contact indicators, while preserving the frame's IDs.
+Derived and event channels such as `:polarization`, `:milling`, `:interactions`, and
+`:deaths` are removed so the measure must recompute them from shifted entity data; static
+object snapshots pass through unchanged. Unknown non-entity channels are errors by default
+because an apparently nulled but still aligned channel is unsafe. Use `strict=false` only
+to inspect a legacy result, and treat its warning as a request to classify that channel
+explicitly before drawing a result.
 
 The sweep tool exposes measures by short name in `[analytics] measures`
 (`sigma_mr`, `susceptibility_node`, `correlation_length`, `contact_clusters`,

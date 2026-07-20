@@ -1,74 +1,57 @@
 ---
 title: Experiments
-description: Published studies run with the library — each traceable to a run-dir (config, seeds, git SHA). What a designed self-organizing reservoir can and cannot do, and the signatures that mark it.
+description: Evidence-labelled studies and working notes built with BrainlessLab, with explicit status, inferential unit, artifacts, and limitations.
 ---
 
-Studies run with BrainlessLab, in the spirit of the library as a **null-model instrument**:
-a deliberately simple, *designed* self-organizing reservoir, used to ask what such a homeostatic
-reservoir can and cannot self-organize into — and to read the dynamical signatures that separate
-the two.
+This section contains studies and working notes built with BrainlessLab. It is not a list of
+equally established “published results.” Every page declares an evidence record in its
+front matter:
 
-Each study composes the public API through the `experiments/` tool — a fifth CLI entry point
-alongside `bench`/`profile`/`sweep`/`calibration` — and links its **run-dir**
-(`results.json` + `manifest.txt`: the config, seeds, git SHA, and package versions), so every
-figure is traceable to the exact code that produced it.
+- `status`: exploratory, tuned, frozen, confirmed, promoted, or retired;
+- `id` and protocol version;
+- randomization unit and number of independent blocks;
+- primary endpoint;
+- artifact path;
+- the limitation that most constrains interpretation.
+
+The labels follow the [Research workflow](/research-workflow/). A traceable run is not
+automatically confirmatory: code and seeds may be recoverable even when the same data were
+used to tune parameters and interpret the result.
 
 ```bash
-julia --project=. experiments/run.jl --list                 # discover
-julia -t auto --project=. experiments/run.jl <name>         # run
+julia --project=. experiments/run.jl --list
+julia -t auto --project=. experiments/run.jl <name>
 ```
 
-:::note[The honest posture]
-These experiments use the library as an instrument. The authors-faithful Falandays models
-demonstrate plausibility. They were not tuned as controllers. The studies examine where
-self-organization succeeds, what fails at the boundaries, and which dynamics explain the result.
+## Current evidence register
+
+| Study | Status | Independent unit | Artifact | Main limitation |
+| --- | --- | --- | --- | --- |
+| [Tracking parameter sweep](/experiments/tracking-param-sweep/) | **exploratory** | seeded reservoir/task run; 100 per cell | two committed development bundles | selection and signature interpretation used the same grids |
+| [Freeze-plasticity onset](/experiments/freeze-onset/) | **exploratory** | seeded reservoir/task run | no promoted bundle | sample count, uncertainty, and frozen protocol are not documented in an immutable artifact |
+| [Social foraging](/experiments/social-foraging/) | **exploratory** | seeded multi-agent world; 3–8 per tuned cell | ad-hoc outputs only | morphology/environment were tuned on the reported seeds; no sham-information control |
+| [Criticality across tested perturbations](/experiments/criticality-control/) | **exploratory** | seeded reservoir or world; 3–10 per probe | exploratory scripts/tables | small ad-hoc probes and no fixed-weight confirmatory comparison |
+
+There are currently no pages labelled `frozen`, `confirmed`, or `promoted`. That is a useful
+state, not a failure: the existing material generates hypotheses and tests the platform,
+while the new evidence contract prevents exploratory work from silently becoming
+confirmation. `frozen` means the protocol is fixed and the sealed outcomes remain unopened;
+`confirmed` means that protocol has been executed on the sealed blocks.
+
+## What belongs here
+
+An analysis over one recorded run belongs in the analysis registry. A protocol that
+coordinates conditions across many runs belongs under `experiments/`. Keep protocols on the
+public API so core refactors do not become study-specific.
+
+Before a study can be promoted, its bundle must include the frozen protocol, resolved
+configuration, full code/environment provenance, disjoint seed ledger, per-block data,
+declared contrasts and inferential unit, analysis version, summary data, figure inputs,
+representative-selection rule, and checksums. See `experiments/README.md` for the repository
+checklist.
+
+:::note[Stable model does not mean confirmed study]
+The fixture-validated `:falandays_base` reservoir can be used inside an exploratory task,
+body, analysis, or protocol. Baseline implementation status and study evidence status are
+separate.
 :::
-
-## Studies
-
-### [Tracking parameter sweep](/experiments/tracking-param-sweep/)
-
-How do the object-tracking model's homeostatic parameters shape **viability** — the region of
-parameter space where a random-init reservoir *reliably* tracks — and what internal signature
-marks it? A one-at-a-time sweep over six parameters plus a `leak × lrate_wmat` factorial, 100
-random-init seeds each. The viable region is narrow, init-dependent, and shaped by a real
-`leak × lrate_wmat` interaction; the homeostatic **set-point error** is the most defensible
-signature — a failure detector — over the rate-pinned branching ratio and the boundedness-flag
-spectral radius.
-
-### [Freeze-plasticity onset](/experiments/freeze-onset/)
-
-Freeze the reservoir's plasticity at tick T — is the frozen reservoir a working controller, and
-*when* does it come online? A sharp homeostatic **saturation-crash onset** (around tick 7 for
-tracking), present only where the initial reservoir saturates; the branching ratio is rate-pinned
-throughout, so activity — not branching — is the signal.
-
-### [Social foraging](/experiments/social-foraging/)
-
-Put a swarm of allostatic Falandays nodes on a torus with a source they can only find by chance —
-does seeing conspecifics help? A robust **chance-discovery transmission effect** (social − blind
-forage score, ΔΔ ≈ +0.09) that works by cohesion-mediated **accumulation**, not sharp recruitment,
-and lives in an intersection of a hard source, *moderate* cohesion, and Goldilocks density and speed.
-Priced as search efficiency it gives a collective increment **ΔK ≈ +0.41**; and because the benefit
-still climbs *above* the interaction graph's percolation threshold, it frames an open hypothesis —
-collective function **displaced from criticality**. Exploratory sweeps, not yet promoted to a run-dir.
-
-### [Criticality is not the control variable](/experiments/criticality-control/)
-
-This study asks whether the Falandays homeostat tunes the reservoir to criticality and whether
-criticality makes the reservoir work. It examines the Oosawa node on tracking and foraging, the
-drive/floor mechanism, and a 48-agent forage swarm.
-
-Across these tests, the branching ratio m ≈ 1 is a homeostatically defended byproduct of rate
-homeostasis. It is not the controlled variable and cannot be tuned independently. At the node
-scale, m has the same value during healthy activity, saturation, and silence. Across the swarm's
-functional range, m stays at ≈ 0.98–0.99. Pushing it below 0.9 requires silencing the reservoir,
-which stops foraging.
-
-Criticality and function are therefore confounded. "The reservoir is working" and "m ≈ 1"
-describe the same condition. Tuning this node cannot answer the causal question. The earlier
-phrase "decoupled from performance" is retired because a pinned m cannot demonstrate decoupling.
-
-A clean test requires a fixed-weight, evolved reservoir. In that design, m is set by ρ(W), and no
-homeostat defends it. This work currently exists as exploratory scripts and has not been promoted
-to a run-dir.

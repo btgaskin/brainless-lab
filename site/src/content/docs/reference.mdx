@@ -1,96 +1,201 @@
 ---
 title: Reference
-description: Presets, tasks, ablations, and the sweep config schema.
+description: "Live discovery calls, embodiment presets and component catalog, tasks, ablations, and sweep configuration."
 ---
 
-Quick tables. `variants()` and `tasks()` are the live source of truth.
+Use discovery functions as the live source of truth:
+
+```julia
+variants()
+tasks()
+analyses()
+ablations()
+components()
+readiness()
+```
+
+## Embodiment configuration
+
+```julia
+config = read_embodiment_config(path)
+embodiment_config_namedtuple(config)
+canonical_embodiment_toml(config)
+write_embodiment_config(output_path, config)
+
+blueprint = materialize_blueprint(config)
+body = materialize_embodiment(config)
+```
+
+Schema version: `EMBODIMENT_SCHEMA_VERSION == 1`.
+
+Top level:
+
+```toml
+schema_version = 1
+name = "my_embodiment"
+# extends = "base.toml"      # optional one-level base
+
+[[components]]
+id = "stable_id"
+family = "sensor"
+kind = "field_probe"
+[components.parameters]
+# kind-specific validated parameters
+
+[overrides]
+# "stable_id.parameter.path" = value
+```
+
+Generic families are `geometry`, `sensor`, `encoder`, `actuator`, `dynamics`, and
+`physiology`. IDs are globally unique and may not contain `.` because dot paths address
+parameters. Unknown keys and parameters are errors.
+
+Checked-in presets:
+
+| file | composition |
+|---|---|
+| `examples/embodiments/bilateral_insect.toml` | two field probes → contrast encoder; forward/turn + unicycle; energy and temperature physiology |
+| `examples/embodiments/differential_robot.toml` | three-channel spectral camera; differential actuator + dynamics |
+| `examples/embodiments/planar_uav.toml` | spectral camera + paired radio probes; planar force/yaw + rigid-body dynamics |
+
+Executable physical example:
+`examples/embodiments/object_world_quickstart.jl` →
+`run_object_world_quickstart(; ticks=25, seed=7)`. It returns the live `Ensemble`,
+`Recorder`, and object snapshot.
+
+Executable task example:
+`examples/embodiments/object_world_task.jl` →
+`run_object_world_task(; ticks=25, seed=11)`. It wraps a generic setup callable in
+`TaskSpec` and returns a standardized `SimResult`.
+
+## Built-in configured components
+
+Query accepted parameter names rather than copying constructor fields:
+
+```julia
+component_info(:sensor, :spectral_camera).parameters
+components(family=:actuator)
+components(readiness=:integrated)
+readiness_markdown()
+```
+
+The catalog reports required/optional names only; it is not a typed schema of defaults or
+constraints.
+
+The built-in configured kinds are:
+
+- `:geometry/:disc`
+- `:sensor/:spectral_camera`, `:sensor/:field_probe`
+- `:encoder/:bilateral_contrast`
+- `:actuator/:forward_turn`, `:actuator/:differential_drive`,
+  `:actuator/:planar_force_yaw`
+- `:dynamics/:unicycle`, `:dynamics/:differential_drive`,
+  `:dynamics/:planar_rigid_body`
+- `:physiology/:regulated`
+
+Readiness levels are ordered `:available`, `:integrated`, `:core`; the filter is a minimum.
+Available means discoverable/materializable; integrated adds standard runtime, exact
+serialization, docs, and an executable example; core is a stable/default contract with named
+core-test coverage. The built-in physical catalog currently claims `:integrated` through
+the tested `ObjectWorld` path. Every descriptor still has `status=:experimental`.
+
+## Generic world surface
+
+`ObjectWorld` composes `Torus`/`WalledArena`, `MotionState2D`s, `ObjectPopulation`s, named
+analytic fields, and an optional spectral illuminant. Its public inspection/identity surface
+is:
+
+```julia
+bind_entity_ids!(world, ids)
+interaction_events(world)
+object_snapshot(world)
+```
+
+Objects use `ObjectType` with optional `appearance`, capacity, effects, and respawn policy.
+`AbstractObjectAppearance` is the extension boundary. Built-ins are `NoAppearance` and
+`SpectralAppearance`; `rgb_appearance` provides a convenient spectral approximation. The current world is fixed-population with static
+circular objects and one physical actuator/dynamics command per body.
+Each `object_snapshot` row includes both stable object identity and `type_index`; repeated
+instances of one `ObjectType` therefore keep one rendering category.
+
+Object banks and analytic fields are independent: assigning an object `bank` does not emit a
+field. `MountedFieldProbe`s sample only fields explicitly present in `world.fields`. With no
+explicit illuminant, spectral cameras receive a unit illuminant on their own wavelength grid.
 
 ## Node presets
 
 | symbol | family | status |
 |---|---|---|
-| `:falandays_base` (`:falandays`) | Falandays | stable baseline (authors-faithful) |
-| `:falandays_extended` | Falandays | base + noise + Watts–Strogatz + Dale |
-| `:falandays_noisy` / `_ablated` / `_hemispheric` / `_oosawa` / `_dendritic` / `_spatial` / `_delayed` | Falandays | experimental variants |
-| `:compartmental_dense` / `_structured` | CTRNN | evolved (required) |
+| `:falandays_base` (`:falandays`) | Falandays | stable authors-faithful reservoir baseline |
+| `:falandays_extended` | Falandays | experimental combined variant |
+| `:falandays_noisy`, `_ablated`, `_hemispheric`, `_oosawa`, `_dendritic`, `_spatial`, `_delayed` | Falandays | experimental variants |
+| `:compartmental_dense`, `:compartmental_structured` | CTRNN | evolution required |
 | `:sorn` | SORN | experimental |
-| `:null_random` | control | random-output null baseline (sanity floor) |
+| `:null_random` | control | random-output null |
 
-## Tasks
+## Registered tasks
 
-`:wall`, `:tracking`, `:pong`, `:pong_hitrate`, `:cartpole` (+ `_hard` / `_swingup` /
-`_long`), `:torus`, `:forage`.
+`:wall`, `:tracking`, `:pong`, `:pong_hitrate`, `:cartpole` (+ `_hard`, `_swingup`,
+`_long`), `:torus`, and `:forage`.
+
+The generic physical `ObjectWorld` is a composition surface, not an additional default task
+symbol. Wrap a setup in a local or registered `TaskSpec` when standardized rollout and result
+semantics are needed.
+
+`RngNoise(seed)` passed through the high-level multi-agent builder is materialized as an
+independently owned stream per agent with seeds `seed`, `seed + 1`, and so on. Use
+`AgentNoiseFactory(index -> source)` when a custom noise source needs an explicit construction
+rule; custom source types may instead extend `agent_noise_source`.
+
+## Development
+
+```julia
+block = DevelopmentBlock(
+    :sensor_genes,
+    :camera,
+    "range" => (2.0, 12.0),
+)
+spec = DevelopmentSpec(config, block)
+genotype = DevelopmentGenotype(spec)
+context = DevelopmentContext(seed=0, entity_id=EntityID(1), generation=0)
+body = materialize_embodiment(develop(genotype, context))
+```
+
+Discovery/helpers: `paramdim`, `paramspace`, `pack_params`, `unpack_params`,
+`development_seed`, `validate_development_structure`, and `composite_genome`.
+
+`materialize_blueprint` remains an inspection surface and can resolve registered component
+families that the standard runtime does not compose. `materialize_embodiment`,
+`DevelopmentSpec`, and `develop` validate runnable structure early: sensors and actuators
+are required, geometry/dynamics/physiology are singular, and physical development requires
+exactly one geometry, actuator, and dynamics component.
+
+## Network inspection
+
+`network_snapshot(reservoir)` is an optional read-only visualization hook. A `SimResult`
+stores per-agent entries in `config.agents` and plural compatibility projections in
+`config.networks`; singular `config.network` is read only for legacy replay. On a
+multi-network result, use `networkplot(sim; entity=EntityID(...))`.
 
 ## Ablations
 
-`:freeze_plasticity`, `:zero_recurrent`, `:clamp_target`, `:disable_vision` (cross-family
-perturbations), plus the compartmental `:reset_dendrites`, `:no_soma_back`,
-`:no_hillock_back`.
+`:freeze_plasticity`, `:zero_recurrent`, `:clamp_target`, `:disable_vision`, plus
+compartmental `:reset_dendrites`, `:no_soma_back`, and `:no_hillock_back`.
 
 ## Sweep config schema
 
 ```toml
-[sweep]     # id, mode = one_at_a_time | factorial, seeds = [...], max_cells
-[baseline]  # node, task, N, ticks — the canonical setup (see below)
-[axes]      # "node.<p>" / "env.<p>" / "drive.<p>" / "task.<p>" / "ablation" / "seed" -> [values]
-[analytics] # measures = [...] — see the full set below
+[sweep]     # id, mode = one_at_a_time | factorial, seeds, max_cells
+[baseline]  # node, task, N, ticks and fixed dotted options
+[axes]      # "node.x" / "env.x" / "drive.x" / "task.x" / "ablation" / "seed"
+[analytics] # measures = [...]
 ```
 
-See [Tooling](/tooling/) for the walkthrough and `sweep --list-axes <node> <task>` to
-discover what's tunable.
+Run `sweep --list-axes <node> <task>` for resolved axes. Common baseline keys are `node`,
+`task`, `N`/`n_nodes`, `ticks`, `window`, `n_agents`, `seed_base`/`seed`, `body`, `drive`,
+and `ablation`. Dotted environment and node options pass through to the run builder.
 
-### `[baseline]` keys — the canonical setup
-
-The `[baseline]` table fixes the setup that every axis then perturbs. It accepts a small
-set of canonical scalar keys plus any dotted axis key; the dotted keys and the `env.*` /
-`node.*` / `drive.*` knobs pass straight through to the corresponding `simulate(...)`
-kwargs (so anything a run accepts, a baseline can pin).
-
-Canonical scalar keys:
-
-| key | meaning |
-|---|---|
-| `node` | node preset symbol (default `falandays_base`) |
-| `task` | task symbol (default `wall`) |
-| `N` (alias `n_nodes`) | reservoir size |
-| `ticks` | rollout length |
-| `window` | metric / liveness window (defaults to `ticks`, or the task default for swarm tasks) |
-| `n_agents` | swarm population size (swarm/forage tasks) |
-| `seed_base` (alias `seed`) | base seed |
-| `body` / `drive` | body and drive preset symbols |
-| `ablation` | ablation symbol applied to the baseline |
-
-Common dotted pass-through knobs (forage / swarm):
-
-| key | meaning |
-|---|---|
-| `"env.vision_range"` | max conspecific/source vision distance |
-| `"env.source_gain"` | forage source bank gain |
-| `"env.conspecific_vision"` | whether agents see each other (`true` / `false`) |
-| `"env.capture_radius"` | forage capture radius |
-| `"env.sensory_noise"` | sensory noise level |
-
-### `[analytics] measures` — the full set
-
-`measures` selects which analytics are computed per cell (default
-`["sigma_mr", "spectral_radius", "liveness"]`). Valid names:
-
-| measure | what it records |
-|---|---|
-| `sigma_mr` | pooled branching ratio (MR) |
-| `sigma_mr_node` | per-agent reservoir branching |
-| `sigma_mr_agent` | agent-scale turn-event branching (per ensemble observable) |
-| `dist_to_source` | mean distance to forage source |
-| `forage_score` | foraging performance score |
-| `spectral_radius` | dominant recurrent-eigenvalue magnitude |
-| `susceptibility_node` | node-scale synchrony susceptibility |
-| `susceptibility_agent` | agent-scale polarization susceptibility |
-| `correlation_length` | velocity-fluctuation correlation length |
-| `contact_clusters` | contact-graph connected-component summaries |
-| `liveness` | run liveness (already in the base columns) |
-| `regime` | discrete swarm-regime label (+ polarization / milling / speed) |
-
-`contact_clusters` emits `cluster_n_components`, `cluster_largest_component_frac`, and
-`cluster_mean_component_size`; `regime` emits `regime_polarization`, `regime_milling`,
-and `regime_speed` alongside `regime`. The aliases `clusters`, `cluster_stats`, and
-`contact_graph_clusters` all canonicalize to `contact_clusters`.
+Common measures include `sigma_mr`, `sigma_mr_node`, `sigma_mr_agent`,
+`spectral_radius`, `susceptibility_node`, `susceptibility_agent`, `correlation_length`,
+`contact_clusters`, `dist_to_source`, `forage_score`, `liveness`, and `regime`. See
+[Tooling](/tooling/) for the workflow and [Analysis](/analysis/) for interpretation.

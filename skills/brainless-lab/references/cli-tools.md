@@ -25,7 +25,7 @@ the **root** project with `--project=.`.
 
 ```bash
 cd bench    && julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.instantiate()'
-cd profile  && julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.add(["CairoMakie","Statistics","Printf","TOML"]); Pkg.instantiate()'
+cd profile  && julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.instantiate()'
 # root, once, for sweep + calibration:
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
 ```
@@ -53,8 +53,9 @@ default to `trained`; a cell needing a trained genome that has none falls back t
 untrained and is flagged `trained-required-but-untrained`.
 
 Outputs under `bench/runs/<stamp>/`: `summary.csv` (per-neuron × task, used for ranking),
-`results_raw.csv` (raw per-trial scores), `stats.json` (Kruskal-Wallis omnibus,
-Mann-Whitney U + Cliff's delta pairwise with Holm/BH correction, bootstrap CIs and power),
+`results_raw.csv` (raw per-trial scores), `stats.json` (within-seed condition-label
+permutation omnibus, paired sign-flip contrasts with Holm/BH correction, and paired-block
+bootstrap CIs),
 `figures/*.png`, `cells/<neuron>__<task>/` (scores + best/representative/worst GIFs),
 `README.md`, `report.md`, `config.resolved.toml`, `manifest.toml`.
 

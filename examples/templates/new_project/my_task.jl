@@ -5,8 +5,8 @@ import BrainlessLab: sense, step!, reset!, metrics
 import BrainlessLab: n_receptors, n_effectors, default_ticks, default_window
 import BrainlessLab: register_task!
 
-mutable struct MyTrackingEnv <: TaskWorld
-    rng::Any
+mutable struct MyTrackingEnv{R<:AbstractRNG} <: TaskWorld
+    rng::R
     x::Float64
     velocity::Float64
     tick::Int
@@ -40,7 +40,7 @@ function MyTrackingEnv(;
 end
 
 MyTrackingEnv(seed::Integer; kwargs...) = MyTrackingEnv(; rng=MersenneTwister(seed), kwargs...)
-MyTrackingEnv(rng; kwargs...) = MyTrackingEnv(; rng=rng, kwargs...)
+MyTrackingEnv(rng::AbstractRNG; kwargs...) = MyTrackingEnv(; rng=rng, kwargs...)
 
 n_receptors(::Type{MyTrackingEnv}) = 2
 n_receptors(::MyTrackingEnv) = n_receptors(MyTrackingEnv)

@@ -110,7 +110,7 @@ function rollout(
     metrics=nothing,
     learn_on=nothing,
     return_ensemble::Bool=false,
-    body=:passthrough,
+    body=:direct,
     node_kwargs=NamedTuple(),
     env_kwargs=NamedTuple(),
     kwargs...,
@@ -141,7 +141,7 @@ function rollout(
         env_options[:lam] = Float64(lam)
     end
 
-    ensemble, _ = _make_task_ensemble(
+    ensemble, _ = _make_ensemble(
         task_spec,
         node_sym,
         node_ctor;
@@ -150,7 +150,7 @@ function rollout(
         every=every,
         n_nodes=n_nodes,
         node_kwargs=node_options,
-        env_kwargs=env_options,
+        task_kwargs=env_options,
         body=body,
     )
 

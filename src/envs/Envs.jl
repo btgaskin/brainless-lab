@@ -1,6 +1,6 @@
 using Random
 
-abstract type TaskWorld end
+abstract type TaskWorld <: Environment end
 
 function default_ticks end
 function default_window end

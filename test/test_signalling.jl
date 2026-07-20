@@ -15,21 +15,25 @@ function _signalling_forage_environment(positions; signal_range=2.0, signal_gain
     return ForageEnvironment(Torus(20.0), positions; config=config, rng=MersenneTwister(13))
 end
 
-_stateless_bodies(n) = [PassthroughBody() for _ in 1:n]
+_stateless_bodies(n) = [
+    situated_embodiment(SituatedSensorLayout(source_bank=true, signalling=true))
+    for _ in 1:n
+]
 
-@testset "Signalling morphology ports" begin
-    silent = default_morphology(PassthroughBody(VENMorphology(source_bank=true, signalling=false)))
+@testset "Signalling embodiment ports" begin
+    silent = situated_embodiment(SituatedSensorLayout(source_bank=true, signalling=false))
     @test n_effectors(silent) == 3
     @test n_receptors(silent) == 128
 
-    signalling = default_morphology(PassthroughBody(VENMorphology(source_bank=true, signalling=true)))
+    signalling = situated_embodiment(SituatedSensorLayout(source_bank=true, signalling=true))
     signalling_ports = ports(signalling)
     @test n_effectors(signalling) == 4
     @test n_receptors(signalling) == 128
-    @test signalling_ports.effectors[end].id == :signal
-    @test signalling_ports.receptors[VEN_ACOUSTIC_RECEPTOR_INDEX].id == :acoustic
+    @test signalling_ports.effectors[end].id == :situated_actuator__signal
+    @test signalling_ports.receptors[BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX].id ==
+          :situated_encoder__acoustic
 
-    plain = VENMorphology()
+    plain = situated_embodiment(SituatedSensorLayout())
     @test n_effectors(plain) == 3
 end
 
@@ -87,34 +91,35 @@ end
     bodies = _stateless_bodies(length(positions))
 
     env.last_signal .= [1.0, 0.0, 0.0, 0.0]
-    self_inputs = observe(env, bodies)
-    @test self_inputs[1][VEN_ACOUSTIC_RECEPTOR_INDEX] ≈ 0.0
+    self_inputs = sample!(env, bodies)
+    @test self_inputs[1][BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX] ≈ 0.0
 
     env.last_signal .= [0.0, 1.0, 0.0, 0.0]
-    near_inputs = observe(env, bodies)
+    near_inputs = sample!(env, bodies)
     near_expected = 1.25 * exp(-tdistance(env.torus, env.positions[1], env.positions[2]) / 2.0)
-    @test near_inputs[1][VEN_ACOUSTIC_RECEPTOR_INDEX] ≈ near_expected
+    @test near_inputs[1][BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX] ≈ near_expected
 
     env.last_signal .= [0.0, 0.0, 1.0, 0.0]
-    far_inputs = observe(env, bodies)
+    far_inputs = sample!(env, bodies)
     far_expected = 1.25 * exp(-tdistance(env.torus, env.positions[1], env.positions[3]) / 2.0)
-    @test far_inputs[1][VEN_ACOUSTIC_RECEPTOR_INDEX] ≈ far_expected
-    @test near_inputs[1][VEN_ACOUSTIC_RECEPTOR_INDEX] > far_inputs[1][VEN_ACOUSTIC_RECEPTOR_INDEX]
+    @test far_inputs[1][BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX] ≈ far_expected
+    @test near_inputs[1][BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX] >
+          far_inputs[1][BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX]
 
     close_positions = [(5.0, 5.0), (5.0, 5.0), (5.0, 5.0), (5.0, 5.0)]
     saturated = _signalling_forage_environment(close_positions; signal_range=3.0, signal_gain=1.25)
     close_bodies = _stateless_bodies(length(close_positions))
     saturated.last_signal .= [0.0, 1.0, 1.0, 1.0]
-    saturated_inputs = observe(saturated, close_bodies)
-    @test saturated_inputs[1][VEN_ACOUSTIC_RECEPTOR_INDEX] ≈ 1.25
+    saturated_inputs = sample!(saturated, close_bodies)
+    @test saturated_inputs[1][BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX] ≈ 1.25
 end
 
 @testset "Signalling one tick delay" begin
     positions = [(2.0, 2.0), (3.0, 2.0)]
     env = _signalling_forage_environment(positions)
     bodies = _stateless_bodies(length(positions))
-    inputs = observe(env, bodies)
-    @test all(input[VEN_ACOUSTIC_RECEPTOR_INDEX] == 0.0 for input in inputs)
+    inputs = sample!(env, bodies)
+    @test all(input[BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX] == 0.0 for input in inputs)
 end
 
 @testset "Signalling leaves non-forage torus untouched" begin
@@ -128,6 +133,6 @@ end
         signalling=true,
         record=Symbol[],
     )
-    @test setup.ensemble.environment isa TorusEnvironment
+    @test setup.ensemble.environment isa SituatedEnvironment
     @test all(n_effectors(agent.reservoir) == 3 for agent in setup.ensemble.agents)
 end

@@ -1,6 +1,16 @@
 ---
 title: Tracking parameter sweep
-description: Where does the Falandays object-tracking reservoir reliably track, and what dynamical signature marks the viable region? A chance-anchored viability study over 100 random-init seeds, with a leak × lrate_wmat factorial.
+description: An exploratory map of where the Falandays object-tracking reservoir tracks and which dynamical signatures accompany the observed viable region.
+evidence:
+  status: exploratory
+  id: tracking-parameter-sweep-2026-07-08
+  protocol_version: "1"
+  randomization_unit: one seeded reservoir and task rollout
+  n_independent_blocks: 100
+  block_summary: 100 paired seed blocks per cell; the same seed labels recur across cells
+  primary_endpoint: fraction of post-warmup ticks within 30 degrees
+  artifact_path: experiments/results/tracking_param_sweep and experiments/results/tracking_leak_lrate_factorial
+  limitations: parameters and signatures were selected and interpreted on the same development grids; no untouched confirmation
 ---
 
 **Question.** The authors-faithful Falandays object-tracking reservoir self-organizes online. Over
@@ -44,7 +54,7 @@ The recalibrated **fraction of inits that reliably track** (with a bootstrap CI)
 
 Reading the panels (viable fraction = share of 100 inits clearing the 0.25 bar):
 
-- **Four parameters are already at their optimum in the paper.** `input_amp` peaks sharply at
+- **Four parameters have their best observed value at the paper setting in this grid.** `input_amp` peaks sharply at
   **0.75** (viable fraction 0.67 — every other value is worse), `movement_amp` at **10** (0.67),
   `eye_offset` at **30°** (0.67, falling to 0.23 at 60°), and `lrate_targ` is essentially flat
   across 0.01–0.04 (≈0.7) — the paper's 0.01 is as good as any.
@@ -52,7 +62,7 @@ Reading the panels (viable fraction = share of 100 inits clearing the 0.25 bar):
   viable across roughly [0.25, 0.75] and dead at 0 — a saturating, chance-pinned collapse.
   `lrate_wmat` peaks near **0.1** (0.72), viable across roughly [0.05, 1.0], and is **degenerate at
   both ends**: 0.01 (under-correcting) and 2.0 (over-correcting) both collapse to chance. The
-  paper's 1.0 is viable but past the single-axis optimum.
+  paper's 1.0 is viable but past the best observed single-axis cell.
 
 ## The joint landscape — leak × lrate_wmat interact
 
@@ -62,13 +72,14 @@ exactly here. The factorial maps the joint viable region:
 
 ![leak × lrate_wmat viability heatmap — fraction of inits tracking](/experiments/tracking-sweep/factorial_heatmap.png)
 
-The interaction is real and structured — a **diagonal viable ridge**. `leak` and `lrate_wmat` are
+The exploratory factorial shows a structured **diagonal viable ridge**. `leak` and `lrate_wmat` are
 *positively* coupled: more activation decay needs more aggressive weight correction to stay
 regulated. Low leak is viable only at low `lrate_wmat`, high leak only at high `lrate_wmat`, and the
-off-diagonal corners are **dead** (0.00 viable). The joint optimum is **leak = 0.4, lrate_wmat = 1.0**
-(viable fraction **0.90**) — at the *paper's* learning rate, not the marginal `lrate_wmat` optimum
+off-diagonal corners are **dead** (0.00 viable). The best observed joint cell is
+**leak = 0.4, lrate_wmat = 1.0** (viable fraction **0.90**)—at the *paper's* learning
+rate, not the best observed marginal `lrate_wmat` cell
 of ~0.1. So the one-at-a-time marginals actively mislead here: the low-`lrate_wmat` region that
-looks best at the baseline leak is dead once leak ≥ 0.4. The single most effective change to the
+looks best at the baseline leak is dead once leak ≥ 0.4. The largest improvement observed over the
 paper baseline is **leak 0.25 → 0.4**, holding everything else fixed.
 
 ## The signature — homeostatic set-point error, not branching
@@ -88,15 +99,16 @@ controls. Pooling every seed across every cell, its tail (p90) separates viable 
 
 ![Per-seed node_target_error tail vs track_score, coloured by regime](/experiments/tracking-sweep/signature_scatter.png)
 
-Pooled over all 3200 seeds the relationship is **real but modest** — viable seeds average a
+Pooled over 3,200 seed-by-cell observations, the relationship is **modest**—viable runs average a
 set-point-error tail of 0.31 vs 0.39 for non-viable, and the correlation with `track_score` is
 −0.16. The honest reading is *asymmetric*: a **high** set-point error reliably flags a *dead*
 network (the right-hand cluster is almost entirely non-viable), but a **low** error is
 **necessary, not sufficient** for tracking. So `node_target_error` earns its place as the most
-*defensible* signature — native to the homeostat's own control objective, not an imported
-criticality proxy — working as a **failure detector**. The stronger claim, that it separates
-ignited from dead inits at a *fixed* parameter setting (where the parameter itself can't do the
-separating), is the natural next test.
+*mechanistically motivated candidate*—native to the homeostat's own control objective, not an
+imported criticality proxy—working as a development-set failure detector. These are repeated
+seed-by-cell observations, not 3,200 independent seeds: parameter cells and seed labels
+structure the pool. The stronger claim, that it separates ignited from dead inits at a fixed
+parameter setting on untouched runs, requires a stratified or held-out confirmation.
 
 ## Reproducibility
 
@@ -109,5 +121,6 @@ The exact run-dirs behind these figures are committed at
 [leak×lrate_wmat factorial](/experiments/tracking-sweep/data/tracking_leak_lrate_factorial.results.json).
 
 Figures are generated from `results.json` by `experiments/figures/tracking_figures.jl` (CairoMakie),
-so every figure traces to the exact run. Exploratory and scratch runs stay under the gitignored
-`experiments/runs/`; only published studies are promoted to `experiments/results/`.
+so every figure traces to the recorded run. The committed bundle is traceable but remains
+exploratory under the current evidence schema; a committed directory alone does not make a
+study sealed or promoted.

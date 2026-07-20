@@ -1,8 +1,8 @@
 using BrainlessLab
 using Test
 # Extending a user node means adding METHODS to the package generics, so import them:
-import BrainlessLab: step!, effectors, reset!, n_receptors, n_effectors, snapshot_state, load_state!
-import BrainlessLab: pack_params, unpack_params, paramdim, receptors, decode_effectors, apply_drive!
+import BrainlessLab: step!, effectors, reset!, n_nodes, n_receptors, n_effectors, snapshot_state, load_state!
+import BrainlessLab: pack_params, unpack_params, paramdim, sense!, decode!, apply_drive!
 
 struct MyNodeParams <: NodeModel
     gain::Float64
@@ -44,6 +44,7 @@ end
 effectors(r::MyNode) = effectors(r, r.spikes)
 n_receptors(r::MyNode) = r.n_receptors_
 n_effectors(r::MyNode) = r.n_effectors_
+n_nodes(r::MyNode) = length(r.spikes)
 
 function reset!(r::MyNode)
     fill!(r.spikes, 0.0)
@@ -59,16 +60,23 @@ end
 
 _myview(x; kwargs...) = x
 
-struct MyBody <: Body end
+struct MyBody <: AbstractBody end
 
-receptors(::MyBody, percept) = percept
-decode_effectors(::MyBody, e) = e
+sense!(::MyBody, percept) = percept
+decode!(::MyBody, e) = e
+n_receptors(::MyBody) = 2
+n_effectors(::MyBody) = 2
 
 struct MyDrive <: Drive end
 
 apply_drive!(::MyDrive, acts, targets, p, noise) = acts
 
 _custom_metric(metrics) = (:score in propertynames(metrics)) ? Float64(metrics.score) + 1.0 : 1.0
+
+@testset "Public API names resolve" begin
+    public_names = names(BrainlessLab; all=false, imported=false)
+    @test all(name -> isdefined(BrainlessLab, name), public_names)
+end
 
 @testset "High-level API variants and tasks" begin
     required_variants = (
@@ -93,7 +101,15 @@ _custom_metric(metrics) = (:score in propertynames(metrics)) ? Float64(metrics.s
 
     for sym in (:wall, :tracking, :pong, :cartpole, :torus)
         @test sym in tasks()
+        @test resolve_task(sym) isa TaskSpec
     end
+    @test resolve_task(:forage) isa TaskSpec
+    @test !has_objective(resolve_task(:torus))
+    @test has_objective(resolve_task(:forage))
+
+    unregistered = TaskSpec(:unregistered_wall, WallEnv; default_ticks=4, default_window=4)
+    direct = simulate(unregistered; node=:null_random, ticks=4, seed=9, record=Symbol[])
+    @test direct.task == :unregistered_wall
 
     swarm = simulate(:torus; node=:falandays, n_agents=3, ticks=40, seed=5)
     @test swarm isa SimResult

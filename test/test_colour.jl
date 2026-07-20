@@ -2,31 +2,31 @@ using BrainlessLab
 using Random
 using Test
 
-const _NB = BrainlessLab.VEN_BEARING_SENSOR_COUNT      # 62 bearing sensors
+const _NB = BrainlessLab.DEFAULT_BEARING_SENSOR_COUNT      # 62 bearing sensors
 const _ANG = BrainlessLab.SENS_ANGLES_RAD
 
 @testset "Colour receptor widths" begin
     # Colour-blind defaults are a pure no-op.
-    @test n_receptors(VENMorphology()) == 64
-    @test n_receptors(VENMorphology(source_bank=true)) == 128
+    @test n_receptors(portspec(SituatedSensorLayout())) == 64
+    @test n_receptors(portspec(SituatedSensorLayout(source_bank=true))) == 128
 
     # C == 1 colour_sensing reproduces the colour-blind width exactly.
-    @test n_receptors(VENMorphology(colour_sensing=true, n_colours=1)) == 64
-    @test n_receptors(VENMorphology(colour_sensing=true, n_colours=1, source_bank=true)) == 128
+    @test n_receptors(portspec(SituatedSensorLayout(colour_sensing=true, n_colours=1))) == 64
+    @test n_receptors(portspec(SituatedSensorLayout(colour_sensing=true, n_colours=1, source_bank=true))) == 128
 
     # 2 reserved leads + C*62 conspecific receptors (126 for C=2).
-    @test n_receptors(VENMorphology(colour_sensing=true, n_colours=2)) == 2 + 2 * _NB == 126
-    @test n_receptors(VENMorphology(colour_sensing=true, n_colours=3)) == 2 + 3 * _NB
+    @test n_receptors(portspec(SituatedSensorLayout(colour_sensing=true, n_colours=2))) == 2 + 2 * _NB == 126
+    @test n_receptors(portspec(SituatedSensorLayout(colour_sensing=true, n_colours=3))) == 2 + 3 * _NB
 
     # Forage adds the SINGLE (uncoloured) 64-wide source bank: 2 + C*62 + 64.
-    @test n_receptors(VENMorphology(colour_sensing=true, n_colours=2, source_bank=true)) ==
+    @test n_receptors(portspec(SituatedSensorLayout(colour_sensing=true, n_colours=2, source_bank=true))) ==
           2 + 2 * _NB + 64 == 190
-    @test n_receptors(VENMorphology(colour_sensing=true, n_colours=3, source_bank=true)) ==
+    @test n_receptors(portspec(SituatedSensorLayout(colour_sensing=true, n_colours=3, source_bank=true))) ==
           2 + 3 * _NB + 64
 end
 
 @testset "Colour receptor ports" begin
-    spec = portspec(VENMorphology(colour_sensing=true, n_colours=2))
+    spec = portspec(SituatedSensorLayout(colour_sensing=true, n_colours=2))
     receptors = ports(spec).receptors
     @test length(receptors) == 126
     @test receptors[1].id == :reserved_1
@@ -35,11 +35,11 @@ end
     @test receptors[2 + _NB + 1].id == :conspecific_c1_bearing_1  # second bank
 
     # Acoustic receptor is COMPUTED to the start of the source region under colour.
-    fspec = portspec(VENMorphology(colour_sensing=true, n_colours=2, source_bank=true, signalling=true))
+    fspec = portspec(SituatedSensorLayout(colour_sensing=true, n_colours=2, source_bank=true, signalling=true))
     @test ports(fspec).receptors[2 + 2 * _NB + 1].id == :acoustic
     # Single-colour keeps the legacy index 65.
-    sspec = portspec(VENMorphology(source_bank=true, signalling=true))
-    @test ports(sspec).receptors[VEN_ACOUSTIC_RECEPTOR_INDEX].id == :acoustic
+    sspec = portspec(SituatedSensorLayout(source_bank=true, signalling=true))
+    @test ports(sspec).receptors[BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX].id == :acoustic
 end
 
 @testset "max over colour banks == colour-blind bank (pre-noise)" begin
@@ -104,9 +104,9 @@ end
     cfg_noop = SwarmConfig(n_agents=3, space_size=20.0, sensory_noise=0.0, n_colours=1, colour_sensing=false)
     env_a = TorusEnvironment(torus, positions; config=cfg_default, rng=MersenneTwister(3))
     env_b = TorusEnvironment(torus, positions; config=cfg_noop, rng=MersenneTwister(3))
-    bodies = [PassthroughBody(VENMorphology()) for _ in 1:3]
-    ia = observe(env_a, bodies)
-    ib = observe(env_b, bodies)
+    bodies = [situated_embodiment(SituatedSensorLayout()) for _ in 1:3]
+    ia = sample!(env_a, bodies)
+    ib = sample!(env_b, bodies)
     @test all(length(v) == 64 for v in ia)
     @test ia == ib
 end
@@ -114,18 +114,18 @@ end
 @testset "Coloured observe width composes with :torus and :forage" begin
     torus = Torus(20.0)
     positions = [(3.0, 4.0), (6.0, 7.0), (10.0, 2.0), (12.0, 15.0)]
-    bodies = [PassthroughBody(VENMorphology(colour_sensing=true, n_colours=2)) for _ in 1:4]
+    bodies = [situated_embodiment(SituatedSensorLayout(colour_sensing=true, n_colours=2)) for _ in 1:4]
 
     cfg = SwarmConfig(n_agents=4, space_size=20.0, sensory_noise=0.0, n_colours=2, colour_sensing=true)
     tenv = TorusEnvironment(torus, positions; config=cfg, rng=MersenneTwister(5))
-    ti = observe(tenv, bodies)
+    ti = sample!(tenv, bodies)
     @test all(length(v) == 126 for v in ti)
 
-    fbodies = [PassthroughBody(VENMorphology(colour_sensing=true, n_colours=2, source_bank=true)) for _ in 1:4]
+    fbodies = [situated_embodiment(SituatedSensorLayout(colour_sensing=true, n_colours=2, source_bank=true)) for _ in 1:4]
     fcfg = SwarmConfig(n_agents=4, space_size=20.0, sensory_noise=0.0, n_colours=2, colour_sensing=true,
                        source_position=(10.0, 10.0), source_gain=1.5, capture_radius=0.5)
     fenv = ForageEnvironment(torus, positions; config=fcfg, rng=MersenneTwister(5))
-    fi = observe(fenv, fbodies)
+    fi = sample!(fenv, fbodies)
     @test all(length(v) == 190 for v in fi)
 end
 

@@ -139,7 +139,7 @@ function _falandays_params_with(p::FalandaysParams; kwargs...)
 end
 
 function _replace_falandays_params!(r::FalandaysReservoir, params::FalandaysParams)
-    r.model = FalandaysModel(params, r.drive, r.sign, r.rectify)
+    r.model = FalandaysModel(params, r.drive, r.sign, r.rectify, r.substeps)
     return r
 end
 

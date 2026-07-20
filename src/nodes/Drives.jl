@@ -5,7 +5,7 @@ struct NoDrive <: Drive end
 # 88, 191–201 (see also Oosawa 2001, Bull. Math. Biol. 63, 643). Paramecium and
 # similar cells generate input-independent behaviour from an internally-driven,
 # metabolically-powered membrane-potential fluctuation; the drive reproduces that
-# as target-gated Gaussian current on the membrane potential. See the docs page
+# as threshold-gap-modulated Gaussian current on the membrane potential. See the docs page
 # `nodes/falandays.mdx` §"The Oosawa drive".
 #
 # `OosawaDrive()` with both fields zero is deliberately inert (a NoDrive that still
@@ -61,10 +61,11 @@ function apply_drive!(d::OosawaDrive, acts, targets, p, noise)
     # The gain keys off the gap to the FIRING threshold `μ·T` (= 2T), not the
     # target `T`. Keying off `T − acts` would equilibrate the membrane at the
     # set-point and essentially never push past `μ·T` — no spontaneous spikes.
-    # `max(0, μT − acts)` keeps the drive on until the node can actually fire and
-    # switches it off at set-point: σ ramps up when a node is starved of input and
-    # vanishes once satisfied, the biological analogue of Oosawa's internal-state
-    # regulation of spontaneous-spike frequency (§5–6).
+    # `max(0, μT − acts)` keeps the state-dependent term on while the membrane is
+    # below firing threshold and turns that term off only at or above `μT`. For the
+    # usual `μ > 1`, it therefore remains positive when `acts == T`; this is not a
+    # set-point-deficit controller. It is a deliberately simplified analogue of
+    # Oosawa's internal-state regulation of spontaneous-spike frequency (§5–6).
     @inbounds for i in eachindex(acts)
         deficit = targets[i] * p.threshold_mult - acts[i]
         sigma = d.membrane_noise + d.noise_gain * max(0.0, deficit)

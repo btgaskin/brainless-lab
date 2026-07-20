@@ -10,6 +10,7 @@ const VIEWS = Dict{Symbol,Any}()
 const OPTIMIZERS = Dict{Symbol,Any}()
 const ABLATIONS = Dict{Symbol,Any}()
 const NODE_GENOME_TYPES = Dict{Symbol,Any}()
+const NODE_RECEPTOR_PROFILE_KEYWORDS = Dict{Symbol,Symbol}()
 
 function _register!(registry::Dict{Symbol,Any}, kind::AbstractString, sym::Symbol, T)
     registry[sym] = T
@@ -27,24 +28,62 @@ function _resolve(registry::Dict{Symbol,Any}, kind::AbstractString, sym::Symbol)
 end
 
 """
-    register_node!(sym, T; genome_type=nothing)
+    register_node!(sym, T; genome_type=nothing, receptor_profile_keyword=nothing)
 
 Register a node constructor or concrete type under `sym`.
 
 If the node can be evolved, pass `genome_type=<:NodeModel` so drivers can
 derive parameter dimension and unpacking from the public node contract.
+
+If the constructor accepts a body-specific receptor connection profile, pass
+the constructor keyword as `receptor_profile_keyword` (for example
+`:input_link_p`). This capability is declared at registration rather than
+inferred from the node's symbol.
 """
-function register_node!(sym::Symbol, T; genome_type=nothing)
-    registered = _register!(NODES, "node", sym, T)
+function register_node!(
+    sym::Symbol,
+    T;
+    genome_type=nothing,
+    receptor_profile_keyword=nothing,
+)
     if genome_type !== nothing
         genome_type isa Type && genome_type <: NodeModel ||
             throw(ArgumentError("genome_type for node :$(sym) must be a NodeModel type"))
+    end
+    profile_keyword = if receptor_profile_keyword === nothing
+        nothing
+    else
+        receptor_profile_keyword isa Union{Symbol,AbstractString} || throw(ArgumentError(
+            "receptor_profile_keyword for node :$(sym) must be a symbol or string",
+        ))
+        keyword = Symbol(receptor_profile_keyword)
+        isempty(String(keyword)) && throw(ArgumentError(
+            "receptor_profile_keyword for node :$(sym) must not be empty",
+        ))
+        keyword
+    end
+
+    registered = _register!(NODES, "node", sym, T)
+    if genome_type !== nothing
         NODE_GENOME_TYPES[sym] = genome_type
     else
         delete!(NODE_GENOME_TYPES, sym)
     end
+    if profile_keyword === nothing
+        delete!(NODE_RECEPTOR_PROFILE_KEYWORDS, sym)
+    else
+        NODE_RECEPTOR_PROFILE_KEYWORDS[sym] = profile_keyword
+    end
     return registered
 end
+
+"""
+    node_receptor_profile_keyword(sym)
+
+Return the constructor keyword registered for per-receptor input connection
+probabilities, or `nothing` when the node does not declare that capability.
+"""
+node_receptor_profile_keyword(sym::Symbol) = get(NODE_RECEPTOR_PROFILE_KEYWORDS, sym, nothing)
 
 """
     resolve_node(sym)

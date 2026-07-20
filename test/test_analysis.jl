@@ -287,6 +287,155 @@ end
     @test abs(uncoupled_branch.real - uncoupled_branch.null_mean) <= max(0.25, 3.0 * uncoupled_branch.null_std)
 end
 
+@testset "Entity-aware circular-shift nulls" begin
+    ids = EntityID.([10, 42])
+    rec = Recorder(enabled=(
+        :poses,
+        :rate,
+        :receptors,
+        :components,
+        :conspecific_contacts,
+        :objects,
+        :polarization,
+        :deaths,
+    ))
+    for tick in 1:4
+        order = isodd(tick) ? ids : reverse(ids)
+        record!(rec, :poses, EntityFrame(
+            order,
+            [(id == ids[1] ? Float64(tick) : 100.0 + tick, 0.0, 0.0) for id in order],
+        ))
+        record!(rec, :rate, EntityFrame(
+            order,
+            [Float64(id.value) + tick / 10 for id in order],
+        ))
+        record!(rec, :receptors, EntityFrame(
+            order,
+            [[Float64(id.value), Float64(tick)] for id in order],
+        ))
+        record!(rec, :components, EntityFrame(
+            order,
+            [(energy=Float64(id.value) - tick,) for id in order],
+        ))
+        record!(rec, :conspecific_contacts, EntityFrame(
+            order,
+            [iseven(Int(id.value) + tick) for id in order],
+        ))
+        record!(rec, :objects, [(id=1, position=(1.0, 1.0), active=true)])
+        record!(rec, :polarization, 0.5)
+        record!(rec, :deaths, EntityFrame(order, fill(nothing, length(order))))
+        tick!(rec)
+    end
+    config = (
+        ticks=4,
+        every=1,
+        n_agents=2,
+        n_nodes=1,
+        agents=((id=ids[1],), (id=ids[2],)),
+        entity_ids=Tuple(ids),
+        environment=(size=100.0,),
+    )
+    sim = SimResult(rec, (stale=99.0,), :synthetic, :synthetic, config)
+
+    xs, _, _ = BrainlessLab._analysis_pose_matrices(getchannel(rec, :poses), :entity_alignment)
+    @test xs[:, 1] == 1.0:4.0
+    @test xs[:, 2] == 101.0:104.0
+
+    shifts = [1, 2]
+    surrogate = BrainlessLab._crossshift_surrogate(sim, shifts, 2)
+    @test isempty(surrogate.metrics)
+    @test !haskey(surrogate.recorder, :polarization)
+    @test !haskey(surrogate.recorder, :deaths)
+    @test getchannel(surrogate.recorder, :objects) == getchannel(rec, :objects)
+    for channel in (:poses, :rate, :receptors, :components, :conspecific_contacts)
+        source = getchannel(rec, channel)
+        shifted = getchannel(surrogate.recorder, channel)
+        for tick in 1:4
+            @test shifted[tick] isa EntityFrame
+            @test shifted[tick].ids == source[tick].ids
+            for id in shifted[tick].ids
+                id_index = findfirst(==(id), ids)
+                source_tick = mod1(tick - shifts[id_index], 4)
+                @test entity_value(shifted[tick], id) == entity_value(source[source_tick], id)
+            end
+        end
+    end
+
+    measure = s -> sum(BrainlessLab._analysis_rate_matrix(s, :crossshift_test))
+    serial = crossshift_null(
+        sim,
+        measure;
+        n_shifts=8,
+        rng=MersenneTwister(99),
+        threaded=false,
+        alternative=:two_sided,
+    )
+    threaded = crossshift_null(
+        sim,
+        measure;
+        n_shifts=8,
+        rng=MersenneTwister(99),
+        threaded=true,
+        alternative=:two_sided,
+    )
+    @test serial == threaded
+    @test length(serial.null_values) == serial.n_requested == 8
+    @test serial.n_valid == 8
+    @test serial.alternative === :two_sided
+    @test 0.0 < serial.pvalue <= 1.0
+
+    cleared_metrics = crossshift_null(
+        sim,
+        s -> hasproperty(s.metrics, :stale) ? 1.0 : 0.0;
+        n_shifts=3,
+        rng=MersenneTwister(100),
+        threaded=false,
+    )
+    @test cleared_metrics.real == 1.0
+    @test cleared_metrics.null_values == zeros(3)
+
+    unknown_rec = Recorder(enabled=union(rec.enabled, Set((:scene,))))
+    unknown_rec.channels = copy(rec.channels)
+    unknown_rec.channels[:scene] = Any[(kind=:synthetic, tick=tick) for tick in 1:4]
+    unknown_rec.tick = rec.tick
+    unknown_sim = SimResult(unknown_rec, (;), :synthetic, :synthetic, config)
+    @test_throws ArgumentError crossshift_null(
+        unknown_sim,
+        measure;
+        n_shifts=2,
+        rng=MersenneTwister(101),
+        threaded=false,
+    )
+    @test_logs (:warn, r"strict=false") BrainlessLab._crossshift_surrogate(
+        unknown_sim,
+        shifts,
+        2;
+        strict=false,
+    )
+
+    one_agent_rec = Recorder(enabled=(:rate,))
+    for tick in 1:2
+        record!(one_agent_rec, :rate, EntityFrame([10], [Float64(tick)]))
+        tick!(one_agent_rec)
+    end
+    one_agent = SimResult(
+        one_agent_rec,
+        (;),
+        :synthetic,
+        :synthetic,
+        (ticks=2, every=1, n_agents=1, agents=((id=EntityID(10),),)),
+    )
+    @test_throws ArgumentError crossshift_null(
+        one_agent,
+        measure;
+        n_shifts=2,
+        rng=MersenneTwister(102),
+    )
+    @test BrainlessLab._crossshift_surrogate(sim, [0, 1], 2) isa SimResult
+    @test_throws ArgumentError BrainlessLab._crossshift_surrogate(sim, [0, 0], 2)
+    @test_throws ArgumentError BrainlessLab._crossshift_surrogate(sim, [1, 1], 2)
+end
+
 @testset "Avalanche statistics analysis" begin
     sim = simulate(:wall; node=:falandays_base, ticks=80, seed=2, n_nodes=24, record=(:spikes,))
     av = avalanches(sim)

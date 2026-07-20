@@ -1,0 +1,149 @@
+---
+title: Getting started
+description: Start in a browser, work with an agent, or run BrainlessLab locally without needing prior Julia experience.
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+You do not need to learn Julia before you can explore BrainlessLab. Choose the path that
+matches what you want to do now.
+
+<CardGrid>
+  <Card title="Explore without installing anything" icon="rocket">
+    Use the interactive model on the [home page](/). Change a task or parameter, pause, step,
+    and reset the browser model.
+  </Card>
+  <Card title="Ask an agent to run the lab" icon="puzzle">
+    Describe the research question in ordinary language. The repository tells a compatible
+    coding agent how to work safely and verify its result.
+  </Card>
+  <Card title="Run it yourself" icon="terminal">
+    Install Julia, run one checked-in command, and inspect a score. No GPU is required.
+  </Card>
+</CardGrid>
+
+:::caution[The browser model is for orientation]
+The interactive landing-page model is a TypeScript port for learning and rapid exploration.
+Use the Julia package, checked-in configuration, and recorded artifacts for reproducible
+research.
+:::
+
+## The agent-assisted path
+
+Open the repository in a coding-agent workspace and begin with this prompt:
+
+```text
+Read AGENTS.md and the BrainlessLab and Julia skills it names.
+Do not change any files yet.
+Run the stable Falandays wall quickstart with seed 11, explain the task and score
+in plain language, and tell me what this one run can and cannot establish.
+```
+
+The agent should inspect the repository, use its pinned Julia environment, run the existing
+example, and report the command and result. It should not need you to know a type name or
+source-file location.
+
+Useful next prompts:
+
+```text
+Compare two registered node variants on one task using paired seeds.
+Treat the result as exploratory, keep scores within the same task, and save a small table.
+```
+
+```text
+Help me turn this behavioral question into a task.
+First identify the observations, actions, operational metric, degenerate solutions,
+appropriate controls, and calibration checks. Do not implement until I approve that design.
+```
+
+```text
+Create a development-only sweep for this parameter.
+Cap its size, keep the selection seeds separate from any later evaluation seeds,
+and show me the resolved cells before running it.
+```
+
+The [Agentic workflow](/agentic-workflow/) explains the trust boundary and provides prompts
+for tasks, analyses, bodies, and experiments.
+
+## The manual path
+
+### 1. Install Julia and Git
+
+Use the [official Julia installer](https://julialang.org/install/). It installs Julia and
+the `juliaup` version manager. Install Git through your operating system if `git --version`
+does not already work.
+
+### 2. Download and prepare BrainlessLab
+
+In a terminal:
+
+```bash
+git clone https://github.com/btgaskin/brainless-lab.git
+cd brainless-lab
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+```
+
+`--project=.` selects the environment recorded by this repository. `instantiate` downloads
+the pinned dependencies. You normally run it only after cloning or when the manifest
+changes.
+
+### 3. Run the first simulation
+
+```bash
+julia --project=. examples/quickstart.jl
+```
+
+You should see a line beginning with `quickstart score=`. The first run compiles the Julia
+code and can take noticeably longer than the second.
+
+This command is headless: it works without a display or plotting package. The
+[Introduction](/introduction/) explains how to add an isolated visualization environment
+when you want figures or animations.
+
+## What just happened?
+
+The example:
+
+1. built the fixture-validated `:falandays_base` reservoir;
+2. put one reservoir in the `:wall` task;
+3. stepped the closed sensorimotor loop for 300 ticks;
+4. recorded selected internal and behavioral channels;
+5. returned task-specific metrics.
+
+The score is an operational summary of this run on this task. It is not a universal measure
+of intelligence, biological fidelity, or superiority over another model. A capacity claim
+requires controls, independent repetitions, and construct validation.
+
+## Discover what is available
+
+At a Julia prompt started with `julia --project=.`, type:
+
+```julia
+using BrainlessLab
+
+variants()
+tasks()
+analyses()
+components()
+readiness()
+```
+
+These calls are the current discovery surface. They are safer than copying a list from a
+blog post or old notebook.
+
+## Choose your next step
+
+| If you want to… | Go to… |
+| --- | --- |
+| understand the scientific object and vocabulary | [Concepts](/concepts/) |
+| run, compare, tune, or validate models | [Research workflow](/research-workflow/) |
+| choose between simulation, calibration, sweep, benchmark, or experiment | [Tooling](/tooling/) |
+| build a node, body, task, or analysis | [Extending](/extending/) |
+| use an agent safely | [Agentic workflow](/agentic-workflow/) |
+| understand what the platform does not model | [Platform limits](/platform-limits/) |
+
+:::note[Where to ask for help]
+When reporting a problem, include the exact command, complete error, operating system,
+`julia --version`, git commit, and whether the worktree has local changes. An agent can
+collect these for you.
+:::

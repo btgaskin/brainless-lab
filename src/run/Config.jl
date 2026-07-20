@@ -269,8 +269,16 @@ function resolve(cfg::RunConfig)::RunConfig
     ticks = profiled.task.ticks === nothing ? tick_default : Int(profiled.task.ticks)
     window = profiled.task.window === nothing ? min(ticks, window_default) : Int(profiled.task.window)
     n_nodes = profiled.task.N === nothing ? _default_node_count(node) : Int(profiled.task.N)
-    receptors = profiled.task.R === nothing ? train_specs[1].n_receptors : Int(profiled.task.R)
-    effectors = profiled.task.E === nothing ? train_specs[1].n_effectors : Int(profiled.task.E)
+    default_ports = if profiled.task.R === nothing || profiled.task.E === nothing
+        _fixed_port_counts(
+            resolved_task_ports(train_specs[1]; seed=seed_base);
+            context="run config for task :$(train_specs[1].name)",
+        )
+    else
+        nothing
+    end
+    receptors = profiled.task.R === nothing ? default_ports.n_receptors : Int(profiled.task.R)
+    effectors = profiled.task.E === nothing ? default_ports.n_effectors : Int(profiled.task.E)
 
     cma_seed = Int(profiled.evolve.cma_seed)
     if cma_seed == 0 && seed_base != 0

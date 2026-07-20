@@ -1,114 +1,137 @@
 ---
 title: Evolution
-description: How fixed-weight nodes are evolved — the sep-CMA-ES optimizer, fitness aggregation, the tagged genotype store, and what a short readiness run buys.
+description: "Reservoir evolution, bounded embodiment development, and the strict separation between genotype, phenotype, and transient state."
 ---
 
-Some nodes learn online and run as-is; others have **emergent weights with no
-plasticity** and mean nothing until they are **evolved**. This page covers the
-optimizer, how fitness is computed, and how evolved genomes are stored and traced.
+Evolution is experimental platform infrastructure. Some reservoirs adapt online and can be
+run directly; fixed-weight reservoirs are not meaningful comparisons until evolved.
+Embodiment parameters can now join a search through a bounded development plan, without
+turning runtime state into a genome.
 
-Evolution is **experimental** — the platform *around* the stable Falandays baseline,
-not part of it. `:falandays_base` with default 2021 constants is the settled,
-authors-faithful model; evolving its 7 control parameters is an optional experiment.
-The compartmental / CTRNN nodes are our own construction and **must** be evolved,
-because their weights *are* the genotype — an untrained one is random noise.
-
-## Who needs evolving
+## Which reservoirs need evolution?
 
 | family | online plasticity | evolution |
 |---|---|---|
-| Falandays base (`:falandays_base`, alias `:falandays`) | yes | **optional** — the settled baseline is the default 2021 constants |
-| Falandays variants (`:falandays_noisy`, `:falandays_ablated`, `:falandays_hemispheric`, `:falandays_oosawa`) | yes; target homeostasis off in `:falandays_ablated` | **optional / experimental** — useful perturbations, not the authors-faithful baseline |
-| Compartmental (`:compartmental_dense`, `:compartmental_structured`) | no | **required** — untrained weights are random; only an evolved genome is a fair test |
+| `:falandays_base` (`:falandays`) | yes | optional; defaults are the settled authors-faithful baseline |
+| experimental Falandays variants | generally yes | optional experimental perturbation |
+| `:compartmental_dense`, `:compartmental_structured` | no | required; untrained weights are random |
 
-See [Nodes — overview](/nodes/overview/) for the families and their default benchmark prep.
+The baseline's authors-faithful fixtures remain fixed. Evolving its control parameters is a
+new experiment, not a replacement baseline.
 
-## The optimizer
+## Reservoir optimizer
 
-A hand-rolled **separable CMA-ES** (diagonal covariance), validated to ~1e-6 against
-pycma. It minimizes $\text{loss} = -\text{fitness}$.
+The built-in optimizer is separable CMA-ES (diagonal covariance), minimizing
+`loss = -fitness`. Independent rollouts are thread-parallel and returned in deterministic
+seed order. Within one generation, candidates share common-random-number trial seeds so
+candidate differences are not confounded by different task draws.
 
-- **Initialization** — `find_alive_centroid` sweeps random genomes and starts CMA from
-  one that is alive on at least two seeds, avoiding a dead region of a non-plastic
-  genome space. For Falandays models the default start vector is
-  `pack_params(FalandaysParams())`.
-- **Population** — sep-CMA default $\lambda \approx 4 + \lfloor 3 \ln n \rfloor$ for
-  genome dim $n$ (about 20 for the 220-dim structured genome); raise it (e.g. 32) to
-  explore more on short runs.
-- **Common random numbers** — every candidate in a generation is evaluated on the
-  *same* trial seeds, $\text{wiring\_seed\_base} + \text{gen} \cdot 10007 + i$, so
-  within-generation comparisons are fair.
+For each task, fitness is the mean normalized score over `k_trials`. A multi-task run then
+aggregates across tasks with `:min` (default worst-task fitness) or `:mean`. Normalized
+scores use each task's own anchors and remain task-specific indicators; see
+[Contracts](/contracts/).
 
-<p class="bl-source">Source: <code>src/drivers/Evolve.jl</code> (<code>SepCMA</code>, <code>find_alive_centroid</code>, <code>EvolveRunner</code>).</p>
-
-## Fitness
-
-Per candidate, **per train task**: run `k_trials` rollouts at distinct CRN seeds and take
-the **mean** of their normalized scores. Then aggregate **across tasks** with the
-`aggregator`:
-
-- `:min` (default) — worst-case over tasks; rewards a genome good on *every* task.
-- `:mean` — average over tasks.
-
-The per-seed step is always a mean; `:min`/`:mean` acts only *across tasks*. For
-single-task training (the common case) the across-task step is a no-op, so fitness is
-just the mean over the `k_trials` seeds. Normalized score is the task's `TaskSpec`
-floor/ceiling transform clamped to $[0,1]$; see
-[Contracts](/contracts/) for the exact mapping and why scores are not comparable across tasks.
-
-## Training workflow & the genotype store
-
-`bench/train.jl` evolves one `(neuron, task)` and writes a tagged store entry:
-
-```bash
-cd bench
-julia --project=. -t 8 train.jl compartmental_structured wall \
-    --generations 20 --popsize 32 --k-trials 8 --N 200 --sigma0 2.5
+```julia
+result = evolve(
+    model_sym=:compartmental_structured,
+    train_tasks=(:wall,),
+    generations=30,
+    popsize=32,
+    k_trials=8,
+    N=200,
+)
 ```
 
-Output:
+`find_alive_centroid` can initialize searches away from a dead region of fixed-weight
+genome space. The benchmark genotype store records the genome alongside its training
+manifest and content tag so evaluation artifacts identify the exact trained parameters.
 
-- `bench/genomes/<neuron>__<task>/genome.jld2` — the evolved weight / parameter vector.
-- `bench/genomes/<neuron>__<task>/train_manifest.toml` — git SHA, neuron, task, seed,
-  generations, popsize, `k_trials`, `N`, ticks, `sigma0`, **`best_fitness`**, timestamp,
-  and a content-hash **`tag`** identifying the run.
+## Bounded embodiment development
 
-The [benchmark](/tooling/) then loads these for `:trained` cells, copies the genome +
-provenance into each cell's output, and records `prep = trained:<tag>` — so every
-reported number is traceable to the exact weights and the run that produced them. A cell
-that needs training but has no stored genome is run untrained and **flagged**.
+`DevelopmentSpec` connects a fixed embodiment configuration to an evolvable vector. Each
+`DevelopmentBlock` targets real scalar parameter paths on one stable component ID and gives
+each path finite bounds:
 
-<p class="bl-source">Source: <code>bench/train.jl</code> (the entrypoint), <code>bench/src/Store.jl</code> (genome + manifest store), <code>bench/run.jl</code> (trained-cell loading and flagging).</p>
+```julia
+config = read_embodiment_config("examples/embodiments/differential_robot.toml")
 
-## A worked readiness run
+spec = DevelopmentSpec(
+    config,
+    DevelopmentBlock(
+        :camera_genes,
+        :camera,
+        "range" => (2.0, 15.0),
+    ),
+    DevelopmentBlock(
+        :wheel_genes,
+        :wheels,
+        "max_speed" => (0.2, 2.0),
+    ),
+)
 
-`compartmental_structured`, 20 generations, $\lambda = 32$, fitness = mean over 8 CRN
-trials (single task), N=200, alive-centroid init:
+genotype = DevelopmentGenotype(spec)
+context = DevelopmentContext(seed=7, entity_id=EntityID(41), generation=3)
+blueprint = develop(genotype, context)
+body = materialize_embodiment(blueprint)
+```
 
-| task | evolved best fitness | untrained baseline |
-|---|---:|---:|
-| wall | **0.728** | ~0 |
-| tracking | 0.523 | ~0 / negative |
-| pong | 0.327 | ≈ floor (0.33) |
-| cartpole | 0.043 | ~0 |
-| cartpole_swingup | 0.109 | ~0 |
+Paths may cross fixed tuples by one-based index (`"mount.2"`) and collections whose entries
+carry stable names (`"variables.energy.gain"`). Named need paths remain stable if the tuple is
+reordered; numeric paths such as `"variables.1.gain"` are available when position is the
+intended genotype contract.
 
-**Reading it:** the loop works — wall went from a dead 0 to a competent ~0.73 avoider,
-and tracking made real progress. But **20 generations on a 220-dim genome is a short
-probe** — pong sits at its floor and cartpole / swing-up barely moved. Competent agents
-on the hard control tasks need hundreds of generations, and pong likely wants the author
-size N=500. The machinery is ready; the budget here was deliberately small.
+`paramspace(spec)` exposes labeled bounds and `pack_params(spec)` returns initial values.
+`unpack_params`, `mutate`, and `recombine` preserve bounds and require the same structural
+signature. `composite_genome(spec)` adapts development blocks to the existing composite
+genome machinery.
 
-## Open design points
+The context derives stable per-component/per-stream seeds from the experiment seed,
+`EntityID`, generation, component ID, and stream name without Julia's randomized `hash`.
+This includes field-probe shared/independent noise and regulated-physiology feedback noise.
+Every development event materializes fresh component state; it never carries a previous
+body's lag buffers, physiology, commands, or noise position into a new phenotype.
 
-Flagged for a dedicated design pass:
+## What development does not encode
 
-1. **Statistical honesty** — a trained cell currently uses one evolved genome over
-   *n* eval-seeds (evaluation variance only). The fair version runs *K* independent
-   evolution runs per cell (search variance) and reports the distribution.
-2. **Specialist vs generalist** — train per-`(neuron, task)` vs one genome on a task suite.
-3. **Ergonomics** — `train --all`, training profiles (quick / standard / thorough),
-   resumable, parallel.
-4. **Store management** — list / inspect / supersede / best-of-*K* genomes.
-5. **Co-evolving morphology** — extend the genome with the bounded sensor/effector layout
-   (see [Receptors & Effectors](/receptors-effectors/) for the receptor/effector contract).
+The current seam is intentionally bounded:
+
+- component families, IDs, ordering, and references stay fixed;
+- genes target existing real scalar TOML parameters only;
+- actuator/dynamics compatibility is validated before search;
+- bilateral encoders must reference two existing distinct sensor IDs;
+- every runnable standard embodiment requires at least one sensor and actuator, with
+  geometry, dynamics, and physiology each singular;
+- physical development additionally requires exactly one geometry, actuator, and dynamics
+  component; multiple actuators are only valid for a non-physical composition with no
+  dynamics component;
+- component addition/removal, variable sensor count, graph topology, runtime births,
+  replacement, and lineage scheduling are outside the contract.
+
+That is enough to evolve sensor range/exposure, physical placement coordinates, response
+times, actuator limits, dynamics constants, or physiological gains while preserving a
+clean, reproducible phenotype structure. Structural evolution can be added later as a
+separate operation rather than smuggled into scalar parameters.
+
+## Genotype is not state
+
+Keep three representations distinct:
+
+1. **genome** — parameters an optimizer stores and mutates;
+2. **developed blueprint** — resolved component structure plus deterministic development
+   context;
+3. **runtime state** — membrane values, learned weights, sensor lag/noise state, command
+   buffers, physiology, and motion state.
+
+For reservoirs, `pack_params`/`unpack_params` describe the genome and
+`snapshot_state`/`load_state!` describe transient replay state. For embodiments,
+`DevelopmentSpec`/`DevelopmentGenotype` describe the genome and
+`materialize_embodiment(develop(...))` constructs a fresh phenotype.
+
+## Statistical honesty
+
+A trained cell evaluated over many seeds measures evaluation variance for one selected
+genome. It does not measure search variance. Strong comparisons should run multiple
+independent evolutionary searches and report the distribution across selected genomes,
+then evaluate each on untouched seeds.
+
+<p class="bl-source">Source: <code>src/drivers/Evolve.jl</code>, <code>src/drivers/Composite.jl</code>, <code>src/run/Development.jl</code>.</p>

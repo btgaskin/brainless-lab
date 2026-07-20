@@ -3,19 +3,19 @@ title: Scoring
 description: What a score means for a self-organising system — calibrated anchors, honest nulls, and gates that keep an indicator from being gamed.
 ---
 
-A score here is a **calibrated indicator that a capacity is present** — never the capacity
-itself, and never the thing being optimised. A self-organising collective maintains its own
-*viability*; it has no intrinsic reason to play Pong. That it *can be made* to is what we
-measure — and a bare number means nothing until you say what it is measured *against*. So
-each task's raw metric is mapped onto $[0,1]$ against two **anchors**, a floor and a
-ceiling:
+A score here is a **task-specific operational measure of performance**—never the capacity
+itself and never sufficient evidence that a capacity is present. A self-organising
+collective maintains its own *viability*; it has no intrinsic reason to play Pong. We
+measure what it does under an explicit task contract, and a bare number means nothing until
+we say what it is measured *against*. Each task's raw metric can be mapped onto $[0,1]$
+against two **anchors**, a floor and a ceiling:
 
 $$
 \text{normalised} = \operatorname{clamp}\!\left(\frac{\text{raw} - \text{floor}}{\text{ceiling} - \text{floor}},\; 0,\; 1\right)
 $$
 
-Read it as *the fraction of the gap from chance to the reference that this collective
-closed*. Zero is not "did nothing" — it is "no better than the null".
+Read it as *the fraction of this task's declared anchor gap that the run closed*. Zero is
+not necessarily “did nothing”; it is performance at or below this floor.
 
 ## Anchors carry their provenance
 
@@ -29,14 +29,14 @@ a provenance string, so no floor or ceiling is a number someone once eyeballed:
 
 <p class="bl-source">Source: <code>src/tasks/Scoring.jl</code> (<code>ScoreAnchor</code>, <code>normalized_score</code>), <code>src/tasks/Tasks.jl</code> (the per-task anchors).</p>
 
-## The null is model-agnostic
+## The random policy is one task-specific floor
 
 The floor is the score of **`:null_random`** — a policy that ignores its input and emits
-uniform-random effectors. Model-agnostic on purpose: a sweep varies the node type, and a
-"dead reservoir" null would mean something different for each, whereas "no better than
-acting at random" is the *same* zero for every model. `calibrate_task` runs it over seeds and
-records the floor with provenance, e.g. `null=null_random, score_key=forage_score, seeds 0:7,
-git …`.
+uniform-random effectors. The policy is reservoir-independent, but its score is specific to
+the task, body, actuator mapping, episode length, and randomization. It establishes “no
+better than this random-action policy,” not a universal null. `calibrate_task` runs it over
+seeds and records the floor with provenance, e.g.
+`null=null_random, score_key=forage_score, seeds 0:7, git …`.
 
 This is why several floors sit well above zero: a random forager still drifts $\approx 0.46$
 of the way to the source just by wandering, so a forage score only *counts* once agents beat
@@ -63,8 +63,8 @@ confuse a quality with a capacity.
 
 ## Where the anchors stand today
 
-Every current task is a **null-measured floor + an analytic ceiling** — the honest
-configuration when no *good* trained agent yet exists to serve as a reference:
+Current tasks mix analytic and measured floors and use analytic ceilings because no
+validated reference agent yet serves as a measured ceiling:
 
 | task | floor | ceiling |
 |---|---|---|
@@ -74,10 +74,10 @@ configuration when no *good* trained agent yet exists to serve as a reference:
 | cartpole (+ swingup) | analytic `0.0` / `null` ≈ 0.16 | analytic `1.0` |
 | forage | `null` ≈ 0.46 | analytic `1.0` — agents on source |
 
-A `REFERENCE_MEASURED` ceiling — a genuinely good, *trained* agent as the "1" — is a
-`TODO(reference-genome)`: until such an agent exists, the analytic maximum is the honest
-ceiling. Scores are mutually comparable only *within* a ceiling kind — analytic-ceiling tasks
-share "1 = true optimum"; a future reference-ceiling task would be comparable only relative
-to its own reference.
+A `REFERENCE_MEASURED` ceiling—a genuinely good, *trained* agent as the “1”—is a future
+calibration step. Equal ceiling kinds or equal numeric maxima do not make scores from
+different tasks commensurate: observation/action semantics, difficulty, gates, and floor
+uncertainty differ. Compare models within a declared task; aggregate across tasks only with
+an explicit, justified weighting and preparation policy.
 
 <p class="bl-source">Source: <code>src/run/Sweep.jl</code> (<code>_sim_score</code>, descriptor columns), <code>src/tasks/Tasks.jl</code>.</p>

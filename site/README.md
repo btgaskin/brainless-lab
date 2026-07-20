@@ -23,7 +23,7 @@ bun run preview
 
 - `astro.config.mjs` — Starlight config: sidebar, KaTeX (remark-math → rehype-katex), React island, brand CSS.
 - `src/styles/theme.css` — the warm brand palette (paper / teal / amber / ink), matching the figures in `src/viz/Style.jl`.
-- `src/content/docs/*.mdx` — the pages (Introduction, Concepts, Nodes, Environments & Tasks, The collective, Receptors & Effectors, Analysis, Evolution, Tooling, Extending, Contracts, Reference, Outputs). **This site is the single source of truth for the docs** — the old plain-markdown `docs/` set has been retired.
+- `src/content/docs/*.mdx` — the pages (Introduction, Concepts, Nodes, Embodiment, Environments & Tasks, The collective, Analysis, Evolution, Tooling, Extending, Contracts, Reference, Outputs). **This site is the single source of truth for the docs** — the old plain-markdown `docs/` set has been retired.
 - `src/components/FalandaysDemo.tsx` — the interactive demo island: a live in-browser Falandays simulation (Wall / Track / Pong) driven by the TypeScript port under `src/simulation/`.
 
 ## Structure

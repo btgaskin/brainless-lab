@@ -70,7 +70,7 @@ end
 
 function _single_ensemble(data)
     env = WallEnv(; rng=MersenneTwister(23))
-    agent = Agent(_single_reservoir(data), PassthroughBody())
+    agent = Agent(_single_reservoir(data), direct_embodiment(2, 2))
     ensemble = Ensemble([agent], TaskEnvironment(env))
     return ensemble, env, agent
 end

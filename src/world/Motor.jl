@@ -7,17 +7,17 @@
 # the clamped effectors — no leaky integrators, no threshold-on-turn, no baked
 # heading. The DEFAULT `KinematicMotor()` is a strict byte-identical no-op: its
 # `:spike_fraction` readout returns exactly `effectors(r, s)` and its
-# `:ven_differential` kinematics reproduce the historical VEN arithmetic.
+# `:differential` kinematics preserve the established situated arithmetic.
 
 """
     Motor
 
-Abstract supertype for effector-decode policies carried by a `Body`.
+Abstract supertype for legacy effector-decode policies carried by an `AbstractBody`.
 """
 abstract type Motor end
 
 """
-    KinematicMotor(; scheme=:ven_differential, readout=:spike_fraction, turn_gain=1.0,
+    KinematicMotor(; scheme=:differential, readout=:spike_fraction, turn_gain=1.0,
                      allow_reverse=false, brake=false, top_speed=0.2, accel_time=5.0,
                      top_heading_rate=pi/8, h_accel_time=5.0, dt=1.0)
 
@@ -40,16 +40,16 @@ Readout schemes (all a projection of the reservoir's own output through the same
 
 Command-map schemes:
 
-  - `:ven_differential` (default) — the paper differential drive. Forward thrust
+  - `:differential` (default) — forward-only differential drive. Forward thrust
     is effector 3 (`∈ [0,1]`, forward-only); turn is `turn_gain · (e₂ − e₁)`.
-  - `:ven_signed` — re-centres the thrust effector to a signed drive
+  - `:signed_differential` — re-centres the thrust effector to a signed drive
     (`2·e₃ − 1 ∈ [−1,1]`) so the SAME effector can command reverse. `allow_reverse`
     lets the integrated speed cross zero (true reverse vs braking to a stop);
-    `brake` re-centres the thrust the same way for `:ven_differential` so a
+    `brake` re-centres the thrust the same way for `:differential` so a
     forward-only agent can also actively decelerate.
 """
 Base.@kwdef struct KinematicMotor <: Motor
-    scheme::Symbol = :ven_differential
+    scheme::Symbol = :differential
     readout::Symbol = :spike_fraction
     turn_gain::Float64 = 1.0
     turn_gain_range::NTuple{2,Float64} = (1.0, 1.0)
@@ -70,11 +70,11 @@ end
 # override it (all task envs and the swarm default).
 const PASSTHROUGH_MOTOR = KinematicMotor()
 
-# Any body that does not carry its own motor (e.g. a user-registered custom Body,
+# Any body that does not carry its own policy (e.g. a user-registered custom AbstractBody,
 # or the zero-arg task relay) decodes through the no-op motor, so the seam stays
-# byte-identical to the pre-motor `effectors(r, s)`. `PassthroughBody` overrides
-# this with its stored motor (see Morphology.jl).
-motor(::Body) = PASSTHROUGH_MOTOR
+# byte-identical to the pre-policy `effectors(r, s)`. `Embodiment` overrides this
+# with its stored policy.
+readout_policy(::AbstractBody) = PASSTHROUGH_MOTOR
 
 # --- genome (bounded kinematic constants) --------------------------------------
 
@@ -189,25 +189,25 @@ end
 # --- kinematics ----------------------------------------------------------------
 
 # Longitudinal drive from the thrust effector (output_acts[3]).
-#   :ven_differential  -> forward-only paper map (drive = e₃ ∈ [0,1])
-#   :ven_signed        -> re-centred signed drive (drive = 2·e₃ − 1 ∈ [−1,1])
-# `brake` re-centres the thrust the same signed way for :ven_differential so a
-# forward-only agent can also actively decelerate; on :ven_signed it is redundant.
+#   :differential         -> forward-only map (drive = e₃ ∈ [0,1])
+#   :signed_differential  -> re-centred signed drive (drive = 2·e₃ − 1 ∈ [−1,1])
+# `brake` re-centres the thrust the same signed way for :differential so a
+# forward-only agent can also actively decelerate; on :signed_differential it is redundant.
 @inline function _thrust_drive(m::KinematicMotor, thrust::Float64)
-    signed = m.scheme === :ven_signed || m.brake
+    signed = m.scheme === :signed_differential || m.brake
     return signed ? 2.0 * thrust - 1.0 : thrust
 end
 
 """
-    integrate_motion(motor, pos, heading, speed, heading_rate, e, torus)
+    integrate!(motor, pos, heading, speed, heading_rate, e, torus)
 
 Advance one agent's kinematics for a single tick under `motor`. Pure: returns the
 updated `(pos, heading, speed, heading_rate)` from the current state and clamped
-effector vector `e`. The default `:ven_differential` motor reproduces the
-historical VEN differential drive byte-for-byte (forward = e₃, turn = e₂ − e₁,
+effector vector `e`. The default `:differential` motor preserves the established
+differential-drive trajectory (forward = e₃, turn = e₂ − e₁,
 same friction/inertia/wrap).
 """
-function integrate_motion(
+function integrate!(
     m::KinematicMotor,
     pos,
     heading::Real,
@@ -216,10 +216,10 @@ function integrate_motion(
     e,
     torus::Torus,
 )
-    m.scheme === :ven_differential || m.scheme === :ven_signed ||
-        throw(ArgumentError("unknown motor scheme :$(m.scheme); use :ven_differential or :ven_signed"))
+    m.scheme === :differential || m.scheme === :signed_differential ||
+        throw(ArgumentError("unknown motor scheme :$(m.scheme); use :differential or :signed_differential"))
 
-    output_acts = _ven_output_acts(e)
+    output_acts = _bounded_situated_effectors(e)
     dt = Float64(m.dt)
 
     # Longitudinal drive.
@@ -230,7 +230,7 @@ function integrate_motion(
     speed = Float64(speed) + (accel - fric_a * Float64(speed)) * dt
     # A signed drive can push speed below zero; without allow_reverse we clamp to
     # a standstill (brake, don't reverse). Forward-only drives never reach here, so
-    # the default :ven_differential path is left byte-identical.
+    # the default :differential path is left byte-identical.
     if drive < 0.0 && !m.allow_reverse && speed < 0.0
         speed = 0.0
     end
@@ -248,4 +248,41 @@ function integrate_motion(
     new_pos = wrap(torus, x, y)
 
     return (new_pos, heading, speed, heading_rate)
+end
+
+function integrate!(
+    m::KinematicMotor,
+    pos,
+    heading::Real,
+    speed::Real,
+    heading_rate::Real,
+    e,
+    arena::WalledArena;
+    radius::Real=0.0,
+)
+    m.scheme === :differential || m.scheme === :signed_differential ||
+        throw(ArgumentError("unknown motor scheme :$(m.scheme); use :differential or :signed_differential"))
+
+    output_acts = _bounded_situated_effectors(e)
+    dt = Float64(m.dt)
+    drive = _thrust_drive(m, output_acts[3])
+    max_a = m.top_speed / m.accel_time
+    fric_a = max_a / m.top_speed
+    speed_ = Float64(speed) + (drive * max_a - fric_a * Float64(speed)) * dt
+    if drive < 0.0 && !m.allow_reverse && speed_ < 0.0
+        speed_ = 0.0
+    end
+
+    turn = m.turn_gain * (output_acts[2] - output_acts[1])
+    max_ha = m.top_heading_rate / m.h_accel_time
+    fric_h = max_ha / m.top_heading_rate
+    heading_rate_ = Float64(heading_rate) +
+                    (turn * max_ha - fric_h * Float64(heading_rate)) * dt
+    heading_ = mod(Float64(heading) + heading_rate_ * dt, _TWO_PI)
+    x = pos[1] + speed_ * cos(heading_) * dt
+    y = pos[2] + speed_ * sin(heading_) * dt
+    new_pos, collided = arena_position(arena, x, y, radius)
+    collided && (speed_ = 0.0)
+
+    return (new_pos, heading_, speed_, heading_rate_)
 end

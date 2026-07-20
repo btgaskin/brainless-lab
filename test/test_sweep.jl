@@ -266,7 +266,7 @@ end
     cells, _, _ = BrainlessLab._build_sweep_cells(
         base,
         Dict{String,Any}(
-            "env.motor.scheme" => ["ven_signed"],
+            "env.motor.scheme" => ["signed_differential"],
             "env.sensor.n_per_eye" => [31, 41],
         ),
         "factorial",
@@ -274,15 +274,16 @@ end
     @test length(cells) == 2
     wide = only(filter(cell -> cell["params"]["env.sensor.n_per_eye"] == 41, cells))
     @test wide["baseline"].env_kwargs[:sensor][:n_per_eye] == 41
-    @test wide["baseline"].env_kwargs[:motor][:scheme] == "ven_signed"
+    @test wide["baseline"].env_kwargs[:motor][:scheme] == "signed_differential"
 
     sim_kwargs = BrainlessLab._simulation_kwargs(wide["baseline"], 0, ["liveness"])
     @test sim_kwargs[:motor] isa KinematicMotor
-    @test sim_kwargs[:motor].scheme === :ven_signed
+    @test sim_kwargs[:motor].scheme === :signed_differential
     @test sim_kwargs[:sensor] isa BearingSensor
     @test BrainlessLab.encoding(sim_kwargs[:sensor]) === :binary
     @test n_sensors(sim_kwargs[:sensor]) == 82
-    @test n_receptors(VENMorphology(sensor=sim_kwargs[:sensor], source_bank=true)) == 168
+    layout = SituatedSensorLayout(sensor=sim_kwargs[:sensor], source_bank=true)
+    @test n_receptors(portspec(layout)) == 168
 
     config = joinpath(dir, "nested-struct-sweep.toml")
     open(config, "w") do io
@@ -304,7 +305,7 @@ end
         println(io)
         println(io, "[axes]")
         println(io, "\"env.sensor.n_per_eye\" = [41]")
-        println(io, "\"env.motor.scheme\" = [\"ven_signed\"]")
+        println(io, "\"env.motor.scheme\" = [\"signed_differential\"]")
         println(io)
         println(io, "[analytics]")
         println(io, "measures = [\"liveness\"]")
@@ -320,7 +321,7 @@ end
     env_kwargs = cell_manifest["baseline"]["env_kwargs"]
     @test env_kwargs["sensor"]["encoding"] == "graded"
     @test env_kwargs["sensor"]["n_per_eye"] == 41
-    @test env_kwargs["motor"]["scheme"] == "ven_signed"
+    @test env_kwargs["motor"]["scheme"] == "signed_differential"
     @test !haskey(env_kwargs["sensor"], "angles_deg")
 
     result_header = _csv_header(out.results)
@@ -430,6 +431,24 @@ end
     null_rows = _csv_rows(joinpath(captured_dir, "null_test.csv"))
     @test any(row -> row["measure"] == "susceptibility_agent", null_rows)
     @test any(row -> row["measure"] == "sigma_mr_agent__graded", null_rows)
+    @test all(row -> haskey(row, "status") && haskey(row, "error"), null_rows)
+    @test all(row -> haskey(row, "n_valid") && haskey(row, "n_requested"), null_rows)
+    @test all(row -> haskey(row, "alternative") && haskey(row, "pvalue"), null_rows)
+    partial_null = BrainlessLab._null_result_row(
+        "partial",
+        (
+            real=1.0,
+            null_mean=1.0,
+            null_std=0.0,
+            ratio=1.0,
+            pvalue=1.0,
+            n_valid=2,
+            n_requested=3,
+            alternative=:greater,
+        ),
+        3,
+    )
+    @test partial_null["status"] == "partial"
     @test all(cell -> isfile(joinpath(cell["result_path"], "metrics.csv")), uncaptured)
     @test all(cell -> !isfile(joinpath(cell["result_path"], "criticality_timeseries.csv")), uncaptured)
 
@@ -516,7 +535,7 @@ end
     env = forage.ensemble.environment
     @test env.config.conspecific_vision == false
     bodies = [agent.body for agent in forage.ensemble.agents]
-    percepts = observe(env, bodies)
-    receptors_ = receptors(bodies[1], percepts[1])
-    @test all(iszero, @view(receptors_[1:BrainlessLab.VEN_BANK_RECEPTORS]))
+    percepts = sample!(env, bodies)
+    receptors_ = sense!(bodies[1], percepts[1])
+    @test all(iszero, @view(receptors_[1:BrainlessLab.DEFAULT_BEARING_BANK_RECEPTORS]))
 end

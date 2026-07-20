@@ -98,7 +98,7 @@ function motor_block(m::KinematicMotor)
     )
 end
 
-function sensor_block(s::SensorSpec)
+function sensor_block(s::AbstractSensor)
     return GenomeBlock(
         :sensor,
         :sensor,
@@ -154,7 +154,6 @@ function swarm_rollout(
     node_kwargs = copy(routed.node_kwargs)
     swarm_kwargs = copy(routed.swarm_kwargs)
     node_kwargs[:substeps] = Int(substeps)
-    swarm_kwargs[:n_nodes] = Int(n_nodes)
     swarm_kwargs = merge(
         swarm_kwargs,
         Dict{Symbol,Any}(
@@ -163,17 +162,20 @@ function swarm_rollout(
         ),
     )
 
-    task_sym = Symbol(task)
-    ensemble, _ = _make_swarm_ensemble(
+    task_spec = _task_spec(task)
+    is_multiagent(task_spec.setup) || throw(ArgumentError(
+        "swarm_rollout requires a multi-agent TaskSpec, got :$(task_spec.name)",
+    ))
+    swarm_kwargs[:n_agents] = Int(n_agents)
+    ensemble, _ = _make_ensemble(
+        task_spec,
         :falandays_base,
         resolve_node(:falandays_base);
         seed=Int(seed),
-        n_agents=Int(n_agents),
         n_nodes=Int(n_nodes),
         record=[:pose],
         node_kwargs=node_kwargs,
-        swarm_kwargs=swarm_kwargs,
-        forage=(task_sym === :forage),
+        task_kwargs=swarm_kwargs,
     )
     rollout!(ensemble, Int(ticks); window=Int(window))
     fit = fitness === nothing ? _default_swarm_fitness(window) : fitness

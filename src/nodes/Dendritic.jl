@@ -22,7 +22,7 @@ using LinearAlgebra: mul!
 # (default) they influence *learning only*; with `false` each dendritic spike also
 # injects unit somatic current. The endogenous drive here is a saturating
 # *logistic* function of the one-sided target deficit (distinct from the Oosawa
-# drive's linear target-gated noise), applied to the dendrites (`dend_drive`)
+# drive's linear firing-threshold-gap noise), applied to the dendrites (`dend_drive`)
 # and/or the soma (`soma_drive`).
 #
 # This is NOT the biophysical `Compartmental*` node — that is a separate

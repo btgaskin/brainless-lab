@@ -18,6 +18,7 @@ include("core/Interfaces.jl")
 include("core/Traits.jl")
 include("core/Params.jl")
 include("core/Registry.jl")
+include("core/Components.jl")
 include("core/Recorder.jl")
 include("core/Parallel.jl")
 include("viz/Style.jl")
@@ -25,10 +26,18 @@ include("viz/Views.jl")
 include("nodes/Drives.jl")
 include("nodes/Axes.jl")
 include("world/Torus.jl")
+include("world/Arena.jl")
+include("world/Ports.jl")
 include("world/Sensor.jl")
+include("world/Response.jl")
+include("world/SpatialFields.jl")
+include("world/SpectralVision.jl")
+include("world/BilateralSensing.jl")
 include("world/Body.jl")
 include("world/Motor.jl")
-include("world/Morphology.jl")
+include("world/PhysicalComponents.jl")
+include("world/Embodiment.jl")
+include("world/Homeostasis.jl")
 include("nodes/SpikeHistory.jl")
 include("nodes/Falandays.jl")
 include("nodes/Dendritic.jl")
@@ -74,6 +83,10 @@ include("drivers/MultiObjective.jl")
 include("drivers/QualityDiversity.jl")
 include("drivers/Fixed.jl")
 include("drivers/Plastic.jl")
+include("run/EmbodimentConfig.jl")
+include("run/ComponentCatalog.jl")
+include("world/ObjectWorld.jl")
+include("run/Development.jl")
 include("run/Config.jl")
 include("run/Profiles.jl")
 include("run/Manifest.jl")
@@ -83,10 +96,9 @@ include("run/Sweep.jl")
 
 export NodeModel,
     Reservoir,
-    Body,
+    AbstractBody,
     Environment,
     AbstractTask,
-    Morphology,
     Runner,
     Drive,
     Intervention,
@@ -98,6 +110,7 @@ export step!,
     reset!,
     n_receptors,
     n_effectors,
+    n_nodes,
     portspec,
     ports,
     pack_params,
@@ -106,22 +119,38 @@ export step!,
     genome_type,
     snapshot_state,
     load_state!,
-    observe,
+    network_snapshot,
+    prepare_step!,
+    sync_activity!,
+    rawspec,
+    sample!,
+    encode!,
+    encoder_sources,
+    sense!,
+    decode!,
+    apply_commands!,
+    integrate!,
+    expose!,
+    update!,
+    inactive_command,
+    component_state,
+    remember_receptors!,
+    conspecific_contacts,
     bounds,
     pose,
-    actuate!,
-    receptors,
-    encode_receptors,
     sense,
-    decode_effectors,
     metrics,
     default_ticks,
     default_window,
     apply_drive!,
     apply!,
+    supports_intervention,
     ask,
     tell!,
     result,
+    develop,
+    mutate,
+    recombine,
     record_state!
 
 export PlasticityTrait,
@@ -188,6 +217,8 @@ export FalandaysParams,
     weights,
     RngNoise,
     RecordedNoise,
+    AgentNoiseFactory,
+    agent_noise_source,
     next_noise!,
     reset_noise!,
     noise_index,
@@ -251,6 +282,11 @@ export TaskWorld,
     collisions_last
 
 export TaskSpec,
+    TaskSetup,
+    setup_task,
+    is_multiagent,
+    resolved_task_ports,
+    has_objective,
     AnchorKind,
     ScoreAnchor,
     ANALYTIC,
@@ -267,6 +303,8 @@ export TaskSpec,
     CARTPOLE_HARD_TASK,
     CARTPOLE_SWINGUP_TASK,
     CARTPOLE_LONG_TASK,
+    TORUS_TASK,
+    FORAGE_TASK,
     FORAGE_FLOOR_ANCHOR,
     FORAGE_CEILING_ANCHOR,
     make_env,
@@ -282,10 +320,66 @@ export TaskSpec,
 
 export Agent,
     Ensemble,
-    PassthroughBody,
-    PassthroughMorphology,
+    EntityID,
+    EntityFrame,
+    entity_index,
+    entity_value,
+    align_entities,
+    nagents,
+    entity_ids,
+    agent_at_slot,
+    body_at_slot,
+    group_agents,
+    group_slots,
+    group_ids,
+    foreach_group,
+    Embodiment,
+    EmbodimentState,
+    ComponentSlot,
+    component_id,
+    component_value,
+    component_slots,
+    AbstractPhysiology,
+    RegulatedPhysiology,
+    RegulatedVariable,
+    Exposure,
+    BelowSetpoint,
+    AboveSetpoint,
+    SetpointDistance,
+    ResponseCurve,
+    ConstantResponse,
+    LinearResponse,
+    PowerResponse,
+    LogisticResponse,
+    ThresholdResponse,
+    response_value,
+    LinearFeedback,
+    PowerFeedback,
+    LogisticFeedback,
+    ThresholdFeedback,
+    FeedbackMode,
+    OffFeedback,
+    TonicFeedback,
+    BernoulliFeedback,
+    ReplayFeedback,
+    NoFailure,
+    BelowFailure,
+    AboveFailure,
+    regulated_values,
+    regulation_feedback,
+    regulation_urgency,
+    emit_feedback,
+    alive,
+    receptor_link_profile,
     TaskEnvironment,
+    bind_entity_ids!,
     Torus,
+    WalledArena,
+    arena_size,
+    arena_bounds,
+    arena_distance,
+    arena_bearing,
+    sample_position,
     wrap,
     tdelta,
     tdistance,
@@ -293,18 +387,68 @@ export Agent,
     Motor,
     KinematicMotor,
     readout,
-    motor,
-    SensorSpec,
+    readout_policy,
+    AbstractSensor,
+    AbstractEncoder,
+    IdentityEncoder,
+    SensorBank,
+    SensorySource,
+    ObjectSource,
+    SpatialFieldSource,
+    SensoryModality,
+    BearingModality,
+    FieldModality,
+    OffModality,
     BearingSensor,
     bearing_eyes,
     n_sensors,
     paramspace,
-    VEN_ACOUSTIC_RECEPTOR_INDEX,
-    VENMorphology,
+    DirectRelaySensor,
+    SituatedSensorLayout,
+    SituatedEncoder,
+    SituatedActuator,
+    NoPhysiology,
+    UnknownEffectPolicy,
+    RejectUnknownEffects,
+    IgnoreUnknownEffects,
+    physiology_ports,
+    physiology_alive,
+    physiology_feedback!,
+    physiology_state,
+    physiology_update!,
+    physiology_expose!,
+    physiology_reset!,
+    physiology_link_profile,
+    direct_embodiment,
+    situated_embodiment,
+    sensor_components,
+    encoder_components,
+    actuator_components,
+    situated_sensor,
+    primary_actuator,
     Port,
     PortSpec,
-    default_morphology,
+    SituatedConfig,
     SwarmConfig,
+    SituatedEnvironment,
+    EmbodiedEnvironment,
+    ObjectWorld,
+    ObjectID,
+    ObjectInteractionEvent,
+    interaction_events,
+    object_snapshot,
+    sample_world_sensor!,
+    ObjectType,
+    ObjectPopulation,
+    AbstractObjectAppearance,
+    NoAppearance,
+    NoRespawn,
+    SamePositionRespawn,
+    UniformRespawn,
+    AbstractSpatialField,
+    ConstantSpatialField,
+    LinearSpatialField,
+    sample_field,
     TorusEnvironment,
     ForageEnvironment,
     assemble_inputs,
@@ -322,8 +466,68 @@ export Agent,
     swarm_metrics,
     forage_metrics
 
+export SpectralGrid,
+    Spectrum,
+    SpectralReflectance,
+    SpectralIlluminant,
+    SpectralAppearance,
+    spectral_reflectance,
+    rgb_appearance,
+    Mount2D,
+    mounted_pose,
+    CircleTarget,
+    RayHit,
+    nearest_circle_hit,
+    SpectralCircleTarget,
+    SpectralCamera,
+    n_camera_channels,
+    n_camera_rays,
+    relative_radiometric_response,
+    sample_spectral_camera,
+    display_rgb,
+    SensorResponse,
+    SensorResponseState,
+    response_alpha,
+    respond!,
+    BilateralFieldProbe,
+    sample_bilateral_fields!,
+    sample_bilateral_fields,
+    bilateral_noise_groups,
+    respond_bilateral_fields!,
+    AbstractBilateralEncoder,
+    RawBilateralEncoder,
+    CommonModeEncoder,
+    UnitContrastEncoder,
+    encode_bilateral
+
+export AbstractGeometry,
+    NoGeometry,
+    DiscGeometry,
+    geometry_radius,
+    geometry_area,
+    MotionState2D,
+    linear_speed,
+    AbstractCommand,
+    DirectCommand,
+    ForwardTurnCommand,
+    DifferentialDriveCommand,
+    PlanarForceYawCommand,
+    command_values,
+    AbstractActuator,
+    DirectRelayActuator,
+    ForwardTurnActuator,
+    DifferentialDriveActuator,
+    PlanarForceYawActuator,
+    command_buffer,
+    AbstractDynamics,
+    NoDynamics,
+    UnicycleDynamics,
+    DifferentialDriveDynamics,
+    PlanarRigidBodyDynamics
+
 export register_node!,
     resolve_node,
+    node_receptor_profile_keyword,
     register_task!,
     resolve_task,
     register_drive!,
@@ -348,6 +552,17 @@ export register_node!,
     register_ablation!,
     resolve_ablation,
     ablations
+
+export ComponentConformance,
+    ComponentDescriptor,
+    COMPONENT_READINESS_LEVELS,
+    validate_component_descriptor,
+    register_component!,
+    resolve_component,
+    components,
+    component_info,
+    readiness,
+    readiness_markdown
 
 export Recorder,
     record!,
@@ -411,6 +626,30 @@ export SepCMA,
     MEArchive
 
 export RunConfig,
+    ComponentConfig,
+    EmbodimentConfig,
+    ComponentBlueprint,
+    EmbodimentBlueprint,
+    EMBODIMENT_SCHEMA_VERSION,
+    read_embodiment_config,
+    embodiment_config_namedtuple,
+    canonical_embodiment_toml,
+    write_embodiment_config,
+    materialize_embodiment,
+    materialize_blueprint,
+    MountedFieldProbe,
+    sample_field_probe!,
+    BilateralContrastEncoder,
+    DEFAULT_CAMERA_WAVELENGTHS_NM,
+    BUILTIN_COMPONENT_DESCRIPTORS,
+    DevelopmentBlock,
+    DevelopmentSpec,
+    DevelopmentGenotype,
+    DevelopmentContext,
+    DevelopedEmbodimentBlueprint,
+    development_seed,
+    validate_development_structure,
+    composite_genome,
     read_config,
     write_config,
     resolve,
@@ -453,13 +692,43 @@ export BL_PAPER,
 register_drive!(:none, NoDrive)
 register_drive!(:oosawa, OosawaDrive)
 
-register_node!(:falandays, _falandays_native; genome_type=FalandaysParams)        # alias of :falandays_base
-register_node!(:falandays_base, _falandays_native; genome_type=FalandaysParams)
-register_node!(:falandays_noisy, _falandays_noisy_native; genome_type=FalandaysParams)
-register_node!(:falandays_extended, _falandays_extended_native; genome_type=FalandaysParams)
-register_node!(:falandays_ablated, _falandays_ablated_native; genome_type=FalandaysParams)
+register_node!(
+    :falandays,
+    _falandays_native;
+    genome_type=FalandaysParams,
+    receptor_profile_keyword=:input_link_p,
+) # alias of :falandays_base
+register_node!(
+    :falandays_base,
+    _falandays_native;
+    genome_type=FalandaysParams,
+    receptor_profile_keyword=:input_link_p,
+)
+register_node!(
+    :falandays_noisy,
+    _falandays_noisy_native;
+    genome_type=FalandaysParams,
+    receptor_profile_keyword=:input_link_p,
+)
+register_node!(
+    :falandays_extended,
+    _falandays_extended_native;
+    genome_type=FalandaysParams,
+    receptor_profile_keyword=:input_link_p,
+)
+register_node!(
+    :falandays_ablated,
+    _falandays_ablated_native;
+    genome_type=FalandaysParams,
+    receptor_profile_keyword=:input_link_p,
+)
 register_node!(:falandays_hemispheric, _falandays_hemispheric_native; genome_type=FalandaysParams)
-register_node!(:falandays_oosawa, _falandays_oosawa_native; genome_type=FalandaysParams)
+register_node!(
+    :falandays_oosawa,
+    _falandays_oosawa_native;
+    genome_type=FalandaysParams,
+    receptor_profile_keyword=:input_link_p,
+)
 register_node!(:falandays_dendritic, _falandays_dendritic_native; genome_type=FalandaysParams)
 register_node!(:falandays_spatial, _falandays_spatial_native; genome_type=FalandaysParams)
 register_node!(:falandays_delayed, _falandays_delayed_native; genome_type=FalandaysParams)
@@ -483,12 +752,12 @@ register_task!(:cartpole, CARTPOLE_TASK)
 register_task!(:cartpole_hard, CARTPOLE_HARD_TASK)
 register_task!(:cartpole_swingup, CARTPOLE_SWINGUP_TASK)
 register_task!(:cartpole_long, CARTPOLE_LONG_TASK)
-register_task!(:torus, :torus)
-register_task!(:forage, :forage)
+register_task!(:torus, TORUS_TASK)
+register_task!(:forage, FORAGE_TASK)
 
-register_body!(:passthrough, PassthroughBody)
+register_body!(:direct, Embodiment)
 
-register_motor!(:ven_kinematics, KinematicMotor)
+register_motor!(:situated_kinematics, KinematicMotor)
 
 register_sensor!(:bearing_cone, BearingSensor)
 

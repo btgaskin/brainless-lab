@@ -304,36 +304,7 @@ function node_transfer_entropy(
 end
 
 function _te_pose_matrices(raw, name::Symbol)
-    isempty(raw) && throw(ArgumentError("$(name) needs the :poses channel recorded; run simulate(...; record=(:poses, ...))"))
-    first_entry = raw[1]
-    first_entry isa AbstractVector ||
-        throw(ArgumentError("$(name) needs :poses entries shaped as vectors of (x, y, heading) tuples"))
-
-    n_ticks = length(raw)
-    n_agents = length(first_entry)
-    n_agents > 0 || throw(ArgumentError("$(name) needs at least one recorded agent pose"))
-
-    xs = Matrix{Float64}(undef, n_ticks, n_agents)
-    ys = Matrix{Float64}(undef, n_ticks, n_agents)
-    headings = Matrix{Float64}(undef, n_ticks, n_agents)
-
-    @inbounds for t in 1:n_ticks
-        entry = raw[t]
-        entry isa AbstractVector ||
-            throw(ArgumentError("$(name) needs :poses entries shaped as vectors of (x, y, heading) tuples"))
-        length(entry) == n_agents ||
-            throw(DimensionMismatch("$(name) sample $(t) has $(length(entry)) poses; expected $(n_agents)"))
-        for i in 1:n_agents
-            pose = entry[i]
-            (pose isa Tuple || pose isa AbstractVector) && length(pose) >= 3 ||
-                throw(ArgumentError("$(name) needs each pose shaped as (x, y, heading)"))
-            xs[t, i] = Float64(pose[1])
-            ys[t, i] = Float64(pose[2])
-            headings[t, i] = Float64(pose[3])
-        end
-    end
-
-    return xs, ys, headings
+    return _analysis_pose_matrices(raw, name)
 end
 
 _te_wrap_to_pi(a) = atan(sin(a), cos(a))

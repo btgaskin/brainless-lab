@@ -7,7 +7,7 @@
 #
 # Setup (once):
 #   cd brainless-lab/profile
-#   julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.add(["CairoMakie","Statistics","Printf","TOML"]); Pkg.instantiate()'
+#   julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.instantiate()'
 #
 # Usage:
 #   julia --project=. run.jl falandays_base

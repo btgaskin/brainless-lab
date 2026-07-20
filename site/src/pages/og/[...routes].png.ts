@@ -34,16 +34,22 @@ export const { getStaticPaths, GET } = await OGImageRoute({
       side: 'inline-start',
     },
     padding: 64,
+    // Keep documentation builds deterministic and usable offline. KaTeX is an
+    // existing site dependency, so its bundled sans font is available after
+    // the ordinary frozen install without a build-time network request.
+    fonts: ['./node_modules/katex/dist/fonts/KaTeX_SansSerif-Regular.ttf'],
     font: {
       title: {
         color: [246, 243, 234],
         size: 68,
         lineHeight: 1.05,
+        families: ['KaTeX_SansSerif'],
       },
       description: {
         color: [236, 232, 223],
         size: 34,
         lineHeight: 1.25,
+        families: ['KaTeX_SansSerif'],
       },
     },
   }),

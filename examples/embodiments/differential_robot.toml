@@ -1,0 +1,33 @@
+schema_version = 1
+name = "differential_robot"
+
+[[components]]
+id = "chassis"
+family = "geometry"
+kind = "disc"
+[components.parameters]
+radius = 0.35
+
+[[components]]
+id = "camera"
+family = "sensor"
+kind = "spectral_camera"
+[components.parameters]
+channels = ["red", "green", "blue"]
+field_of_view_deg = 120.0
+rays = 24
+range = 8.0
+
+[[components]]
+id = "wheels"
+family = "actuator"
+kind = "differential_drive"
+[components.parameters]
+max_speed = 1.0
+
+[[components]]
+id = "motion"
+family = "dynamics"
+kind = "differential_drive"
+[components.parameters]
+wheel_base = 0.55

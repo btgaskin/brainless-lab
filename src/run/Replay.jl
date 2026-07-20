@@ -102,7 +102,10 @@ function _fallback_config(provenance)
         n_agents=nothing,
         n_nodes=nothing,
         environment=(kind=:unknown, bounds=nothing, size=nothing),
-        network=nothing,
+        agents=(),
+        entity_ids=(),
+        bodies=(),
+        networks=(),
         provenance=provenance,
     )
 end

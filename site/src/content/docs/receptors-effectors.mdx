@@ -1,184 +1,227 @@
 ---
-title: Receptors & Effectors
-description: The sensorimotor interface — how the Body encodes the world into receptor currents and turns effector outputs into action, its timing, and the roadmap to a tunable, evolvable morphology.
+title: Embodiment
+description: "The public body abstraction: typed physical components, stable ports, physiology, configuration, development, and the sensor-to-action lifecycle."
 ---
 
-The **sensorimotor interface** — how many sensors an agent has, where they point, how
-the world becomes receptor current, and how effector output becomes action — is a
-first-class part of the experiment, not an implementation detail. This page is the
-*mechanism and configuration* of that interface, plus where it is going. For the
-per-task **R/E counts**, see [Environments & Tasks](/environments-tasks/); here we
-cover how those counts are produced and which parts are now explicit specs.
+An agent's embodiment is an experimental variable. Sensor placement, encoding, actuator
+semantics, motion dynamics, and physiology all change the closed loop even when the
+reservoir is identical. BrainlessLab therefore exposes one generic concrete body—
+`Embodiment`—assembled from independently replaceable components.
 
-## The interface
+## The public boundary
 
-The reservoir talks to the world through two vectors: **receptors** $R$ (length
-`n_receptors`, the sensory input) and **effectors** $E$ (length `n_effectors`, the
-motor output). The **Body** owns the morphology that sits between them and the world:
+`AbstractBody` is the dispatch boundary. `Embodiment <: AbstractBody` is the standard
+composition:
 
-```
-percept ─receptors(body)→ R ─step!(reservoir,R)→ spikes ─effectors(reservoir)→ E ─decode_effectors(body)→ command ─actuate!(env)→ world
-```
-
-- **`PassthroughBody{M,Mt}`** carries a morphology and a motor. For single-agent tasks,
-  the passthrough morphology relays the task env's $R$/$E$ unchanged — the `Env` owns
-  `sense` / `step!` and task-specific effector decode.
-- **The swarm body is `PassthroughBody(VENMorphology(...), KinematicMotor(...))`.**
-  `VENMorphology` turns bearing vision into $R$ using a `SensorSpec`; `KinematicMotor`
-  reads $E$ into movement dynamics. Coupling between agents is *vision*, so the sensor
-  geometry literally *is* the interaction topology.
-
-Effector semantics are **task-specific, not globally uniform** — channel 1 of Pong is
-not the same physical quantity as channel 1 of cartpole. A reservoir is always built to
-match the task/body it will drive, i.e. to the resulting `(n_receptors, n_effectors)`.
-See the [node contract](/nodes/overview/) for what a reservoir must implement.
-
-<p class="bl-source">Source: <code>src/world/Morphology.jl</code> (<code>PassthroughBody</code>, <code>VENMorphology</code>), <code>src/world/Sensor.jl</code> (<code>SensorSpec</code>, <code>BearingSensor</code>), <code>src/world/Motor.jl</code> (<code>KinematicMotor</code>), <code>src/world/Environments.jl</code> (env-side encoding/decode).</p>
-
-## Current state: task contracts plus explicit swarm specs
-
-Single-agent task counts and placements still live in the task envs themselves. The
-per-task numbers live in [Environments & Tasks](/environments-tasks/); the body just
-passes those vectors through.
-
-The swarm is now decomposed into three explicit pieces:
-
-- **`VENMorphology`** owns the receptor/effector ports. The default torus layout is the
-  historical conspecific bank: two reserved leads plus **62** bearing rays, so reservoirs
-  are built `(n_receptors=64, n_effectors=3)`. `:forage` appends a second source bank using
-  the same bearing geometry; with defaults that is `(128, 3)`. `signalling=true` adds a
-  fourth `:signal` effector and reuses the first source reserved slot as `:acoustic`.
-- **`BearingSensor <: SensorSpec`** owns the bearing geometry and encoding. `BearingSensor()`
-  is the byte-identical historical two-eye 62-ray fan; `bearing_eyes(...)` and
-  `BearingSensor(angles_deg=..., encoding=:graded)` let a run change the ray placement,
-  active ray count, and binary/graded intersection encoding.
-- **`KinematicMotor <: Motor`** owns the readout and kinematics. The default
-  `readout=:spike_fraction`, `scheme=:ven_differential` path is the old VEN arithmetic;
-  `readout=:graded_state` / `:graded_deviation` expose Falandays graded readouts, and
-  `scheme=:ven_signed` can turn the thrust effector into signed forward/reverse drive.
-
-Colour vision is a morphology option: `colour_sensing=true` lays out one conspecific
-bearing bank per colour class (`conspecific_c0_bearing_...`, `conspecific_c1_bearing_...`).
-The source bank stays uncoloured. With the defaults (`n_colours=1`, `colour_sensing=false`)
-the receptor width and values are unchanged.
-
-<p class="bl-source">Source: <code>src/world/Morphology.jl</code> (<code>VENMorphology</code>, <code>PortSpec</code>), <code>src/world/Sensor.jl</code> (<code>BearingSensor</code>), <code>src/world/Motor.jl</code> (<code>KinematicMotor</code>), <code>src/world/Body.jl</code> (<code>sense_agents</code>, input assembly).</p>
-
-## Timing & temporal coding
-
-Distinct from *what* the sensors are is *how the reservoir is clocked against the world*.
-
-**Today, the Falandays path** runs exactly **one reservoir tick per env step**: graded
-continuous input, effector read from that **single tick's** spike pattern. The "rate" is
-the **spatial** proportion of the $N$ nodes spiking — a population code, not a temporal
-accumulation. The reservoir is leaky, recurrent, and *not* reset between steps, so
-temporal memory lives in its **state**; only the **readout** is instantaneous. This is
-the stable clocking for `:falandays_base` (see [Falandays](/nodes/falandays/)).
-
-**Where it bites:** fast tasks with a sensitive readout — **Pong** above all (fast ball,
-jittery single-tick paddle command) — and small-$N$ runs.
-
-**`substeps` (K) — now built for every node family.** The window is a first-class
-trait ([`WindowTrait`](/nodes/overview/)): `IntrinsicWindow` nodes own their sub-stepping
-inside `step!` (the compartmental CTRNNs — `CompartmentalReservoir(...; substeps=k)`,
-**default 5**, $\text{dt}_\text{sub}=\text{dt}/5$, holding the afferent and reporting the
-per-node spike *rate*); `SteppedWindow` nodes are single-tick maps that the framework loops
-K times per env step, holding the afferent and mean-reducing the spikes. **Falandays is
-now `SteppedWindow`** — `simulate(...; node=:falandays_base, node_kwargs=(substeps=K,))` (or
-the `node.substeps` sweep axis). `substeps=1` (the default for every existing node/task) is
-byte-identical to the previous single-tick readout.
-
-Empirically this matters exactly where the single-tick readout is jittery: at N=200 the
-Falandays baseline improves on **tracking** (≈0.28 → ≈0.80 from K=1 to K=5) and **pong**
-(≈0.63 → ≈0.88), the tasks flagged below. It does **not** rescue cartpole — that task's
-gap is sensorimotor (velocity-receptor scaling / bang-bang decode), not temporal averaging.
-
-:::caution[Planned — the other readout-side timing knobs]
-`substeps` above is built; the remaining levers still default to today's behaviour and
-belong to the [remaining config/evolution layer](#remaining-roadmap-config-and-evolution) below:
-
-| knob | default | meaning |
-|---|---:|---|
-| `input_encoding` | `:graded` | `:graded` (current value, held across the window) vs `:poisson` / `:regular` (spike train at rate ∝ value over the window). |
-| `output_window` (W) | 1 | moving-average the effector over the last W env-steps — cheap, does not freeze the env, lags by ≈W. |
-
-For Pong the env-preserving `output_window` (or a small `substeps`) beats a large `substeps`
-that would freeze the ball. These belong to the same per-task spec as the sensor/effector
-layout below.
-:::
-
-<p class="bl-source">Source: <code>src/core/Traits.jl</code> (<code>WindowTrait</code>, <code>windowing</code>, <code>temporal_window</code>), <code>src/world/Ensemble.jl</code> (<code>step_window!</code>), <code>src/nodes/CompartmentalReservoir.jl</code> / <code>src/nodes/Falandays.jl</code> (<code>substeps</code>).</p>
-
-## Remaining roadmap: config and evolution
-
-:::note[Roadmap, kept honest]
-The swarm now has the core objects: `SensorSpec` / `BearingSensor` for geometry and
-encoding, `Motor` / `KinematicMotor` for readout and kinematics, and `VENMorphology` for
-ports. What is still a design target is the broader config surface and the morphology genome.
-:::
-
-Both roadmap angles start from the shipped split: **the morphology declares the ports, the
-sensor declares the bearing geometry, and the motor declares the effector decode**.
-`n_receptors` is the decoded input width after morphology padding, colour-bank expansion,
-and source/signalling additions.
-
-### Angle A — config-driven layout
-
-Expose the shipped specs through TOML so an experimenter sets sensor **count, placement,
-tuning, encoding**, colour vision, and motor readout/kinematics without touching code:
-
-```toml
-[swarm.sensor]
-kind = "bearing"
-encoding = "graded"
-angles_deg = [-60, -40, -20, 0, 20, 40, 60]
-tuning_deg = 0.0
-
-[swarm.motor]
-kind = "kinematic"
-readout = "graded_state"
-scheme = "ven_signed"
+```julia
+body = Embodiment(
+    geometry=DiscGeometry(0.3),
+    sensors=(left_probe, right_probe),
+    encoders=(contrast_encoder,),
+    actuators=(ForwardTurnActuator(0.8, 1.2),),
+    dynamics=UnicycleDynamics(1.0, 0.1, 0.0),
+    physiology=physiology,
+    traits=(kind=:insect_like,),
+    component_ids=(
+        geometry=:body,
+        sensors=(:antenna_left, :antenna_right),
+        encoders=(:bilateral,),
+        actuators=(:locomotion,),
+        dynamics=:motion,
+        physiology=:metabolism,
+    ),
+)
 ```
 
-`resolve` would validate counts, angles, colour-bank widths, and motor compatibility, then
-build the node to the resulting `(R, E)`. This is also where the timing knobs above would
-live.
+The same type represents biological and robotic organisms. The names in `traits` and
+presets communicate an experimental interpretation; mechanics come only from the component
+values.
 
-### Angle B — evolvable morphology (within set ranges)
+## Stable components and ports
 
-Make part of the spec a **bounded morphology genome** that sep-CMA co-evolves *alongside*
-the controller — "evolve where the sensors point, and how many," with researcher-set
-ranges:
+Every component has a stable `Symbol` ID. `component_slots(body)` returns identified
+geometry, sensor, encoder, actuator, dynamics, and physiology slots. The body derives its
+reservoir interface from the composed components:
 
-```toml
-[task.sensors.evolve]
-angle_range_deg = [-90, 90]     # each sensor angle bounded here
-n_range         = [2, 32]       # variable length via fixed max + mask
-tuning_range    = [4.0, 20.0]
+```julia
+spec = portspec(body)
+n_receptors(spec)
+n_effectors(spec)
+ports(spec)
 ```
 
-Mechanics: a morphology parameter block is appended to the genome; each gene is mapped
-through its bound, $g \mapsto \text{lo} + (\text{hi}-\text{lo})\,\sigma(g)$; the env
-builds sensors from the decoded morphology each rollout. Variable sensor count is handled
-by a fixed-max layout plus per-sensor enable gates. Controller and body then co-adapt —
-the agent discovers its own sensorimotor arrangement. `BearingSensor` already has the
-per-ray angle bounds, tuning bounds, and enabled mask that this layer would use; the missing
-piece is connecting those fields to the optimizer genome.
+Port IDs are namespaced by the component that owns them, for example
+`:bilateral__bilateral_1` or `:locomotion__turn`. This prevents collisions between repeated
+component kinds and makes records and parameter overrides stable when tuple positions change.
 
-## Why this matters for the collective
+Sensors declare a raw sample shape with `rawspec`; encoders turn one or more identified
+sensor samples into receptor channels; actuators expose effector ports and decode reservoir
+output into reusable typed command buffers. The body validates widths and references during
+composition.
 
-In the swarm the default coupling between agents is `BearingSensor` vision through
-`VENMorphology` — so the sensor geometry (ray angles, field of view, range) **is** the
-interaction topology. Making it tunable and evolvable means you can study how collective
-behaviour (flocking, milling, foraging convergence) *depends on*, or *co-evolves with*, the
-sensorimotor interface — not just the controller.
+Configuration completes obvious identity mappings. If a TOML declares no encoder components,
+materialization inserts one `:identity_encoder` over all sensors. If every declared encoder
+names its sensor sources, each unclaimed sensor receives `<sensor>__identity_encoder`. Thus the
+differential robot's camera needs no explicit encoder, while the UAV camera remains available
+beside its explicit bilateral radio encoder. `component_slots(body)` shows the completed graph.
 
-## Status
+## The lifecycle
 
-- **Done** — per-task/body R/E documented and inspectable ([Environments & Tasks](/environments-tasks/)); baseline timing scheme (1 tick/env-step for Falandays; CTRNN internal `substeps`).
-- **Done** — swarm `SensorSpec` / `BearingSensor`, `Motor` / `KinematicMotor`, `VENMorphology`, and colour-selective conspecific banks.
-- **Planned** — TOML config for the shipped sensor/motor/morphology fields plus readout-side timing knobs.
-- **Planned** — [evolvable morphology](/evolution/) (Angle B), using the `BearingSensor` bounds/mask fields.
+The complete path is:
 
-The planned items are the next build targets for the I/O layer. For adding your own env,
-body, or node against the existing contract, see [Extending it](/extending/).
+```text
+Environment.sample!
+  → raw sensor samples
+  → encode! for each encoder
+  → physiology feedback receptors
+  → Reservoir.step! and readout
+  → decode! for each actuator
+  → typed command buffer
+  → integrate! through the dynamics component, or environment-specific action
+  → environmental Exposure values
+  → update! physiology
+```
+
+`sense!(body, percept)` returns the exact receptor vector delivered to the reservoir. For
+`Embodiment`, this is a borrowed body-owned buffer that is overwritten by the next sensing
+call; copy it if it must outlive the immediate reservoir step. The ensemble copies borrowed
+vectors at its multi-agent gather boundary before another body is sensed. `decode!(body, values)`
+mutates command buffers owned by the body's runtime state instead of
+allocating a new command each tick. `component_state(body)` records state under stable
+component IDs.
+
+The built-in physical assembler currently accepts any number of sensors and compatible
+encoders, but a physical body has one actuator/dynamics command pair. A body using
+`NoDynamics` may instead be interpreted by an environment adapter.
+
+## Sensors and encoders
+
+The built-in component catalog includes:
+
+- **`SpectralCamera`** — arbitrary named channels, ray geometry, mount, range, exposure,
+  and channel sensitivity over a shared wavelength grid. Samples are flattened
+  channel-major. Occlusion uses nearest circular ray hits.
+- **`MountedFieldProbe`** — a scalar-field probe at a physical `Mount2D`, with first-order
+  response lag plus separately seeded shared and independent Gaussian noise.
+- **`BilateralContrastEncoder`** — binds two stable sensor IDs and maps right-minus-left
+  contrast into `[0, 1]`; equal inputs map to `0.5`.
+- **`IdentityEncoder`** — a direct mapping for already encoded task vectors or sensors that
+  should retain their raw channels.
+
+Spectral colour is physical rather than an RGB tag lookup. A camera combines an illuminant,
+target reflectance, and sensor sensitivity over a `SpectralGrid`; `rgb_appearance((r,g,b))`
+is a convenient way to construct an approximate `SpectralAppearance`. `ObjectWorld`
+samples `SpectralCamera` and `MountedFieldProbe` components per body. New sensor kinds extend
+`sample_world_sensor!`.
+
+The established `:torus` and `:forage` tasks use `SituatedSensorLayout` and
+`SituatedEncoder` inside an ordinary `Embodiment`. That adapter preserves their bearing,
+source, signalling, and colour-bank contracts while the generic physical component path
+remains independent.
+
+## Actuators and dynamics
+
+Physical actuation is deliberately split in two:
+
+| actuator | command | compatible dynamics |
+|---|---|---|
+| `ForwardTurnActuator` | target forward speed + turn rate | `UnicycleDynamics` |
+| `DifferentialDriveActuator` | left + right wheel speed | `DifferentialDriveDynamics` |
+| `PlanarForceYawActuator` | body-frame planar force + yaw torque | `PlanarRigidBodyDynamics` |
+| `DirectRelayActuator` | bounded named vector | environment-specific or `NoDynamics` |
+
+Effectors are normalized reservoir outputs; the actuator owns physical limits and reverse
+policy, while the dynamics component owns integration, inertia, drag, and speed limits.
+This keeps neural readout separate from vehicle mechanics.
+
+## Physiology: configurable multiple needs
+
+`RegulatedPhysiology` holds any number of `RegulatedVariable`s. Each variable owns its
+bounds, initial state, setpoint/deficit rule, drift, response curve, feedback mode, gain,
+emission probability, optional reservoir link probability, and failure policy.
+
+Feedback is **off unless enabled**:
+
+- `OffFeedback()` emits zero while physiology continues to change;
+- `TonicFeedback()` emits the current scaled urgency;
+- `BernoulliFeedback()` emits a stochastic pulse with deficit-scaled probability;
+- `ReplayFeedback(values)` replays an explicit sequence for controls and interventions.
+
+Built-in curves are constant, linear, power, logistic, and threshold. `Exposure(:energy,
+0.2)` is an environmental effect: the world reports contact and the physiology applies the
+matching delta. `RejectUnknownEffects()` is the safe default; use
+`IgnoreUnknownEffects()` only when a mixed effect stream is intentional. Failure can be
+disabled or triggered above/below a threshold; death is absorbing for the current body.
+
+Physiology appends named feedback receptor ports after encoded sensory ports, so the final
+reservoir dimensions still come entirely from `portspec(body)`.
+
+## TOML composition
+
+Embodiment files are strict, schema-versioned component graphs:
+
+`traits` remain optional metadata for direct Julia composition. They are not currently
+represented in embodiment TOML, and preset materialization or physical behavior does not
+depend on them.
+
+```julia
+config = read_embodiment_config("examples/embodiments/bilateral_insect.toml")
+blueprint = materialize_blueprint(config)   # typed components + stable IDs
+body = materialize_embodiment(config)       # fresh runnable state
+```
+
+Each `[[components]]` entry declares `id`, `family`, `kind`, and a validated parameters
+table. `extends` supports one base file; `[overrides]` targets stable component IDs and
+parameter dot paths. Canonical serialization is available through
+`canonical_embodiment_toml` and `write_embodiment_config`.
+
+Three presets live under `examples/embodiments/`; see their
+[README](https://github.com/btgaskin/brainless-lab/tree/main/examples/embodiments) for
+materialization and runtime examples.
+
+`examples/embodiments/object_world_quickstart.jl` is the executable end-to-end path. It
+loads the differential robot preset, places an RGB beacon in an `ObjectWorld`, constructs a
+Falandays reservoir from the resolved ports, binds a stable `EntityID`, records, steps, and
+returns the ensemble plus object snapshot.
+
+`examples/embodiments/object_world_task.jl` is the corresponding high-level path. It wraps
+an `ObjectWorld` setup callable in a `TaskSpec` and returns a standardized `SimResult`.
+Use the quickstart when direct access to the live `Ensemble` and `Recorder` is preferable.
+
+## Component discovery and readiness
+
+The component catalog is lightweight, typed discovery metadata:
+
+```julia
+components()                         # sorted descriptors
+components(family=:sensor)
+component_info(:sensor, :spectral_camera)
+readiness()
+readiness_markdown()
+```
+
+Descriptors publish required/optional parameter names, capabilities, documentation,
+executable examples, and focused conformance evidence. Readiness has three ordered levels:
+
+- `:available` — discoverable and materializable;
+- `:integrated` — exercised through the standard runtime, exact serialization, docs, and an
+  executable example;
+- `:core` — a stable/default contract with named core-test coverage.
+
+The built-in physical descriptors currently claim `:integrated` through the tested
+`ObjectWorld` quickstart and exact configuration round trip. Status remains `:experimental`
+at every readiness level. Registering an existing key
+requires `replace=true`, so extensions cannot silently overwrite a component.
+
+## Development is a bounded phenotype seam
+
+`DevelopmentSpec` selects real scalar parameter paths on stable component IDs and gives
+each a finite bound. A `DevelopmentGenotype` stores only those values. `develop` applies
+them to a fresh component graph under a deterministic `DevelopmentContext`, and
+`materialize_embodiment` produces a runnable phenotype.
+
+Development does **not** mutate an existing body, encode transient state, add/remove
+components, evolve topology, or schedule births. It is the bounded bridge from a fixed
+configuration structure to fresh runnable embodiments. See [Evolution](/evolution/).
+
+<p class="bl-source">Source: <code>src/world/Ports.jl</code>, <code>src/world/Embodiment.jl</code>, <code>src/world/PhysicalComponents.jl</code>, <code>src/world/Homeostasis.jl</code>, <code>src/run/EmbodimentConfig.jl</code>, <code>src/run/ComponentCatalog.jl</code>, <code>src/run/Development.jl</code>.</p>

@@ -7,7 +7,7 @@ statistics.
 Setup from `brainless-lab/profile`:
 
 ```bash
-julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.add(["CairoMakie","Statistics","Printf","TOML"]); Pkg.instantiate()'
+julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.instantiate()'
 ```
 
 Run the default single-node profile:

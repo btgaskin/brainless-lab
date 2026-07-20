@@ -8,7 +8,6 @@ const _SWEEP_DEFAULT_MEASURES = ("sigma_mr", "spectral_radius", "liveness")
 # (see Recorder compute_every). Weights drift on learning-rate timescales,
 # so a stride of 10 is far inside every window sweeps aggregate over.
 const _SWEEP_SPECTRAL_EVERY = 10
-const _SWEEP_SWARM_TASKS = Set{Symbol}((:torus, :swarm, :forage))
 const _SWEEP_GIF_1X1 = UInt8[
     0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00,
     0x00, 0xfb, 0xfa, 0xf7, 0x2f, 0x6f, 0x5e, 0x21, 0xf9, 0x04, 0x01, 0x00,
@@ -219,37 +218,18 @@ function _resolve_sweep_baseline(base::SweepBaseline)
     node = _validate_sweep_node(base.node)
     task = _validate_sweep_task(base.task)
     task_obj = resolve_task(task)
-    is_swarm = task in _SWEEP_SWARM_TASKS || base.n_agents !== nothing
+    task_obj isa TaskSpec || throw(ArgumentError("registered task :$(task) must be a TaskSpec"))
+    multiagent = is_multiagent(task_obj.setup)
+    base.n_agents !== nothing && !multiagent &&
+        throw(ArgumentError("task :$(task_obj.name) does not support n_agents"))
 
-    if task_obj isa TaskSpec
-        ticks = base.ticks === nothing ? task_obj.default_ticks : base.ticks
-        window = base.window === nothing ? min(ticks, task_obj.default_window) : base.window
-        N = base.N === nothing ? _default_node_count(node) : base.N
-        return SweepBaseline(
-            node=node,
-            task=task_obj.name,
-            N=N,
-            ticks=ticks,
-            window=window,
-            seed_base=base.seed_base,
-            n_agents=base.n_agents,
-            body=base.body,
-            drive=base.drive,
-            ablation=base.ablation,
-            node_kwargs=copy(base.node_kwargs),
-            env_kwargs=copy(base.env_kwargs),
-            drive_kwargs=copy(base.drive_kwargs),
-        )
-    end
-
-    is_swarm || throw(ArgumentError("task :$(task) is not a TaskSpec and is not a known swarm task"))
-    ticks = base.ticks === nothing ? 1000 : base.ticks
-    window = base.window === nothing ? ticks : base.window
+    ticks = base.ticks === nothing ? task_obj.default_ticks : base.ticks
+    window = base.window === nothing ? min(ticks, task_obj.default_window) : base.window
     N = base.N === nothing ? _default_node_count(node) : base.N
-    n_agents = base.n_agents === nothing ? 8 : base.n_agents
+    n_agents = multiagent ? something(base.n_agents, 8) : nothing
     return SweepBaseline(
         node=node,
-        task=task,
+        task=task_obj.name,
         N=N,
         ticks=ticks,
         window=window,
@@ -469,7 +449,8 @@ function _build_column_schema(measures, ensemble_specs, baseline::SweepBaseline;
 end
 
 function _is_swarm_sweep(base::SweepBaseline)
-    return base.task in (:torus, :swarm, :forage) || base.n_agents !== nothing
+    task = resolve_task(_validate_sweep_task(base.task))
+    return task isa TaskSpec && is_multiagent(task.setup)
 end
 
 function _registry_name_error(kind::AbstractString, name::Symbol, known)
@@ -530,6 +511,8 @@ end
 function sweepable_axes(node=:falandays_base, task=:wall)
     node_sym = _validate_sweep_node(node)
     task_sym = _validate_sweep_task(task)
+    task_obj = resolve_task(task_sym)
+    task_obj isa TaskSpec || throw(ArgumentError("registered task :$(task_sym) must be a TaskSpec"))
     out = SweepAxisInfo[]
 
     if _is_falandays_node(node_sym)
@@ -544,7 +527,7 @@ function sweepable_axes(node=:falandays_base, task=:wall)
         push!(out, SweepAxisInfo(path="node.learn_on", default=params.learn_on, range="true|false", description="Falandays online plasticity switch"))
         push!(out, SweepAxisInfo(path="node.substeps", default=1, range=">= 1", description="reservoir ticks per env step (temporal window K); spikes averaged over K"))
         push!(out, SweepAxisInfo(path="node.link_p", default=0.1, range="0.0..1.0", description="random recurrent/input/output graph density"))
-        push!(out, SweepAxisInfo(path="drive.noise_gain", default=0.0, range=">= 0", description="Oosawa target-deficit membrane noise gain"))
+        push!(out, SweepAxisInfo(path="drive.noise_gain", default=0.0, range=">= 0", description="Oosawa firing-threshold-gap membrane noise gain"))
         push!(out, SweepAxisInfo(path="drive.membrane_noise", default=0.0, range=">= 0", description="Oosawa constant membrane noise floor"))
         if node_sym === :falandays_spatial || node_sym === :falandays_hemispheric
             push!(out, SweepAxisInfo(path="node.kernel", default="exp", range="exp|power_law", description="spatial connection-probability decay kernel"))
@@ -579,7 +562,7 @@ function sweepable_axes(node=:falandays_base, task=:wall)
     push!(out, SweepAxisInfo(path="task.window", default=nothing, range="integer", description="metric/liveness window"))
     push!(out, SweepAxisInfo(path="seed", default=0, range="integer", description="seed base added to sweep.seeds offsets"))
 
-    if task_sym in _SWEEP_SWARM_TASKS
+    if is_multiagent(task_obj.setup)
         cfg = SwarmConfig(n_agents=8)
         push!(out, SweepAxisInfo(path="env.n_agents", default=cfg.n_agents, range="integer", description="swarm population size"))
         push!(out, SweepAxisInfo(path="env.space_size", default=cfg.space_size, range="> 0", description="torus side length"))
@@ -592,8 +575,7 @@ function sweepable_axes(node=:falandays_base, task=:wall)
         append!(out, sweep_struct_axes("env.motor", cfg.motor))
         append!(out, sweep_struct_axes("env.sensor", cfg.sensor))
     else
-        task_obj = resolve_task(task_sym)
-        if task_obj isa TaskSpec
+        if task_obj.env_type !== nothing
             append!(out, sweep_env_axes(task_obj.env_type))
         end
     end
@@ -1132,28 +1114,17 @@ end
 
 _has_metric(metrics_nt, key::Symbol) = key in propertynames(metrics_nt)
 
-function _swarm_objective_key(metrics_nt)
-    _has_metric(metrics_nt, :score) && return :score
-    _has_metric(metrics_nt, :forage_score) && return :forage_score
-    return nothing
-end
-
 function _sim_score(sim::SimResult)
     task_obj = resolve_task(sim.task)
-    if task_obj isa TaskSpec
-        raw = _metric_value(sim.metrics, task_obj.score_key)
-        return normalized_score(task_obj, raw), Float64(raw), string(task_obj.score_key)
-    end
-
-    objective_key = _swarm_objective_key(sim.metrics)
-    if objective_key !== nothing
-        raw = Float64(getproperty(sim.metrics, objective_key))
-        return normalized_forage_score(raw), raw, string(objective_key)
-    elseif _has_metric(sim.metrics, :polarization) || _has_metric(sim.metrics, :milling)
-        @warn "swarm polarization and milling are descriptors, not competence scores; request the regime measure or descriptor columns instead" task = sim.task maxlog = 1
+    task_obj isa TaskSpec || throw(ArgumentError(
+        "registered task :$(sim.task) must be a TaskSpec",
+    ))
+    if !has_objective(task_obj)
+        @warn "task descriptors are not competence scores; request descriptor columns instead" task = sim.task maxlog = 1
         return NaN, NaN, "none"
     end
-    throw(ArgumentError("task :$(sim.task) has no normalized_score or forage objective metric"))
+    raw = _metric_value(sim.metrics, task_obj.score_key)
+    return normalized_score(task_obj, raw), Float64(raw), string(task_obj.score_key)
 end
 
 function _copy_descriptor_metrics!(row::Dict{String,Any}, sim::SimResult, warnings::Vector{String})
@@ -1171,7 +1142,7 @@ function _copy_descriptor_metrics!(row::Dict{String,Any}, sim::SimResult, warnin
     return row
 end
 
-function _ven_receptor_count_from_config(env_config, n_sensors_::Integer)
+function _situated_receptor_count_from_config(env_config, n_sensors_::Integer)
     nb = Int(n_sensors_)
     n_colours_ = hasproperty(env_config, :n_colours) ? Int(env_config.n_colours) : 1
     colour_sensing_ = hasproperty(env_config, :colour_sensing) ? Bool(env_config.colour_sensing) : false
@@ -1186,7 +1157,7 @@ function _copy_swarm_descriptor_metrics!(row::Dict{String,Any}, sim::SimResult, 
     if hasproperty(env_config, :sensor) && hasproperty(env_config.sensor, :n_sensors)
         n_sensors_ = Int(env_config.sensor.n_sensors)
         row["n_sensors"] = n_sensors_
-        row["n_receptors"] = _ven_receptor_count_from_config(env_config, n_sensors_)
+        row["n_receptors"] = _situated_receptor_count_from_config(env_config, n_sensors_)
     else
         push!(warnings, "swarm sensor descriptor unavailable")
     end
@@ -1757,18 +1728,57 @@ function _write_empty_csv(path::AbstractString, header)
 end
 
 function _null_result_row(measure::AbstractString, result, n_shifts::Integer)
+    n_requested = hasproperty(result, :n_requested) ? Int(result.n_requested) : Int(n_shifts)
+    n_valid = hasproperty(result, :n_valid) ? Int(result.n_valid) : n_requested
+    status = n_valid == n_requested ? "ok" : n_valid == 0 ? "invalid" : "partial"
     return Dict{String,Any}(
         "measure" => measure,
+        "status" => status,
+        "error" => "",
         "real" => _finite_or_nan(result.real),
         "null_mean" => _finite_or_nan(result.null_mean),
         "null_std" => _finite_or_nan(result.null_std),
         "ratio" => _finite_or_nan(result.ratio),
+        "pvalue" => hasproperty(result, :pvalue) ? _finite_or_nan(result.pvalue) : NaN,
+        "n_valid" => n_valid,
+        "n_requested" => n_requested,
+        "n_shifts" => n_requested,
+        "alternative" => String(hasproperty(result, :alternative) ? result.alternative : :unknown),
+    )
+end
+
+function _null_error_row(measure::AbstractString, error, n_shifts::Integer)
+    return Dict{String,Any}(
+        "measure" => measure,
+        "status" => "error",
+        "error" => sprint(showerror, error),
+        "real" => NaN,
+        "null_mean" => NaN,
+        "null_std" => NaN,
+        "ratio" => NaN,
+        "pvalue" => NaN,
+        "n_valid" => 0,
+        "n_requested" => Int(n_shifts),
         "n_shifts" => Int(n_shifts),
+        "alternative" => "greater",
     )
 end
 
 function _write_null_test(path::AbstractString, sim::SimResult, schema::SweepColumnSchema, capture::SweepCaptureOptions, cell_index::Integer)
-    header = ["measure", "real", "null_mean", "null_std", "ratio", "n_shifts"]
+    header = [
+        "measure",
+        "status",
+        "error",
+        "real",
+        "null_mean",
+        "null_std",
+        "ratio",
+        "pvalue",
+        "n_valid",
+        "n_requested",
+        "n_shifts",
+        "alternative",
+    ]
     capture.n_shifts <= 0 && return _write_empty_csv(path, header)
 
     rows = Dict{String,Any}[]
@@ -1777,17 +1787,17 @@ function _write_null_test(path::AbstractString, sim::SimResult, schema::SweepCol
     for spec in schema.ensemble_specs
         rng = MersenneTwister(seed + length(rows))
         measure_name = "sigma_mr_agent__$(spec.id)"
-        result = try
-            crossshift_null(
+        try
+            result = crossshift_null(
                 sim,
                 s -> branching_ratio_mr(s; level=:agent, kmax=kmax, observable=spec).m_mr;
                 n_shifts=capture.n_shifts,
                 rng=rng,
             )
-        catch
-            (real=NaN, null_mean=NaN, null_std=NaN, ratio=NaN)
+            push!(rows, _null_result_row(measure_name, result, capture.n_shifts))
+        catch error
+            push!(rows, _null_error_row(measure_name, error, capture.n_shifts))
         end
-        push!(rows, _null_result_row(measure_name, result, capture.n_shifts))
     end
 
     null_measures = (
@@ -1798,12 +1808,12 @@ function _write_null_test(path::AbstractString, sim::SimResult, schema::SweepCol
     )
     for (name, fn) in null_measures
         rng = MersenneTwister(seed + length(rows))
-        result = try
-            crossshift_null(sim, fn; n_shifts=capture.n_shifts, rng=rng)
-        catch
-            (real=NaN, null_mean=NaN, null_std=NaN, ratio=NaN)
+        try
+            result = crossshift_null(sim, fn; n_shifts=capture.n_shifts, rng=rng)
+            push!(rows, _null_result_row(name, result, capture.n_shifts))
+        catch error
+            push!(rows, _null_error_row(name, error, capture.n_shifts))
         end
-        push!(rows, _null_result_row(name, result, capture.n_shifts))
     end
 
     return _write_rows_csv(path, rows; header=header)

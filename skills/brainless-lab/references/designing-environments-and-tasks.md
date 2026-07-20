@@ -1,176 +1,244 @@
-# Designing Environments and Tasks
+# Designing Environments, Embodiments, and Tasks
 
-## The sensorimotor contract is the design object
+## Design the closed-loop contract
 
-Everything in BrainlessLab flows through one loop, run once per tick per agent inside
-`step!(ensemble)` (`src/world/Ensemble.jl`):
+`step!(ensemble)` runs one synchronous lifecycle for one agent or a mixed population:
 
 ```julia
-percept = observe(env, bodies)[i]        # world → percept
-R = receptors(body, percept)             # percept → R  (sensory input vector)
-s = step!(reservoir, R)                  # R → spikes   (the task-agnostic node)
-E = effectors(reservoir, s)              # spikes → E   (motor output vector)
-cmd = decode_effectors(body, E)          # E → command
-actuate!(env, bodies, Es)                # command → world
+prepare_step!(environment, bodies)
+percepts = sample!(environment, bodies)          # same pre-action world
+
+R = sense!(body, percept)                        # sensors/encoders + physiology
+spikes = step!(reservoir, R)
+E = readout(readout_policy(body), reservoir, spikes)
+command = decode!(body, E)                       # reusable typed command
+
+effects = apply_commands!(environment, bodies, commands)
+update!(body, effects_for_body)                  # physiology / viability
 ```
 
-`R` and `E` are the two vectors that pin the whole stack together: `R` has length
-`n_receptors`, `E` has length `n_effectors`. **Designing a task is designing this contract** —
-what the world exposes as `R`, how the reservoir's output `E` becomes an action, and how the
-result is scored — *not* wiring up a new reservoir. The reservoir stays task-agnostic: it is
-built `(n_nodes, n_receptors, n_effectors)` to *match* the task/body and knows nothing else
-about the world. See `designing-nodes.md` for the other side of this seam.
+The reservoir remains task-agnostic. It is constructed from `portspec(body)`, which fixes
+the receptor vector `R` and effector vector `E`. Design the body/world relation before
+changing the reservoir.
 
-## The Body seam: who owns the encoding
+`Embodiment.sense!` returns a borrowed body-owned receptor buffer reused on the next call.
+Consume it immediately in the reservoir step or copy it when retaining it outside the
+lifecycle. The mutation suffix does not, by itself, promise zero allocation for every
+custom body.
 
-The `Body` is the adapter between world and reservoir (`src/world/Body.jl`,
-`Morphology.jl`). Two exist, and the choice is a design decision:
+## Ownership table
 
-- **`PassthroughBody`** relays a single-agent task env's `R`/`E` unchanged. The `TaskWorld`
-  itself owns the encoding: `sense(env)` *is* the percept (already reservoir-shaped) and
-  `step!(env, E)` consumes the raw effector vector. `receptors`/`decode_effectors` are
-  identity. Reach for this when your env speaks the reservoir's `(R, E)` directly.
-- **`VENBody`** is the embodied swarm agent: it *manufactures* `R` from bearing-vision and
-  reads `E` as movement kinematics (`integrate_motion!` turns `e3` into forward accel,
-  `e2 - e1` into heading accel, capped/damped by `VENParams`). Here the body owns the
-  encoding, and the env (`TorusEnvironment`/`ForageEnvironment`) only supplies raw sensor
-  cones and commits motion.
+| concern | owner |
+|---|---|
+| external geometry, objects, fields, contact, effects | environment |
+| physical footprint | geometry component |
+| raw physical samples | sensor component + environment sampling method |
+| raw samples → receptor channels | encoder component |
+| effectors → bounded typed command | actuator component |
+| command → motion | dynamics component |
+| internal variables, feedback, effect interpretation, viability | physiology component |
+| rollout defaults and score anchors | `TaskSpec` |
+| neural dynamics | reservoir |
 
-When you design a task you choose (or define) the body and thereby fix the `R`/`E` widths.
-`n_receptors(morphology)` / `n_effectors(morphology)` are the single source of truth the
-node constructor reads. A `VENMorphology` returns 64 (or 128 with `source_bank`) receptors
-and 3 (or 4 with `signalling`) effectors — the counts are derived from the morphology, not
-hardcoded at the call site. Docs: https://brainless-lab.pages.dev/receptors-effectors/.
+The environment says “entity 41 contacted food 7 and received `Exposure(:energy, 0.2)`.”
+The physiology says what `:energy` means. Do not put need equations in the world or object
+search logic in the body.
 
-## Effector semantics are deliberately non-uniform
+## Body composition
 
-There is no universal meaning for "channel 1." Each task/body decodes `E` differently:
+`AbstractBody` is the dispatch boundary. Prefer the standard `Embodiment` over a new body
+subtype. It holds geometry, sensor, encoder, actuator, dynamics, physiology, traits, and
+runtime state components. Give every component a stable globally unique ID.
+`traits` are optional metadata for direct Julia composition. Embodiment TOML does not
+currently represent them, and preset materialization or physics must not depend on them.
 
-| task / body | E | decode |
-|---|---:|---|
-| `:wall` (Passthrough) | 2 | differential wheel speeds: speed $(e_L+e_R)/2$, turn $e_R-e_L$ |
-| `:tracking` | 2 | eye-rotation $10(e_1-e_2)°$ |
-| `:pong` | 2 | paddle vote $100(e_1-e_2)$ |
-| `:cartpole` | 2 | binary force: $e_1 \ge e_2 \Rightarrow$ push left |
-| `:torus` / `VENBody` | 3 | VEN kinematics; 64 receptors in |
-| `:forage` / `VENBody` | 3 (or 4) | same kinematics; 128 receptors (conspecific + source banks) |
+`portspec(body)` derives namespaced receptor/effector ports from those IDs. Encoders can
+bind inputs by stable sensor ID with `encoder_sources`; this is required for cross-sensor
+encoders such as bilateral contrast. Actuators own reusable command buffers and mutate them
+in `decode!`; dynamics integrate only compatible command types.
 
-This non-uniformity is *why raw scores are not comparable across tasks* — the effector
-vector is a different physical quantity in each. Do not try to unify it; unify at the
-**score** instead (below). See https://brainless-lab.pages.dev/contracts/.
-
-## Adding a single-agent task
-
-A single-agent task is a `TaskSpec` (`src/tasks/Tasks.jl`) wrapping a `TaskWorld`. Implement
-the world contract (see `examples/templates/new_project/my_task.jl` for a copy-and-edit
-scaffold):
+Strict TOML is the reusable composition surface:
 
 ```julia
-n_receptors(::Type{MyEnv}) = 2      # and the instance methods; source of R width
-n_effectors(::Type{MyEnv}) = 2      # E width; the reservoir is built to match
-default_ticks(::Type{MyEnv}) = 300
-default_window(::Type{MyEnv}) = 100
-sense(env::MyEnv)                   # → the receptor vector R (this is your encoding)
-step!(env::MyEnv, effectors)        # advance one tick; bound E with clamp to [0,1]
+config = read_embodiment_config("examples/embodiments/bilateral_insect.toml")
+blueprint = materialize_blueprint(config)
+body = materialize_embodiment(config)
+```
+
+Each `[[components]]` entry has `id`, generic `family`, registered `kind`, and validated
+parameters. Query `component_info(family, kind).parameters` rather than guessing keys. This
+reports required/optional names only, not types, defaults, or constraints.
+
+## Choose the world path
+
+There are three legitimate paths, serving different experiments.
+
+### 1. Vector-valued `TaskWorld`
+
+Use this when the environment already emits the exact receptor vector and consumes the
+task-specific effector vector. The setup uses a direct `Embodiment`; its sensor/encoder and
+actuator relay the vectors.
+
+Implement:
+
+```julia
+n_receptors(::Type{MyEnv})
+n_effectors(::Type{MyEnv})
+default_ticks(::Type{MyEnv})
+default_window(::Type{MyEnv})
+sense(env::MyEnv)
+step!(env::MyEnv, effectors)
 reset!(env::MyEnv)
-metrics(env::MyEnv, window)         # NamedTuple incl. the raw score under score_key
+metrics(env::MyEnv, window)
 ```
 
-Then declare the spec and register it (import, don't `using` — same idiom as nodes):
+The copy-ready scaffold is `examples/templates/new_project/my_task.jl`.
+
+### 2. Generic `ObjectWorld`
+
+Use this when the experiment needs independently composed physical components.
+`ObjectWorld` currently supports torus/walled 2-D arenas, fixed agent motion states, static
+circular objects, named analytic fields, spectral appearance/illumination, object capacity
+and respawn, typed effects, and one actuator/dynamics command per body.
+
+Objects have stable `ObjectID`s; agents have stable `EntityID`s. Bind/query through public
+methods (`bind_entity_ids!`, `interaction_events`, `object_snapshot`) rather than storage.
+
+Built-in sampling supports `SpectralCamera`, `MountedFieldProbe`, and blind
+`DirectRelaySensor`. Extend another sensor with:
 
 ```julia
-import BrainlessLab: TaskSpec, TaskWorld, sense, step!, reset!, metrics,
-    n_receptors, n_effectors, default_ticks, default_window, register_task!
+import BrainlessLab: rawspec, sample_world_sensor!
 
-const MY_TASK = TaskSpec(:my_task, MyEnv;
-    score_key=:score,                       # which metric is the raw score
-    floor=analytic(0.0; note="chance"),     # or null_anchor(v, provenance)
-    ceiling=analytic(1.0; note="optimal"))
+rawspec(sensor::MySensor) = (kind=:my_sensor, width=3)
+sample_world_sensor!(sensor::MySensor,
+                     world::ObjectWorld,
+                     state::MotionState2D) = # raw vector of length 3
+```
+
+The `!` permits mutation of sensor or RNG state. The method returns the raw vector directly;
+it does not receive a caller-owned destination or promise zero allocation.
+
+The encoder still owns the raw-to-receptor map. Do not make `ObjectWorld` aware of a
+reservoir or encoder.
+
+Current limits are part of the contract: no births/replacement/lineage scheduler, moving
+non-agent objects, arbitrary meshes, structural development, or multiple physical command
+pairs per body.
+
+### 3. Established `SituatedEnvironment` adapter
+
+Use this when preserving the semantics and outputs of `:torus`, `:forage`, or signalling.
+It constructs ordinary `Embodiment`s with
+`SituatedSensorLayout`, `SituatedEncoder`, `SituatedActuator`, and `KinematicMotor`, but the
+adapter retains its bearing-bank assembly, collisions, signalling, and history channels.
+
+Do not generalize new physical component behavior into this adapter by default. Start with
+`ObjectWorld`; change the situated path only when an established experiment requires it.
+
+## Multiple needs and effects
+
+`RegulatedPhysiology` contains any number of `RegulatedVariable`s. Each variable defines
+bounds, initial value, setpoint/deficit rule, drift, response curve, feedback mode, gain,
+emission probability, optional receptor link probability, and failure. `OffFeedback` is the
+default control; tonic, Bernoulli, and replay modes are explicit.
+
+World relations return `Exposure(name, delta)` values. Unknown effects are rejected by
+default. Effects for one tick are accumulated before clamping/failure, so contact can rescue
+an agent on a threshold tick. Death keeps stable identity but disables neural stepping,
+sensing, motion, and interactions in the fixed population. Metrics must distinguish the
+current active population from the original cohort: active-only motion summaries exclude
+dead bodies, while survival or regulation objectives keep the original denominator so
+death cannot improve the score.
+
+## Task composition and scoring
+
+A task setup callable returns `TaskSetup(environment, bodies)`. Declare it in a `TaskSpec`:
+
+```julia
+const MY_TASK = TaskSpec(
+    :my_task,
+    my_setup;
+    score_key=:score,
+    floor=analytic(0.0; note="chance"),
+    ceiling=analytic(1.0; note="optimal"),
+)
+
 register_task!(:my_task, MY_TASK)
 ```
 
-Three things to get right: the **receptor encoding** in `sense` (what the world looks like
-to the reservoir), the **effector decode** in `step!` (how `E` moves the world — always
-`clamp` it, the reservoir emits arbitrary reals), and the **scoring**.
+For a generic setup callable, accept `seed`, `rng`, `body`, `n_nodes`, and `kwargs...` so
+the high-level runner can supply deterministic construction context without task-specific
+coupling. `examples/embodiments/object_world_task.jl` is the copy-ready physical example.
+Direct `ObjectWorld` construction exposes `Ensemble` + `Recorder`; `TaskSpec` adds
+standardized `SimResult`, rollout defaults, and optional scoring.
 
-## Scoring: floor, ceiling, and normalized_score
+`TaskSpec.n_receptors`/`n_effectors` are optional default metadata. The setup's body ports
+are runtime truth. Use `score_key=nothing` when the task is characterized by multiple
+collective/ecological measures rather than one objective.
 
-Raw scores live in `metrics(env, window)` under `score_key`. `normalized_score(task, raw)`
-(`src/tasks/Scoring.jl`) maps them onto `[0,1]`:
+`normalized_score` maps the task's raw score between its own floor and ceiling, clamped to
+`[0,1]`. Prefer measured null anchors with provenance over guessed zero floors. A saturated
+value is outside the anchors, not physically equal to another task's result.
 
-```julia
-clamp((raw - floor) / (ceiling - floor), 0.0, 1.0)
-```
+## One to many, including mixed agents
 
-This is the *only* cross-task-comparable number, and only well enough for optimizer
-bookkeeping — it is **not a physical unit**. Design the anchors with intent:
+An `Ensemble` of one and an ensemble of many use the same loop. Homogeneous agents keep a
+concrete fast path. Mixed agent/body types are grouped by concrete agent type and port
+signature; stable IDs preserve world identity at the gather/scatter boundary.
 
-- **floor** = chance / null behaviour. Prefer a measured `null_anchor(v, provenance)` (e.g.
-  a random agent's score) over a guessed `analytic(0.0)` — `:wall`'s floor is `0.763`, not
-  zero, because random navigation already scores high. Record seeds/git in the provenance
-  string.
-- **ceiling** = near-optimal. `analytic(1.0)` when there is a true optimum (collision-free
-  navigation, perfect alignment); a `reference_anchor` when you have a trained agent.
+Use `agent_at_slot`, `body_at_slot`, `entity_ids`, and `foreach_group` rather than relying
+on store fields. The current runtime has fixed membership: heterogeneity does not yet imply
+birth, replacement, or lineage dynamics.
 
-A raw score pinned at 0 or 1 means it fell outside the anchors — the value is saturated, not
-meaningfully equal to another task's. Calibrate floors/ceilings with the calibration tool
-(see `cli-tools.md`) rather than hand-tuning. Cross-ref https://brainless-lab.pages.dev/contracts/.
+## Coupling and analyses
 
-## Single-agent and swarm are one abstraction
+There is no implicit social force. Coupling is whatever agents can sense and affect in the
+world. In the established swarm tasks, bearing vision is the interaction topology; in a
+generic world, spectral rays, mounted probes, fields, contact, and effects can play that
+role. Always identify the actual coupling seam before interpreting collective order.
 
-There is no separate "swarm code path." An `Ensemble` (`src/world/Ensemble.jl`) is a
-population of `Agent`s; a single-agent task is an Ensemble of **one**, a dyad is
-`n_agents=2`, a swarm is `n_agents=N`, and the *identical* `step!(ensemble)` drives all of
-them. `observe` computes every agent's percept from the current world *before* anyone moves;
-`actuate!` commits all motions after — a synchronous update with no within-tick order
-dependence and no branch on the count. Assuming swarm is a different path than single-agent
-is the most common wrong mental model; going from dyad to swarm is one integer.
+Collective measures need nulls. Shared environmental input can mimic interaction; use
+`crossshift_null` before interpreting a cross-agent statistic.
 
-Coupling in swarm tasks is therefore **not an explicit force** — it is vision. In
-`TorusEnvironment`/`ForageEnvironment`, agent A's bearing sensors light up when agent B
-falls in a sensor cone within `vision_range`; the sensor geometry *is* the interaction
-topology, and `vision_range` sets how coupling decays with distance. `physical_coupling` is
-an opt-in collision-resolution flag on top. Design coupling by shaping sensor geometry,
-`vision_range`, `sensory_noise`, and (in forage) `conspecific_vision` on/off — that is the
-"social vs blind" manipulation. See https://brainless-lab.pages.dev/collective/.
+Lifecycle state crosses the generic public `sync_activity!(environment, bodies)` hook
+before observation and again after physiology updates. Specialize that hook instead of
+probing a private environment method with `applicable`; it keeps sensing, metrics,
+recording, and rendering on the same definition of activity.
 
-Collective order is read through metrics, not a scalar score: `polarization` (heading
-alignment), `milling` (rotational order about the centroid), and pairwise/nearest-neighbour
-distances (`src/world/Metrics.jl`). `:torus` is a registered swarm symbol, *not* a
-`TaskSpec` with floor/ceiling — read torus/forage runs through these metrics. For measuring
-critical/collective dynamics, see `designing-analyses.md`.
+## Component registration
 
-## The environment contract
+Register configured components with a `ComponentDescriptor` carrying:
 
-`WallBox`/`CartPole`/`Torus` show the env shape: hold mutable state, expose an observation
-(`sense` or `observe`), advance and record on `actuate!`/`step!`, and support `reset!`.
-Single-agent envs are `TaskWorld`s wrapped by `TaskEnvironment`; swarm envs are
-`AbstractTorusEnvironment`s whose `observe` builds one percept per body (conspecific bank,
-plus a source bank for forage) and whose `actuate!` integrates motion, resolves collisions,
-and appends history. `Torus` (`src/world/Torus.jl`) is the periodic substrate — every
-distance, bearing, and centroid is wrap-aware. https://brainless-lab.pages.dev/environments-tasks/.
+- family and kind;
+- strict config resolver;
+- required/optional parameter names;
+- capabilities;
+- one focused conformance name and existing path;
+- documentation and executable-example paths;
+- readiness (`:available` = discoverable/materializable; `:integrated` adds standard
+  runtime, exact serialization, docs, and executable example; `:core` is stable/default
+  with named core-test coverage).
 
-## Registration: the register_*! family
-
-Everything is discovered by symbol through the registry (`src/core/Registry.jl`), same
-import-not-`using` idiom as nodes: `register_task!(:sym, spec)`, `register_body!`,
-`register_metric!(:sym, f)` (resolved by symbol in `rollout!`'s `metrics=` selection),
-`register_ablation!`. Register at include time so `simulate`/`bench` can resolve your symbol
-without a framework fork.
+Registration validates evidence and refuses duplicate keys without `replace=true`.
+Readiness is scoped evidence, while status remains experimental. The built-in physical
+catalog currently claims `:integrated` through the tested `ObjectWorld` quickstart.
 
 ## Pitfalls
 
-- **Mismatched R/E widths.** `n_receptors`/`n_effectors` on the env/morphology, the vector
-  `sense` returns, and the node constructor must all agree — a mismatch throws
-  `DimensionMismatch` at the first tick, not at construction. The morphology is the source
-  of truth; make `sense` and the decode conform to it.
-- **Unbounded or incomparable scoring.** A score with no meaningful floor/ceiling can't be
-  normalized; `normalized_score` throws if `ceiling <= floor`. Anchor to *this task's* own
-  chance and optimum, and never read a raw score as cross-task.
-- **Forgetting to clamp E.** The reservoir emits arbitrary reals; every decode must clamp to
-  `[0,1]` (see `_bounded_effectors`, `_ven_output_acts`) or the world integrates garbage.
-- **Assuming swarm ≠ single-agent.** It is one `step!`; if you find yourself special-casing
-  `n_agents==1`, you are fighting the abstraction.
+- **Hardcoded widths.** Derive node dimensions from `portspec(body)`.
+- **Positional identity.** Target component/agent/object IDs, not tuple or vector positions.
+- **Allocating command decode.** Reuse `command_buffer` and mutate it in `decode!`.
+- **World-aware encoders.** Sensors sample worlds; encoders transform samples.
+- **Body-aware ecology.** Worlds emit typed effects; physiology interprets them.
+- **Overclaiming `ObjectWorld`.** It is currently fixed-population, circular-object, 2-D,
+  one-command infrastructure. Analytic fields are explicit and independent of object banks,
+  and other agents are not yet spectral/object interaction targets.
+- **Treating the situated adapter as the generic API.** It preserves established tasks;
+  new physical composition belongs in `ObjectWorld`.
+- **Unbounded effectors or meaningless anchors.** Validate physical commands and scoring.
+- **Mixing genotype and state.** `DevelopmentSpec` targets bounded configuration scalars;
+  transient component state is never a gene.
 
-See also: `designing-nodes.md`, `designing-analyses.md`, `usage-and-workflows.md`,
+See also `designing-nodes.md`, `designing-analyses.md`, `usage-and-workflows.md`, and
 `cli-tools.md`.

@@ -4,11 +4,32 @@ description: The analytic suite — criticality, collective, cross-level, and in
 ---
 
 The analytic suite reads the *statistics of self-organised dynamics* at three scales.
-These measures are the **qualities** — the dynamical signatures that underwrite a capacity;
-where a [score](/scoring/) *indicates* that a capacity is present, these help *explain* how.
-Every measure below carries its equation, a one-line reading, and a **Source** callout to its
-Julia implementation. All operate on channels recorded by the `Recorder` (off the compute hot
-path), so nothing here perturbs a run.
+These measures are **descriptors**—candidate dynamical explanations to read beside task
+performance, not evidence of capacity by themselves. Every measure below carries its
+equation, a one-line reading, and a **Source** callout to its Julia implementation. All
+operate on channels recorded by the `Recorder` (off the compute hot path), so nothing here
+perturbs a run.
+
+## Before choosing a measure
+
+Predeclare primary measures before confirmation; treat everything else as exploratory.
+Specify the transient removal, window, threshold or binning choices, missing/dead-run
+handling, estimator diagnostics, minimum data, multiple-comparison policy, and uncertainty
+unit. Bootstrap the independent randomized run or block—not agents or ticks nested inside it.
+
+| Family | Current role | Required discipline |
+| --- | --- | --- |
+| task/world metrics | operational performance and gates | task calibration and causal control |
+| target/rate diagnostics | mechanism and failure diagnosis | compare against known component states |
+| branching and avalanches | experimental criticality descriptors | fit diagnostics, surrogate/control, threshold and finite-size sensitivity |
+| spectral radius | linear recurrent-matrix proxy | do not treat as general nonlinear stability |
+| susceptibility/Fano/participation | experimental second-order descriptors | adequate population size and null |
+| swarm order and contact graph | collective organization | torus-aware geometry and independent worlds |
+| transfer entropy | experimental directional association | stationarity, bias, surrogates, multiplicity |
+
+A nonsignificant contrast can mean low power, large uncertainty, or a small effect. It does
+not establish “no effect”; that claim needs a declared equivalence margin and an equivalence
+procedure. See the [Research workflow](/research-workflow/).
 
 For a concrete, runnable end-to-end example that collects these measures at both scales
 from a single forage rollout — per-agent branching, node/agent susceptibility,
@@ -23,10 +44,12 @@ two-scale data-collection harness:
 
 For a population-activity series $A(t)$, the branching ratio $m$ is how much activity
 one tick begets the next. The naive slope $\hat m = \sum A_t A_{t+1} / \sum A_t^2$ is
-**biased under subsampling** (Wilting & Priesemann 2018) — and this is subsampling (a
-scalar summary of the population). The **multistep-regression** estimator fixes it: for
-lags $k = 1\dots k_{\max}$ take the (intercept-corrected) slope $r_k$ of $A(t{+}k)$ on
-$A(t)$, then fit
+**biased when only a subset or noisy projection of the underlying process is observed**
+(Wilting & Priesemann 2018). Reducing a fully observed population to a scalar total is not
+by itself proof that the estimator's subsampling assumptions hold. The
+**multistep-regression** estimator is more robust under its model assumptions: for lags
+$k = 1\dots k_{\max}$ take the (intercept-corrected) slope $r_k$ of $A(t{+}k)$ on $A(t)$,
+then fit
 
 $$
 r_k = b\,m^{k} \quad\Longrightarrow\quad \log r_k = \log b + k\log m,
@@ -53,16 +76,18 @@ $$
 \frac{\alpha-1}{\tau-1} \;=\; \gamma, \qquad \langle S\rangle(D)\sim D^{\gamma}.
 $$
 
-Agreement of the three exponents is a far stronger criticality claim than any single
-$\sigma$ (Beggs & Plenz 2003).
+Agreement of the three exponents is still insufficient on its own for a criticality claim.
+Require many events, threshold and bin sensitivity, competing-distribution checks, and
+finite-size evidence; otherwise report the fitted avalanche descriptors only.
 
 <p class="bl-source">Source: <code>src/analysis/Avalanches.jl</code> — <code>avalanches</code> (τ, α, γ_fit vs γ_pred).</p>
 
 ### Spectral radius
 
-The dominant magnitude of the learned recurrent matrix, $\rho(W) = \max_i |\lambda_i(W)|$
-— the linear-stability read that complements the branching (avalanche) read. Tracked
-over the rollout, and per agent.
+The dominant magnitude of the learned recurrent matrix, $\rho(W) = \max_i |\lambda_i(W)|$,
+is a **linear proxy** that complements branching and avalanche reads. In a nonlinear,
+threshold-reset, plastic spiking system it is not a general stability criterion. It is
+tracked over the rollout and per agent.
 
 <p class="bl-source">Source: <code>src/analysis/Spectral.jl</code>.</p>
 
@@ -123,9 +148,15 @@ Each surrogate independently circular-shifts every agent's recorded time series,
 agent's *own* dynamics are preserved while the *inter-agent timing* is destroyed. The
 measure is recomputed on the surrogate ensemble; comparing the real value against the
 null distribution separates genuine cross-agent coupling from what any independent set of
-single-agent series would produce by chance. Returns
-`(real, null_mean, null_std, ratio)` over `n_shifts` draws — a `ratio` near $1$ means the
-apparent coupling is indistinguishable from the null. Because the null strips both real
+single-agent series would produce by chance. Entity-aligned channels are shifted by stable
+`EntityID`, not vector position. Derived/event channels are removed and static object
+snapshots are retained; an unknown non-entity channel is an error by default rather than
+being left deceptively aligned.
+
+The result retains `real`, `null_mean`, `null_std`, and `ratio`, and also reports the full
+`null_values`, `pvalue`, `alternative`, `n_requested`, and effective `n_valid`. A `ratio`
+near $1$ means the apparent coupling is indistinguishable from the null, while the
+p-value makes the declared tail and finite surrogate count explicit. Because the null strips both real
 coupling *and* common-source drive, read the coupling as the vision-on minus vision-off
 difference, not the raw ratio.
 
@@ -169,7 +200,9 @@ $$
 
 Two variants: node-to-node **within a reservoir** (spike trains), and agent-to-agent
 (binarised heading change) — the direct measure for the social-foraging "do they use
-each other as a guide?" question. *Experimental* (plug-in bias; a KSG upgrade is flagged).
+each other as a guide?" question. *Experimental*: the plug-in estimate is biased at finite
+samples. Check stationarity, compare against appropriate time-shift surrogates, report sample
+counts, and correct across tested pairs. A KSG upgrade remains future work.
 
 <p class="bl-source">Source: <code>src/analysis/TransferEntropy.jl</code> — <code>transfer_entropy</code>, <code>node_transfer_entropy</code>, <code>agent_transfer_entropy</code>.</p>
 

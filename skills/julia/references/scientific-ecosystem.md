@@ -80,36 +80,33 @@ sol = solve(prob, Tsit5())
 
 Performance-critical specifics for this domain:
 
-- **Always write the in-place (`!`) form for anything beyond a toy system.** This is the same
-  mutating-API point from `memory-and-allocations.md`, but it matters especially here: the solver
-  calls your right-hand-side function every internal step (often many more than the number of
-  points you actually save), so an out-of-place form that allocates a fresh array every call adds
-  up fast over a long simulation.
-- **For small systems (roughly under 20 state variables — a single neuron's gating variables, for
-  instance), use the out-of-place form with `StaticArrays.jl` instead**, which can be *faster* than
-  the in-place mutating form at that size, because the whole state fits in registers/stack with no
-  GC involvement at all:
+- **Choose in-place or out-of-place from the state representation and measured workload.** An
+  in-place right-hand side enables buffer reuse for dynamic arrays, which matters because the
+  solver calls it at every internal step. Small immutable states can perform well out of place,
+  and automatic differentiation or accelerator workflows may favor that form. Neither spelling is
+  universally faster.
+- **For small fixed-size systems, benchmark an out-of-place `StaticArrays.jl` state.** It can be
+  faster because size-specialized operations may be unrolled and intermediate allocation may be
+  eliminated:
 
   ```julia
   using StaticArrays
   fhn_static(u, p, t) = SA[u[1] - u[1]^3/3 - u[2] + p[4], (u[1] + p[1] - p[2]*u[2]) / p[3]]
   prob = ODEProblem(fhn_static, SA[0.0, 0.0], (0.0, 100.0), (0.7, 0.8, 12.5, 0.5))
   ```
-  This crossover (in-place mutating for large systems, out-of-place `StaticArrays` for small ones)
-  is specific advice from the SciML documentation, not a general Julia rule — the right choice
-  depends on system size.
-- **Solver choice matters and has real defaults to start from:** `Tsit5()` for general non-stiff
-  problems; `Rosenbrock23()`/`Rodas5()` for stiff systems under ~50 state variables (a common
-  situation in conductance-based neuron models, where fast spike dynamics and slow adaptation
-  variables coexist at very different timescales — a classic stiffness signature); `TRBDF2`/`KenCarp4`
-  for stiff systems up to a couple thousand variables (e.g. a moderately sized coupled-neuron
-  network); `QNDF` for larger still. If a solve is diverging (`dt <= dtmin`, `NaN dt`, "Instability
-  detected"), the overwhelming majority of the time the cause is a bug in the model's right-hand
-  side, not the solver — check the model before reaching for solver tolerance tweaks.
-- **Use `ComponentArrays.jl` for any model with more than two or three named state variables**
+  There is no stable universal size cutoff; benchmark representative solves, including compilation
+  when latency matters.
+- **Solver choice depends on stiffness, tolerances, Jacobian structure, and workload.** `Tsit5()`
+  is a useful explicit non-stiff starting point, while Rosenbrock, SDIRK, BDF, and IMEX families
+  cover different stiff problems. Automatic switching algorithms are useful when stiffness is
+  uncertain. Follow the current SciML solver-selection guide and benchmark representative
+  candidates instead of applying state-count thresholds. When a solve fails, validate the model
+  equations, domains, events, initial conditions, and return code before tuning tolerances or
+  swapping algorithms.
+- **Consider `ComponentArrays.jl` when named state improves clarity**
   (firing rates of several populations; voltage and several gating/adaptation variables together)
   instead of indexing a bare vector by position — see `memory-and-allocations.md`. It stays
-  solver-compatible while making the right-hand-side function actually readable
+  solver-compatible while making the right-hand-side function readable
   (`D.v = ...; D.w = ...` instead of `du[1] = ...; du[2] = ...`).
 - For coupling many neuron-like ODE units together into a network (rather than one ODE per neuron
   simulated separately), the same `ODEProblem`/`u!` machinery scales to one large coupled system —
@@ -147,3 +144,15 @@ loop over plain (or `StaticArrays`-backed) arrays — which, given everything ab
 stability and allocations, is often both fast and not actually much code once you're applying the
 rest of this skill. Don't assume a dedicated package is required; for many SNN use cases, plain
 Julia plus the techniques in this skill outperforms reaching for an immature dependency.
+
+## Current primary references
+
+Recheck these before turning version-sensitive package guidance into a hard rule:
+
+- Julia performance tips: <https://docs.julialang.org/en/v1/manual/performance-tips/>
+- SciML problem interface and in-place/out-of-place forms:
+  <https://docs.sciml.ai/DiffEqDocs/stable/basics/problem/>
+- OrdinaryDiffEq usage and solver guidance:
+  <https://docs.sciml.ai/DiffEqDocs/stable/api/ordinarydiffeq/usage/>
+- Agents.jl tutorial, including heterogeneous-agent choices:
+  <https://juliadynamics.github.io/Agents.jl/stable/tutorial/>

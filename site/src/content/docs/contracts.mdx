@@ -1,109 +1,190 @@
 ---
 title: Contracts
-description: The participant-facing rules you rely on to read results and implement the interface — non-uniform effectors, bounded scores, and the genotype/state split.
+description: "The public rules for reservoirs, bodies, components, worlds, scores, identity, and evolvable parameters."
 ---
 
-Three rules survive contact with every task: **effectors don't mean the same thing
-across tasks**, **raw scores aren't comparable across tasks**, and **evolvable parameters
-stay separate from runtime state**. This page is the contract you lean on when reading a
-run or writing a node — not a how-to. To *add* a part, see [Extending it](/extending/); for
-preset/task/ablation tables and the sweep schema, see the [Reference](/reference/).
+The contracts make experimental substitutions legible. A reservoir knows vector widths,
+not task physics. A body owns physical and physiological interpretation. A world owns
+external relations. Stable IDs—not tuple positions—join configuration, runtime, recording,
+and development.
 
-## Effectors are non-uniform
+## Reservoir contract
 
-Every reservoir emits an effector vector $E$, but each task/body **decodes it
-differently**. Channel 1 in Pong is not the same physical quantity as channel 1 in
-cartpole or torus. See [Environments & Tasks](/environments-tasks/) for the per-task $R$/$E$
-widths; here is how each body reads the vector:
-
-| task / body | E | decode |
-|---|---:|---|
-| `:wall` | 2 | differential wheel speeds. `eL`, `eR` clamped to $[0,1]$; speed $(e_L+e_R)/2$, heading change $e_R-e_L$; a wall hit forces a random ±45° turn with no translation. |
-| `:tracking` | 2 | eye-rotation command. Eye heading changes by $10(e_1-e_2)$° per tick as the stimulus advances separately. |
-| `:pong`, `:pong_hitrate` | 2 | paddle vote. Paddle moves $100(e_1-e_2)$, clamped to range. |
-| `:cartpole` (+ `_hard`/`_swingup`/`_long`) | 2 | binary force vote. $e_1 \ge e_2 \Rightarrow$ negative force, else positive. Variants change force/bounds/initial state, not the interface. |
-| `:torus` / swarm `PassthroughBody(VENMorphology, KinematicMotor)` | 3 | VEN kinematics by default. `KinematicMotor(readout=:spike_fraction, scheme=:ven_differential)` maps $e_3$ to forward acceleration and $e_2-e_1$ to heading acceleration; speed and heading-rate caps live on the motor. |
-
-<p class="bl-source">Source: <code>src/tasks/Tasks.jl</code>, <code>src/world/Body.jl</code>.</p>
-
-## `normalized_score` is bounded, not comparable
-
-`normalized_score(task, raw_score)` is the per-task transform `rollout`, `evolve`, and the
-benchmark use to make fitness comparable enough for optimizer bookkeeping:
-
-$$
-\operatorname{clamp}\!\left(\frac{\text{raw} - \text{floor}}{\text{ceiling} - \text{floor}},\, 0,\, 1\right)
-$$
-
-It is **not a universal physical unit**. Saturation at 0 or 1 means the raw score fell
-outside the chosen floor/ceiling — the value is pinned, not meaningfully equal across tasks.
-
-| task | raw key | floor | ceiling | raw score means |
-|---|---|---:|---:|---|
-| `:wall` | `:nav_score` | 0.763 | 1.0 | `collision_free_rate * movement_gate` (collision-free navigation while moving) |
-| `:tracking` | `:track_score` | 0.0 | 1.0 | mean cosine alignment to the stimulus |
-| `:pong` / `:pong_hitrate` | `:hit_rate` | 0.356 | 0.701 | fraction of return opportunities hit (identical `TaskSpec`) |
-| `:cartpole` | `:score` | 0.0 | 1.0 | survival, `step_count / default_ticks` |
-| `:cartpole_hard` | `:score` | 0.0 | 1.0 | fraction balanced, hard variant |
-| `:cartpole_swingup` | `:mean_uprightness` | 0.157 | 1.0 | mean $(\cos\theta + 1)/2$ |
-| `:cartpole_long` | `:score` | 0.0 | 1.0 | fraction balanced, long pole |
-
-Base `:cartpole` reports survival; the variants report a window score
-(`balanced_fraction` or `mean_uprightness`). Both normalize onto $[0,1]$, but the raw
-meanings differ. `:torus` is a registered swarm symbol, **not** a `TaskSpec` with a
-floor/ceiling — read torus runs through collective metrics instead.
-
-<p class="bl-source">Source: <code>src/tasks/Tasks.jl</code> (<code>normalized_score</code>), <code>src/tasks/Scoring.jl</code> (floor/ceiling).</p>
-
-## Ensemble metrics
-
-`rollout!(collective, ticks; window)` returns the task/env metrics plus liveness
-diagnostics:
-
-- **`score`** — task-specific raw scalar from single-agent envs; meaning depends on the
-  table above. Normalize before any cross-task comparison.
-- **`polarization`** — heading alignment: length of the mean unit heading vector. `0`
-  disordered, `1` fully aligned.
-- **`milling`** — absolute mean rotational order about the centroid; high means agents
-  circle the group center.
-- **`liveness`** — reservoir-activity sanity check over the window: `rate_mean`,
-  `rate_var`, `total_spikes_window`, `alive`. `alive` requires $0.01 < \text{rate\_mean} < 0.99$,
-  nonzero variance, and enough spikes.
-
-Swarm runs also report mean nearest-neighbour distance, mean pairwise distance, cohesion
-(`nearest + pairwise`), and input stability.
-
-<p class="bl-source">Source: <code>src/world/Ensemble.jl</code>, <code>src/world/Metrics.jl</code>.</p>
-
-## Node & extension contract
-
-A high-level node constructor must accept `(n_nodes, n_receptors, n_effectors; seed=0, kwargs...)`
-and return a `Reservoir` implementing:
+A registered node constructor accepts
+`(n_nodes, n_receptors, n_effectors; seed=0, kwargs...)` and returns a `Reservoir`
+implementing:
 
 ```julia
-step!(r, receptors)      # advance one tick, return spikes/rates
-effectors(r, spikes)     # map spikes/rates to an E-vector of length n_effectors(r)
-reset!(r)                # reset runtime state
-n_receptors(r)
-n_effectors(r)
+step!(reservoir, receptors)
+effectors(reservoir, spikes)
+reset!(reservoir)
+n_nodes(reservoir)
+n_receptors(reservoir)
+n_effectors(reservoir)
 ```
 
-Because you're adding *methods* to BrainlessLab's generics, **`import`** them — `using`
-alone won't attach your methods and `simulate` won't dispatch to your node:
+When extending package generics, import them explicitly:
 
 ```julia
-import BrainlessLab: step!, effectors, reset!, n_receptors, n_effectors
+import BrainlessLab: step!, effectors, reset!, n_nodes, n_receptors, n_effectors
 ```
 
-Keep genotype and runtime state separate — do not hide state inside `pack_params`, and do
-not expect `snapshot_state` to define the search space:
+`n_nodes` is also used when a dead or otherwise inactive body retains its stable ensemble
+slot: the runtime returns a correctly sized zero-activity vector without advancing the
+reservoir.
 
-- **`pack_params` / `unpack_params` / `paramdim`** — evolvable parameters an optimizer
-  stores, mutates, and reloads as a genome.
-- **`snapshot_state` / `load_state!`** — transient state (membrane activations, learned
-  weights, spike buffers, noise index, compartment voltages) for replay/reset.
+## Body and component contract
 
-The full node contract and a copy-ready skeleton live in [Extending it](/extending/) and
-[Nodes overview](/nodes/overview/).
+`AbstractBody` is the dispatch boundary. At minimum an extension body supplies
+`n_receptors`, `n_effectors`, `sense!`, and `decode!`; it may specialize `portspec`,
+`alive`, `inactive_command`, `update!`, `reset!`, `component_state`, and
+`receptor_link_profile`. A body whose `decode!` returns a typed command must implement
+`inactive_command(body)` with a neutral value of that same command type.
 
-<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>.</p>
+The standard `Embodiment` composes these component families:
+
+| family | owns | central methods |
+|---|---|---|
+| geometry | footprint and collision/ray bounds | `geometry_radius`, `geometry_area` |
+| sensor | raw physical sampling declaration/state | `rawspec`, `sample_world_sensor!` |
+| encoder | raw samples → receptor ports | `encoder_sources`, `encode!`, `portspec` |
+| actuator | effectors → typed reusable command | `command_buffer`, `decode!`, `portspec` |
+| dynamics | command + motion state → new motion state | `integrate!` |
+| physiology | feedback receptors, effects, viability | `physiology_*` methods |
+
+Every component ID is globally unique within one body. Receptor and effector port IDs are
+namespaced from those IDs. Encoders either declare stable sensor sources or follow the
+one-for-all / one-per-sensor grouping convention; mixed source-aware and conventional
+grouping is rejected.
+
+Commands must be finite. Built-in actuators clamp normalized effector values before applying
+physical limits. A physical assembled body currently has one actuator/dynamics command pair;
+the assembler rejects incompatible command and dynamics types.
+
+An inactive body is not sensed, stepped, or decoded. Its stable slot receives zero receptors,
+zero node activity, and `inactive_command(body)`. `sense!` may return a borrowed body-owned
+buffer; the ensemble copies that vector at its gather boundary before any other agent is
+sensed.
+
+An `Ensemble` validates each reservoir/body receptor and effector width before it binds identities
+or steps the world. Node constructors that accept a body-specific receptor connection profile
+declare their keyword with `register_node!(...; receptor_profile_keyword=:input_link_p)`; this
+keeps physiology `link_p` routing capability-driven rather than coupled to node names.
+
+## World contract and lifecycle
+
+The ensemble calls:
+
+```julia
+sync_activity!(environment, bodies)
+prepare_step!(environment, bodies)
+percepts = sample!(environment, bodies)
+commands = # sense! → reservoir → decode! for every body
+effects = apply_commands!(environment, bodies, commands)
+update!(body, effects_for_body)
+sync_activity!(environment, bodies)
+```
+
+`sample!` must return one percept per body from the same pre-action state.
+`apply_commands!` commits the frame and returns one effect collection per body. Effects are
+interpreted by physiology, not by the environment.
+`sync_activity!` is the public lifecycle boundary: before observation it makes current
+activity authoritative for sensing, and after physiology it makes the same boundary
+authoritative for metrics and rendering. An inactive body has neutral motion and is
+excluded from active-only summaries such as mean speed; cohort-level survival or
+homeostasis scores retain the initial population so death cannot improve a score by
+shrinking its denominator.
+
+`ObjectWorld` additionally exposes `bind_entity_ids!`, `interaction_events`, and
+`object_snapshot`. New physical sensor kinds extend
+`sample_world_sensor!(sensor, world, motion_state)` and return their raw vector. The `!`
+permits mutation of sensor or RNG state; there is no caller-owned destination or zero-allocation
+guarantee. The current
+generic world supports fixed agent populations, static circular objects, named analytic
+fields, and one physical command per body; do not assume a birth/death scheduler or arbitrary
+entity dynamics.
+
+## Identity and recording
+
+`EntityID` is stable independently of world slot and heterogeneous group. `ObjectID` is the
+corresponding stable object identity. Use public accessors (`entity_ids`, `agent_at_slot`,
+`body_at_slot`, `foreach_group`) rather than store fields. `EntityFrame` keeps IDs attached
+to recorded values.
+
+`component_state(body)` is keyed by stable component IDs. A recorder or analysis should not
+branch on the concrete body type to find physiology or sensor state.
+
+Entity-aligned recorder channels (`:poses`, `:sensors`, `:receptors`, `:components`, `:needs`,
+`:feedback`, `:body_alive`, and `:deaths`) store `EntityFrame`s. Their `.ids` field preserves
+identity while ordinary indexing and iteration access the values. World-global
+`:interactions` and `:objects` samples are respectively the current tick's event vector and a
+full object snapshot; they are not `EntityFrame`s.
+
+Reservoir network inspection is optional through `network_snapshot(reservoir)`. Results
+store per-agent network metadata under `config.agents`; uniform runs may also expose
+plural compatibility projections such as `config.networks`. New results do not use a
+singular `config.network`. Network views require an `EntityID` when more than one agent
+exposes a network, and pair the selected graph with that same entity's activity.
+
+## Configuration and component registration
+
+An embodiment TOML file is strict and schema-versioned. Each `[[components]]` table has an
+`id`, generic `family`, registered `kind`, and parameters. Unknown keys and unknown parameters
+are errors. `materialize_blueprint` resolves typed components without assembling runtime;
+`materialize_embodiment` produces fresh runnable state.
+
+If no encoder is configured, materialization inserts one `:identity_encoder`. In a
+source-aware composition, unclaimed sensors receive `<sensor>__identity_encoder`. These
+stable generated IDs are visible through `component_slots(body)`.
+
+`ComponentDescriptor` is cold-path metadata. It declares a resolver, experimental status,
+readiness, capabilities, required/optional parameter names, focused conformance, docs, and an executable
+example. Registration validates those paths and refuses silent replacement:
+
+```julia
+register_component!(descriptor)
+register_component!(replacement; replace=true)
+```
+
+Readiness is evidence-scoped: `:available` means discoverable/materializable;
+`:integrated` adds standard runtime, exact serialization, docs, and an executable example;
+`:core` is a stable/default contract with named core-test coverage. Status remains
+`:experimental` independently of readiness. Query `components`, `component_info`,
+`readiness`, or `readiness_markdown` rather than copying a static catalog.
+`component_info(...).parameters` reports names only; it does not currently describe types,
+defaults, or constraints.
+
+## Effectors and scores are task-specific
+
+Every reservoir emits an effector vector, but its meaning comes from the actuator or task
+adapter. The existing tasks decode their two channels as wheel, eye, paddle, or force votes;
+the situated collective adapter uses three movement channels by default. A generic physical
+body instead names ports such as `:forward`, `:turn`, `:left_wheel`, or `:yaw_torque` through
+its actuator.
+
+`normalized_score(task, raw_score)` applies the task's declared floor and ceiling:
+
+$$
+\operatorname{clamp}\!\left(
+\frac{\text{raw}-\text{floor}}{\text{ceiling}-\text{floor}}, 0, 1
+\right).
+$$
+
+It is bounded optimizer bookkeeping, not a universal physical unit. Saturation means the
+raw score lies outside the anchors. A task with `score_key=nothing` must be interpreted
+through its metrics rather than forced into a scalar objective.
+
+## Genotype, development, and runtime state are separate
+
+- `pack_params` / `unpack_params` / `paramdim` describe an evolvable parameter vector.
+- `snapshot_state` / `load_state!` preserve transient reservoir state for replay.
+- `DevelopmentSpec` selects bounded real scalar component parameters on stable component IDs.
+- `DevelopmentGenotype` stores those bounded values.
+- `develop(genotype, context)` creates a fresh, deterministically seeded blueprint;
+  `materialize_embodiment` creates its runnable phenotype.
+
+Development keeps component structure fixed. It does not evolve topology, component count,
+runtime buffers, birth time, or lineage. Mutation and recombination require compatible
+development structure.
+
+<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>, <code>src/core/Components.jl</code>, <code>src/world/Ports.jl</code>, <code>src/world/Embodiment.jl</code>, <code>src/world/Ensemble.jl</code>, <code>src/run/EmbodimentConfig.jl</code>, <code>src/run/Development.jl</code>.</p>

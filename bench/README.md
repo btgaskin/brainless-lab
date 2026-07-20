@@ -63,7 +63,7 @@ Each run is a timestamped run directory with:
 - `config.resolved.toml` -- resolved benchmark configuration.
 - `summary.csv` -- per-neuron x task summaries used for ranking.
 - `results_raw.csv` -- raw per-trial scores.
-- `stats.json` -- omnibus, pairwise, and baseline-relative nonparametric tests.
+- `stats.json` -- within-seed repeated-measures, paired sign-flip, and paired-bootstrap results.
 - `figures/*.png` -- house-palette heatmap and per-task comparison bars.
 - `cells/<neuron>__<task>/` -- per-cell scores, representative figure, and best/representative/worst GIFs when enabled.
 - `README.md` -- headline ranking callout for the run.
@@ -79,9 +79,31 @@ Fairness rule:
 
 Falandays-family neurons default to `untrained`, which uses seeded per-trial wiring while online plasticity acts during the rollout. "Default parameters" means the generic `FalandaysParams()` genome defaults for every variant *except* `:falandays_base`/`:falandays` on a task with a registered paper config (`:wall`/`:tracking`/`:pong`) -- for those, it means the task's authors-faithful constants (`falandays_paper_config(task)`: task-specific `lrate_wmat`/`lrate_targ`/input weight), matching what plain `simulate(task; node=:falandays_base)` runs with. Compartmental-family neurons default to `trained`, because untrained non-plastic weights are not a meaningful benchmark. If a cell requires a trained genome and none exists, the pipeline falls back to untrained evaluation and marks that cell with `trained-required-but-untrained` in outputs.
 
+Rankings are conditional on the configured node roster, task roster, task weighting,
+preparation policy, and seeds. A `trained-required-but-untrained` fallback must not enter an
+unqualified ranking. Training, model/parameter selection, and evaluation seeds must be
+disjoint. When every model shares the same randomized trial seeds within a task, analyze
+model contrasts as paired by seed. Agents and ticks within a rollout are repeated
+observations, not additional independent trials.
+
+Normalized task scores are not universal cross-task units. Any aggregate ranking encodes a
+declared weighting over different operational contracts; it should be reported alongside
+per-task results and preparation status.
+
 Statistics:
 
-The pipeline uses normalized score for all inference and keeps raw score in the raw CSV. Per-task omnibus tests use Kruskal-Wallis. Pairwise tests use Mann-Whitney U with Cliff's delta and Holm correction within each task. Baseline-relative tables compare each neuron against the configured baseline, include bootstrap CIs for mean differences, achieved bootstrap power, and a search for the smallest sampled n reaching 0.80 power. Benjamini-Hochberg q-values are applied across all emitted pairwise p-values in the grid.
+The pipeline uses normalized score for its current summaries and keeps raw score in the raw
+CSV. Trial seeds are shared across node conditions within a task, so inferential output is
+block-aware: the omnibus test permutes condition labels within seed, pairwise comparisons
+use paired sign flips, and mean-difference intervals bootstrap whole paired seed blocks.
+Holm correction is applied within each task and Benjamini-Hochberg q-values across emitted
+pairwise comparisons in the grid. `paired_superiority` is the mean sign of the within-seed
+difference, in `[-1, 1]`; ties contribute zero.
+
+The benchmark does not emit retrospective “achieved power.” Plan a fresh evaluation from a
+meaningful-effect margin and a variance pilot over independent blocks. Flagged
+`trained-required-but-untrained` cells remain visible in raw and summary outputs but are
+excluded from inferential groups and aggregate rankings.
 
 Stats tests:
 
