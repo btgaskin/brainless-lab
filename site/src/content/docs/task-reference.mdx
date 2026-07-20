@@ -8,6 +8,23 @@ inspect its observations, effectors, reset and warmup behavior, randomized quant
 primary metric, gates, anchors, and degenerate policies. `tasks()` is the live list;
 `TaskSpec` and the task source are authoritative when this summary and code differ.
 
+## Inspect a task from Julia
+
+Use the public task helpers when a task chooses its bodies or dimensions at setup time:
+
+```julia
+task = resolve_task(:forage)
+
+has_objective(task)                 # whether the task defines a scalar score
+is_multiagent(task.setup)           # whether the setup supports a population
+layouts = resolved_task_ports(task) # one PortSpec for each resolved body
+setup = setup_task(task; seed=11)   # the Environment and bodies for this run
+```
+
+`setup_task` constructs fresh runtime state. Do not reuse its environment or bodies as
+static metadata. `resolved_task_ports` also runs the setup, so pass the same task options
+that the later simulation will use.
+
 ## Built-in task families
 
 | Family | Operational question | Primary outcome | Essential control or gate | Main comparison limit |

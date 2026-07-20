@@ -117,7 +117,7 @@ descriptor = ComponentDescriptor(
     parameters=(required=(:channels,), optional=(:gain,)),
     conformance=:my_sensor_contract,
     conformance_path="test/test_my_sensor.jl",
-    docs_path="docs/my_sensor.md",
+    docs_path="site/src/content/docs/my-sensor.mdx",
     example_path="examples/my_sensor.toml",
     root=@__DIR__,
 )
@@ -201,7 +201,9 @@ BrainlessLab skill's `designing-analyses.md` gives the full authoring contract.
 - A **drive** changes reservoir input/state through `apply_drive!`; seed and reset any
   stochastic stream and record the active drive.
 - An **intervention** changes a declared mechanism and must be a logged no-op or explicit
-  error when inapplicable. Pair it with a mechanism-specific control.
+  error when inapplicable. Use `supports_intervention(intervention, reservoir)` to inspect
+  the capability before application. Wrappers must delegate this query to the reservoir
+  they wrap. Pair the intervention with a mechanism-specific control.
 - An **optimizer** implements `ask`, `tell!`, and `result`; separate genome configuration
   from runtime state and measure search variance across independent optimization runs.
 - A **view** belongs in the optional Makie extension, consumes recorded channels, and must

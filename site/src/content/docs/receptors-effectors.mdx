@@ -103,6 +103,10 @@ The built-in component catalog includes:
   channel-major. Occlusion uses nearest circular ray hits.
 - **`MountedFieldProbe`** — a scalar-field probe at a physical `Mount2D`, with first-order
   response lag plus separately seeded shared and independent Gaussian noise.
+- **`BilateralFieldProbe`** — a direct Julia utility that samples one or more analytic
+  fields at two explicit `Mount2D` positions. It returns channel-major left/right pairs.
+  `SensorResponse` can then add response lag, shared noise, and independent noise. Reusable
+  TOML bodies normally compose two `MountedFieldProbe` components instead.
 - **`BilateralContrastEncoder`** — binds two stable sensor IDs and maps right-minus-left
   contrast into `[0, 1]`; equal inputs map to `0.5`.
 - **`IdentityEncoder`** — a direct mapping for already encoded task vectors or sensors that
