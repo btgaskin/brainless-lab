@@ -1,4 +1,4 @@
-# Collective-coupling sweep (falandays_base, fixed brain N=250): how the coupling
+# Collective-coupling sweep (falandays, fixed brain N=250): how the coupling
 # channels — conspecific vision + acoustic signalling — and their range affect
 # foraging AND ensemble criticality. The blind cell (vision off + signalling off)
 # is the control. Hypothesis: coupling -> collective dynamics -> better foraging,
@@ -15,7 +15,7 @@ max_cells = 200
 max_rollouts = 120
 
 [baseline]
-node = "falandays_base"
+node = "falandays"
 task = "forage"
 N = 250
 n_agents = 6

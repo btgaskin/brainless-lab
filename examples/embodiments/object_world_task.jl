@@ -60,7 +60,7 @@ function run_object_world_task(;
 )
     return simulate(
         OBJECT_WORLD_EXAMPLE_TASK;
-        node=:falandays_base,
+        node=:falandays,
         ticks=ticks,
         seed=seed,
         n_nodes=n_nodes,

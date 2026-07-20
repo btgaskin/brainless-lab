@@ -29,7 +29,7 @@ function _usage(io=stdout)
     println(io, """
     Usage:
       julia --project=. sweep/run.jl CONFIG.toml [--force] [--debug]
-      julia --project=. sweep/run.jl --list-axes --node falandays_base --task wall
+      julia --project=. sweep/run.jl --list-axes --node falandays --task wall
       julia --project=. sweep/run.jl ablate NODE TASK [--force] [--debug]
 
     Rollouts run in parallel across Julia threads; the script re-launches
@@ -65,7 +65,7 @@ function main(args=ARGS)
     isempty(args) && (_usage(stderr); return 1)
 
     if "--list-axes" in args
-        node = _arg_value(args, "--node", "falandays_base")
+        node = _arg_value(args, "--node", "falandays")
         task = _arg_value(args, "--task", "wall")
         _print_axes(node, task)
         return 0

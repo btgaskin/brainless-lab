@@ -1,0 +1,120 @@
+---
+title: The Falandays node
+description: The canonical online-plastic Falandays reservoir, its local homeostatic update, and its validation boundary.
+---
+
+Use `node=:falandays` for the canonical BrainlessLab baseline:
+
+```julia
+sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11)
+```
+
+`:falandays_base` remains an accepted compatibility name. The handbook uses
+`:falandays`.
+
+## What the node does
+
+Each Falandays node is a leaky integrate-and-fire unit. A reservoir contains many such
+nodes. The membrane value receives sensory and recurrent input, leaks, and produces a spike
+when it crosses a threshold.
+
+For node \(i\):
+
+$$
+a_i \leftarrow a_i(1-\lambda)
+  + \sum_r W^{\mathrm{in}}_{ri}R_r
+  + \sum_j W_{ji}s^{\mathrm{prev}}_j
+$$
+
+The node fires above its scaled target threshold:
+
+$$
+s_i = \mathbb{1}[a_i \ge \mu T_i].
+$$
+
+After a spike, the implementation resets by subtracting the threshold. It does not clamp
+the membrane to zero.
+
+## Local homeostatic adaptation
+
+The node compares its post-spike membrane value with its target:
+
+$$
+e_i = a_i - T_i.
+$$
+
+The implementation changes active recurrent inputs and the node target using this local
+error. Both updates occur during the rollout. There is no separate training phase for the
+canonical model.
+
+This is why an untrained Falandays reservoir is a meaningful baseline. It self-organises
+online. A fixed-weight reservoir does not have the same preparation contract.
+
+## Task-specific canonical settings
+
+The canonical tracking, Pong, and wall tasks use authors-derived task settings through:
+
+```julia
+falandays_paper_config(:tracking)
+falandays_paper_config(:pong)
+falandays_paper_config(:wall)
+```
+
+These settings include task-specific node count, input amplitude, learning rates, and
+wiring details. A Falandays run in another task does not automatically receive one of those
+single-agent task profiles.
+
+Record the resolved configuration. Do not assume that one named node implies identical
+numeric settings in every task.
+
+## Baseline and experimental variants
+
+The canonical baseline uses the tested Falandays update and authors-derived construction.
+Other registered Falandays names change one or more axes, such as:
+
+- sensory noise;
+- small-world or spatial wiring;
+- excitatory and inhibitory sign constraints;
+- endogenous Oosawa drive;
+- delayed transmission;
+- dendritic eligibility;
+- hemispheric composition;
+- plasticity ablation.
+
+These variants are experimental platform models. A useful comparison keeps the task,
+body, seed block, and all unrelated axes fixed.
+
+Prefer explicit axes or a small preset when the node update contract is unchanged. Add a
+new `Reservoir` subtype only for a genuinely different update or state contract.
+
+## What “authors-faithful” means
+
+The canonical reservoir is checked against local authors-derived reference trajectories
+within declared numerical tolerances. This validates the tested node construction and
+update path. It does not validate:
+
+- every task or body;
+- the generic physical world;
+- ecological or multi-agent mechanisms;
+- every experimental variant;
+- every biological interpretation in the paper;
+- behavior outside the tested fixtures.
+
+The source paper contains an ambiguous printed coefficient. BrainlessLab follows the
+authors' reference implementation and states that choice. “Authors-faithful” is more precise
+than “paper-faithful.”
+
+## The claim boundary
+
+A fixture-valid reservoir can still perform poorly on a task. A strong task result can
+still depend on a body, initial condition, or parameter choice. Keep three statements
+separate:
+
+1. the node implementation matches its tested reference;
+2. the composed agent performs under a declared task;
+3. the result supports a scientific claim under controls and independent replication.
+
+Use [Reservoirs and node models](/core/reservoirs/) for other node families and preparation
+rules. Use [Design a study](/core/design-study/) before comparing variants.
+
+<p class="bl-source">Source: <code>src/nodes/Falandays.jl</code>, <code>src/nodes/Axes.jl</code>, <code>src/api/paper_config.jl</code>, <code>test/oracle/authors_falandays.jl</code>.</p>

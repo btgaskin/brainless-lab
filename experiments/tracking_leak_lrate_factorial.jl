@@ -27,7 +27,7 @@ function _simulate_tracking_factorial(leak::Real, lrate_wmat::Real, seed::Intege
                                       ticks::Integer, nnodes::Integer)
     return simulate(
         :tracking;
-        node=:falandays_base,
+        node=:falandays,
         N=Int(nnodes),
         ticks=Int(ticks),
         seed=Int(seed),
@@ -121,7 +121,7 @@ function _tracking_factorial_results_json(result, seeds::Vector{Int}, leaks::Vec
                                           warmup::Integer, nnodes::Integer)
     return "{\n" *
            "\"experiment\":\"tracking_leak_lrate_factorial\"," *
-           "\"node\":\"falandays_base\"," *
+           "\"node\":\"falandays\"," *
            "\"nnodes\":$(Int(nnodes))," *
            "\"ticks\":$(Int(ticks))," *
            "\"warmup\":$(Int(warmup))," *
@@ -140,7 +140,7 @@ function _tracking_factorial_manifest(seeds::Vector{Int}, leaks::Vector{Float64}
                                       warmup::Integer, nnodes::Integer)
     lines = [
         "experiment = tracking_leak_lrate_factorial",
-        "node = falandays_base",
+        "node = falandays",
         "task = tracking",
         "nnodes = $(Int(nnodes))",
         "ticks = $(Int(ticks))",

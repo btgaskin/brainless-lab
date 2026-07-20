@@ -13,7 +13,7 @@ and the batch/CLI surface (`cli-tools.md`).
 
 ```julia
 using BrainlessLab, CairoMakie   # CairoMakie is what "activates" plotting
-sim = simulate(:wall; node=:falandays_base, ticks=300)
+sim = simulate(:wall; node=:falandays, ticks=300)
 fig = visualize(sim)
 ```
 
@@ -37,7 +37,7 @@ registered at load time, and third-party code can add more — so **query the re
 rather than pasting symbol lists** that will silently drift:
 
 ```julia
-variants()             # registered node symbols, e.g. :falandays_base, :sorn, :compartmental_dense
+variants()             # registered node symbols, e.g. :falandays, :sorn, :compartmental_dense
 tasks()                # registered task symbols, e.g. :wall, :tracking, :pong, :cartpole, :torus, :forage
 analyses()             # every registered analysis symbol
 task_analyses(:wall)   # analyses that declare themselves relevant to a given task
@@ -62,7 +62,7 @@ The load-bearing ones:
   `(:spikes, :rate, :poses, :polarization, :milling)`); `every=N` subsamples them.
 - `spectral_every` — stride for the (expensive) spectral-radius compute channel.
 - `n_nodes` (alias `N`) — reservoir size; defaults are per-node and, for the
-  Falandays base on a paper task, taken from the paper config.
+  canonical Falandays node on a paper task, taken from the paper config.
 - `window` — trailing window over which end-of-run metrics are computed.
 - `n_agents` — population size for a task whose setup supports populations. `:torus`
   and `:forage` do; passing it to an ordinary single-agent task is an error. This is a
@@ -124,6 +124,7 @@ Add `TaskSpec` when standardized `SimResult`, rollout defaults, and scoring sema
 ```julia
 include("examples/embodiments/object_world_task.jl")
 sim = run_object_world_task(ticks=25, seed=11)
+task_outcome(sim)
 sim.metrics
 getchannel(sim.recorder, :objects)
 ```
@@ -131,18 +132,23 @@ getchannel(sim.recorder, :objects)
 ## Reading results
 
 ```julia
-sim.metrics.score                      # single-agent task: a scalar figure of merit
+task_outcome(sim)                      # task-declared (key, raw, normalized), or nothing
 sim.metrics.polarization               # swarm: order parameter (alignment)
 sim.metrics.milling                    # swarm: rotational/vortex order
 sim.metrics.mean_distance_to_source    # forage: closeness to the resource
 ```
 
-**Scores are not comparable across tasks.** Each task defines its own effectors, its own
-success signal, and its own normalization anchors — this non-uniformity is intentional,
-not an oversight. A wall score and a pong score live on different axes; comparing their
-raw numbers is meaningless. See the site's contracts page
-(<https://brainless-lab.pages.dev/contracts/>) and environments/tasks page
-(<https://brainless-lab.pages.dev/environments-tasks/>) for what each score actually measures.
+`task_outcome(sim)` reads the objective declared by the recorded task contract. It returns
+the outcome key, raw value, and value normalized between that task's declared anchors;
+tasks with no scalar objective return `nothing`. Legacy fields under `sim.metrics` remain
+available as diagnostics but are not the canonical task-result handoff.
+
+**Raw outcomes are not comparable across tasks.** Each task defines its own effectors,
+success signal, and normalization anchors — this non-uniformity is intentional, not an
+oversight. Even normalized outcomes share a scale, not a construct: they do not make wall
+avoidance and pong performance scientifically interchangeable. See
+[Worlds, tasks, and populations](https://brainless-lab.pages.dev/core/worlds-tasks-populations/)
+and [Runs and results](https://brainless-lab.pages.dev/core/runs-results/) for the contract.
 
 ## Visualization surface
 
@@ -198,8 +204,8 @@ an animation:
 
 ```julia
 using BrainlessLab, CairoMakie
-sim = simulate(:wall; node=:falandays_base, ticks=300, seed=11)
-@info "wall score" score=sim.metrics.score
+sim = simulate(:wall; node=:falandays, ticks=300, seed=11)
+@info "wall outcome" task_outcome(sim)
 save("wall_overview.png", visualize(sim))
 animate(sim; path="wall.gif", branching=true)     # needs :rate recorded (it is, by default)
 ```
@@ -208,9 +214,9 @@ animate(sim; path="wall.gif", branching=true)     # needs :rate recorded (it is,
 per-variant metric — but remember scores are only comparable *within one task*:
 
 ```julia
-for node in (:falandays_base, :falandays_oosawa, :sorn)
+for node in (:falandays, :falandays_oosawa, :sorn)
     s = simulate(:wall; node=node, ticks=220, seed=11)
-    @info node score=s.metrics.score
+    @info node outcome=task_outcome(s)
 end
 ```
 
@@ -228,14 +234,14 @@ save("dyad.png", visualize(sim; panels=[:swarm, :rate]))
 ```
 
 Forage adds a resource source and closeness metric:
-`simulate(:forage; node=:falandays_base, n_agents=4, vision_range=4.5, ...)`.
+`simulate(:forage; node=:falandays, n_agents=4, vision_range=4.5, ...)`.
 
 **(d) Headless / SSH.** There is no display, so **never call `explore`**. Load CairoMakie,
 render, and `save` to a file:
 
 ```julia
 using BrainlessLab, CairoMakie
-save("out.png", visualize(simulate(:wall; node=:falandays_base)))
+save("out.png", visualize(simulate(:wall; node=:falandays)))
 ```
 
 `explore` is GLMakie-only and needs a window server; on a headless box it will fail or
@@ -275,9 +281,13 @@ installs and runs without it. Run the test suite with `Pkg.test()` (or `pkg> tes
 
 ## Stable vs. experimental discipline
 
-`:falandays_base` (alias `:falandays`) is the **settled, authors-faithful published baseline**
+`:falandays` (`:falandays_base` is a compatibility alias) is the **settled,
+authors-faithful published baseline**
 — treat it as the reference point you compare everything against. Every other node
 variant, task, analysis, and ablation is **experimental platform**: useful, but not
 canon. Scores and effectors are intentionally non-uniform across tasks — do not expect a
 single normalized number that lets you rank a wall run against a pong run. When in doubt,
-anchor on `:falandays_base` and read the contracts page before drawing conclusions.
+anchor on `:falandays`, use `task_outcome`, and read the
+[Core handbook](https://brainless-lab.pages.dev/core/getting-started/) before drawing
+conclusions. Use the [Experimental catalog](https://brainless-lab.pages.dev/experimental/)
+to inspect capability readiness; that readiness is separate from study evidence.

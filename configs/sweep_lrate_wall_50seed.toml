@@ -16,7 +16,7 @@ max_cells = 20
 max_rollouts = 1000
 
 [baseline]
-node = "falandays_base"
+node = "falandays"
 task = "wall"
 N = 200
 

@@ -1,0 +1,143 @@
+---
+title: Getting started
+description: Install BrainlessLab, run the canonical Falandays reservoir on tracking, and read the result without prior Julia experience.
+---
+
+BrainlessLab studies neural reservoirs in closed sensorimotor loops. The canonical
+`node=:falandays` reservoir regulates its neural activity through local online adaptation.
+Start with the tracking task. Tracking has a clear observation, a clear action, and a
+continuous error signal.
+
+You can use the browser model for orientation. Use the Julia package for reproducible
+runs and recorded evidence.
+
+## Choose a path
+
+### Ask a coding agent
+
+Open the repository in a coding-agent workspace. Use this request:
+
+```text
+Read AGENTS.md and the BrainlessLab and Julia skills.
+Do not change files.
+Run the canonical Falandays reservoir on the tracking task with seed 11.
+Explain the observations, actions, raw metric, recording, and evidence status.
+State what one run can and cannot establish.
+```
+
+The agent should use the pinned project. It should report the exact command, result, and
+limitations. You do not need to name source files or Julia types.
+
+### Run it locally
+
+Install Julia with the
+[official Julia installer](https://julialang.org/install/). Then run:
+
+```bash
+git clone https://github.com/btgaskin/brainless-lab.git
+cd brainless-lab
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+```
+
+The first run compiles package code and can take longer than later runs.
+
+## Run tracking
+
+Start Julia in the repository:
+
+```bash
+julia --project=.
+```
+
+Then enter:
+
+```julia
+using BrainlessLab
+
+sim = simulate(:tracking; node=:falandays, ticks=300, seed=11)
+outcome = task_outcome(sim)
+
+outcome.key
+outcome.raw
+outcome.normalized
+```
+
+This call:
+
+1. resolves the registered tracking task;
+2. builds a tracking body and a Falandays reservoir with matching ports;
+3. advances the closed loop for 300 ticks;
+4. records selected channels;
+5. returns task metrics and the resolved run configuration.
+
+`sim` is a `SimResult`. Its main fields are:
+
+```julia
+sim.task       # :tracking
+sim.node       # :falandays
+sim.metrics    # task diagnostics
+sim.recorder   # sampled channels
+sim.config     # resolved settings and run metadata
+```
+
+`task_outcome(sim)` reads the objective declared by the task and returns its key, raw
+value, and task-normalized value. It returns `nothing` for a task with no scalar objective.
+
+For a short run, inspect the values and mechanics. Do not interpret the score as a stable
+estimate of performance.
+
+## Run Pong second
+
+Pong has discrete hits and misses. It usually needs a longer run than tracking:
+
+```julia
+pong = simulate(:pong; node=:falandays, ticks=2000, seed=11)
+task_outcome(pong)
+```
+
+Tracking and Pong do not share a score unit. Compare conditions within one task. Do not
+compare a tracking score directly with a Pong hit rate.
+
+## Discover the live surface
+
+Query the registries instead of copying static lists:
+
+```julia
+variants()
+tasks()
+analyses()
+ablations()
+components()
+readiness()
+```
+
+The registries include project and extension entries loaded in the current environment.
+The [Experimental catalog](/experimental/) lists studies and components that are outside
+the canonical core path.
+
+## Optional figures
+
+The compute package does not depend on Makie. Use a separate project that provides a
+backend:
+
+- `CairoMakie` for saved figures and animations;
+- `GLMakie` for an interactive window.
+
+The checked-in project template is a prepared visualization environment:
+
+```bash
+cd examples/templates/new_project
+julia --project=. -e 'using Pkg; Pkg.develop(path="../../.."); Pkg.instantiate()'
+julia --project=. run.jl --ticks 300 --seed 1
+```
+
+Do not add Makie to the BrainlessLab root project only to make a figure.
+
+## What this run establishes
+
+A successful run shows that the selected task, body, reservoir, and recorder compose and
+execute. It may reveal behavior worth studying. It does not establish a general capacity,
+biological fidelity, superiority, or statistical reliability.
+
+Next, read the [core task tour](/core/task-tour/). Then use
+[Design a study](/core/design-study/) to turn an observation into a controlled comparison.

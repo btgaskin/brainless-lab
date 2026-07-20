@@ -14,7 +14,8 @@ details the code can reveal.
 6. Prefer composition and dispatch; preserve stable IDs and fast paths.
 7. Run focused tests, then applicable package/API/example/site gates.
 8. Use an independent read-only review for broad architecture or science changes.
-9. Report exact verification, evidence status, and remaining limits.
+9. Report `task_outcome` (key, raw, normalized) when defined, exact verification, software
+   readiness, study evidence status, and remaining limits as separate facts.
 
 ## Human decision points
 
@@ -46,3 +47,7 @@ Lead with:
 Keep Julia details secondary unless they affect correctness or the user asks to learn them.
 The canonical prose and prompt recipes are in
 `site/src/content/docs/agentic-workflow.mdx`.
+
+Use `site/src/content/docs/core/` as the stable contract handbook and
+`site/src/content/docs/experimental/` as the capability catalog. `available` or `integrated`
+describes software readiness; it does not promote a study or validate a biological claim.

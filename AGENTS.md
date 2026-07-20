@@ -16,11 +16,15 @@ human-readable guide; update it when the public contract changes.
 
 ## Preserve the scientific boundary
 
-- `:falandays_base` is the fixture-validated baseline. Do not change its behavior, fixtures,
-  or fidelity language to make another change pass.
+- `:falandays` is the canonical fixture-validated baseline; `:falandays_base` remains a
+  compatibility alias. Do not change their shared behavior, fixtures, or fidelity language
+  to make another change pass.
 - Everything outside that baseline is experimental unless evidence says otherwise.
 - A task score operationalizes performance on that task. It is not, by itself, evidence of
   cognition, general capability, biological fidelity, or external validity.
+- Use `task_outcome(sim)` for the task-declared outcome. Report its key, raw value, and
+  normalized value together; `nothing` means the task declares no scalar objective. Treat
+  other metric fields as diagnostics unless the task contract says otherwise.
 - Never present development seeds, tuned cells, representative runs, or exploratory plots
   as sealed evidence.
 - Do not inspect a sealed evaluation set to answer a planning or debugging question.
@@ -39,6 +43,17 @@ human-readable guide; update it when the public contract changes.
 8. Run the narrowest relevant tests first, then the full package and site gates when the
    public surface changes.
 9. Report what is verified, what is inferred, and what remains experimental.
+
+## Keep software readiness separate from study evidence
+
+- The canonical handbook lives under `site/src/content/docs/core/`; it documents stable
+  composition contracts.
+- Experimental capabilities are listed under `site/src/content/docs/experimental/` with
+  repository-backed source, example, and test metadata.
+- `available` and `integrated` describe software readiness. They do not validate a
+  biological interpretation, promote a study, or increase its evidence status.
+- Experiment evidence (`exploratory`, `tuned`, `frozen`, `confirmed`, `promoted`, or
+  `retired`) belongs to the study record and is independent of component readiness.
 
 ## Choose the narrowest extension
 
@@ -61,7 +76,7 @@ method.
 
 ## Research workflow
 
-Use the evidence ladder in `site/src/content/docs/research-workflow.mdx`:
+Use the evidence ladder in `site/src/content/docs/core/design-study.mdx`:
 
 conformance → calibration → exploration → tuning/training → variance pilot → frozen
 protocol → sealed confirmation → robustness → promoted evidence.
@@ -97,6 +112,7 @@ For public changes, also check:
 - examples referenced by docs execute;
 - no absolute local paths or retired study references remain;
 - README, site, examples, and both skills use the same vocabulary.
+- canonical Core routes and Experimental feature metadata resolve.
 
 ## Documentation standard
 

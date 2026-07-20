@@ -66,7 +66,7 @@ function _simulate_tracking(axis, value, seed::Integer; ticks::Integer, nnodes::
     node_override, env_override = _axis_overrides(axis, value)
     return simulate(
         :tracking;
-        node=:falandays_base,
+        node=:falandays,
         N=Int(nnodes),
         ticks=Int(ticks),
         seed=Int(seed),
@@ -80,7 +80,7 @@ end
 function _simulate_tracking_baseline(seed::Integer; ticks::Integer, nnodes::Integer)
     return simulate(
         :tracking;
-        node=:falandays_base,
+        node=:falandays,
         N=Int(nnodes),
         ticks=Int(ticks),
         seed=Int(seed),
@@ -390,7 +390,7 @@ function _results_json(results, seeds::Vector{Int}; ticks::Integer, warmup::Inte
                "\"stim_speed_deg_per_tick\":$(_jnum(TRACKING_PARAM_BASELINE.stim_speed_deg_per_tick))"
     return "{\n" *
            "\"experiment\":\"tracking_param_sweep\"," *
-           "\"node\":\"falandays_base\"," *
+           "\"node\":\"falandays\"," *
            "\"nnodes\":$(Int(nnodes))," *
            "\"ticks\":$(Int(ticks))," *
            "\"warmup\":$(Int(warmup))," *
@@ -405,7 +405,7 @@ end
 function _manifest(seeds::Vector{Int}; ticks::Integer, warmup::Integer, nnodes::Integer)
     lines = [
         "experiment = tracking_param_sweep",
-        "node = falandays_base",
+        "node = falandays",
         "task = tracking",
         "nnodes = $(Int(nnodes))",
         "ticks = $(Int(ticks))",

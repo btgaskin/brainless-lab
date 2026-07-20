@@ -1,0 +1,18 @@
+---
+title: Mixed-population Ensemble runtime
+description: Stable entity IDs and grouped function barriers for heterogeneous body and reservoir populations.
+experimental:
+  family: collectives
+  readiness: available
+  tags: [heterogeneous-agents, entity-identity, grouped-runtime]
+  core_page: /core/architecture/
+  source_paths: [src/world/Ensemble.jl]
+  example_paths: []
+  test_paths: [test/test_mixed_ensemble.jl]
+---
+
+The ensemble can group heterogeneous concrete agent types behind function barriers while
+stable entity IDs retain world and recorder identity independently of group storage.
+
+The current population is fixed. Birth, migration, replacement, lineage scheduling, and
+variable-port evolutionary materialization are outside this feature's scope.

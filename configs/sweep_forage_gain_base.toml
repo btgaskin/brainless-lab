@@ -1,4 +1,4 @@
-# Food-gain sweep, falandays_base: does stronger source sensing lift foraging
+# Food-gain sweep, falandays: does stronger source sensing lift foraging
 # and the collective susceptibility that tracks it?
 # Run with:
 #   julia --project=. sweep/run.jl configs/sweep_forage_gain_base.toml
@@ -11,7 +11,7 @@ max_cells = 200
 max_rollouts = 80
 
 [baseline]
-node = "falandays_base"
+node = "falandays"
 task = "forage"
 N = 80
 n_agents = 6

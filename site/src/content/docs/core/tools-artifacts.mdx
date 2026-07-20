@@ -1,0 +1,156 @@
+---
+title: Tools and artifacts
+description: Choose the smallest BrainlessLab execution surface that matches the question and understand the files it writes.
+---
+
+Start with the smallest tool that can answer the question.
+
+## Three primary tools
+
+| Intent | Start with | Typical status | Output |
+| --- | --- | --- | --- |
+| inspect one closed loop | `simulate` | conformance or exploration | in-memory `SimResult` |
+| map a bounded parameter or intervention region | `sweep/run.jl` | development or tuning | resumable `sweeps/<id>/` |
+| execute a declared multi-condition protocol | `experiments/run.jl` | protocol-defined | experiment run directory |
+
+Use `simulate` before a sweep. Use a sweep before writing a broad benchmark. Use an
+experiment protocol when conditions, blocks, endpoints, and artifacts must be coordinated.
+
+## One run
+
+```julia
+using BrainlessLab
+
+sim = simulate(
+    :tracking;
+    node=:falandays,
+    ticks=1000,
+    seed=11,
+)
+```
+
+This result stays in memory unless your script saves it.
+
+## A bounded development sweep
+
+Preview available axes:
+
+```bash
+julia --project=. sweep/run.jl --list-axes --node falandays --task tracking
+```
+
+Run a checked-in tracking sweep:
+
+```bash
+julia --project=. sweep/run.jl configs/sweep_tracking.toml
+```
+
+The config declares a sweep ID, baseline, axes, seeds, cost cap, and analyses. The runner
+prints the resolved cost before execution. A repeated run with the same ID resumes the same
+directory and skips completed cells.
+
+A sweep result reports the best observed cell in that development grid. It does not report
+a confirmed optimum.
+
+## A composed experiment
+
+List registered protocols before running one:
+
+```bash
+julia --project=. experiments/run.jl --list
+```
+
+Then run the named protocol through its declared entry point. Read the protocol page and
+evidence status before opening any sealed output.
+
+## Specialized tools
+
+| Tool | Use |
+| --- | --- |
+| `calibration/` | measure task floors, ceilings, and failure regimes |
+| `profile/` | characterize one node family in depth |
+| `sweep/run.jl ablate` | apply registered mechanism interventions |
+| `bench/` | compare a declared model roster on a declared task grid |
+| `evolve` and training tools | select fixed genomes on development tasks |
+
+Examples:
+
+```bash
+julia --project=. calibration/run_calibration.jl
+julia -t auto --project=. calibration/core_tasks.jl
+julia --project=. sweep/run.jl ablate falandays tracking
+
+cd profile
+julia --project=. run.jl falandays
+
+cd bench
+julia --project=. run.jl --neurons falandays,compartmental_structured --tasks tracking,pong
+```
+
+`bench/` and `profile/` have separate Julia projects. Prepare each once:
+
+```bash
+cd bench
+julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.instantiate()'
+
+cd ../profile
+julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.instantiate()'
+```
+
+Calibration, sweeps, ablations, and experiments use the repository root project.
+
+`core_tasks.jl` reads `configs/core_task_calibration.toml` and writes per-seed rows, a
+manifest, and a development report under a timestamped directory. It refuses to overwrite
+an explicit nonempty `--output` unless `--force` is passed. Its reference-policy gates
+establish task opportunity. Its Falandays, blind, and random rows do not by themselves
+establish a neural mechanism or general advantage.
+
+## Output conventions
+
+Timestamped profile and benchmark runs do not collide. Sweeps use their configured ID so
+they can resume in place.
+
+A sweep directory normally contains:
+
+```text
+sweeps/<id>/
+├── manifest.toml
+├── config.resolved.toml
+├── results.csv
+├── README.md
+├── figures/
+└── cells/
+    └── cell_NNN/
+        ├── DONE
+        ├── manifest.toml
+        └── metrics.csv
+```
+
+Optional capture can add a behavior animation and analysis time series. Numeric per-run data
+remain authoritative. Check recorded errors, warnings, liveness gates, and valid surrogate
+counts before reading a headline callout.
+
+## Cost, parallelism, and resume
+
+Independent rollouts can run on Julia threads. Start entry scripts with `julia -t auto` when
+you want automatic threading. Results remain in seed order. More threads reduce elapsed
+time; they do not increase the number of independent units.
+
+Inspect the resolved cells and total rollouts before starting a factorial sweep. Do not
+expand a search cap without a research reason and an explicit decision.
+
+## Artifact status
+
+Tool output can be:
+
+- a local diagnostic;
+- a traceable exploratory artifact;
+- a tuned selection artifact;
+- a sealed confirmation bundle;
+- promoted evidence.
+
+The directory shape does not determine the status. The protocol, seed stage, independent
+unit, and outcome access history determine it.
+
+Use [Design a study](/core/design-study/) before selecting seeds or controls. Use
+[Runs, recording, and results](/core/runs-results/) to inspect a result.

@@ -119,7 +119,10 @@ function _default_tasks()
     return [task for task in preferred if task in registered]
 end
 
-_default_neurons() = Symbol.(BrainlessLab.variants())
+_default_neurons() = [
+    neuron for neuron in Symbol.(BrainlessLab.variants())
+    if neuron !== :falandays_base
+]
 
 function default_prep(neuron::Symbol)
     name = String(neuron)
@@ -190,7 +193,7 @@ function read_bench_config(path::AbstractString=default_config_path();
         n_agents=Int(_get(data, "n_agents", 8)),
         ticks=Int(_get(data, "ticks", 300)),
         seed_base=Int(_get(data, "seed_base", 1000)),
-        baseline=Symbol(_get(data, "baseline", "falandays_base")),
+        baseline=Symbol(_get(data, "baseline", "falandays")),
         alpha=Float64(_get(data, "alpha", 0.05)),
         prep=prep,
         gifs=gifs_value,
@@ -219,13 +222,13 @@ _is_compartmental(neuron::Symbol) = startswith(String(neuron), "compartmental")
 _model_family(neuron::Symbol) = _is_compartmental(neuron) ? :compartmental : :falandays
 
 function _default_model(neuron::Symbol, task::Symbol)
-    # `simulate(task; node=:falandays_base)` injects the task's authors-faithful
+    # `simulate(task; node=:falandays)` injects the task's authors-faithful
     # paper-config constants (lrate_wmat, lrate_targ, input_amp -- see
     # src/api/paper_config.jl / _apply_falandays_task_defaults!) for
-    # :falandays/:falandays_base only, on tasks with a registered paper config
+    # :falandays (and its :falandays_base compatibility alias) only, on tasks with a registered paper config
     # (wall/tracking/pong). `rollout()` (used below) is given an explicit model
     # and never applies that injection itself, so without this, the "untrained"
-    # falandays_base cell -- bench's DEFAULT baseline -- would silently run with
+    # falandays cell -- bench's default baseline -- would silently run with
     # generic FalandaysParams() (e.g. lrate_wmat=0.1 instead of wall's 1.0)
     # rather than what a user actually gets from plain `simulate()`.
     if neuron in (:falandays, :falandays_base) && BrainlessLab._has_falandays_paper_config(task)
@@ -826,7 +829,7 @@ function _write_report(path::AbstractString, cfg::BenchConfig, summaries, stats_
         println(io, "## Caveat")
         println(io, "Falandays-family cells default to untrained online-plastic rollouts, where wiring is seeded per trial and learning occurs during the rollout. Compartmental or other non-plastic cells default to trained genomes because untrained weights are not a meaningful fair baseline. If a trained-required genome was missing, the cell was run with the untrained fallback and flagged.")
         if any(_is_swarm_bench_task, cfg.tasks)
-            println(io, "Swarm tasks (`:forage`) are scored by driving `simulate` directly rather than the single-agent `rollout` path, with `n_agents = $(cfg.n_agents)` agents per trial; `:falandays_base`/`:falandays` do **not** receive the authors' single-agent paper-config injection here (that injection is single-agent-only in `simulate` itself), so its forage cell runs with plain `FalandaysParams()` defaults, not a swarm-specific authors' constant.")
+            println(io, "Swarm tasks (`:forage`) are scored by driving `simulate` directly rather than the single-agent `rollout` path, with `n_agents = $(cfg.n_agents)` agents per trial; `:falandays` (and its `:falandays_base` compatibility alias) does **not** receive the authors' single-agent paper-config injection here (that injection is single-agent-only in `simulate` itself), so its forage cell runs with plain `FalandaysParams()` defaults, not a swarm-specific authors' constant.")
         end
     end
 

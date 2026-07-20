@@ -1,0 +1,164 @@
+---
+title: Design a study
+description: Move from a question to a calibrated exploratory comparison, then freeze and confirm only when the design is ready.
+---
+
+A simulation that runs is an implementation result. A visible pattern is an observation.
+A scientific claim needs a design whose task, control, independent unit, endpoint, and
+evidence status match the claim.
+
+## The minimum exploratory standard
+
+A sound exploratory comparison needs:
+
+1. an operational question;
+2. a calibrated task opportunity;
+3. a control that matches the question;
+4. a named independent unit;
+5. paired nuisance randomization where appropriate;
+6. bounded development seeds;
+7. a primary raw endpoint and validity gates;
+8. a traceable result and an explicit exploratory label.
+
+Exploration may change later choices. It cannot serve as untouched confirmation.
+
+## A first exploratory contrast
+
+This example asks whether the canonical Falandays reservoir exceeds a random-action control
+on tracking. Each seed is one paired block. Both conditions receive the same task seed.
+
+```julia
+using BrainlessLab
+using Statistics
+
+function paired_tracking(seeds)
+    rows = NamedTuple[]
+
+    for seed in seeds
+        scores = map((:falandays, :null_random)) do node
+            sim = simulate(
+                :tracking;
+                node=node,
+                ticks=1000,
+                seed=seed,
+            )
+            task_outcome(sim).normalized
+        end
+
+        push!(rows, (
+            seed=seed,
+            falandays=scores[1],
+            random_action=scores[2],
+            difference=scores[1] - scores[2],
+        ))
+    end
+
+    return rows
+end
+
+rows = paired_tracking(0:7)
+mean_difference = mean(getproperty.(rows, :difference))
+```
+
+This is a development example. Eight blocks are not a prospective power calculation. The
+random-action control asks whether behavior exceeds random effector output. It does not
+show that tracking information is necessary. A blind or matched-sham input is needed for
+that question.
+
+For a retained study, save per-block rows, resolved settings, provenance, and failures. Use
+a batch tool or an experiment protocol instead of relying on the Julia session.
+
+## Name the independent unit
+
+Use these terms consistently:
+
+- **tick:** one synchronous update;
+- **agent:** one reservoir-body pair;
+- **run or trial:** one rollout from one randomized setup;
+- **condition:** the compared intervention or model;
+- **block:** one shared randomized setup used for a paired contrast;
+- **seed:** an identifier for a random stream;
+- **independent unit:** the smallest independently randomized unit for inference.
+
+Agents and ticks in one world are usually repeated observations. A 20-agent world is not
+automatically `n=20`.
+
+## Calibrate before tuning
+
+Before the reservoir selects task parameters, test:
+
+- static or no action;
+- random action;
+- a blind or disconnected sensor;
+- a claim-specific sham or shifted input;
+- an oracle or reference policy;
+- extreme initial states and boundaries.
+
+The oracle should show that the opportunity exists. Random action should not saturate the
+metric. Durations should permit the relevant travel, response, restoration, or encounter
+cycles. A death regime near zero or one is usually uninformative during development.
+
+Calibration data are development data.
+
+## Match the control to the claim
+
+| Control | Question |
+| --- | --- |
+| static or no action | does acting help? |
+| random action | is performance above this task and actuator floor? |
+| blind or off | is this channel necessary relative to no information? |
+| matched sham, shift, or yoke | does informative timing or direction matter at matched dose? |
+| mechanism ablation | is this implemented mechanism necessary? |
+| model baseline | does the new substrate differ from the declared reference? |
+| oracle or reference | is the opportunity solvable, and how much headroom remains? |
+
+Exact replay is a regression control. It reproduces the same input and is not a causal
+null.
+
+## Separate development from evaluation
+
+Keep disjoint seed ledgers for:
+
+- conformance and calibration;
+- exploration, tuning, or training;
+- variance pilot;
+- sealed confirmation;
+- robustness.
+
+Every choice influenced by development counts: reservoir size, morphology, source layout,
+sensor range, gain, noise, drift, restoration, distance, duration, failure policy, endpoint,
+and exclusion rule.
+
+## Freeze only after the design is ready
+
+Before confirmation:
+
+1. freeze conditions, primary endpoint, gates, exclusions, and analysis;
+2. define a smallest meaningful effect;
+3. estimate paired variability on fresh pilot blocks;
+4. calculate the number of independent blocks prospectively;
+5. seal untouched evaluation blocks;
+6. execute without changing the protocol after outcomes are visible.
+
+If the planned sample exceeds the resource cap, reduce the question or report that the
+study is underpowered. Do not call a capped development run confirmatory.
+
+For equivalence, define an equivalence margin and use an equivalence procedure.
+Nonsignificance does not establish equivalence.
+
+## Evidence states
+
+Use these labels:
+
+```text
+conformance → task calibration → exploration → tuning/training
+→ variance pilot → frozen protocol → sealed confirmation
+→ robustness → promoted evidence
+```
+
+Changing a condition, endpoint, exclusion, or analysis after seeing sealed outcomes returns
+the study to development. A committed or reproducible artifact is not automatically
+confirmed.
+
+Use [Runs, recording, and results](/core/runs-results/) for the result contract and
+[Tools and artifacts](/core/tools-artifacts/) for execution surfaces.

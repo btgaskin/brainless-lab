@@ -21,6 +21,18 @@ install into the shared global environment, and do not add optional visualizatio
 to a package's root project merely to produce one figure. Use the repository's dedicated
 tool/example environment or create a separate downstream environment.
 
+## Pair Julia guidance with the project contract
+
+When a repository supplies its own skill or handbook, read it with this skill. The
+project-specific guide owns public names, scientific boundaries, execution tools, and
+evidence language. This Julia guide owns language correctness, dispatch, inference,
+allocations, environments, and package hygiene. Do not replace a project abstraction with a
+more familiar Julia pattern until you have inspected its public methods and tests.
+
+For BrainlessLab, use `skills/brainless-lab/SKILL.md` and the Core handbook. In particular,
+preserve its task-outcome, embodiment, stable-identity, and synchronous-ensemble contracts
+while applying the Julia checks below.
+
 ## The two pillars
 
 Nearly everything about Julia performance, and a surprising amount about Julia *correctness* and

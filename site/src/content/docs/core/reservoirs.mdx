@@ -1,0 +1,140 @@
+---
+title: Reservoirs and node models
+description: The shared reservoir contract, model families, preparation rules, and composition choices.
+---
+
+A `Reservoir` is a population of node-like units with wiring and dynamic state. It receives
+the receptor vector from a body and returns node activity. A readout maps that activity to
+the body's effector width.
+
+The reservoir does not know which task produced the input.
+
+## The shared contract
+
+A registered constructor accepts:
+
+```julia
+MyReservoir(n_nodes, n_receptors, n_effectors; seed=0, kwargs...)
+```
+
+The resulting reservoir implements:
+
+```julia
+step!(reservoir, receptors)
+effectors(reservoir, activity)
+reset!(reservoir)
+n_nodes(reservoir)
+n_receptors(reservoir)
+n_effectors(reservoir)
+```
+
+The input and output widths must match the body ports exactly. Seed every stochastic
+construction and runtime stream that should be reproducible.
+
+## Model families
+
+| Family | Adaptation during a rollout | Preparation for comparison |
+| --- | --- | --- |
+| Falandays | online homeostatic plasticity | an untrained run is meaningful |
+| SORN | online STDP, intrinsic plasticity, and normalization | untrained use is experimental |
+| compartmental / CTRNN | fixed weights during the rollout | evolve or otherwise train before comparison |
+| `:null_random` | random output control | no training; use only as its declared task-specific floor |
+
+An untrained compartmental reservoir is not a fair peer for the online-plastic Falandays
+baseline. Preparation is part of the comparison. Other reservoir families need not use
+homeostatic dynamics.
+
+Query the current roster:
+
+```julia
+variants()
+```
+
+## Keep model axes explicit
+
+Many apparent “new nodes” are parameter or composition changes:
+
+- leak or learning-rate changes;
+- recurrent topology;
+- weight-sign constraints;
+- input or membrane noise;
+- a drive;
+- a live intervention;
+- a named parameter preset.
+
+Use a keyword, drive, intervention, or preset when the update contract is unchanged:
+
+```julia
+sim = simulate(
+    :tracking;
+    node=:falandays,
+    topology=:watts_strogatz,
+    sign=:dale,
+    seed=11,
+)
+```
+
+Use a new `Reservoir` subtype when the state, update, plasticity, or readout contract is
+genuinely different.
+
+## Parameters are not runtime state
+
+Keep these representations separate:
+
+- `pack_params` and `unpack_params` describe evolvable model parameters;
+- `snapshot_state` and `load_state!` describe transient replay state;
+- the registered `genome_type` tells tools how to size a model genome.
+
+Membrane values, spikes, learned weights, and RNG positions are runtime state. They are not
+optimizer genes unless a protocol explicitly defines them as initial parameters.
+
+## Wrappers must forward methods
+
+A reservoir wrapper can add noise, a drive, a delay, or another transformation. Julia
+field access does not forward method dispatch. A wrapper must forward the full public
+behavior:
+
+- widths and node count;
+- plasticity and timing traits;
+- stepping and readout;
+- reset and replay state;
+- network and recording snapshots;
+- intervention capability.
+
+Include wrapper-owned RNG and lag state in replay snapshots.
+
+## Add a reservoir
+
+When you define methods on BrainlessLab generics, import the function names:
+
+```julia
+using BrainlessLab: Reservoir, register_node!
+import BrainlessLab: step!, effectors, reset!
+import BrainlessLab: n_nodes, n_receptors, n_effectors
+```
+
+`using BrainlessLab` is sufficient to call a generic. It is not sufficient to add a method
+to that generic.
+
+Start from `examples/templates/new_project/my_node.jl`. Before a sweep or benchmark:
+
+1. test constructor widths;
+2. test deterministic construction from a seed;
+3. test `step!` and readout dimensions;
+4. test reset and next-step replay;
+5. run at least two tasks with different port widths;
+6. inspect type inference and allocations on the warm hot path.
+
+Use concrete fields and preallocated buffers inside `step!`. Do not optimize before
+correctness and inference are understood.
+
+## Interpret model comparisons narrowly
+
+A model result depends on task, body, preparation, seed block, duration, and selected
+parameters. A benchmark rank is conditional on its roster and weighting. A selected sweep
+cell is a development result, not a confirmed optimum.
+
+Read [The Falandays node](/core/falandays/) for the canonical baseline. Read
+[Extend the lab](/core/extend/) for the complete extension checklist.
+
+<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>, <code>src/core/Registry.jl</code>, <code>src/nodes/</code>.</p>

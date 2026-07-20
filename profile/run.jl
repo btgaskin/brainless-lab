@@ -10,10 +10,10 @@
 #   julia --project=. -e 'using Pkg; Pkg.develop(path=".."); Pkg.instantiate()'
 #
 # Usage:
-#   julia --project=. run.jl falandays_base
-#   julia --project=. run.jl falandays_base --seeds 12
+#   julia --project=. run.jl falandays
+#   julia --project=. run.jl falandays --seeds 12
 #   julia --project=. run.jl falandays_oosawa --out runs
-#   julia --project=. run.jl falandays_base --report
+#   julia --project=. run.jl falandays --report
 #
 # Threading: run.jl self-launches with `-t auto` when Julia starts
 # single-threaded and no count was pinned. Set BRAINLESSLAB_AUTOTHREADS=0 or
@@ -39,7 +39,7 @@ using .NodeProfile
 
 function parse_args(args)
     opts = Dict{Symbol,Any}(
-        :node => :falandays_base,
+        :node => :falandays,
         :seeds => 8,
         :out => joinpath(@__DIR__, "runs"),
         :gifs => true,

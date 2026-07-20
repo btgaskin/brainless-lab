@@ -220,7 +220,7 @@ function DendriticReservoir(
     0.0 <= link_p <= 1.0 || throw(ArgumentError("link_p must be in [0, 1]"))
 
     # Base Falandays wiring, same rng call order (recurrent, input, output, degree
-    # repair, weight draw), so the substrate matches `:falandays_base` at a seed.
+    # repair, weight draw), so the substrate matches `:falandays` at a seed.
     rng = _rng_from_seed(seed)
     recurrent_mask = bernoulli_mask(n_nodes, n_nodes, link_p, rng; diagonal=false)
     input_mask = bernoulli_mask(n_receptors_, n_nodes, link_p, rng; diagonal=true)

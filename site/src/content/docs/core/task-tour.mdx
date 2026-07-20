@@ -1,0 +1,146 @@
+---
+title: Core task tour
+description: Start with tracking, continue with Pong, and choose other BrainlessLab tasks by their operational contract.
+---
+
+A task defines a closed-loop question. It selects a world, one body per agent, rollout
+defaults, metrics, and optional score anchors. A task name is not a universal ability
+label.
+
+Use `tasks()` for the live registered list. Use `resolve_task` and `setup_task` to inspect
+a task:
+
+```julia
+task = resolve_task(:tracking)
+setup = setup_task(task; seed=11)
+has_objective(task)
+resolved_task_ports(task)
+```
+
+`setup_task` constructs fresh runtime state. Do not reuse its world or bodies as static
+metadata.
+
+## 1. Tracking
+
+Tracking is the recommended first task.
+
+- **Question:** does gaze remain near a moving target?
+- **Observation:** two eyes with 31 angular samples each, for 62 receptor channels.
+- **Action:** two effectors rotate gaze in opposing directions.
+- **Primary metric:** `track_score`, the mean cosine alignment over the scoring window.
+- **Anchors:** analytic chance at `0`; perfect alignment at `1`.
+- **Important controls:** blind input and the declared target schedule.
+
+```julia
+sim = simulate(
+    :tracking;
+    node=:falandays,
+    ticks=1000,
+    seed=11,
+)
+
+outcome = task_outcome(sim)
+outcome.key         # :track_score
+outcome.raw
+outcome.normalized
+```
+
+The target changes with time. The warmup and scoring window affect the result. Record them
+in every comparison.
+
+## 2. Pong
+
+Pong is the second core task. It changes both sensing and action semantics.
+
+- **Question:** does the paddle intercept the ball?
+- **Observation:** 46 ball-bearing channels.
+- **Action:** two opposing paddle-motion effectors.
+- **Primary metric:** `hit_rate`.
+- **Anchors:** a measured random-action floor and an analytic maximum of `1`.
+- **Important controls:** random action, liveness, and enough ball episodes.
+
+```julia
+sim = simulate(
+    :pong;
+    node=:falandays,
+    ticks=2000,
+    seed=11,
+)
+
+outcome = task_outcome(sim)
+outcome.key         # :hit_rate
+outcome.raw
+outcome.normalized
+```
+
+A short Pong run may contain too few hits and misses for a stable comparison. Increase the
+number of independent runs before treating the mean as reliable.
+
+## Other vector tasks
+
+| Task family | Operational question | Main caution |
+| --- | --- | --- |
+| `:wall` | does the agent move while avoiding a boundary? | movement must be gated so a stationary agent cannot win |
+| `:cartpole` variants | does the cart maintain or recover pole balance under the declared regime? | balance, hard, swing-up, and long are different contracts |
+
+These tasks use direct vector adapters. Their worlds already produce the reservoir receptor
+vector and consume a task-specific effector vector.
+
+## Population tasks
+
+`:torus` and `:forage` use the established situated adapter.
+
+```julia
+collective = simulate(
+    :torus;
+    node=:falandays,
+    n_agents=12,
+    ticks=1000,
+    seed=11,
+)
+
+forage = simulate(
+    :forage;
+    node=:falandays,
+    n_agents=12,
+    ticks=1000,
+    seed=11,
+)
+```
+
+`:torus` has no scalar objective, so `task_outcome(collective)` returns `nothing`. Read
+polarization, milling, cohesion, and related
+descriptors with suitable nulls. `:forage` adds a source-sensing bank and a task-specific
+forage score. Agents and ticks within one world are repeated observations. They do not
+make the independent sample size larger.
+
+## `ObjectWorld` is a composition demonstration
+
+`ObjectWorld` shows how to combine physical sensors, encoders, actuators, dynamics,
+optional physiology, objects, fields, and typed effects:
+
+```julia
+include("examples/embodiments/object_world_task.jl")
+sim = run_object_world_task(ticks=25, seed=11)
+```
+
+This example is a mechanism and integration demonstration. It is not a calibrated benchmark.
+Do not compare its output with tracking, Pong, or forage as if the scores had one meaning.
+Wrap a composed world in a `TaskSpec` and calibrate it before using it for model selection.
+
+## How to choose a task
+
+Choose the task whose operational contract matches the question. Before a comparison,
+record:
+
+- observations and action meanings;
+- initialization and randomized quantities;
+- ticks, warmup, scoring window, and reset behavior;
+- primary raw outcome and any gates;
+- floor and ceiling provenance;
+- degenerate policies;
+- preparation requirements for each reservoir;
+- valid and invalid comparisons.
+
+Use [Worlds, tasks, and populations](/core/worlds-tasks-populations/) for the runtime
+choices. Use [Design a study](/core/design-study/) for controls, seeds, and evidence status.

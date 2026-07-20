@@ -6,7 +6,7 @@ n_nodes = 120
 n_agents = 8   # only consulted for swarm tasks, e.g. --tasks forage
 ticks = 300
 seed_base = 1000
-baseline = "falandays_base"
+baseline = "falandays"
 alpha = 0.05
 gifs = true
 
@@ -16,5 +16,5 @@ gifs = true
 #   falandays* -> untrained
 #   compartmental* -> trained
 # Override examples:
-# falandays_base = "untrained"
+# falandays = "untrained"
 # compartmental_dense = "trained"

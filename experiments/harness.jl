@@ -4,7 +4,7 @@
 Small building blocks for **composed experiments** — reproducible protocols that
 live outside the core library (they are not a validated part of the baseline) but
 that we want to run in a regular, self-describing way. Everything here composes
-the *public* `BrainlessLab` API only (`simulate`, `sim.metrics.score`, …); nothing
+the *public* `BrainlessLab` API only (`simulate`, `task_outcome`, …); nothing
 reaches into internals, so an experiment written against this harness keeps
 working across core refactors.
 
@@ -27,7 +27,7 @@ using Statistics
 export freeze_sweep, onset_tick, run_dir, write_text, git_sha, stamp
 
 """
-    freeze_sweep(task; node=:falandays_base, freeze_ticks, window=600, seeds=0:5,
+    freeze_sweep(task; node=:falandays, freeze_ticks, window=600, seeds=0:5,
                  verb=:freeze_plasticity)
 
 For each tick `T` in `freeze_ticks`: apply `verb` at `T` (via the `interventions`
@@ -38,13 +38,13 @@ full-learning control of the same length/window. Returns per-tick, seed-aggregat
   direction-correct), the cross-task-comparable behavioural read;
 - `rate_mean`/`rate_sd` — frozen population activity (the crisp signal: a dead
   reservoir either saturates to ~1 or goes silent toward 0, depending on the task);
-- `raw_mean` — the raw `sim.metrics.score` for reference.
+- `raw_mean` — the raw declared task outcome for reference.
 
-`normalized_score` is used deliberately: the raw `.score` has a different scale and
+`task_outcome(...).normalized` is used deliberately: raw task outcomes have different scales and
 even a different sign of "better" per task, so it is not comparable across tasks —
 that is exactly the trap this framework has to avoid.
 """
-function freeze_sweep(task::Symbol; node::Symbol=:falandays_base, freeze_ticks,
+function freeze_sweep(task::Symbol; node::Symbol=:falandays, freeze_ticks,
                       window::Integer=600, seeds=0:5, verb::Symbol=:freeze_plasticity)
     ticks = freeze_ticks isa Number ? [Int(freeze_ticks)] : collect(freeze_ticks)
     seeds = seeds isa Number ? [Int(seeds)] : collect(seeds)
@@ -58,10 +58,16 @@ function freeze_sweep(task::Symbol; node::Symbol=:falandays_base, freeze_ticks,
             sfz = simulate(task; node=node, ticks=T + window, window=window, seed=seed,
                            interventions=[(T, verb)])
             sfl = simulate(task; node=node, ticks=T + window, window=window, seed=seed)
-            fz[ti, si] = normalized_score(task, sfz.metrics.score)
-            fl[ti, si] = normalized_score(task, sfl.metrics.score)
+            frozen_outcome = task_outcome(sfz)
+            learning_outcome = task_outcome(sfl)
+            frozen_outcome === nothing &&
+                throw(ArgumentError("freeze_sweep requires a scored task; :$(task) has no objective"))
+            learning_outcome === nothing &&
+                throw(ArgumentError("freeze_sweep requires a scored task; :$(task) has no objective"))
+            fz[ti, si] = frozen_outcome.normalized
+            fl[ti, si] = learning_outcome.normalized
             rt[ti, si] = sfz.metrics.rate_mean
-            rw[ti, si] = sfz.metrics.score
+            rw[ti, si] = frozen_outcome.raw
         end
     end
     agg(m) = (vec(mean(m; dims=2)), vec(std(m; dims=2)))

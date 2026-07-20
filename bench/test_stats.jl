@@ -7,6 +7,8 @@ using Random
 using Statistics
 using Test
 
+include("Benchmark.jl")
+
 @testset "bootstrap and paired null" begin
     xs = fill(1.0, 20)
     ys = fill(1.0, 20)
@@ -18,6 +20,22 @@ using Test
     @test lo <= mean(xs) <= hi
     dlo, dhi = Stats.paired_mean_diff_ci(xs, ys; rng=Random.Xoshiro(1))
     @test dlo == dhi == 0.0
+end
+
+@testset "default benchmark roster omits compatibility aliases" begin
+    cfg = Benchmark.read_bench_config(
+        joinpath(@__DIR__, "configs", "core.toml");
+        gifs_override=false,
+    )
+    @test :falandays in cfg.neurons
+    @test !(:falandays_base in cfg.neurons)
+
+    explicit_alias = Benchmark.read_bench_config(
+        joinpath(@__DIR__, "configs", "core.toml");
+        neurons_override=[:falandays_base],
+        gifs_override=false,
+    )
+    @test explicit_alias.neurons == [:falandays_base]
 end
 
 @testset "paired shifted samples" begin

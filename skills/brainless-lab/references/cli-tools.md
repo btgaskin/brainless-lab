@@ -114,11 +114,21 @@ timeseries / null-test CSVs when enabled), `manifest.toml`, `config.resolved.tom
 
 ```bash
 julia --project=. calibration/run_calibration.jl
+julia -t auto --project=. calibration/core_tasks.jl
 ```
 
-Prints, per task (`wall`, `pong`, `pong_hitrate`, `cartpole_swingup`, `forage`), the score
+`run_calibration.jl` prints, per task (`wall`, `pong`, `pong_hitrate`,
+`cartpole_swingup`, `forage`), the score
 **floor** and **ceiling** anchors with their kind and provenance — the reference points
 that normalize raw task scores into the `0..1` normalized score everything else reports.
+
+`core_tasks.jl` runs the development-only Tracking and Pong opportunity calibration from
+`configs/core_task_calibration.toml`. It compares canonical Falandays, blind input, random
+action, and a state-aware reference policy on paired task seeds. It writes `results.csv`,
+`manifest.toml`, and `README.md` under a timestamped directory. An explicit nonempty
+`--output` is rejected unless `--force` is passed. The reference-versus-random gate checks that the task is
+solvable; the Falandays-versus-blind rows remain descriptive until a separate study is
+frozen and powered.
 
 ## Sweep config schema
 
@@ -135,7 +145,7 @@ max_rollouts = 200
 # threaded = false            # opt out of thread parallelism
 
 [baseline]                    # the canonical setup every axis perturbs around
-node = "falandays_base"       # node preset; task = "wall" | "tracking" | "forage" | ...
+node = "falandays"            # node preset; task = "wall" | "tracking" | "forage" | ...
 task = "tracking"
 N = 200                       # alias n_nodes; reservoir size
 ticks = 2000

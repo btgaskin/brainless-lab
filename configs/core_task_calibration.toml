@@ -1,0 +1,13 @@
+[calibration]
+tasks = ["tracking", "pong"]
+conditions = ["falandays", "blind", "random", "reference"]
+seeds = 32
+ticks = 2000
+bootstrap_draws = 10000
+bootstrap_seed = 20260720
+
+[evidence]
+stage = "development"
+independent_unit = "one seeded task world"
+claim = "task opportunity and descriptive condition comparison"
+not_supported = "confirmatory neural-mechanism or general-advantage claim"

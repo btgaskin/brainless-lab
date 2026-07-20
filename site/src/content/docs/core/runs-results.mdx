@@ -1,0 +1,155 @@
+---
+title: Runs, recording, and results
+description: Execute a simulation, select recorded channels, inspect a SimResult, and distinguish an observation from an evidence artifact.
+---
+
+`simulate` is the main in-memory run surface:
+
+```julia
+using BrainlessLab
+
+sim = simulate(
+    :tracking;
+    node=:falandays,
+    ticks=1000,
+    seed=11,
+    record=[:spikes, :rate, :percepts, :effectors],
+    every=1,
+)
+```
+
+It builds a fresh ensemble, advances it, computes metrics, and returns a `SimResult`.
+
+## Read a `SimResult`
+
+```julia
+sim.task
+sim.node
+sim.metrics
+sim.recorder
+sim.config
+```
+
+- `metrics` contains end-of-run diagnostics and requested measures.
+- `recorder` contains the enabled time-series channels.
+- `config` contains resolved run settings and model/world metadata.
+
+Read the task-declared outcome through one stable helper:
+
+```julia
+outcome = task_outcome(sim)
+outcome.key
+outcome.raw
+outcome.normalized
+```
+
+`task_outcome` returns `nothing` when the `TaskSpec` has no scalar objective. Legacy metric
+fields remain available as diagnostics, but they do not define the task outcome. The
+normalized value reports position between that task's declared anchors. It is not a
+universal score.
+
+## Record only what you need
+
+The recorder is channel-gated:
+
+```julia
+spikes = getchannel(sim.recorder, :spikes)
+rates = getchannel(sim.recorder, :rate)
+```
+
+`every=N` stores one sample every `N` ticks. This reduces memory use but changes the time
+resolution available to later analyses. Expensive channels can have a separate compute
+stride.
+
+Choose channels before the run. An analysis cannot recover a state that was not recorded.
+Record cadence, transient removal, and analysis window are part of the method.
+
+For multi-agent runs, entity-aligned channels use `EntityFrame`. Read the attached IDs:
+
+```julia
+poses = getchannel(sim.recorder, :poses)
+first_frame = first(poses)
+first_frame.ids
+first_frame.values
+```
+
+Do not assume that array position is agent identity. World-global interaction and object
+channels are not `EntityFrame`s.
+
+## Scores, gates, and descriptors
+
+A task score has a declared raw metric, floor, and ceiling. Some tasks also have gates.
+For example, a movement gate prevents a stationary wall agent from receiving a high
+collision-avoidance score.
+
+Descriptors report how a run behaves. They are not automatically objectives. Polarization,
+milling, spectral radius, branching estimates, and susceptibility need their own
+interpretation and nulls.
+
+Always report:
+
+- the primary raw metric;
+- the normalized score, if used;
+- all failed gates;
+- the number of independent runs;
+- the task, body, reservoir preparation, seed block, ticks, and window.
+
+## Optional visualization
+
+Visualization reads the recorded result and stays outside the compute core:
+
+```julia
+using BrainlessLab, CairoMakie
+
+fig = visualize(sim)
+save("tracking.png", fig)
+animate(sim; path="tracking.gif")
+```
+
+Use `GLMakie` for `explore(...)`. Use `CairoMakie` for headless files. A representative
+animation is explanatory material. It is not a substitute for the full result distribution.
+Declare how a representative run was selected.
+
+## In-memory result versus run artifact
+
+A plain `simulate` call returns an in-memory result. It does not by itself create a
+versioned evidence bundle.
+
+Batch tools write run directories. A useful development artifact normally contains:
+
+```text
+run-directory/
+├── manifest.toml
+├── config.resolved.toml
+├── summary or results table
+├── per-run or per-cell values
+├── figures and figure-data sidecars
+└── README.md
+```
+
+Check the git SHA, dirty-worktree flag, Julia and package versions, seed ledger, resolved
+configuration, failures, and checks before interpreting the summary.
+
+A traceable run directory is not automatically confirmed evidence. Promotion also needs a
+frozen protocol, declared independent unit, untouched evaluation blocks, analysis version,
+and checksums.
+
+## A standard result handoff
+
+Whether a person or an agent ran the study, use this format:
+
+```text
+Evidence status:
+Command and resolved configuration:
+Cost and independent units:
+Artifact path:
+Checks passed or failed:
+Primary raw result and uncertainty:
+What this result cannot establish:
+Next human decision:
+```
+
+Use [Design a study](/core/design-study/) to define the comparison. Use
+[Tools and artifacts](/core/tools-artifacts/) for persistent batch outputs.
+
+<p class="bl-source">Source: <code>src/api/Highlevel.jl</code>, <code>src/core/Recorder.jl</code>, <code>src/run/</code>.</p>

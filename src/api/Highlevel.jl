@@ -15,6 +15,50 @@ struct SimResult{R,M,C}
     config::C
 end
 
+"""
+    task_outcome(sim::SimResult)
+
+Return the outcome declared by the task as `(key, raw, normalized)`. Return
+`nothing` when the task has no scalar objective. Legacy metric fields remain
+available as diagnostics but do not define the task outcome.
+"""
+function task_outcome(sim::SimResult)
+    contract = if hasproperty(sim.config, :outcome_contract)
+        sim.config.outcome_contract
+    else
+        task = try
+            resolve_task(sim.task)
+        catch error
+            error isa KeyError || rethrow()
+            throw(ArgumentError(
+                "task outcome contract for :$(sim.task) is neither recorded nor registered",
+            ))
+        end
+        task isa TaskSpec || throw(ArgumentError(
+            "registered task :$(sim.task) resolved to $(typeof(task)); expected TaskSpec",
+        ))
+        task.score_key === nothing ? nothing : (
+            key=task.score_key,
+            floor=score_floor(task),
+            ceiling=score_ceiling(task),
+        )
+    end
+    contract === nothing && return nothing
+    key = contract.key
+    key === nothing && return nothing
+    key in propertynames(sim.metrics) || throw(KeyError(
+        "metric :$(key) declared by task :$(sim.task) is absent from rollout metrics",
+    ))
+    raw = Float64(getproperty(sim.metrics, key))
+    floor = Float64(contract.floor)
+    ceiling = Float64(contract.ceiling)
+    ceiling > floor || throw(ArgumentError(
+        "task :$(sim.task) outcome ceiling must be greater than its floor",
+    ))
+    normalized = clamp((raw - floor) / (ceiling - floor), 0.0, 1.0)
+    return (key=key, raw=raw, normalized=normalized)
+end
+
 function view(sim::SimResult, sym::Union{Symbol,AbstractString}; kwargs...)
     return resolve_view(Symbol(sym))(sim; kwargs...)
 end
@@ -86,7 +130,7 @@ _sim_rng(seed) = seed === nothing ? MersenneTwister() : MersenneTwister(Int(seed
 
 _default_node_count(node::Symbol) = get(_NODE_DEFAULT_N, node, 100)
 
-const _FALANDAYS_BASE_ALIASES = Set{Symbol}((:falandays, :falandays_base))
+const _FALANDAYS_ALIASES = Set{Symbol}((:falandays, :falandays_base))
 const _FALANDAYS_NATIVE_COMPAT_NODES = Set{Symbol}((
     :falandays,
     :falandays_base,
@@ -100,7 +144,7 @@ _falandays_config_key(task::Symbol) = task === :pong_hitrate ? :pong : task
 _has_falandays_paper_config(task::Symbol) = haskey(FALANDAYS_PAPER_CONFIG, _falandays_config_key(task))
 
 function _default_node_count(node::Symbol, task::Symbol, is_swarm::Bool)
-    if !is_swarm && node in _FALANDAYS_BASE_ALIASES && _has_falandays_paper_config(task)
+    if !is_swarm && node in _FALANDAYS_ALIASES && _has_falandays_paper_config(task)
         return falandays_paper_config(_falandays_config_key(task)).nnodes
     end
     return _default_node_count(node)
@@ -305,7 +349,7 @@ function _apply_falandays_task_defaults!(
     node_kwargs::Dict{Symbol,Any},
     env_kwargs::Dict{Symbol,Any},
 )
-    (!is_swarm && node in _FALANDAYS_BASE_ALIASES && _has_falandays_paper_config(task)) || return nothing
+    (!is_swarm && node in _FALANDAYS_ALIASES && _has_falandays_paper_config(task)) || return nothing
 
     cfg = falandays_paper_config(_falandays_config_key(task))
     if !haskey(node_kwargs, :params)
@@ -1186,6 +1230,37 @@ function _environment_config(m::TaskEnvironment)
     )
 end
 
+function _environment_config(world::TrackingEnv)
+    return (
+        kind=:task,
+        world=:tracking,
+        bounds=bounds(world),
+        size=_environment_size(world),
+        sensory_gain=world.sensory_gain,
+        stim_speed_rad=world.stim_speed_rad,
+        movement_amp=world.movement_amp,
+        eye_offsets_deg=world.eye_offsets_deg,
+        sensor_offsets_deg=Tuple(world.sensor_offsets_deg),
+        initial=(theta=world.theta0, phi=world.phi0, direction=world.direction0),
+    )
+end
+
+function _environment_config(world::PongEnv)
+    return (
+        kind=:task,
+        world=:pong,
+        bounds=bounds(world),
+        size=_environment_size(world),
+        sensory_gain=world.sensory_gain,
+        width=world.width,
+        height=world.height,
+        ball_speed=world.ball_speed,
+        paddle_x=world.paddle_x,
+        paddle_height=world.paddle_h,
+        sensor_angles_deg=Tuple(world.sensor_angles_deg),
+    )
+end
+
 function _environment_config(world::TaskWorld)
     return (
         kind=:task,
@@ -1301,6 +1376,7 @@ function _simulation_config(
     ablation::Symbol=:none,
     ablation_notes=(),
     interventions=nothing,
+    task_spec=nothing,
 )
     ids = entity_ids(c)
     agent_configs = Tuple(
@@ -1328,6 +1404,11 @@ function _simulation_config(
         ablation=ablation,
         ablation_notes=Tuple(ablation_notes),
         interventions=interventions === nothing ? () : Tuple(interventions),
+        outcome_contract=task_spec isa TaskSpec && task_spec.score_key !== nothing ? (
+            key=task_spec.score_key,
+            floor=score_floor(task_spec),
+            ceiling=score_ceiling(task_spec),
+        ) : nothing,
     )
 end
 
@@ -1460,6 +1541,7 @@ function simulate(task::TaskSpec; node=:falandays, ticks=nothing, seed=0, record
         ablation=setup.ablation,
         ablation_notes=setup.ablation_notes,
         interventions=setup.interventions,
+        task_spec=task,
     )
     return SimResult(setup.recorder, result_metrics, setup.task, setup.node, config)
 end

@@ -1,0 +1,165 @@
+---
+title: Extend the lab
+description: Add a node, component, body, world, task, metric, analysis, optimizer, or view through the public contracts.
+---
+
+BrainlessLab extension points are Julia generics plus optional registries. Add methods to a
+public contract. Register a name when discovery or configuration needs one. Prefer a
+composed value or parameter preset when the contract has not changed.
+
+## Choose the narrowest seam
+
+| You want to add | Start with | Minimum evidence |
+| --- | --- | --- |
+| node parameter variant | keyword, preset, drive, or intervention | resolved configuration and mechanism test |
+| new neural substrate | `Reservoir` contract | widths, step, reset, replay, seed, and two-task smoke test |
+| physical sensor or encoder | component contract | geometry, orientation, port IDs, widths, and world integration |
+| actuator or dynamics | typed command pair | bounds, sign policy, integration, reset, and inactive command |
+| physiology | `AbstractPhysiology` | drift, effects, feedback timing, failure, and RNG ownership |
+| body | composed `Embodiment` | strict round trip, ports, and ensemble run |
+| vector task | `TaskWorld` plus `TaskSpec` | static, random, blind or sham, and oracle calibration |
+| physical composition | `ObjectWorld` plus `TaskSpec` | identities, effects, randomization, and task calibration |
+| task metric | `metrics(environment, window)` | raw definition, gate behavior, and anchor provenance |
+| reusable analysis | pure function plus analysis registry | channels, diagnostics, minimum data, null, and failure case |
+| optimizer or development seam | optimizer contract or `DevelopmentSpec` | pack/unpack, bounds, fresh phenotype, and search variance |
+| visualization | view registry in the Makie extension | render test and a Makie-free compute core |
+
+## Extend package generics correctly
+
+Import the function names that receive new methods:
+
+```julia
+using BrainlessLab: Reservoir, register_node!, simulate
+import BrainlessLab: step!, effectors, reset!
+import BrainlessLab: n_nodes, n_receptors, n_effectors
+```
+
+If you use only `using` and then define `step!`, you can create an unrelated local function.
+The framework will not dispatch to it.
+
+## Add a node
+
+Use `examples/templates/new_project/my_node.jl` as the scaffold. Keep the constructor
+task-agnostic:
+
+```julia
+MyReservoir(n_nodes, n_receptors, n_effectors; seed=0, kwargs...)
+```
+
+Register only after the contract works:
+
+```julia
+register_node!(:my_reservoir, MyReservoir; genome_type=MyParams)
+simulate(:tracking; node=:my_reservoir, seed=11)
+simulate(:pong; node=:my_reservoir, seed=11)
+```
+
+Declare online plasticity only when `step!` performs online adaptation. Keep optimizer
+parameters separate from replay state.
+
+## Add a physical component
+
+Each component has a stable ID and a narrow responsibility:
+
+- sensor: `rawspec` plus world sampling;
+- encoder: sensor sources, receptor ports, and `encode!`;
+- actuator: effector ports, command buffer, and `decode!`;
+- dynamics: `integrate!` for a compatible command;
+- physiology: feedback, effects, viability, and reset;
+- geometry: footprint queries used by a world.
+
+A sensor for `ObjectWorld` extends:
+
+```julia
+import BrainlessLab: rawspec, sample_world_sensor!
+
+rawspec(sensor::MySensor) = (kind=:my_sensor, width=3)
+
+function sample_world_sensor!(
+    sensor::MySensor,
+    world::ObjectWorld,
+    state::MotionState2D,
+)
+    return [0.0, 0.0, 0.0]
+end
+```
+
+The sensor returns raw values. The encoder still owns the receptor mapping.
+
+Register strict configuration metadata only after direct composition works. Evidence paths
+in a `ComponentDescriptor` must exist. Readiness remains separate from experimental status.
+
+## Compose a body
+
+Prefer `Embodiment` to an organism-specific subtype. Give every component a stable unique
+ID. Derive dimensions from `portspec(body)`. Keep mutable buffers inside component or body
+state.
+
+Use strict TOML when the composition should be reused:
+
+```julia
+config = read_embodiment_config("my_body.toml")
+body = materialize_embodiment(config)
+component_slots(body)
+portspec(body)
+```
+
+Use a custom `AbstractBody` only when the standard composition cannot express the required
+contract.
+
+## Add a task or world
+
+For a vector-valued task, implement the `TaskWorld` methods and wrap the world in a
+`TaskSpec`. Start from `examples/templates/new_project/my_task.jl`.
+
+For a physical composition, build bodies and an `ObjectWorld` in the setup callable. Start
+from `examples/embodiments/object_world_task.jl`.
+
+Keep ownership strict:
+
+- world: geometry, objects, fields, encounters, and effects;
+- body: sensors, encoding, action semantics, motion, and optional physiology;
+- reservoir: neural dynamics;
+- task: composition, defaults, and score anchors.
+
+Calibrate the task before it selects a reservoir.
+
+## Add a metric or analysis
+
+A task metric describes one rollout and belongs to the environment. A reusable analysis
+reads recorded channels from a `SimResult`.
+
+Before adding an analysis, declare:
+
+- required channels and cadence;
+- node, agent, or world level;
+- output and units;
+- independent resampling unit;
+- transient and missing-data behavior;
+- minimum data and diagnostics;
+- causal null or surrogate;
+- known bias and unsupported interpretations.
+
+Test synthetic data with a known answer and at least one failure case. Register the analysis
+as experimental until its validation supports a stronger label.
+
+## Verification order
+
+1. test the narrow component contract;
+2. test exact widths and stable IDs;
+3. test reset, fresh state, and replay;
+4. run through an `Ensemble`;
+5. test deterministic seeds;
+6. inspect warm-path inference and allocations;
+7. run focused tests, then the package suite;
+8. run executable examples and the site build;
+9. update the canonical handbook and discovery metadata;
+10. state the scientific evidence boundary.
+
+Do not change fixture expectations to make a regression pass. Do not add concrete-type
+branches when dispatch or composition expresses the difference.
+
+Read [Architecture](/core/architecture/) before changing an ownership boundary. Use the
+live [Reference](/reference/) for registry and configuration details.
+
+<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>, <code>src/core/Registry.jl</code>, <code>src/core/Components.jl</code>, <code>src/run/ComponentCatalog.jl</code>.</p>

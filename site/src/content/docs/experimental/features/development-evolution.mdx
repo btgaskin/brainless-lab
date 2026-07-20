@@ -1,0 +1,20 @@
+---
+title: Bounded development and evolutionary drivers
+description: Fixed-structure genotype-to-phenotype development plus experimental optimization drivers for compatible reservoirs and bodies.
+experimental:
+  family: evolution
+  readiness: integrated
+  tags: [development, evolution, genomes, optimization]
+  core_page: /core/extend/
+  source_paths: [src/run/Development.jl, src/drivers/Evolve.jl, src/drivers/Composite.jl]
+  example_paths: [configs/evolve_falandays_wall.toml]
+  test_paths: [test/test_development.jl, test/test_evolve.jl, test/test_composite.jl]
+---
+
+Development maps bounded scalar genotype values onto a fresh fixed component graph.
+Evolutionary drivers evaluate compatible reservoir or composite genomes through declared
+task and preparation contracts.
+
+The component graph remains fixed, and one optimizer run does not characterize search
+variance. A selected genome is development output until an untouched, appropriately powered
+comparison confirms a scientific claim.

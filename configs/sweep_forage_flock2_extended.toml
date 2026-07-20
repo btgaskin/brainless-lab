@@ -1,5 +1,5 @@
 # Informed-minority flock, scaled, with the falandays_EXTENDED connectome node
-# (vs falandays_base in forage_flock2). Same geometry: 100 agents, arena 30,
+# (vs falandays in forage_flock2). Same geometry: 100 agents, arena 30,
 # vision_range 4, N=100, 3000 ticks. Collective vs individual; null test on the
 # collective cell. Does a different connectome change foraging / the collective
 # signal in this regime?

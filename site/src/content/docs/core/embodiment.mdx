@@ -1,0 +1,143 @@
+---
+title: Embodiment
+description: Compose geometry, sensing, encoding, actuation, dynamics, physiology, and stable ports in one generic body.
+---
+
+An embodiment closes the reservoir through a world. Sensor geometry, encoding, actuator
+limits, dynamics, and optional physiology can all change behavior while the reservoir
+remains fixed.
+
+`AbstractBody` is the dispatch boundary. `Embodiment <: AbstractBody` is the standard
+generic body. Biological and robotic interpretations use the same type with different
+components.
+
+## The component graph
+
+An `Embodiment` composes:
+
+```text
+geometry
+sensors → encoders → receptor ports
+effector ports → actuators → typed commands → dynamics
+optional physiology → feedback receptors, effect interpretation, viability
+traits + runtime state
+```
+
+Every component has a stable `Symbol` ID. Port IDs are namespaced by their owning
+component. This keeps recording and parameter paths stable when component order changes.
+
+```julia
+component_slots(body)
+portspec(body)
+n_receptors(body)
+n_effectors(body)
+```
+
+## Sensing and action stay separate
+
+A sensor declares and samples raw physical values. An encoder converts identified sensor
+samples into reservoir receptor channels. An actuator converts normalized effector values
+into a bounded command. A dynamics component integrates that command into motion.
+
+The main path is:
+
+```text
+world sample
+  → sensor sample
+  → encoder
+  → receptor vector
+  → reservoir
+  → effector vector
+  → actuator
+  → typed command
+  → dynamics
+```
+
+The built-in physical component families include spectral cameras, mounted field probes,
+bilateral contrast encoding, wheel or forward-turn actuation, and planar force/yaw
+actuation. Query the catalog instead of assuming parameter names:
+
+```julia
+components(family=:sensor)
+component_info(:sensor, :spectral_camera)
+readiness()
+```
+
+Readiness is evidence about integration and documentation. It is not a biological or
+robotic fidelity rating.
+
+## Optional regulated physiology
+
+`RegulatedPhysiology` can hold any number of named `RegulatedVariable`s. Each variable owns:
+
+- bounds, initial value, and setpoint;
+- a deficit rule;
+- drift;
+- a response curve;
+- feedback mode and gain;
+- stochastic emission and optional receptor-link probability;
+- optional failure behavior.
+
+Feedback is off unless enabled. Available modes include off, tonic, Bernoulli pulses, and
+explicit replay.
+
+The world emits typed effects such as:
+
+```julia
+Exposure(:energy, 0.2)
+```
+
+When regulated physiology is present, it applies the effect to the matching internal
+variable. Unknown effects are rejected by default. Effects for a tick are accumulated
+before failure is evaluated, so a resource contact can rescue an agent on a threshold tick.
+
+Once dead, a body remains at its stable identity and slot but does not sense, step, move, or
+interact.
+
+## Reusable TOML composition
+
+Embodiment TOML files are strict and schema-versioned:
+
+```julia
+config = read_embodiment_config(
+    "examples/embodiments/differential_robot.toml",
+)
+
+blueprint = materialize_blueprint(config)
+body = materialize_embodiment(config)
+```
+
+Each materialization creates fresh runtime state. Each `[[components]]` table declares an
+`id`, `family`, `kind`, and validated parameter table. An optional `extends` entry and
+stable-ID overrides support reusable presets.
+
+The checked-in presets are named for convenient interpretations:
+
+- `bilateral_insect.toml`;
+- `differential_robot.toml`;
+- `planar_uav.toml`.
+
+These are simplified compositions. Their names do not claim species-level or
+vehicle-level realism.
+
+## Identity encoders
+
+If a TOML file declares no encoders, materialization inserts an identity encoder. If
+source-aware encoders leave a sensor unclaimed, materialization adds a stable identity
+encoder for that sensor. Inspect `component_slots(body)` and `portspec(body)` after
+materialization. Do not infer the final graph from the explicit TOML entries alone.
+
+## Bounded development
+
+`DevelopmentSpec` can vary finite real-valued component parameters through stable IDs and
+paths. It creates a fresh phenotype from a fixed component structure. It does not add or
+remove components, change port structure, encode runtime state, or schedule births.
+
+Use this seam for parameters such as sensor range, sensor placement, response time,
+actuator limits, motion constants, or physiology gain. Treat a selected phenotype as a
+development result until it is tested on untouched worlds.
+
+Use [Worlds, tasks, and populations](/core/worlds-tasks-populations/) to place a body in a
+world. Use [Extend the lab](/core/extend/) to add a component.
+
+<p class="bl-source">Source: <code>src/world/Ports.jl</code>, <code>src/world/Embodiment.jl</code>, <code>src/world/PhysicalComponents.jl</code>, <code>src/world/Homeostasis.jl</code>, <code>src/run/EmbodimentConfig.jl</code>.</p>

@@ -244,7 +244,8 @@ end
 end
 
 @testset "documented object-world quickstart runs" begin
-    include(joinpath(@__DIR__, "..", "examples", "embodiments", "object_world_quickstart.jl"))
+    isdefined(Main, :run_object_world_quickstart) ||
+        include(joinpath(@__DIR__, "..", "examples", "embodiments", "object_world_quickstart.jl"))
     result = run_object_world_quickstart(ticks=2, seed=3)
     poses = getchannel(result.recorder, :poses)
     @test length(poses) == 2

@@ -1,0 +1,140 @@
+---
+title: Worlds, tasks, and populations
+description: Choose the vector-task, situated-population, or generic physical-world path and keep their responsibilities distinct.
+---
+
+A world owns external state and relations. A task composes a world, bodies, defaults, and
+optional score metadata. An ensemble places one or more reservoir-body agents in that
+world.
+
+```text
+TaskSpec ─setup→ TaskSetup(environment, bodies)
+                         ├─ body ports size each reservoir
+                         └─ Ensemble runs one synchronous lifecycle
+```
+
+## Choose one of three world paths
+
+### 1. Vector-valued task world
+
+Use a `TaskWorld` when the environment already emits the final receptor vector and consumes
+the task-specific effector vector.
+
+Tracking, Pong, wall, and cart-pole use this path. A direct `Embodiment` relays vectors
+between the task and reservoir. This path is small and suitable for a focused benchmark
+contract.
+
+### 2. Established situated adapter
+
+Use `SituatedEnvironment` for the existing `:torus`, `:forage`, and signalling behavior.
+It preserves their bearing banks, collision rules, histories, and analysis channels.
+
+```julia
+simulate(:torus; node=:falandays, n_agents=12, seed=11)
+simulate(:forage; node=:falandays, n_agents=12, seed=11)
+```
+
+The adapter constructs ordinary embodiments, but it retains its established task-specific
+sensing and motion conventions.
+
+### 3. Generic `ObjectWorld`
+
+Use `ObjectWorld` when the experiment needs independently composed physical parts. It
+supports:
+
+- toroidal or walled two-dimensional arenas;
+- fixed agent populations;
+- static circular objects with stable IDs;
+- persistent, finite-capacity, or delayed-respawn resources;
+- named analytic scalar fields;
+- simplified spectral appearance and illumination;
+- mounted field probes and spectral cameras;
+- typed contact effects;
+- one compatible actuator and dynamics command pair per body.
+
+The tested composition example is:
+
+```julia
+include("examples/embodiments/object_world_task.jl")
+sim = run_object_world_task(ticks=25, seed=11)
+```
+
+This is an integration demonstration, not a calibrated benchmark. Use a `TaskSpec`, controls,
+and calibration before the composed world selects a model or supports a behavioral claim.
+
+## Objects and fields are independent
+
+An object bank labels an object type and render channel. It does not create a continuous
+field. A mounted field probe reads only the named field supplied in `world.fields`.
+
+A spectral camera combines target appearance, an illuminant, sensor sensitivity, ray
+geometry, range, and occlusion. The optical model is simplified. It is an experimental
+sensor model, not a full camera simulation.
+
+## One agent and many agents use the same loop
+
+An `Ensemble` can contain one agent, a homogeneous population, or grouped heterogeneous
+agents. Homogeneous agents retain a concrete fast path. Mixed reservoir or body types are
+grouped behind function barriers.
+
+Use stable public accessors:
+
+```julia
+nagents(ensemble)
+entity_ids(ensemble)
+agent_at_slot(ensemble, 1)
+body_at_slot(ensemble, 1)
+
+foreach_group(ensemble) do group
+    group_ids(group)
+    group_slots(group)
+end
+```
+
+World identity does not depend on the storage group.
+
+## Coupling belongs in the world relation
+
+The ensemble adds no implicit alignment, attraction, or social force. Agents influence one
+another only through what the world lets them sense and affect:
+
+- visual bearing to another agent;
+- a signal sampled on the next tick;
+- a shared field;
+- collision or proximity;
+- a changed resource or object;
+- a typed body-to-body effect.
+
+Sensor geometry can therefore define the interaction topology. Range, mounting, response
+lag, noise, and occlusion can change collective behavior without changing a reservoir.
+
+## Activity, death, and population size
+
+The runtime has fixed membership. A body with configured failure can die. A dead body keeps
+its identity and slot but becomes inactive. Active-only movement summaries exclude it.
+Cohort survival and regulation metrics retain the original denominator, so death cannot
+improve a score by reducing the population.
+
+Births, replacement, lineage transitions, moving non-agent objects, arbitrary meshes, and
+structural population evolution are not part of the current generic runtime.
+
+Agents and ticks in one world are not independent experimental units. Randomize and
+replicate complete worlds when the inferential contrast is at the world level.
+
+## Task ownership
+
+A `TaskSpec` should state:
+
+- setup and body composition;
+- default ticks and scoring window;
+- primary raw metric, if one exists;
+- floor and ceiling anchors;
+- descriptors and validity gates.
+
+Set `score_key=nothing` when a task has no justified scalar objective. Do not force
+collective organization into one competence score.
+
+Read [Core task tour](/core/task-tour/) for the built-in task contracts and
+[Design a study](/core/design-study/) before a multi-world comparison.
+
+<p class="bl-source">Source: <code>src/tasks/Tasks.jl</code>, <code>src/world/Ensemble.jl</code>, <code>src/world/ObjectWorld.jl</code>, <code>src/world/Environments.jl</code>.</p>

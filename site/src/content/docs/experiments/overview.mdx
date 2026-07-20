@@ -14,9 +14,11 @@ front matter:
 - artifact path;
 - the limitation that most constrains interpretation.
 
-The labels follow the [Research workflow](/research-workflow/). A traceable run is not
+The labels follow [Design a study](/core/design-study/). A traceable run is not
 automatically confirmatory: code and seeds may be recoverable even when the same data were
-used to tune parameters and interpret the result.
+used to tune parameters and interpret the result. A `tuned` record means development data
+influenced parameter or regime selection; it is not a higher scientific-evidence claim than
+an exploratory record.
 
 ```bash
 julia --project=. experiments/run.jl --list
@@ -27,9 +29,9 @@ julia -t auto --project=. experiments/run.jl <name>
 
 | Study | Status | Independent unit | Artifact | Main limitation |
 | --- | --- | --- | --- | --- |
-| [Tracking parameter sweep](/experiments/tracking-param-sweep/) | **exploratory** | seeded reservoir/task run; 100 per cell | two committed development bundles | selection and signature interpretation used the same grids |
+| [Tracking parameter sweep](/experiments/tracking-param-sweep/) | **tuned development** | seeded reservoir/task run; 100 per cell | two committed development bundles | selection and signature interpretation used the same grids |
 | [Freeze-plasticity onset](/experiments/freeze-onset/) | **exploratory** | seeded reservoir/task run | no promoted bundle | sample count, uncertainty, and frozen protocol are not documented in an immutable artifact |
-| [Social foraging](/experiments/social-foraging/) | **exploratory** | seeded multi-agent world; 3–8 per tuned cell | ad-hoc outputs only | morphology/environment were tuned on the reported seeds; no sham-information control |
+| [Social foraging](/experiments/social-foraging/) | **tuned development** | seeded multi-agent world; 3–8 per tuned cell | ad-hoc outputs only | morphology/environment were tuned on the reported seeds; no sham-information control |
 | [Criticality across tested perturbations](/experiments/criticality-control/) | **exploratory** | seeded reservoir or world; 3–10 per probe | exploratory scripts/tables | small ad-hoc probes and no fixed-weight confirmatory comparison |
 
 There are currently no pages labelled `frozen`, `confirmed`, or `promoted`. That is a useful
@@ -51,7 +53,8 @@ representative-selection rule, and checksums. See `experiments/README.md` for th
 checklist.
 
 :::note[Stable model does not mean confirmed study]
-The fixture-validated `:falandays_base` reservoir can be used inside an exploratory task,
+The fixture-validated `:falandays` reservoir (`:falandays_base` is a compatibility alias) can
+be used inside an exploratory task,
 body, analysis, or protocol. Baseline implementation status and study evidence status are
 separate.
 :::

@@ -37,14 +37,23 @@ let
     lines!(ax_rate, rate_trace(noisy); label="noisy (sensory)")
     axislegend(ax_rate)
 
-    ax_score = Axis(fig[2, 1]; xlabel="variant", ylabel="wall score", title="Short-run score")
-    scores = [base.metrics.score, oosawa.metrics.score, noisy.metrics.score]
+    outcomes = task_outcome.((base, oosawa, noisy))
+    ax_score = Axis(
+        fig[2, 1];
+        xlabel="variant",
+        ylabel="normalized wall outcome",
+        title="Short-run normalized task outcome",
+    )
+    scores = [outcome.normalized for outcome in outcomes]
     labels = ["base", "oosawa", "noisy"]
     barplot!(ax_score, 1:3, scores)
     ax_score.xticks = (1:3, labels)
 
     save(joinpath(output_dir, "variant_tour.png"), fig)
 
-    println("variant scores base=$(round(base.metrics.score; digits=3)) oosawa=$(round(oosawa.metrics.score; digits=3)) noisy=$(round(noisy.metrics.score; digits=3))")
+    println(
+        "normalized variant outcomes base=$(round(scores[1]; digits=3)) " *
+        "oosawa=$(round(scores[2]; digits=3)) noisy=$(round(scores[3]; digits=3))",
+    )
     println("saved figures to $(output_dir)")
 end

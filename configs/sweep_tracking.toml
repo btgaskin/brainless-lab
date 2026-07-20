@@ -14,7 +14,7 @@ max_cells = 200
 max_rollouts = 200
 
 [baseline]
-node = "falandays_base"
+node = "falandays"
 task = "tracking"
 N = 200
 ticks = 2000

@@ -1,6 +1,6 @@
 using Test
 
-@testset "public documentation uses the current embodiment vocabulary" begin
+@testset "public documentation uses current vocabulary and canonical paths" begin
     root = normpath(joinpath(@__DIR__, ".."))
     surfaces = (
         joinpath(root, "README.md"),
@@ -10,7 +10,10 @@ using Test
         joinpath(root, "experiments", "README.md"),
         joinpath(root, "skills", "brainless-lab"),
     )
-    forbidden = r"VEN[A-Za-z_]*|:ven(?:_|\b)|\"ven(?:_|\")|SensorimotorBody|HomeostaticBody|PassthroughBody|NeedSpec|NeedDelta|Morphology\.jl|encode_receptors|decode_effectors|update_body!"
+    forbidden = (
+        r"VEN[A-Za-z_]*|:ven(?:_|\b)|\"ven(?:_|\")|SensorimotorBody|HomeostaticBody|PassthroughBody|NeedSpec|NeedDelta|Morphology\.jl|encode_receptors|decode_effectors|update_body!",
+        r"""docs_path\s*=\s*"docs/""",
+    )
     offenders = String[]
     for surface in surfaces
         files = if isfile(surface)
@@ -24,7 +27,9 @@ using Test
             )
         end
         for file in files
-            occursin(forbidden, read(file, String)) && push!(offenders, relpath(file, root))
+            text = read(file, String)
+            any(pattern -> occursin(pattern, text), forbidden) &&
+                push!(offenders, relpath(file, root))
         end
     end
     @test isempty(offenders)
