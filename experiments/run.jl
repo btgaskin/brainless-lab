@@ -16,6 +16,7 @@ using BrainlessLab
 include(joinpath(@__DIR__, "freeze_onset.jl"))
 include(joinpath(@__DIR__, "tracking_param_sweep.jl"))
 include(joinpath(@__DIR__, "tracking_leak_lrate_factorial.jl"))
+include(joinpath(@__DIR__, "shoal_vision_sweep.jl"))
 # add new experiments here:  include(joinpath(@__DIR__, "<name>.jl"))
 
 function _parse_val(s::AbstractString)

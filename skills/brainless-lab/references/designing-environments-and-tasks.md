@@ -99,13 +99,16 @@ The copy-ready scaffold is `examples/templates/new_project/my_task.jl`.
 Use this when the experiment needs independently composed physical components.
 `ObjectWorld` currently supports torus/walled 2-D arenas, fixed agent motion states, static
 circular objects, named analytic fields, spectral appearance/illumination, object capacity
-and respawn, typed effects, and one actuator/dynamics command per body.
+and respawn, typed effects, explicit world relations between agents, and one
+actuator/dynamics command per body.
 
 Objects have stable `ObjectID`s; agents have stable `EntityID`s. Bind/query through public
 methods (`bind_entity_ids!`, `interaction_events`, `object_snapshot`) rather than storage.
 
-Built-in sampling supports `SpectralCamera`, `MountedFieldProbe`, and blind
-`DirectRelaySensor`. Extend another sensor with:
+Built-in sampling supports `SpectralCamera`, `MountedFieldProbe`, observer-relative
+`SectorVision` over objects or conspecifics, and blind `DirectRelaySensor`. Sensors that
+depend on observer identity use `ObjectWorldSensorContext`; sensors that need only pose can
+retain the simpler state method. Extend another pose-only sensor with:
 
 ```julia
 import BrainlessLab: rawspec, sample_world_sensor!
@@ -143,13 +146,19 @@ bounds, initial value, setpoint/deficit rule, drift, response curve, feedback mo
 emission probability, optional receptor link probability, and failure. `OffFeedback` is the
 default control; tonic, Bernoulli, and replay modes are explicit.
 
-World relations return `Exposure(name, delta)` values. Unknown effects are rejected by
+World relations such as `ProximityExposure` return `Exposure(name, delta)` values separately
+from perception. This is the correct seam for a physiological consequence of physical
+proximity that must remain active in a blind-sensor control. Unknown effects are rejected by
 default. Effects for one tick are accumulated before clamping/failure, so contact can rescue
 an agent on a threshold tick. Death keeps stable identity but disables neural stepping,
 sensing, motion, and interactions in the fixed population. Metrics must distinguish the
 current active population from the original cohort: active-only motion summaries exclude
 dead bodies, while survival or regulation objectives keep the original denominator so
 death cannot improve the score.
+
+Custom relation types subtype `AbstractWorldRelation` and extend
+`apply_world_relation!(world, bodies, relation)`. Relations own cross-entity effect
+generation; they must not mutate reservoir state or silently alter sensor observations.
 
 ## Task composition and scoring
 
@@ -237,7 +246,7 @@ minimal differential-robot kit is `:core`; other built-in physical components re
 - **Body-aware ecology.** Worlds emit typed effects; physiology interprets them.
 - **Overclaiming `ObjectWorld`.** It is currently fixed-population, circular-object, 2-D,
   one-command infrastructure. Analytic fields are explicit and independent of object banks,
-  and other agents are not yet spectral/object interaction targets.
+  and support for other agents is sensor-specific rather than implicit object visibility.
 - **Treating the situated adapter as the generic API.** It preserves established tasks;
   new physical composition belongs in `ObjectWorld`.
 - **Unbounded effectors or meaningless anchors.** Validate physical commands and scoring.

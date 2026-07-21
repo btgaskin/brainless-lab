@@ -10,6 +10,9 @@ struct SpatialFieldSource{Name} <: SensorySource end
 SpatialFieldSource(name::Symbol) = SpatialFieldSource{name}()
 SpatialFieldSource(name::AbstractString) = SpatialFieldSource(Symbol(name))
 
+"""Select other active embodied entities in the same physical world."""
+struct ConspecificSource <: SensorySource end
+
 source_name(::ObjectSource{Name}) where {Name} = Name
 source_name(::SpatialFieldSource{Name}) where {Name} = Name
 

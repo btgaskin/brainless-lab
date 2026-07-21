@@ -27,6 +27,7 @@ nodes/tasks/analyses — but the registry lives here, not in core. One entrypoin
 julia --project=. experiments/run.jl --list                 # discover
 julia --project=. experiments/run.jl freeze_onset           # run with defaults
 julia --project=. experiments/run.jl freeze_onset seeds=0:9 tasks=tracking,pong window=600
+julia -t 4 --project=. experiments/run.jl shoal_vision_sweep # 44-run exploratory pilot
 ```
 
 `key=val` values parse as Int (`600`), Float (`0.5`), range (`0:9`), comma-list
@@ -45,6 +46,8 @@ experiments/
   freeze_onset.jl                   # experiment (:freeze_onset)
   tracking_param_sweep.jl           # experiment (:tracking_param_sweep)
   tracking_leak_lrate_factorial.jl  # experiment (:tracking_leak_lrate_factorial)
+  shoal_vision_sweep.jl             # experiment (:shoal_vision_sweep)
+  shoal_vision_sweep/protocol.toml  # full design plus deliberately small pilot profile
   figures/        # CairoMakie figure scripts (own env; read a run's results.json)
   runs/           # scratch/exploratory outputs (git-ignored)
   results/        # curated evidence bundles, committed & traceable to a study/figure

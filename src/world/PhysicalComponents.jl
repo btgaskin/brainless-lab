@@ -303,6 +303,47 @@ function decode!(command::ForwardTurnCommand, actuator::ForwardTurnActuator, eff
     return command
 end
 
+"""
+    AntagonisticTurnActuator(; max_forward_speed=1, max_turn_rate=pi)
+
+Decode `[left_turn, right_turn, thrust]` into a unicycle command. Turn channels
+oppose each other, while thrust independently controls non-negative forward
+speed. This makes both instantaneous speed and turning rate expressible without
+changing the dynamics contract.
+"""
+struct AntagonisticTurnActuator <: AbstractActuator
+    max_forward_speed::Float64
+    max_turn_rate::Float64
+
+    function AntagonisticTurnActuator(max_forward_speed::Real, max_turn_rate::Real)
+        speed_, turn_ = Float64(max_forward_speed), Float64(max_turn_rate)
+        all(isfinite, (speed_, turn_)) && speed_ > 0.0 && turn_ > 0.0 ||
+            throw(ArgumentError("antagonistic-turn limits must be finite and positive"))
+        return new(speed_, turn_)
+    end
+end
+
+AntagonisticTurnActuator(; max_forward_speed=1.0, max_turn_rate=pi) =
+    AntagonisticTurnActuator(max_forward_speed, max_turn_rate)
+
+const _ANTAGONISTIC_TURN_PORTS = (:left_turn, :right_turn, :thrust)
+portspec(::AntagonisticTurnActuator) = _actuator_ports(_ANTAGONISTIC_TURN_PORTS)
+command_buffer(::AntagonisticTurnActuator) = ForwardTurnCommand()
+
+function decode!(
+    command::ForwardTurnCommand,
+    actuator::AntagonisticTurnActuator,
+    effectors,
+)
+    _require_effectors(effectors, 3)
+    left = _unit_effector(effectors[1], :left_turn)
+    right = _unit_effector(effectors[2], :right_turn)
+    thrust = _unit_effector(effectors[3], :thrust)
+    command.forward_speed = actuator.max_forward_speed * thrust
+    command.turn_rate = actuator.max_turn_rate * (left - right)
+    return command
+end
+
 """Decode two normalized wheel channels into physical wheel linear speeds."""
 struct DifferentialDriveActuator <: AbstractActuator
     max_wheel_speed::Float64

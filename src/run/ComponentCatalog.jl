@@ -114,6 +114,16 @@ end
 
 component_state(::SpectralCamera) = NamedTuple()
 
+_sensor_component_config(sensor::SectorVision) = (
+    kind=:sector_vision,
+    source=_sensory_source_config(sensor.source),
+    channels=sensor.channels,
+    field_of_view_deg=rad2deg(sensor.field_of_view),
+    range=sensor.max_range,
+    mode=sensor.mode,
+    sham_seed=sensor.sham_seed,
+)
+
 function _component_parameter_error(config::ComponentConfig, message::AbstractString)
     throw(ArgumentError(
         "component :$(config.id) (:$(config.family)/:$(config.kind)) $(message)",
@@ -532,6 +542,38 @@ function _resolve_spectral_camera(config::ComponentConfig)
     )
 end
 
+function _resolve_sector_vision(config::ComponentConfig)
+    parameters = _component_parameters(
+        config;
+        allowed=(:source, :channels, :field_of_view_deg, :range, :mode, :sham_seed),
+        required=(:source, :range),
+    )
+    source_name_ = _symbol_parameter(config, parameters, :source)
+    source = source_name_ === :conspecific ? ConspecificSource() : ObjectSource(source_name_)
+    channels = _integer_parameter(config, parameters, :channels, 16)
+    channels >= 1 || _component_parameter_error(config, "parameter :channels must be positive")
+    fov = _real_parameter(config, parameters, :field_of_view_deg, 300.0)
+    0.0 < fov <= 360.0 || _component_parameter_error(
+        config,
+        "parameter :field_of_view_deg must lie in (0, 360]",
+    )
+    range = _real_parameter(config, parameters, :range)
+    range > 0.0 || _component_parameter_error(config, "parameter :range must be positive")
+    mode = _symbol_parameter(config, parameters, :mode, :veridical)
+    mode in (:veridical, :blind, :bearing_sham) || _component_parameter_error(
+        config,
+        "parameter :mode must be veridical, blind, or bearing_sham",
+    )
+    return SectorVision(
+        source;
+        channels,
+        field_of_view=deg2rad(fov),
+        max_range=range,
+        mode,
+        sham_seed=_integer_parameter(config, parameters, :sham_seed, 0),
+    )
+end
+
 function _catalog_component_seed(id::Symbol, stream::Symbol)
     value = UInt64(0xcbf29ce484222325)
     for byte in codeunits(string(id, ':', stream))
@@ -602,6 +644,18 @@ function _resolve_forward_turn(config::ComponentConfig)
         _real_parameter(config, parameters, :max_forward),
         _real_parameter(config, parameters, :max_turn);
         allow_reverse=_bool_parameter(config, parameters, :allow_reverse, false),
+    )
+end
+
+function _resolve_antagonistic_turn(config::ComponentConfig)
+    parameters = _component_parameters(
+        config;
+        allowed=(:max_forward, :max_turn),
+        required=(:max_forward, :max_turn),
+    )
+    return AntagonisticTurnActuator(
+        _real_parameter(config, parameters, :max_forward),
+        _real_parameter(config, parameters, :max_turn),
     )
 end
 
@@ -750,6 +804,25 @@ function _register_builtin_component_catalog!()
             core_tests=robot_tests,
         ),
         _builtin_component_descriptor(
+            :sensor, :sector_vision, _resolve_sector_vision;
+            capabilities=(
+                :config_materialization,
+                :egocentric_sector_vision,
+                :object_sources,
+                :conspecific_sources,
+                :matched_blind_control,
+                :bearing_sham_control,
+            ),
+            parameters=(
+                required=(:source, :range),
+                optional=(:channels, :field_of_view_deg, :mode, :sham_seed),
+            ),
+            conformance=:sector_vision_contract,
+            conformance_path="test/test_shoal_forage.jl",
+            example_path="experiments/shoal_vision_sweep/protocol.toml",
+            docs_path="site/src/content/docs/experimental/embodiment.mdx",
+        ),
+        _builtin_component_descriptor(
             :sensor, :field_probe, _resolve_field_probe;
             capabilities=(:config_materialization, :mounted_field_sampling, :response_state),
             parameters=(
@@ -789,6 +862,15 @@ function _register_builtin_component_catalog!()
             conformance=:forward_turn_actuator_contract,
             conformance_path="test/test_physical_components.jl",
             example_path="examples/embodiments/bilateral_insect.toml",
+        ),
+        _builtin_component_descriptor(
+            :actuator, :antagonistic_turn, _resolve_antagonistic_turn;
+            capabilities=(:config_materialization, :effector_decode, :variable_speed),
+            parameters=(required=(:max_forward, :max_turn), optional=()),
+            conformance=:antagonistic_turn_actuator_contract,
+            conformance_path="test/test_shoal_forage.jl",
+            example_path="experiments/shoal_vision_sweep/protocol.toml",
+            docs_path="site/src/content/docs/experimental/embodiment.mdx",
         ),
         _builtin_component_descriptor(
             :actuator, :differential_drive, _resolve_differential_actuator;

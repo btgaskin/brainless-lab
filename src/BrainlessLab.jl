@@ -37,6 +37,7 @@ include("world/Body.jl")
 include("world/Motor.jl")
 include("world/PhysicalComponents.jl")
 include("world/Embodiment.jl")
+include("world/SectorVision.jl")
 include("world/Homeostasis.jl")
 include("nodes/SpikeHistory.jl")
 include("nodes/Falandays.jl")
@@ -86,6 +87,8 @@ include("drivers/Plastic.jl")
 include("run/EmbodimentConfig.jl")
 include("run/ComponentCatalog.jl")
 include("world/ObjectWorld.jl")
+include("tasks/ShoalForage.jl")
+include("analysis/ShoalForage.jl")
 include("run/Development.jl")
 include("run/Config.jl")
 include("run/Profiles.jl")
@@ -436,11 +439,13 @@ export Agent,
     SituatedEnvironment,
     EmbodiedEnvironment,
     ObjectWorld,
+    ObjectWorldSensorContext,
     ObjectID,
     ObjectInteractionEvent,
     interaction_events,
     object_snapshot,
     sample_world_sensor!,
+    apply_world_relation!,
     ObjectType,
     ObjectPopulation,
     AbstractObjectAppearance,
@@ -519,6 +524,7 @@ export AbstractGeometry,
     AbstractActuator,
     DirectRelayActuator,
     ForwardTurnActuator,
+    AntagonisticTurnActuator,
     DifferentialDriveActuator,
     PlanarForceYawActuator,
     command_buffer,
@@ -527,6 +533,27 @@ export AbstractGeometry,
     UnicycleDynamics,
     DifferentialDriveDynamics,
     PlanarRigidBodyDynamics
+
+export ConspecificSource,
+    SectorVision,
+    AbstractWorldRelation,
+    ProximityExposure
+
+export ShoalForageSetup,
+    SHOAL_FORAGE_TASK,
+    SHOAL_FORAGE_ARENA_SIZE,
+    SHOAL_FORAGE_BODY_RADIUS,
+    SHOAL_FORAGE_SOURCE_RADIUS,
+    SHOAL_FORAGE_SOURCE_RANGE,
+    SHOAL_FORAGE_SECTORS,
+    SHOAL_FORAGE_FIELD_OF_VIEW
+
+export shoal_need_satisfaction,
+    shoal_contact_summary,
+    shoal_movement_summary,
+    shoal_group_movement_summary,
+    shoal_perceptual_graph,
+    shoal_experiment_summary
 
 export register_node!,
     resolve_node,
@@ -757,6 +784,7 @@ register_task!(:cartpole_swingup, CARTPOLE_SWINGUP_TASK)
 register_task!(:cartpole_long, CARTPOLE_LONG_TASK)
 register_task!(:torus, TORUS_TASK)
 register_task!(:forage, FORAGE_TASK)
+register_task!(:shoal_forage, SHOAL_FORAGE_TASK)
 
 register_body!(:direct, Embodiment)
 
@@ -801,6 +829,11 @@ register_analysis!(:wall_distance, wall_distance; task=:wall, label="distance to
 register_analysis!(:heading_error, heading_error; task=:tracking, label="heading error (rad)")
 register_analysis!(:object_in_view, object_in_view; task=:tracking, label="stimulus-in-view indicator (experimental)")
 register_analysis!(:ball_paddle_distance, ball_paddle_distance; task=:pong, label="ball–paddle distance")
+register_analysis!(:shoal_need_satisfaction, shoal_need_satisfaction; task=:shoal_forage, label="material and association need satisfaction (exploratory)")
+register_analysis!(:shoal_contact_summary, shoal_contact_summary; task=:shoal_forage, label="resource contact and alternation summary (exploratory)")
+register_analysis!(:shoal_movement_summary, shoal_movement_summary; task=:shoal_forage, label="recorded movement diagnostics (exploratory)")
+register_analysis!(:shoal_group_movement_summary, shoal_group_movement_summary; task=:shoal_forage, label="proximity cohesion and movement coherence (exploratory)")
+register_analysis!(:shoal_perceptual_graph, shoal_perceptual_graph; task=:shoal_forage, label="dynamic conspecific perceptual graph (exploratory)")
 
 register_view!(:raster, rasterplot)
 register_view!(:rate, rateplot)

@@ -75,6 +75,13 @@ This distinction is load-bearing and easy to blur; keep it sharp in code, docs, 
 When you touch the baseline, assume a fidelity fixture guards it (`test/fixtures/authors_<task>.jld2`); run the
 tests. When you add an experimental piece, label it experimental honestly.
 
+The `:shoal_forage` task is a useful example of this division. It places the canonical
+`:falandays` node inside an **Experimental** body, world relation, task, protocol, and set of
+analyses. The node's parity status does not transfer to the fish-like embodiment or to claims
+about social behavior. Its `SectorVision`, `AntagonisticTurnActuator`, `ProximityExposure`,
+and `shoal_*` analyses must remain labelled Experimental until their own contracts and
+scientific interpretations earn stronger evidence.
+
 Fixture parity validates the tested node update, not every task, body, ecological mechanism, biological
 interpretation, or study. Read `site/src/content/docs/platform-limits.mdx` before broadening a claim.
 
@@ -205,3 +212,13 @@ differential-drive dynamics. Other built-in physical components remain `:integra
 real scalar paths on stable component IDs into a fresh runnable phenotype. Paths may use one-based tuple indices
 or stable named collection members such as `variables.energy.gain`; it does not vary structure, schedule
 births, or encode runtime state.
+
+For the bounded moving-shoal demonstrator, run
+`julia -t 4 --project=. experiments/run.jl shoal_vision_sweep`. The default is an explicitly
+underpowered two-block pilot that retains all sight/control conditions. Interpret material-
+need satisfaction as the primary endpoint. Keep physical cohesion (nearest-neighbour distance
+and largest proximity component), displacement coherence, and the perceptual graph as separate
+descriptive outcomes; do not convert them into a generic intelligence or shoaling score. With
+`record_every > 1`, contact counts and chord-based movement are recorder-grid diagnostics.
+Always inspect wall occupancy: common boundary following can raise displacement coherence
+without producing a cohesive shoal.
