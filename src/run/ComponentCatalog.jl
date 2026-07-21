@@ -120,6 +120,8 @@ _sensor_component_config(sensor::SectorVision) = (
     channels=sensor.channels,
     field_of_view_deg=rad2deg(sensor.field_of_view),
     range=sensor.max_range,
+    gain=sensor.gain,
+    distance_exponent=sensor.distance_exponent,
     mode=sensor.mode,
     sham_seed=sensor.sham_seed,
 )
@@ -545,7 +547,16 @@ end
 function _resolve_sector_vision(config::ComponentConfig)
     parameters = _component_parameters(
         config;
-        allowed=(:source, :channels, :field_of_view_deg, :range, :mode, :sham_seed),
+        allowed=(
+            :source,
+            :channels,
+            :field_of_view_deg,
+            :range,
+            :gain,
+            :distance_exponent,
+            :mode,
+            :sham_seed,
+        ),
         required=(:source, :range),
     )
     source_name_ = _symbol_parameter(config, parameters, :source)
@@ -569,6 +580,8 @@ function _resolve_sector_vision(config::ComponentConfig)
         channels,
         field_of_view=deg2rad(fov),
         max_range=range,
+        gain=_real_parameter(config, parameters, :gain, 1.0),
+        distance_exponent=_real_parameter(config, parameters, :distance_exponent, 1.0),
         mode,
         sham_seed=_integer_parameter(config, parameters, :sham_seed, 0),
     )
@@ -810,12 +823,21 @@ function _register_builtin_component_catalog!()
                 :egocentric_sector_vision,
                 :object_sources,
                 :conspecific_sources,
+                :input_gain,
+                :distance_response_curve,
                 :matched_blind_control,
                 :bearing_sham_control,
             ),
             parameters=(
                 required=(:source, :range),
-                optional=(:channels, :field_of_view_deg, :mode, :sham_seed),
+                optional=(
+                    :channels,
+                    :field_of_view_deg,
+                    :gain,
+                    :distance_exponent,
+                    :mode,
+                    :sham_seed,
+                ),
             ),
             conformance=:sector_vision_contract,
             conformance_path="test/test_shoal_forage.jl",

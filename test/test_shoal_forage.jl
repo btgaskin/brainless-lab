@@ -57,6 +57,17 @@ end
     @test maximum(values) ≈ 0.7
     @test argmax(values) in (8, 9)
 
+    shaped_body = _sector_test_body(SectorVision(
+        ConspecificSource();
+        channels=16,
+        field_of_view=deg2rad(300),
+        max_range=5.0,
+        gain=2.0,
+        distance_exponent=2.0,
+    ))
+    shaped = sample!(world, [shaped_body, target])[1]
+    @test maximum(shaped) ≈ 2.0 * 0.7^2
+
     blind_body = _sector_test_body(SectorVision(
         ConspecificSource();
         channels=16,
@@ -86,6 +97,8 @@ end
     )
     source_body = _sector_test_body(SectorVision(ObjectSource(:food); max_range=5.0))
     @test maximum(only(sample!(source_world, [source_body]))) ≈ 0.75
+    @test_throws ArgumentError SectorVision(ConspecificSource(); gain=-1.0)
+    @test_throws ArgumentError SectorVision(ConspecificSource(); distance_exponent=0.0)
 end
 
 @testset "proximity exposure is independent of sight" begin
@@ -157,6 +170,47 @@ end
     @test off.bodies[1].physiology.variables[3].mode isa OffFeedback
     @test off.bodies[1].physiology.variables[3].drift == 0.0
 
+    sensitive = setup_task(
+        SHOAL_FORAGE_TASK;
+        seed=23,
+        n_nodes=40,
+        n_agents=4,
+        block=2,
+        association_need=true,
+        conspecific_input_gain=0.5,
+        resource_input_gain=2.0,
+        conspecific_distance_exponent=0.5,
+        resource_distance_exponent=2.0,
+        material_drift=-0.002,
+        material_contact_restore=0.02,
+        material_feedback_gain=1.5,
+        material_feedback_exponent=2.0,
+        material_feedback_emission_probability=0.4,
+        association_drift=-0.002,
+        association_restore_max=0.008,
+        association_proximity_radius=4.0,
+        association_target_neighbors=4.0,
+        association_feedback_gain=0.5,
+        association_feedback_exponent=0.5,
+        association_feedback_emission_probability=0.1,
+    )
+    @test sensitive.bodies[1].sensors[1].gain == 0.5
+    @test sensitive.bodies[1].sensors[2].gain == 2.0
+    @test sensitive.bodies[1].sensors[1].distance_exponent == 0.5
+    @test sensitive.bodies[1].sensors[2].distance_exponent == 2.0
+    @test sensitive.bodies[1].physiology.variables[1].drift == -0.002
+    @test sensitive.bodies[1].physiology.variables[1].gain == 1.5
+    @test sensitive.bodies[1].physiology.variables[1].curve isa PowerFeedback
+    @test sensitive.bodies[1].physiology.variables[1].emission_p == 0.4
+    @test sensitive.bodies[1].physiology.variables[3].drift == -0.002
+    @test sensitive.bodies[1].physiology.variables[3].gain == 0.5
+    @test sensitive.bodies[1].physiology.variables[3].curve isa PowerFeedback
+    @test sensitive.bodies[1].physiology.variables[3].emission_p == 0.1
+    @test sensitive.environment.object_types[1].effects[1].amount == 0.02
+    @test sensitive.environment.relations[1].amount == 0.008
+    @test sensitive.environment.relations[1].radius == 4.0
+    @test sensitive.environment.relations[1].target_neighbors == 4.0
+
     sim = simulate(
         :shoal_forage;
         node=:falandays,
@@ -181,6 +235,8 @@ end
     needs = shoal_need_satisfaction(sim; warmup=0)
     grouped = shoal_group_movement_summary(sim; warmup=0, grouping_radius=2.0)
     @test 0.0 <= needs.mean_material_satisfaction <= 1.0
+    @test 0.0 <= needs.material_no_contact_floor <= 1.0
+    @test isfinite(needs.material_regulation_gain)
     @test grouped.mean_nearest_neighbor_distance >= 0.0
     @test 0.0 <= grouped.largest_proximity_component_fraction <= 1.0
     @test 0.0 <= grouped.movement_coherence <= 1.0 + eps(Float64)
@@ -198,6 +254,8 @@ end
             channels=16,
             field_of_view_deg=300.0,
             range=5.0,
+            gain=2.0,
+            distance_exponent=0.5,
             mode="bearing_sham",
             sham_seed=9,
         ),
@@ -205,6 +263,8 @@ end
     @test sensor.source isa ConspecificSource
     @test sensor.mode === :bearing_sham
     @test sensor.sham_seed == 9
+    @test sensor.gain == 2.0
+    @test sensor.distance_exponent == 0.5
 
     actuator_resolver = component_info(:actuator, :antagonistic_turn).config_resolver
     actuator = actuator_resolver(ComponentConfig(

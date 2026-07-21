@@ -32,7 +32,6 @@ julia -t auto --project=. experiments/run.jl <name>
 | [Tracking parameter sweep](/experiments/tracking-param-sweep/) | **tuned development** | seeded reservoir/task run; 100 per cell | two committed development bundles | selection and signature interpretation used the same grids |
 | [Freeze-plasticity onset](/experiments/freeze-onset/) | **exploratory** | seeded reservoir/task run | no promoted bundle | sample count, uncertainty, and frozen protocol are not documented in an immutable artifact |
 | [Social foraging](/experiments/social-foraging/) | **tuned development** | seeded multi-agent world; 3–8 per tuned cell | ad-hoc outputs only | morphology/environment were tuned on the reported seeds; no sham-information control |
-| [Moving shoal vision sweep](/experiments/shoal-vision-sweep/) | **exploratory pilot** | matched seeded world block; 2 blocks | generated local run bundle | underpowered; stylized embodiment and recorder-grid movement diagnostics |
 | [Criticality across tested perturbations](/experiments/criticality-control/) | **exploratory** | seeded reservoir or world; 3–10 per probe | exploratory scripts/tables | small ad-hoc probes and no fixed-weight confirmatory comparison |
 
 There are currently no pages labelled `frozen`, `confirmed`, or `promoted`. That is a useful
@@ -40,6 +39,18 @@ state, not a failure: the existing material generates hypotheses and tests the p
 while the new evidence contract prevents exploratory work from silently becoming
 confirmation. `frozen` means the protocol is fixed and the sealed outcomes remain unopened;
 `confirmed` means that protocol has been executed on the sealed blocks.
+
+## Draft publication state
+
+An experiment page that is not ready for the public site sets `draft: true` in its
+frontmatter. Draft pages remain available during local development, with a visible draft
+notice, but Starlight omits their routes from production builds. The production build also
+omits their generated social-preview images, and published pages must not link to a draft
+route.
+
+`draft` controls publication only. It is separate from `evidence.status`: an exploratory
+study can be public, while a tuned or frozen study can remain private until its authors are
+ready to present it.
 
 ## What belongs here
 

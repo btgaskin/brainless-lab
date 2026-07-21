@@ -78,25 +78,45 @@ function _shoal_initial_states(
     return states
 end
 
-function _shoal_need(name::Symbol)
+function _shoal_need(
+    name::Symbol;
+    drift::Real=-0.001,
+    feedback_gain::Real=1.0,
+    feedback_exponent::Real=1.0,
+    feedback_emission_probability::Real=0.2,
+)
+    exponent = Float64(feedback_exponent)
+    curve = exponent == 1.0 ? LinearFeedback() : PowerFeedback(exponent)
     return RegulatedVariable(
         name;
         minimum=0.0,
         maximum=1.0,
         initial=1.0,
         setpoint=1.0,
-        drift=-0.001,
+        drift,
         deficit=BelowSetpoint(),
-        curve=LinearFeedback(),
+        curve,
         mode=BernoulliFeedback(),
-        gain=1.0,
-        emission_p=0.2,
+        gain=feedback_gain,
+        emission_p=feedback_emission_probability,
         failure=NoFailure(),
     )
 end
 
-function _shoal_association_need(enabled::Bool)
-    enabled && return _shoal_need(:association)
+function _shoal_association_need(
+    enabled::Bool;
+    drift::Real=-0.001,
+    feedback_gain::Real=1.0,
+    feedback_exponent::Real=1.0,
+    feedback_emission_probability::Real=0.2,
+)
+    enabled && return _shoal_need(
+        :association;
+        drift,
+        feedback_gain,
+        feedback_exponent,
+        feedback_emission_probability,
+    )
     return RegulatedVariable(
         :association;
         minimum=0.0,
@@ -120,6 +140,18 @@ function _shoal_body(
     conspecific_mode::Symbol,
     conspecific_range::Real,
     source_range::Real,
+    conspecific_input_gain::Real,
+    resource_input_gain::Real,
+    conspecific_distance_exponent::Real,
+    resource_distance_exponent::Real,
+    material_drift::Real,
+    material_feedback_gain::Real,
+    material_feedback_exponent::Real,
+    material_feedback_emission_probability::Real,
+    association_drift::Real,
+    association_feedback_gain::Real,
+    association_feedback_exponent::Real,
+    association_feedback_emission_probability::Real,
     sham_seed::Integer,
 )
     sensors = (
@@ -128,6 +160,8 @@ function _shoal_body(
             channels=SHOAL_FORAGE_SECTORS,
             field_of_view=SHOAL_FORAGE_FIELD_OF_VIEW,
             max_range=conspecific_range,
+            gain=conspecific_input_gain,
+            distance_exponent=conspecific_distance_exponent,
             mode=conspecific_mode,
             sham_seed=sham_seed,
         ),
@@ -136,12 +170,16 @@ function _shoal_body(
             channels=SHOAL_FORAGE_SECTORS,
             field_of_view=SHOAL_FORAGE_FIELD_OF_VIEW,
             max_range=source_range,
+            gain=resource_input_gain,
+            distance_exponent=resource_distance_exponent,
         ),
         SectorVision(
             ObjectSource(:resource_2);
             channels=SHOAL_FORAGE_SECTORS,
             field_of_view=SHOAL_FORAGE_FIELD_OF_VIEW,
             max_range=source_range,
+            gain=resource_input_gain,
+            distance_exponent=resource_distance_exponent,
         ),
     )
     sensor_ids = (:conspecific_vision, :resource_1_vision, :resource_2_vision)
@@ -150,9 +188,27 @@ function _shoal_body(
         for (id, sensor) in zip(sensor_ids, sensors)
     )
     physiology = RegulatedPhysiology((
-        _shoal_need(:resource_1),
-        _shoal_need(:resource_2),
-        _shoal_association_need(association_need),
+        _shoal_need(
+            :resource_1;
+            drift=material_drift,
+            feedback_gain=material_feedback_gain,
+            feedback_exponent=material_feedback_exponent,
+            feedback_emission_probability=material_feedback_emission_probability,
+        ),
+        _shoal_need(
+            :resource_2;
+            drift=material_drift,
+            feedback_gain=material_feedback_gain,
+            feedback_exponent=material_feedback_exponent,
+            feedback_emission_probability=material_feedback_emission_probability,
+        ),
+        _shoal_association_need(
+            association_need;
+            drift=association_drift,
+            feedback_gain=association_feedback_gain,
+            feedback_exponent=association_feedback_exponent,
+            feedback_emission_probability=association_feedback_emission_probability,
+        ),
     ); seed=Int(seed) + 10_000 + Int(agent_index))
     return Embodiment(
         geometry=DiscGeometry(SHOAL_FORAGE_BODY_RADIUS),
@@ -187,6 +243,22 @@ function (::ShoalForageSetup)(;
     conspecific_mode::Symbol=:veridical,
     conspecific_range::Real=5.0,
     source_range::Real=SHOAL_FORAGE_SOURCE_RANGE,
+    conspecific_input_gain::Real=1.0,
+    resource_input_gain::Real=1.0,
+    conspecific_distance_exponent::Real=1.0,
+    resource_distance_exponent::Real=1.0,
+    material_drift::Real=-0.001,
+    material_contact_restore::Real=0.01,
+    material_feedback_gain::Real=1.0,
+    material_feedback_exponent::Real=1.0,
+    material_feedback_emission_probability::Real=0.2,
+    association_drift::Real=-0.001,
+    association_restore_max::Real=0.004,
+    association_proximity_radius::Real=2.0,
+    association_target_neighbors::Real=2.0,
+    association_feedback_gain::Real=1.0,
+    association_feedback_exponent::Real=1.0,
+    association_feedback_emission_probability::Real=0.2,
     sham_seed::Integer=91_337,
     kwargs...,
 )
@@ -203,12 +275,72 @@ function (::ShoalForageSetup)(;
     ))
     conspecific_range_ = Float64(conspecific_range)
     source_range_ = Float64(source_range)
+    conspecific_input_gain_ = Float64(conspecific_input_gain)
+    resource_input_gain_ = Float64(resource_input_gain)
+    conspecific_distance_exponent_ = Float64(conspecific_distance_exponent)
+    resource_distance_exponent_ = Float64(resource_distance_exponent)
+    material_drift_ = Float64(material_drift)
+    material_contact_restore_ = Float64(material_contact_restore)
+    material_feedback_gain_ = Float64(material_feedback_gain)
+    material_feedback_exponent_ = Float64(material_feedback_exponent)
+    material_feedback_emission_probability_ = Float64(material_feedback_emission_probability)
+    association_drift_ = Float64(association_drift)
+    association_restore_max_ = Float64(association_restore_max)
+    association_proximity_radius_ = Float64(association_proximity_radius)
+    association_target_neighbors_ = Float64(association_target_neighbors)
+    association_feedback_gain_ = Float64(association_feedback_gain)
+    association_feedback_exponent_ = Float64(association_feedback_exponent)
+    association_feedback_emission_probability_ =
+        Float64(association_feedback_emission_probability)
     isfinite(conspecific_range_) && conspecific_range_ > 0.0 || throw(ArgumentError(
         "conspecific_range must be finite and positive",
     ))
     isfinite(source_range_) && source_range_ > 0.0 || throw(ArgumentError(
         "source_range must be finite and positive",
     ))
+    all(isfinite, (
+        conspecific_input_gain_,
+        resource_input_gain_,
+        material_feedback_gain_,
+        association_feedback_gain_,
+    )) &&
+        all(>=(0.0), (
+            conspecific_input_gain_,
+            resource_input_gain_,
+            material_feedback_gain_,
+            association_feedback_gain_,
+        )) || throw(ArgumentError("shoal-forage input and feedback gains must be finite and non-negative"))
+    all(isfinite, (
+        conspecific_distance_exponent_,
+        resource_distance_exponent_,
+        material_feedback_exponent_,
+        association_feedback_exponent_,
+    )) && all(>(0.0), (
+        conspecific_distance_exponent_,
+        resource_distance_exponent_,
+        material_feedback_exponent_,
+        association_feedback_exponent_,
+    )) || throw(ArgumentError("shoal-forage curve exponents must be finite and positive"))
+    isfinite(material_drift_) && material_drift_ <= 0.0 || throw(ArgumentError(
+        "material_drift must be finite and non-positive",
+    ))
+    isfinite(material_contact_restore_) && material_contact_restore_ >= 0.0 ||
+        throw(ArgumentError("material_contact_restore must be finite and non-negative"))
+    isfinite(association_drift_) && association_drift_ <= 0.0 || throw(ArgumentError(
+        "association_drift must be finite and non-positive",
+    ))
+    all(isfinite, (
+        association_restore_max_,
+        association_proximity_radius_,
+        association_target_neighbors_,
+    )) && association_restore_max_ >= 0.0 && association_proximity_radius_ > 0.0 &&
+        association_target_neighbors_ > 0.0 || throw(ArgumentError(
+            "association restoration requires non-negative amount and positive finite radius/target",
+        ))
+    all(probability -> isfinite(probability) && 0.0 <= probability <= 1.0, (
+        material_feedback_emission_probability_,
+        association_feedback_emission_probability_,
+    )) || throw(ArgumentError("shoal-forage feedback emission probabilities must lie in [0, 1]"))
 
     source_positions = _shoal_source_positions(block)
     world_rng = rng === nothing ? MersenneTwister(seed) : rng
@@ -224,6 +356,19 @@ function (::ShoalForageSetup)(;
             conspecific_mode,
             conspecific_range=conspecific_range_,
             source_range=source_range_,
+            conspecific_input_gain=conspecific_input_gain_,
+            resource_input_gain=resource_input_gain_,
+            conspecific_distance_exponent=conspecific_distance_exponent_,
+            resource_distance_exponent=resource_distance_exponent_,
+            material_drift=material_drift_,
+            material_feedback_gain=material_feedback_gain_,
+            material_feedback_exponent=material_feedback_exponent_,
+            material_feedback_emission_probability=material_feedback_emission_probability_,
+            association_drift=association_drift_,
+            association_feedback_gain=association_feedback_gain_,
+            association_feedback_exponent=association_feedback_exponent_,
+            association_feedback_emission_probability=
+                association_feedback_emission_probability_,
             sham_seed=Int(sham_seed) + 101 * Int(block),
         )
         for index in 1:Int(n_agents)
@@ -233,14 +378,14 @@ function (::ShoalForageSetup)(;
         :resource_1;
         bank=:resource_1,
         radius=SHOAL_FORAGE_SOURCE_RADIUS,
-        effects=(Exposure(:resource_1, 0.01),),
+        effects=(Exposure(:resource_1, material_contact_restore_),),
         capacity=nothing,
     )
     resource_2 = ObjectType(
         :resource_2;
         bank=:resource_2,
         radius=SHOAL_FORAGE_SOURCE_RADIUS,
-        effects=(Exposure(:resource_2, 0.01),),
+        effects=(Exposure(:resource_2, material_contact_restore_),),
         capacity=nothing,
     )
     world = ObjectWorld(
@@ -252,9 +397,9 @@ function (::ShoalForageSetup)(;
         ),
         relations=(ProximityExposure(
             :association;
-            radius=2.0,
-            amount=0.004,
-            target_neighbors=2.0,
+            radius=association_proximity_radius_,
+            amount=association_restore_max_,
+            target_neighbors=association_target_neighbors_,
         ),),
         rng=world_rng,
     )

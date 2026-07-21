@@ -106,7 +106,8 @@ Objects have stable `ObjectID`s; agents have stable `EntityID`s. Bind/query thro
 methods (`bind_entity_ids!`, `interaction_events`, `object_snapshot`) rather than storage.
 
 Built-in sampling supports `SpectralCamera`, `MountedFieldProbe`, observer-relative
-`SectorVision` over objects or conspecifics, and blind `DirectRelaySensor`. Sensors that
+`SectorVision` over objects or conspecifics (including explicit gain and distance-response
+exponent), and blind `DirectRelaySensor`. Sensors that
 depend on observer identity use `ObjectWorldSensorContext`; sensors that need only pose can
 retain the simpler state method. Extend another pose-only sensor with:
 

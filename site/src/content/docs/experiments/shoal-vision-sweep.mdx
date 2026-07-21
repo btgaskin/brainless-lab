@@ -1,6 +1,7 @@
 ---
 title: "Moving shoals: sight range, need satisfaction, and grouped movement"
-description: An underpowered exploratory sweep of conspecific vision in moving Falandays-controlled agents with two material needs.
+description: Underpowered exploratory sight and operating-point sweeps in moving Falandays-controlled agents with material and association needs.
+draft: true
 evidence:
   status: exploratory
   id: shoal-vision-sweep
@@ -9,7 +10,7 @@ evidence:
   n_independent_blocks: 2
   block_summary: pilot retains all 22 conditions in each of two matched blocks; the intended follow-up uses four blocks
   primary_endpoint: mean material-need satisfaction after warm-up
-  artifact_path: experiments/runs/shoal_vision_sweep/<run-id>; generated locally and git-ignored
+  artifact_path: experiments/runs/shoal_vision_sweep/<run-id> and experiments/runs/shoal_sensitivity_screen/<run-id>; generated locally and git-ignored
   limitations: deliberately underpowered descriptive pilot; stylized fish-like embodiment, no fluid flow, and recorder-grid movement/contact diagnostics
 ---
 
@@ -37,7 +38,9 @@ Every agent has the same 51-input, three-output interface:
 | source-two sectors | 16 | nearest visible source-two object per sector |
 | physiology | 3 | resource one, resource two, and association state |
 
-The sector banks cover a 300° field of view and decrease linearly with surface distance.
+The sector banks cover a 300° field of view. By default they decrease linearly with surface
+distance and have unit gain; both gain and the power applied to normalized proximity are
+explicit task parameters.
 Source sight remains fixed at 6 simulation units. Conspecific sight is swept over 2, 3.5, 5,
 7, and 10 units. The outputs are `left_turn`, `right_turn`, and `thrust`. Antagonistic left and
 right activation set turning; thrust continuously scales forward speed from zero to 0.2 units
@@ -107,6 +110,41 @@ Contact rate, path length, speed, and coherence use the recorder grid. With the 
 `record_every = 5`, contacts and chord-based path lengths are lower-bound diagnostics. Need
 satisfaction is consequently the cleaner endpoint for this pilot.
 
+When a screen changes material depletion, raw satisfaction is no longer on a common demand
+scale. The analysis therefore also reports **material regulation gain**:
+
+`(observed satisfaction - deterministic no-contact floor) / (1 - no-contact floor)`.
+
+The no-contact floor is reconstructed at the actual recorder ticks from each need's initial
+state and drift. This removes the mechanical effect of a faster or slower falling baseline.
+It does not make depletion a pure scoring intervention: changing need dynamics also changes
+the stochastic feedback presented to the reservoir.
+
+## Operating-point sensitivity screen
+
+The sight-range pilot is complemented by a bounded one-factor-at-a-time screen. It fixes
+veridical conspecific sight at range 5, keeps the association need active, and runs one
+baseline plus low/high values for 17 axes in each of two matched blocks:
+
+- social and resource visual-input gain;
+- social and resource distance-response exponent;
+- material depletion, contact replenishment, and need-feedback gain, exponent, and emission
+  probability;
+- association depletion and feedback gain, exponent, and emission probability;
+- association restoration amount, proximity radius, and target-neighbour normalization;
+- resource sight range.
+
+That is 70 jobs total. The point is to detect strong operating-point dependence before more
+blocks are spent. It is not a factorial design, cannot estimate interactions, and does not
+identify an optimum. Raw material satisfaction, demand-normalized material regulation,
+association satisfaction, physical grouping, movement coherence, source contacts, speed,
+and wall occupancy are kept as separate outputs.
+
+This covers every **exposed operational** need control in the task. Need structure is held
+fixed: minimum 0, initial/setpoint/maximum 1, below-setpoint deficit, Bernoulli feedback, and
+no failure state. Those define the construct rather than a local operating point and are not
+quietly folded into this screen.
+
 ## Relation to the motivating literature
 
 The distance sweep deliberately echoes [Bessone and Plantec's static signalling
@@ -127,6 +165,7 @@ validate this embodiment.
 
 ```bash
 julia -t 4 --project=. experiments/run.jl shoal_vision_sweep
+julia -t 4 --project=. experiments/run.jl shoal_sensitivity_screen
 ```
 
 The default keeps every condition but uses only two matched blocks, 1,500 ticks, and a
@@ -139,3 +178,7 @@ differences, obvious degeneracy, and whether the pipeline produces interpretable
 No p-values, criticality claims, or “social intelligence” conclusion are authorized by this
 pilot. A null or inconsistent result is valid and should guide simplification before more
 blocks are spent.
+
+The sensitivity command uses the same tick and warm-up budget for 70 one-factor jobs and
+writes to `experiments/runs/shoal_sensitivity_screen/`. Completed job files are resume-safe;
+the aggregate table and paired contrasts are regenerated after every complete invocation.

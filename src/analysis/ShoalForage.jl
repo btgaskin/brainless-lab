@@ -41,6 +41,15 @@ function _shoal_satisfaction(value::Real, variable)
     ))
 end
 
+function _shoal_no_exposure_satisfaction(variable, tick::Integer)
+    value = clamp(
+        variable.initial + Int(tick) * variable.drift,
+        variable.minimum,
+        variable.maximum,
+    )
+    return _shoal_satisfaction(value, variable)
+end
+
 """
     shoal_need_satisfaction(sim; warmup=1000, both_threshold=0.8)
 
@@ -50,6 +59,13 @@ both resource needs, and evaluation samples. `balanced_material_satisfaction`
 instead averages the lower of the two material satisfactions, while
 `fraction_both_satisfied` reports the fraction of agent-samples where both are
 at least `both_threshold`.
+
+`material_regulation_gain` removes the deterministic no-contact trajectory
+implied by each material need's initial state and drift:
+`(observed - no_contact_floor) / (1 - no_contact_floor)`. This is useful when
+screening need rates, where raw satisfaction is otherwise mechanically changed
+by the imposed demand. It remains a descriptive normalization: changing drift
+also changes when need feedback reaches the controller.
 
 Association satisfaction is returned only when the association need is active;
 the matched association-off receptor remains present but pinned at one and is
@@ -89,9 +105,18 @@ function shoal_need_satisfaction(
         end
     end
     count = length(rows)
+    no_contact_floor = mean(begin
+        tick = 1 + (row - 1) * Int(sim.config.every)
+        (
+            _shoal_no_exposure_satisfaction(resource_1, tick) +
+            _shoal_no_exposure_satisfaction(resource_2, tick)
+        ) / 2.0
+    end for row in rows)
     per_agent = [(
         entity_id=ids[agent],
         mean_material_satisfaction=material_sum[agent] / count,
+        material_regulation_gain=(material_sum[agent] / count - no_contact_floor) /
+            max(eps(Float64), 1.0 - no_contact_floor),
         balanced_material_satisfaction=balanced_sum[agent] / count,
         fraction_both_satisfied=both_count[agent] / count,
         association_satisfaction=association_active ? association_sum[agent] / count : nothing,
@@ -101,7 +126,9 @@ function shoal_need_satisfaction(
         warmup=Int(warmup),
         recorded_samples=count,
         both_threshold=threshold,
+        material_no_contact_floor=no_contact_floor,
         mean_material_satisfaction=mean(row.mean_material_satisfaction for row in per_agent),
+        material_regulation_gain=mean(row.material_regulation_gain for row in per_agent),
         balanced_material_satisfaction=mean(row.balanced_material_satisfaction for row in per_agent),
         fraction_both_satisfied=mean(row.fraction_both_satisfied for row in per_agent),
         association_satisfaction=association_active ?

@@ -1,11 +1,15 @@
 """
     SectorVision(source; channels=16, field_of_view=deg2rad(300),
-                 max_range=6, mode=:veridical, sham_seed=0)
+                 max_range=6, gain=1, distance_exponent=1,
+                 mode=:veridical, sham_seed=0)
 
 Experimental egocentric sector vision for circular objects or conspecifics.
 Each target contributes to the sector containing its centre bearing. The
-nearest target in a sector determines its activation, which falls linearly
-with surface distance and is zero beyond `max_range`.
+nearest target in a sector determines its activation. The normalized proximity
+signal `(1 - surface_distance / max_range)` is shaped by
+`distance_exponent` and then multiplied by `gain`; it is zero beyond
+`max_range`. The default exponent and gain preserve the original linear
+unit-range response.
 
 `mode=:blind` retains the receptor layout while returning zeros.
 `mode=:bearing_sham` circularly shifts every observation by a deterministic,
@@ -18,6 +22,8 @@ struct SectorVision{S<:SensorySource} <: AbstractSensor
     channels::Int
     field_of_view::Float64
     max_range::Float64
+    gain::Float64
+    distance_exponent::Float64
     mode::Symbol
     sham_seed::Int
 
@@ -26,12 +32,16 @@ struct SectorVision{S<:SensorySource} <: AbstractSensor
         channels::Integer,
         field_of_view::Real,
         max_range::Real,
+        gain::Real,
+        distance_exponent::Real,
         mode::Symbol,
         sham_seed::Integer,
     ) where {S<:SensorySource}
         channels_ = Int(channels)
         fov_ = Float64(field_of_view)
         range_ = Float64(max_range)
+        gain_ = Float64(gain)
+        exponent_ = Float64(distance_exponent)
         channels_ >= 1 || throw(ArgumentError("sector vision needs at least one channel"))
         isfinite(fov_) && 0.0 < fov_ <= 2pi || throw(ArgumentError(
             "sector-vision field_of_view must lie in (0, 2pi]",
@@ -39,24 +49,59 @@ struct SectorVision{S<:SensorySource} <: AbstractSensor
         isfinite(range_) && range_ > 0.0 || throw(ArgumentError(
             "sector-vision max_range must be finite and positive",
         ))
+        isfinite(gain_) && gain_ >= 0.0 || throw(ArgumentError(
+            "sector-vision gain must be finite and non-negative",
+        ))
+        isfinite(exponent_) && exponent_ > 0.0 || throw(ArgumentError(
+            "sector-vision distance_exponent must be finite and positive",
+        ))
         mode in (:veridical, :blind, :bearing_sham) || throw(ArgumentError(
             "sector-vision mode must be :veridical, :blind, or :bearing_sham",
         ))
         mode === :bearing_sham && channels_ < 2 && throw(ArgumentError(
             "bearing sham requires at least two sector channels",
         ))
-        return new{S}(source, channels_, fov_, range_, mode, Int(sham_seed))
+        return new{S}(
+            source,
+            channels_,
+            fov_,
+            range_,
+            gain_,
+            exponent_,
+            mode,
+            Int(sham_seed),
+        )
     end
 end
+
+SectorVision(
+    source::SensorySource,
+    channels::Integer,
+    field_of_view::Real,
+    max_range::Real,
+    mode::Symbol,
+    sham_seed::Integer,
+) = SectorVision(source, channels, field_of_view, max_range, 1.0, 1.0, mode, sham_seed)
 
 SectorVision(
     source::SensorySource;
     channels::Integer=16,
     field_of_view::Real=deg2rad(300.0),
     max_range::Real=6.0,
+    gain::Real=1.0,
+    distance_exponent::Real=1.0,
     mode::Symbol=:veridical,
     sham_seed::Integer=0,
-) = SectorVision(source, channels, field_of_view, max_range, mode, sham_seed)
+) = SectorVision(
+    source,
+    channels,
+    field_of_view,
+    max_range,
+    gain,
+    distance_exponent,
+    mode,
+    sham_seed,
+)
 
 n_sensors(sensor::SectorVision) = sensor.channels
 n_receptors(sensor::SectorVision) = sensor.channels
@@ -74,6 +119,8 @@ rawspec(sensor::SectorVision) = (
     source=sensor.source,
     field_of_view=sensor.field_of_view,
     max_range=sensor.max_range,
+    gain=sensor.gain,
+    distance_exponent=sensor.distance_exponent,
     mode=sensor.mode,
 )
 
@@ -93,8 +140,8 @@ function encode!(sensor::SectorVision, samples)
         "sector vision expected $(sensor.channels) values, got $(length(samples))",
     ))
     values = samples isa Vector{Float64} ? samples : Float64.(vec(collect(samples)))
-    all(value -> isfinite(value) && 0.0 <= value <= 1.0, values) ||
-        throw(ArgumentError("sector-vision samples must lie in [0, 1]"))
+    all(value -> isfinite(value) && 0.0 <= value <= sensor.gain, values) ||
+        throw(ArgumentError("sector-vision samples must lie in [0, gain]"))
     return values
 end
 
@@ -112,11 +159,17 @@ function _sector_index(sensor::SectorVision, relative_bearing::Real)
     return clamp(floor(Int, (bearing + half) / width) + 1, 1, sensor.channels)
 end
 
-@inline function _sector_activation(surface_distance::Real, max_range::Real)
+@inline function _sector_activation(
+    surface_distance::Real,
+    max_range::Real,
+    gain::Real=1.0,
+    distance_exponent::Real=1.0,
+)
     distance = max(0.0, Float64(surface_distance))
     range_ = Float64(max_range)
     distance <= range_ || return 0.0
-    return clamp(1.0 - distance / range_, 0.0, 1.0)
+    normalized = clamp(1.0 - distance / range_, 0.0, 1.0)
+    return Float64(gain) * normalized^Float64(distance_exponent)
 end
 
 function _sector_sham_shift(sensor::SectorVision, entity_value::UInt64, tick::Integer)

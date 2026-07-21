@@ -82,6 +82,14 @@ about social behavior. Its `SectorVision`, `AntagonisticTurnActuator`, `Proximit
 and `shoal_*` analyses must remain labelled Experimental until their own contracts and
 scientific interpretations earn stronger evidence.
 
+For this task, keep **fixed-demand performance** distinct from **operating-point
+sensitivity**. `shoal_vision_sweep` compares social-vision conditions at one declared need
+regime. `shoal_sensitivity_screen` varies one gain, curve, rate, range, or association rule at
+a time. Raw satisfaction is mechanically changed by a depletion-rate intervention; use the
+reported no-contact floor and `material_regulation_gain` when comparing demand levels, while
+still noting that the intervention also changes feedback reaching the reservoir. Neither
+screen estimates parameter interactions or licenses calling the best observed cell optimal.
+
 Fixture parity validates the tested node update, not every task, body, ecological mechanism, biological
 interpretation, or study. Read `site/src/content/docs/platform-limits.mdx` before broadening a claim.
 

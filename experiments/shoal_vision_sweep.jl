@@ -15,7 +15,9 @@ _shoal_bool(value) = value === true || value === :true ||
 
 function _shoal_profile(profile)
     profile_ = Symbol(profile)
-    profile_ in (:pilot, :full) || throw(ArgumentError("profile must be :pilot or :full"))
+    profile_ in (:pilot, :full, :sensitivity) || throw(ArgumentError(
+        "profile must be :pilot, :full, or :sensitivity",
+    ))
     return profile_
 end
 
@@ -44,10 +46,149 @@ function _shoal_conditions(blocks)
     return jobs
 end
 
+const SHOAL_TASK_DEFAULTS = (
+    source_range=6.0,
+    conspecific_input_gain=1.0,
+    resource_input_gain=1.0,
+    conspecific_distance_exponent=1.0,
+    resource_distance_exponent=1.0,
+    material_drift=-0.001,
+    material_contact_restore=0.01,
+    material_feedback_gain=1.0,
+    material_feedback_exponent=1.0,
+    material_feedback_emission_probability=0.2,
+    association_drift=-0.001,
+    association_restore_max=0.004,
+    association_proximity_radius=2.0,
+    association_target_neighbors=2.0,
+    association_feedback_gain=1.0,
+    association_feedback_exponent=1.0,
+    association_feedback_emission_probability=0.2,
+)
+
+function _shoal_sensitivity_conditions(blocks, protocol)
+    levels = protocol["sensitivity"]["levels"]
+    axes = Symbol.(protocol["sensitivity"]["axes"])
+    jobs = NamedTuple[]
+    for block in blocks
+        base = merge((
+            block=Int(block),
+            association_need=true,
+            mode=:veridical,
+            conspecific_range=5.0,
+            axis=:baseline,
+            level=1.0,
+        ), SHOAL_TASK_DEFAULTS)
+        push!(jobs, base)
+        for axis in axes, level in levels[string(axis)]
+            level_ = Float64(level)
+            override = NamedTuple{(axis,)}((level_,))
+            push!(jobs, merge(base, override, (axis=axis, level=level_)))
+        end
+    end
+    return jobs
+end
+
 function _shoal_job_id(job)
+    if hasproperty(job, :axis)
+        level = replace(string(job.level), "." => "p", "-" => "m")
+        return "block_$(job.block)__sensitivity__$(job.axis)__$(level)"
+    end
     association = job.association_need ? "association_on" : "association_off"
     range = replace(string(job.conspecific_range), "." => "p")
     return "block_$(job.block)__$(association)__$(job.mode)__range_$(range)"
+end
+
+_shoal_jobget(job, name::Symbol, default) = hasproperty(job, name) ? getproperty(job, name) : default
+
+function _shoal_task_kwargs(job)
+    return (
+        block=job.block,
+        association_need=job.association_need,
+        conspecific_mode=job.mode,
+        conspecific_range=job.conspecific_range,
+        source_range=_shoal_jobget(job, :source_range, SHOAL_TASK_DEFAULTS.source_range),
+        conspecific_input_gain=_shoal_jobget(
+            job,
+            :conspecific_input_gain,
+            SHOAL_TASK_DEFAULTS.conspecific_input_gain,
+        ),
+        resource_input_gain=_shoal_jobget(
+            job,
+            :resource_input_gain,
+            SHOAL_TASK_DEFAULTS.resource_input_gain,
+        ),
+        conspecific_distance_exponent=_shoal_jobget(
+            job,
+            :conspecific_distance_exponent,
+            SHOAL_TASK_DEFAULTS.conspecific_distance_exponent,
+        ),
+        resource_distance_exponent=_shoal_jobget(
+            job,
+            :resource_distance_exponent,
+            SHOAL_TASK_DEFAULTS.resource_distance_exponent,
+        ),
+        material_drift=_shoal_jobget(
+            job,
+            :material_drift,
+            SHOAL_TASK_DEFAULTS.material_drift,
+        ),
+        material_contact_restore=_shoal_jobget(
+            job,
+            :material_contact_restore,
+            SHOAL_TASK_DEFAULTS.material_contact_restore,
+        ),
+        material_feedback_gain=_shoal_jobget(
+            job,
+            :material_feedback_gain,
+            SHOAL_TASK_DEFAULTS.material_feedback_gain,
+        ),
+        material_feedback_exponent=_shoal_jobget(
+            job,
+            :material_feedback_exponent,
+            SHOAL_TASK_DEFAULTS.material_feedback_exponent,
+        ),
+        material_feedback_emission_probability=_shoal_jobget(
+            job,
+            :material_feedback_emission_probability,
+            SHOAL_TASK_DEFAULTS.material_feedback_emission_probability,
+        ),
+        association_drift=_shoal_jobget(
+            job,
+            :association_drift,
+            SHOAL_TASK_DEFAULTS.association_drift,
+        ),
+        association_restore_max=_shoal_jobget(
+            job,
+            :association_restore_max,
+            SHOAL_TASK_DEFAULTS.association_restore_max,
+        ),
+        association_proximity_radius=_shoal_jobget(
+            job,
+            :association_proximity_radius,
+            SHOAL_TASK_DEFAULTS.association_proximity_radius,
+        ),
+        association_target_neighbors=_shoal_jobget(
+            job,
+            :association_target_neighbors,
+            SHOAL_TASK_DEFAULTS.association_target_neighbors,
+        ),
+        association_feedback_gain=_shoal_jobget(
+            job,
+            :association_feedback_gain,
+            SHOAL_TASK_DEFAULTS.association_feedback_gain,
+        ),
+        association_feedback_exponent=_shoal_jobget(
+            job,
+            :association_feedback_exponent,
+            SHOAL_TASK_DEFAULTS.association_feedback_exponent,
+        ),
+        association_feedback_emission_probability=_shoal_jobget(
+            job,
+            :association_feedback_emission_probability,
+            SHOAL_TASK_DEFAULTS.association_feedback_emission_probability,
+        ),
+    )
 end
 
 function _shoal_atomic(writer, path::AbstractString)
@@ -233,6 +374,7 @@ function _shoal_benchmark(block, ticks, warmup, job_count, workers; benchmark_ti
 end
 
 function _shoal_is_diagnostic(job)
+    hasproperty(job, :axis) && return job.block == 1 && job.axis === :baseline
     return job.block == 1 && (job.mode === :blind || job.conspecific_range == 5.0)
 end
 
@@ -280,12 +422,7 @@ function _shoal_run_job(job, dir; ticks, warmup, record_every, diagnostics)
         n_agents=16,
         substeps=5,
         every=Int(record_every),
-        task_kwargs=(
-            block=job.block,
-            association_need=job.association_need,
-            conspecific_mode=job.mode,
-            conspecific_range=job.conspecific_range,
-        ),
+        task_kwargs=_shoal_task_kwargs(job),
         record=record,
     )
     needs = shoal_need_satisfaction(sim; warmup=Int(warmup))
@@ -301,9 +438,98 @@ function _shoal_run_job(job, dir; ticks, warmup, record_every, diagnostics)
         "association_need" => job.association_need,
         "mode" => string(job.mode),
         "conspecific_range" => job.conspecific_range,
+        "axis" => string(_shoal_jobget(job, :axis, :vision_sweep)),
+        "level" => Float64(_shoal_jobget(job, :level, job.conspecific_range)),
+        "source_range" => Float64(_shoal_jobget(
+            job,
+            :source_range,
+            SHOAL_TASK_DEFAULTS.source_range,
+        )),
+        "conspecific_input_gain" => Float64(_shoal_jobget(
+            job,
+            :conspecific_input_gain,
+            SHOAL_TASK_DEFAULTS.conspecific_input_gain,
+        )),
+        "resource_input_gain" => Float64(_shoal_jobget(
+            job,
+            :resource_input_gain,
+            SHOAL_TASK_DEFAULTS.resource_input_gain,
+        )),
+        "conspecific_distance_exponent" => Float64(_shoal_jobget(
+            job,
+            :conspecific_distance_exponent,
+            SHOAL_TASK_DEFAULTS.conspecific_distance_exponent,
+        )),
+        "resource_distance_exponent" => Float64(_shoal_jobget(
+            job,
+            :resource_distance_exponent,
+            SHOAL_TASK_DEFAULTS.resource_distance_exponent,
+        )),
+        "material_drift" => Float64(_shoal_jobget(
+            job,
+            :material_drift,
+            SHOAL_TASK_DEFAULTS.material_drift,
+        )),
+        "material_contact_restore" => Float64(_shoal_jobget(
+            job,
+            :material_contact_restore,
+            SHOAL_TASK_DEFAULTS.material_contact_restore,
+        )),
+        "material_feedback_gain" => Float64(_shoal_jobget(
+            job,
+            :material_feedback_gain,
+            SHOAL_TASK_DEFAULTS.material_feedback_gain,
+        )),
+        "material_feedback_exponent" => Float64(_shoal_jobget(
+            job,
+            :material_feedback_exponent,
+            SHOAL_TASK_DEFAULTS.material_feedback_exponent,
+        )),
+        "material_feedback_emission_probability" => Float64(_shoal_jobget(
+            job,
+            :material_feedback_emission_probability,
+            SHOAL_TASK_DEFAULTS.material_feedback_emission_probability,
+        )),
+        "association_drift" => Float64(_shoal_jobget(
+            job,
+            :association_drift,
+            SHOAL_TASK_DEFAULTS.association_drift,
+        )),
+        "association_restore_max" => Float64(_shoal_jobget(
+            job,
+            :association_restore_max,
+            SHOAL_TASK_DEFAULTS.association_restore_max,
+        )),
+        "association_proximity_radius" => Float64(_shoal_jobget(
+            job,
+            :association_proximity_radius,
+            SHOAL_TASK_DEFAULTS.association_proximity_radius,
+        )),
+        "association_target_neighbors" => Float64(_shoal_jobget(
+            job,
+            :association_target_neighbors,
+            SHOAL_TASK_DEFAULTS.association_target_neighbors,
+        )),
+        "association_feedback_gain" => Float64(_shoal_jobget(
+            job,
+            :association_feedback_gain,
+            SHOAL_TASK_DEFAULTS.association_feedback_gain,
+        )),
+        "association_feedback_exponent" => Float64(_shoal_jobget(
+            job,
+            :association_feedback_exponent,
+            SHOAL_TASK_DEFAULTS.association_feedback_exponent,
+        )),
+        "association_feedback_emission_probability" => Float64(_shoal_jobget(
+            job,
+            :association_feedback_emission_probability,
+            SHOAL_TASK_DEFAULTS.association_feedback_emission_probability,
+        )),
         "ticks" => Int(ticks),
         "warmup" => Int(warmup),
         "mean_material_satisfaction" => needs.mean_material_satisfaction,
+        "material_no_contact_floor" => needs.material_no_contact_floor,
+        "material_regulation_gain" => needs.material_regulation_gain,
         "balanced_material_satisfaction" => needs.balanced_material_satisfaction,
         "fraction_both_satisfied" => needs.fraction_both_satisfied,
         "association_satisfaction" => something(needs.association_satisfaction, NaN),
@@ -335,8 +561,11 @@ function _shoal_run_job(job, dir; ticks, warmup, record_every, diagnostics)
             association_need=job.association_need,
             mode=job.mode,
             conspecific_range=job.conspecific_range,
+            axis=_shoal_jobget(job, :axis, :vision_sweep),
+            level=Float64(_shoal_jobget(job, :level, job.conspecific_range)),
             entity_id=need.entity_id,
             mean_material_satisfaction=need.mean_material_satisfaction,
+            material_regulation_gain=need.material_regulation_gain,
             balanced_material_satisfaction=need.balanced_material_satisfaction,
             fraction_both_satisfied=need.fraction_both_satisfied,
             association_satisfaction=need.association_satisfaction,
@@ -383,6 +612,28 @@ function _shoal_parallel_jobs(jobs, dir; workers, kwargs...)
     return collect(results)
 end
 
+function _shoal_result_no_contact_floor(result)
+    haskey(result, "material_no_contact_floor") &&
+        return Float64(result["material_no_contact_floor"])
+    drift = Float64(get(result, "material_drift", SHOAL_TASK_DEFAULTS.material_drift))
+    every = Int(get(result, "contact_record_every", 5))
+    ticks = Int(result["ticks"])
+    warmup = Int(result["warmup"])
+    recorded = 1:fld(ticks, every)
+    evaluation = [1 + (index - 1) * every for index in recorded if
+        1 + (index - 1) * every > warmup]
+    isempty(evaluation) && error("cannot reconstruct no-contact floor without evaluation samples")
+    return mean(clamp(1.0 + drift * tick, 0.0, 1.0) for tick in evaluation)
+end
+
+function _shoal_result_regulation_gain(result)
+    haskey(result, "material_regulation_gain") &&
+        return Float64(result["material_regulation_gain"])
+    floor = _shoal_result_no_contact_floor(result)
+    observed = Float64(result["mean_material_satisfaction"])
+    return (observed - floor) / max(eps(Float64), 1.0 - floor)
+end
+
 function _shoal_row(result)
     return (
         job_id=result["job_id"],
@@ -391,7 +642,96 @@ function _shoal_row(result)
         association_need=Bool(result["association_need"]),
         mode=Symbol(result["mode"]),
         conspecific_range=Float64(result["conspecific_range"]),
+        axis=Symbol(get(result, "axis", "vision_sweep")),
+        level=Float64(get(result, "level", result["conspecific_range"])),
+        source_range=Float64(get(
+            result,
+            "source_range",
+            SHOAL_TASK_DEFAULTS.source_range,
+        )),
+        conspecific_input_gain=Float64(get(
+            result,
+            "conspecific_input_gain",
+            SHOAL_TASK_DEFAULTS.conspecific_input_gain,
+        )),
+        resource_input_gain=Float64(get(
+            result,
+            "resource_input_gain",
+            SHOAL_TASK_DEFAULTS.resource_input_gain,
+        )),
+        conspecific_distance_exponent=Float64(get(
+            result,
+            "conspecific_distance_exponent",
+            SHOAL_TASK_DEFAULTS.conspecific_distance_exponent,
+        )),
+        resource_distance_exponent=Float64(get(
+            result,
+            "resource_distance_exponent",
+            SHOAL_TASK_DEFAULTS.resource_distance_exponent,
+        )),
+        material_drift=Float64(get(
+            result,
+            "material_drift",
+            SHOAL_TASK_DEFAULTS.material_drift,
+        )),
+        material_contact_restore=Float64(get(
+            result,
+            "material_contact_restore",
+            SHOAL_TASK_DEFAULTS.material_contact_restore,
+        )),
+        material_feedback_gain=Float64(get(
+            result,
+            "material_feedback_gain",
+            SHOAL_TASK_DEFAULTS.material_feedback_gain,
+        )),
+        material_feedback_exponent=Float64(get(
+            result,
+            "material_feedback_exponent",
+            SHOAL_TASK_DEFAULTS.material_feedback_exponent,
+        )),
+        material_feedback_emission_probability=Float64(get(
+            result,
+            "material_feedback_emission_probability",
+            SHOAL_TASK_DEFAULTS.material_feedback_emission_probability,
+        )),
+        association_drift=Float64(get(
+            result,
+            "association_drift",
+            SHOAL_TASK_DEFAULTS.association_drift,
+        )),
+        association_restore_max=Float64(get(
+            result,
+            "association_restore_max",
+            SHOAL_TASK_DEFAULTS.association_restore_max,
+        )),
+        association_proximity_radius=Float64(get(
+            result,
+            "association_proximity_radius",
+            SHOAL_TASK_DEFAULTS.association_proximity_radius,
+        )),
+        association_target_neighbors=Float64(get(
+            result,
+            "association_target_neighbors",
+            SHOAL_TASK_DEFAULTS.association_target_neighbors,
+        )),
+        association_feedback_gain=Float64(get(
+            result,
+            "association_feedback_gain",
+            SHOAL_TASK_DEFAULTS.association_feedback_gain,
+        )),
+        association_feedback_exponent=Float64(get(
+            result,
+            "association_feedback_exponent",
+            SHOAL_TASK_DEFAULTS.association_feedback_exponent,
+        )),
+        association_feedback_emission_probability=Float64(get(
+            result,
+            "association_feedback_emission_probability",
+            SHOAL_TASK_DEFAULTS.association_feedback_emission_probability,
+        )),
         mean_material_satisfaction=Float64(result["mean_material_satisfaction"]),
+        material_no_contact_floor=_shoal_result_no_contact_floor(result),
+        material_regulation_gain=_shoal_result_regulation_gain(result),
         balanced_material_satisfaction=Float64(result["balanced_material_satisfaction"]),
         fraction_both_satisfied=Float64(result["fraction_both_satisfied"]),
         association_satisfaction=Float64(result["association_satisfaction"]),
@@ -481,6 +821,8 @@ function _shoal_aggregate(rows)
         conspecific_range=key[3],
         n=length(group),
         mean_material_satisfaction=mean(row.mean_material_satisfaction for row in group),
+        mean_material_no_contact_floor=mean(row.material_no_contact_floor for row in group),
+        mean_material_regulation_gain=mean(row.material_regulation_gain for row in group),
         sd_material_satisfaction=length(group) > 1 ?
             std([row.mean_material_satisfaction for row in group]) : 0.0,
         mean_balanced_material_satisfaction=mean(row.balanced_material_satisfaction for row in group),
@@ -498,6 +840,71 @@ function _shoal_aggregate(rows)
     ) for (key, group) in sort!(collect(groups); by=item -> string(first(item)))]
 end
 
+function _shoal_sensitivity_contrasts(rows, blocks)
+    output = NamedTuple[]
+    for block in blocks
+        baseline = only(row for row in rows if row.block == block && row.axis === :baseline)
+        for row in rows
+            row.block == block && row.axis !== :baseline || continue
+            push!(output, (
+                block=Int(block),
+                axis=row.axis,
+                level=row.level,
+                material_satisfaction_minus_baseline=
+                    row.mean_material_satisfaction - baseline.mean_material_satisfaction,
+                material_regulation_gain_minus_baseline=
+                    row.material_regulation_gain - baseline.material_regulation_gain,
+                balanced_satisfaction_minus_baseline=
+                    row.balanced_material_satisfaction - baseline.balanced_material_satisfaction,
+                association_satisfaction_minus_baseline=
+                    row.association_satisfaction - baseline.association_satisfaction,
+                contact_rate_minus_baseline=row.mean_contact_rate - baseline.mean_contact_rate,
+                speed_minus_baseline=row.mean_recorded_speed - baseline.mean_recorded_speed,
+                wall_occupancy_minus_baseline=row.wall_occupancy - baseline.wall_occupancy,
+                proximity_component_minus_baseline=
+                    row.largest_proximity_component_fraction -
+                    baseline.largest_proximity_component_fraction,
+                movement_coherence_minus_baseline=
+                    row.movement_coherence - baseline.movement_coherence,
+            ))
+        end
+    end
+    return sort!(output; by=row -> (string(row.axis), row.level, row.block))
+end
+
+function _shoal_sensitivity_aggregate(rows)
+    groups = Dict{Tuple{Symbol,Float64},Vector{Any}}()
+    for row in rows
+        key = (row.axis, row.level)
+        push!(get!(groups, key, Any[]), row)
+    end
+    return [(
+        axis=key[1],
+        level=key[2],
+        n=length(group),
+        mean_material_satisfaction=mean(row.mean_material_satisfaction for row in group),
+        mean_material_no_contact_floor=mean(row.material_no_contact_floor for row in group),
+        mean_material_regulation_gain=mean(row.material_regulation_gain for row in group),
+        sd_material_satisfaction=length(group) > 1 ?
+            std([row.mean_material_satisfaction for row in group]) : 0.0,
+        mean_balanced_material_satisfaction=
+            mean(row.balanced_material_satisfaction for row in group),
+        mean_fraction_both_satisfied=mean(row.fraction_both_satisfied for row in group),
+        mean_association_satisfaction=mean(row.association_satisfaction for row in group),
+        mean_sampled_contact_rate=mean(row.mean_contact_rate for row in group),
+        mean_recorded_speed=mean(row.mean_recorded_speed for row in group),
+        mean_wall_occupancy=mean(row.wall_occupancy for row in group),
+        mean_largest_proximity_component_fraction=
+            mean(row.largest_proximity_component_fraction for row in group),
+        mean_nearest_neighbor_distance=mean(row.mean_nearest_neighbor_distance for row in group),
+        mean_movement_coherence=mean(row.movement_coherence for row in group),
+        mean_group_translation_speed=mean(row.group_translation_speed for row in group),
+    ) for (key, group) in sort!(collect(groups); by=item -> (
+        first(item)[1] === :baseline ? "" : string(first(item)[1]),
+        first(item)[2],
+    ))]
+end
+
 function run_shoal_vision_sweep(;
     profile=:pilot,
     root=nothing,
@@ -507,14 +914,20 @@ function run_shoal_vision_sweep(;
 )
     protocol = TOML.parsefile(SHOAL_PROTOCOL_PATH)
     profile_ = _shoal_profile(profile)
-    blocks = profile_ === :pilot ? Int.(protocol["pilot"]["blocks"]) : Int.(protocol["design"]["blocks"])
-    ticks = profile_ === :pilot ? Int(protocol["pilot"]["ticks"]) : Int(protocol["runtime"]["ticks"])
-    warmup = profile_ === :pilot ? Int(protocol["pilot"]["warmup"]) : Int(protocol["runtime"]["warmup"])
-    jobs = _shoal_conditions(blocks)
+    profile_config = profile_ === :sensitivity ? protocol["sensitivity"] :
+        profile_ === :pilot ? protocol["pilot"] : protocol["runtime"]
+    blocks = profile_ === :full ? Int.(protocol["design"]["blocks"]) :
+        Int.(profile_config["blocks"])
+    ticks = Int(profile_config["ticks"])
+    warmup = Int(profile_config["warmup"])
+    jobs = profile_ === :sensitivity ?
+        _shoal_sensitivity_conditions(blocks, protocol) : _shoal_conditions(blocks)
+    experiment_name = profile_ === :sensitivity ?
+        "shoal_sensitivity_screen" : "shoal_vision_sweep"
     dir = if resume !== nothing
         abspath(string(resume))
     else
-        run_dir("shoal_vision_sweep"; root=root === nothing ? joinpath(@__DIR__, "runs") : string(root))
+        run_dir(experiment_name; root=root === nothing ? joinpath(@__DIR__, "runs") : string(root))
     end
     mkpath(dir)
     manifest = _shoal_manifest(profile_, blocks, ticks, warmup, jobs)
@@ -575,17 +988,21 @@ function run_shoal_vision_sweep(;
         error("$(length(failures)) shoal sweep jobs failed; see failures.json")
     end
     rows = sort!([_shoal_row(outcome.result) for outcome in outcomes]; by=row -> row.job_id)
-    contrasts = _shoal_contrasts(rows, blocks)
-    aggregates = _shoal_aggregate(rows)
+    contrasts = profile_ === :sensitivity ?
+        _shoal_sensitivity_contrasts(rows, blocks) : _shoal_contrasts(rows, blocks)
+    aggregates = profile_ === :sensitivity ?
+        _shoal_sensitivity_aggregate(rows) : _shoal_aggregate(rows)
     _shoal_write_csv(joinpath(dir, "jobs.csv"), rows)
     _shoal_write_csv(joinpath(dir, "paired_contrasts.csv"), contrasts)
     _shoal_write_csv(joinpath(dir, "figure_inputs.csv"), rows)
     _shoal_write_csv(joinpath(dir, "aggregate.csv"), aggregates)
     summary = (
-        schema="brainlesslab-shoal-sweep-summary-v1",
+        schema=profile_ === :sensitivity ?
+            "brainlesslab-shoal-sensitivity-summary-v1" :
+            "brainlesslab-shoal-sweep-summary-v1",
         evidence_status=:exploratory,
         profile=profile_,
-        underpowered=profile_ === :pilot,
+        underpowered=profile_ !== :full,
         complete=true,
         blocks=blocks,
         ticks,
@@ -599,13 +1016,22 @@ function run_shoal_vision_sweep(;
     _shoal_status!(dir, :complete; details=Dict(
         "jobs" => length(rows),
         "profile" => string(profile_),
-        "underpowered" => profile_ === :pilot,
+        "underpowered" => profile_ !== :full,
     ))
     return dir
 end
+
+run_shoal_sensitivity_screen(; diagnostics=false, kwargs...) =
+    run_shoal_vision_sweep(; profile=:sensitivity, diagnostics, kwargs...)
 
 register_experiment!(
     :shoal_vision_sweep,
     run_shoal_vision_sweep;
     description="Underpowered exploratory sweep of conspecific sight distance, bearing alignment, and association need in moving Falandays shoals.",
+)
+
+register_experiment!(
+    :shoal_sensitivity_screen,
+    run_shoal_sensitivity_screen;
+    description="Underpowered one-factor sensitivity screen for shoal input gains, need dynamics, response curves, and resource sight range.",
 )

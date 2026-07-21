@@ -52,3 +52,29 @@ end
         end
     end
 end
+
+@testset "published documentation does not link to draft experiments" begin
+    docs_directory = joinpath(@__DIR__, "..", "site", "src", "content", "docs")
+    pages = String[]
+    for (root, _, files) in walkdir(docs_directory), file in files
+        endswith(file, ".mdx") && push!(pages, joinpath(root, file))
+    end
+
+    draft_routes = String[]
+    for path in pages
+        source = read(path, String)
+        occursin(r"(?m)^draft:\s+true\s*$", source) || continue
+        relative = relpath(path, docs_directory)
+        route = "/" * replace(splitext(relative)[1], Base.Filesystem.path_separator => "/") * "/"
+        push!(draft_routes, route)
+    end
+    @test !isempty(draft_routes)
+
+    for path in pages
+        source = read(path, String)
+        occursin(r"(?m)^draft:\s+true\s*$", source) && continue
+        for route in draft_routes
+            @test !occursin(route, source)
+        end
+    end
+end

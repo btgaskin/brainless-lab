@@ -326,7 +326,12 @@ function _accumulate_sector_target!(
     sector === nothing && return values
     centre_distance = arena_distance(world.arena, state.position, target_position)
     surface_distance = centre_distance - Float64(observer_radius) - Float64(target_radius)
-    activation = _sector_activation(surface_distance, sensor.max_range)
+    activation = _sector_activation(
+        surface_distance,
+        sensor.max_range,
+        sensor.gain,
+        sensor.distance_exponent,
+    )
     values[sector] = max(values[sector], activation)
     return values
 end
