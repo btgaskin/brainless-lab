@@ -1,0 +1,157 @@
+schema = "brainlesslab-experiment-v1"
+name = "shoal_vision_sweep"
+version = 1
+evidence_status = "exploratory"
+claim = "Conspecific sight distance may alter material-need satisfaction in a moving two-resource ensemble, and any change should be separated from association need and bearing-aligned social information."
+
+[runtime]
+task = "shoal_forage"
+node = "falandays"
+n_nodes = 250
+n_agents = 16
+substeps = 5
+ticks = 4000
+warmup = 1000
+record_every = 5
+max_workers = 4
+maximum_projected_seconds = 7200
+
+[task]
+arena_size = 20.0
+body_radius = 0.25
+source_radius = 1.0
+source_range = 6.0
+conspecific_input_gain = 1.0
+resource_input_gain = 1.0
+conspecific_distance_exponent = 1.0
+resource_distance_exponent = 1.0
+sectors_per_bank = 16
+field_of_view_degrees = 300.0
+max_forward_speed = 0.2
+max_turn_rate = 0.39269908169872414
+linear_tau = 5.0
+angular_tau = 5.0
+
+[needs]
+material_drift = -0.001
+material_contact_restore = 0.01
+feedback_gain = 1.0
+feedback_exponent = 1.0
+feedback_emission_probability = 0.2
+association_drift = -0.001
+association_proximity_radius = 2.0
+association_restore_max = 0.004
+association_target_neighbors = 2.0
+association_feedback_gain = 1.0
+association_feedback_exponent = 1.0
+association_feedback_emission_probability = 0.2
+
+[design]
+blocks = [1, 2, 3, 4]
+association_need = [true, false]
+conspecific_modes = ["blind", "veridical", "bearing_sham"]
+conspecific_ranges = [2.0, 3.5, 5.0, 7.0, 10.0]
+blind_runs_per_association_block = 1
+matched_within_block = true
+
+[recording]
+main = ["needs", "poses", "interactions", "rate"]
+diagnostic = ["needs", "poses", "interactions", "rate", "receptors", "effectors"]
+diagnostic_range = 5.0
+
+[analysis]
+primary = "mean_material_satisfaction"
+secondary = [
+  "material_no_contact_floor",
+  "material_regulation_gain",
+  "balanced_material_satisfaction",
+  "fraction_both_material_needs_at_least_0_8",
+  "association_satisfaction",
+  "sampled_source_contact_rate",
+  "sampled_source_contact_alternation",
+  "mean_speed",
+  "path_length",
+  "stationary_fraction",
+  "wall_occupancy",
+  "mean_nearest_neighbor_distance",
+  "largest_proximity_component_fraction",
+  "movement_coherence",
+  "group_translation_speed",
+  "perceptual_graph_mean_degree",
+  "perceptual_graph_largest_weak_component",
+  "perceptual_graph_edge_turnover",
+]
+paired_contrasts = [
+  "veridical_minus_blind",
+  "veridical_minus_bearing_sham",
+  "association_on_minus_off_social_information_benefit",
+]
+
+[safeguards]
+allow_p_values = false
+allow_criticality_claims = false
+allow_confirmatory_language = false
+negative_result_is_valid = true
+silent_protocol_truncation = false
+fallback_experiment = false
+
+[pilot]
+label = "underpowered_exploratory_pilot"
+blocks = [1, 2]
+ticks = 1500
+warmup = 500
+retain_all_conditions = true
+intended_use = "quick condition comparison and pipeline validation"
+not_for = "confirmatory inference or stable scientific claims"
+
+[sensitivity]
+label = "underpowered_one_factor_sensitivity_screen"
+blocks = [1, 2]
+ticks = 1500
+warmup = 500
+association_need = true
+conspecific_mode = "veridical"
+conspecific_range = 5.0
+axes = [
+  "conspecific_input_gain",
+  "resource_input_gain",
+  "material_feedback_gain",
+  "material_drift",
+  "material_contact_restore",
+  "conspecific_distance_exponent",
+  "resource_distance_exponent",
+  "material_feedback_exponent",
+  "material_feedback_emission_probability",
+  "source_range",
+  "association_drift",
+  "association_restore_max",
+  "association_proximity_radius",
+  "association_target_neighbors",
+  "association_feedback_gain",
+  "association_feedback_exponent",
+  "association_feedback_emission_probability",
+]
+matched_within_block = true
+one_factor_at_a_time = true
+fixed_need_structure = "minimum 0, maximum/setpoint/initial 1, below-setpoint deficit, Bernoulli feedback, no failure"
+intended_use = "detect strong operating-point dependence before increasing power"
+not_for = "interaction estimates, optimum selection, confirmatory inference, or stable scientific claims"
+
+[sensitivity.levels]
+conspecific_input_gain = [0.5, 2.0]
+resource_input_gain = [0.5, 2.0]
+material_feedback_gain = [0.5, 2.0]
+material_drift = [-0.0005, -0.002]
+material_contact_restore = [0.005, 0.02]
+conspecific_distance_exponent = [0.5, 2.0]
+resource_distance_exponent = [0.5, 2.0]
+material_feedback_exponent = [0.5, 2.0]
+material_feedback_emission_probability = [0.1, 0.4]
+source_range = [3.0, 9.0]
+association_drift = [-0.0005, -0.002]
+association_restore_max = [0.002, 0.008]
+association_proximity_radius = [1.0, 4.0]
+association_target_neighbors = [1.0, 4.0]
+association_feedback_gain = [0.5, 2.0]
+association_feedback_exponent = [0.5, 2.0]
+association_feedback_emission_probability = [0.1, 0.4]

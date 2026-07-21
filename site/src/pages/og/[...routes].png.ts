@@ -1,7 +1,10 @@
 import { getCollection } from 'astro:content';
 import { OGImageRoute } from 'astro-og-canvas';
 
-const entries = await getCollection('docs');
+const entries = await getCollection(
+  'docs',
+  ({ data }) => import.meta.env.MODE !== 'production' || data.draft === false,
+);
 
 const pages = Object.fromEntries(
   entries.map(({ id, data }) => [id || 'index', data]),

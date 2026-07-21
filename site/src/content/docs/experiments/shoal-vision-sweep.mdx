@@ -1,0 +1,184 @@
+---
+title: "Moving shoals: sight range, need satisfaction, and grouped movement"
+description: Underpowered exploratory sight and operating-point sweeps in moving Falandays-controlled agents with material and association needs.
+draft: true
+evidence:
+  status: exploratory
+  id: shoal-vision-sweep
+  protocol_version: "1"
+  randomization_unit: one matched seeded world block
+  n_independent_blocks: 2
+  block_summary: pilot retains all 22 conditions in each of two matched blocks; the intended follow-up uses four blocks
+  primary_endpoint: mean material-need satisfaction after warm-up
+  artifact_path: experiments/runs/shoal_vision_sweep/<run-id> and experiments/runs/shoal_sensitivity_screen/<run-id>; generated locally and git-ignored
+  limitations: deliberately underpowered descriptive pilot; stylized fish-like embodiment, no fluid flow, and recorder-grid movement/contact diagnostics
+---
+
+This experiment is a **gesture toward a cross-scale study**, not a completed fish model or a
+confirmatory result. Sixteen independently initialized `:falandays` reservoirs control moving
+agents in a walled arena. Each agent must maintain two material needs by encountering two
+persistent sources. The sweep asks a deliberately narrow first question:
+
+> As the range of conspecific sight changes, do material-need satisfaction and grouped
+> movement change—and do those changes require correct social bearings or an active
+> association need?
+
+The primary endpoint is **mean material satisfaction**. Grouped movement is kept descriptive
+and decomposed into physical cohesion and directional coherence; there is no single invented
+“shoaling score.”
+
+## Exact implemented loop
+
+Every agent has the same 51-input, three-output interface:
+
+| Bank | Width | Meaning |
+| --- | ---: | --- |
+| conspecific sectors | 16 | nearest visible agent per egocentric sector |
+| source-one sectors | 16 | nearest visible source-one object per sector |
+| source-two sectors | 16 | nearest visible source-two object per sector |
+| physiology | 3 | resource one, resource two, and association state |
+
+The sector banks cover a 300° field of view. By default they decrease linearly with surface
+distance and have unit gain; both gain and the power applied to normalized proximity are
+explicit task parameters.
+Source sight remains fixed at 6 simulation units. Conspecific sight is swept over 2, 3.5, 5,
+7, and 10 units. The outputs are `left_turn`, `right_turn`, and `thrust`. Antagonistic left and
+right activation set turning; thrust continuously scales forward speed from zero to 0.2 units
+per tick. Agents can therefore express different speeds, including stopping, directly from
+reservoir activity rather than through a fixed gait.
+
+The “fish” label is morphological shorthand. The body is a disc with unicycle dynamics; it
+does not model fins, hydrodynamics, optic flow, occlusion by other bodies, or a particular
+species. What it does preserve is the question made salient by fish work: motion and local
+visual information can structure social attraction and alter information flow through a
+moving group.
+
+## Needs and controls
+
+Resource-one and resource-two states drift downward by 0.001 per tick and recover by 0.01 on
+contact with their corresponding source. Both sources are persistent and unlimited, so this
+pilot studies alternating regulation rather than depletion and competition.
+
+The association need, when active, has the same downward drift and receives a graded local
+restoration within radius 2. Association restoration is computed from physical proximity,
+not from the visual sensor. When association is off, its input port remains present but is
+pinned at one; this preserves reservoir width across conditions.
+
+The material and active association variables use a stochastic perturbation when below
+setpoint: gain 1 with emission probability 0.2. This is **inspired by** the predictable versus
+unpredictable feedback loop in [Kagan et al.'s embodied neuronal-culture
+work](https://doi.org/10.1016/j.neuron.2022.09.001); it is not a
+reproduction of DishBrain stimulation or evidence that the simulated reservoirs implement
+the same learning mechanism.
+
+Three conspecific conditions separate visibility from directional information:
+
+- **blind**: the conspecific bank is zero;
+- **veridical**: occupied sectors retain their true egocentric bearings;
+- **bearing sham**: the same instantaneous sector values are deterministically circularly
+  shifted, preserving signal availability while breaking alignment to the neighbour's true
+  bearing.
+
+Each is crossed with association need on/off. Blind is run once per association setting and
+block; veridical and bearing-sham conditions are run at every sight range. Initial agents,
+headings, sources, and reservoirs are matched within a block.
+
+## What is measured
+
+The declared primary endpoint averages normalized satisfaction over both material needs,
+agents, and post-warm-up samples. Secondary material outcomes include the lower of the two
+need satisfactions and the fraction of agent-samples where both exceed 0.8.
+
+Grouped movement has two distinct parts:
+
+- **cohesion**: mean nearest-neighbour distance and the fraction of agents in the largest
+  physical proximity component at surface-distance radius 2;
+- **movement coherence**: `|sum(displacement)| / sum(|displacement|)` across agents, where
+  zero means recorded displacements cancel and one means they are perfectly aligned.
+
+The run also reconstructs the dynamic, directed perceptual graph from the agent poses and
+sector geometry: mean out-degree, largest weak component, and consecutive-frame edge
+turnover. These graph measures describe the social information opportunity created jointly
+by vision and movement. They do not establish information transfer or criticality.
+
+Wall occupancy is a required failure-mode diagnostic. A high movement-coherence value in a
+wall-dominated run can reflect common boundary following rather than a cohesive moving
+group; it must be read alongside nearest-neighbour distance and the physical proximity
+component, never alone.
+
+Contact rate, path length, speed, and coherence use the recorder grid. With the default
+`record_every = 5`, contacts and chord-based path lengths are lower-bound diagnostics. Need
+satisfaction is consequently the cleaner endpoint for this pilot.
+
+When a screen changes material depletion, raw satisfaction is no longer on a common demand
+scale. The analysis therefore also reports **material regulation gain**:
+
+`(observed satisfaction - deterministic no-contact floor) / (1 - no-contact floor)`.
+
+The no-contact floor is reconstructed at the actual recorder ticks from each need's initial
+state and drift. This removes the mechanical effect of a faster or slower falling baseline.
+It does not make depletion a pure scoring intervention: changing need dynamics also changes
+the stochastic feedback presented to the reservoir.
+
+## Operating-point sensitivity screen
+
+The sight-range pilot is complemented by a bounded one-factor-at-a-time screen. It fixes
+veridical conspecific sight at range 5, keeps the association need active, and runs one
+baseline plus low/high values for 17 axes in each of two matched blocks:
+
+- social and resource visual-input gain;
+- social and resource distance-response exponent;
+- material depletion, contact replenishment, and need-feedback gain, exponent, and emission
+  probability;
+- association depletion and feedback gain, exponent, and emission probability;
+- association restoration amount, proximity radius, and target-neighbour normalization;
+- resource sight range.
+
+That is 70 jobs total. The point is to detect strong operating-point dependence before more
+blocks are spent. It is not a factorial design, cannot estimate interactions, and does not
+identify an optimum. Raw material satisfaction, demand-normalized material regulation,
+association satisfaction, physical grouping, movement coherence, source contacts, speed,
+and wall occupancy are kept as separate outputs.
+
+This covers every **exposed operational** need control in the task. Need structure is held
+fixed: minimum 0, initial/setpoint/maximum 1, below-setpoint deficit, Bernoulli feedback, and
+no failure state. Those define the construct rather than a local operating point and are not
+quietly folded into this screen.
+
+## Relation to the motivating literature
+
+The distance sweep deliberately echoes [Bessone and Plantec's static signalling
+system](/notes/emergent-macro-criticality/), but the dependent variable is different. Their
+agents occupy fixed positions, emit binary light, and are evaluated through cascade
+statistics as internal propagation and spatial connectivity change. Here bodies move,
+sources close a task loop, and the first question is performance and group organization.
+This protocol makes **no criticality claim**.
+
+[Lemasson et al. (2018)](https://doi.org/10.1038/s41598-018-27807-1) show that motion cues can
+tune zebrafish directional decisions and social influence. [Ward, Kent, and Webster
+(2020)](https://doi.org/10.3389/fevo.2020.00015) review how active attraction and passive
+assortment by movement can both structure fish groups. Those studies motivate preserving
+speed, bearing, and social attraction as separable variables. They do not biologically
+validate this embodiment.
+
+## Run the small pilot
+
+```bash
+julia -t 4 --project=. experiments/run.jl shoal_vision_sweep
+julia -t 4 --project=. experiments/run.jl shoal_sensitivity_screen
+```
+
+The default keeps every condition but uses only two matched blocks, 1,500 ticks, and a
+500-tick warm-up: 44 runs total. It writes one atomic result per condition, per-agent tables,
+paired contrasts, figure inputs, resolved protocol, seed ledger, hashes, and status under
+`experiments/runs/shoal_vision_sweep/`. Interrupted runs can resume from completed job files.
+
+The only honest first reading is descriptive: curve shape, sign and scale of matched
+differences, obvious degeneracy, and whether the pipeline produces interpretable variation.
+No p-values, criticality claims, or “social intelligence” conclusion are authorized by this
+pilot. A null or inconsistent result is valid and should guide simplification before more
+blocks are spent.
+
+The sensitivity command uses the same tick and warm-up budget for 70 one-factor jobs and
+writes to `experiments/runs/shoal_sensitivity_screen/`. Completed job files are resume-safe;
+the aggregate table and paired contrasts are regenerated after every complete invocation.

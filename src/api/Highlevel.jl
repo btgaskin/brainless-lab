@@ -941,6 +941,8 @@ _sensory_source_config(source::SpatialFieldSource) = (
     name=source_name(source),
 )
 
+_sensory_source_config(::ConspecificSource) = (kind=:conspecifics,)
+
 _sensory_modality_config(modality::BearingModality) = (
     kind=:bearing,
     range=modality.range,
@@ -1045,6 +1047,11 @@ _actuator_component_config(actuator::ForwardTurnActuator) = (
     max_forward_speed=actuator.max_forward_speed,
     max_turn_rate=actuator.max_turn_rate,
     allow_reverse=actuator.allow_reverse,
+)
+_actuator_component_config(actuator::AntagonisticTurnActuator) = (
+    kind=:antagonistic_turn,
+    max_forward_speed=actuator.max_forward_speed,
+    max_turn_rate=actuator.max_turn_rate,
 )
 _actuator_component_config(actuator::DifferentialDriveActuator) = (
     kind=:differential_drive,

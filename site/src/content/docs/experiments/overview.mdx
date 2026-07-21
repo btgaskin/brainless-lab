@@ -40,6 +40,18 @@ while the new evidence contract prevents exploratory work from silently becoming
 confirmation. `frozen` means the protocol is fixed and the sealed outcomes remain unopened;
 `confirmed` means that protocol has been executed on the sealed blocks.
 
+## Draft publication state
+
+An experiment page that is not ready for the public site sets `draft: true` in its
+frontmatter. Draft pages remain available during local development, with a visible draft
+notice, but Starlight omits their routes from production builds. The production build also
+omits their generated social-preview images, and published pages must not link to a draft
+route.
+
+`draft` controls publication only. It is separate from `evidence.status`: an exploratory
+study can be public, while a tuned or frozen study can remain private until its authors are
+ready to present it.
+
 ## What belongs here
 
 An analysis over one recorded run belongs in the analysis registry. A protocol that
