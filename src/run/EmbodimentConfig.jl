@@ -5,7 +5,7 @@ const _EMBODIMENT_TOP_LEVEL_KEYS = Set(("schema_version", "name", "extends", "co
 const _EMBODIMENT_COMPONENT_KEYS = Set(("id", "family", "kind", "parameters"))
 const _EMBODIMENT_LEGACY_KEYS = Set(("ven", "body", "morphology", "motor"))
 const _COMPOSABLE_EMBODIMENT_FAMILIES =
-    (:geometry, :sensor, :encoder, :actuator, :dynamics, :physiology)
+    (:geometry, :sensor, :encoder, :readout, :actuator, :dynamics, :physiology)
 
 """Runtime-independent configuration for one named embodiment component."""
 struct ComponentConfig{P<:NamedTuple}
@@ -23,7 +23,7 @@ struct ComponentConfig{P<:NamedTuple}
         isempty(String(kind)) && throw(ArgumentError("component kind must not be empty"))
         family in (:body, :morphology, :motor, :ven) && throw(ArgumentError(
             "legacy component family :$(family) is unsupported; use generic families such as " *
-            ":geometry, :sensor, :encoder, :actuator, :dynamics, or :physiology",
+            ":geometry, :sensor, :encoder, :readout, :actuator, :dynamics, or :physiology",
         ))
         kind === :ven && throw(ArgumentError(
             "legacy component kind :ven is unsupported; compose the required generic components explicitly",
@@ -380,12 +380,14 @@ function _validate_standard_embodiment_structure(
 
     geometry = _structure_family_components(subject, :geometry)
     sensors = _structure_family_components(subject, :sensor)
+    readouts = _structure_family_components(subject, :readout)
     actuators = _structure_family_components(subject, :actuator)
     dynamics = _structure_family_components(subject, :dynamics)
     physiology = _structure_family_components(subject, :physiology)
 
     for (family, components) in (
         (:geometry, geometry),
+        (:readout, readouts),
         (:dynamics, dynamics),
         (:physiology, physiology),
     )
@@ -449,6 +451,7 @@ function _compose_embodiment(blueprint::EmbodimentBlueprint)
     physiology = _single_component(blueprint, :physiology, NoPhysiology())
     sensors = _family_components(blueprint, :sensor)
     actuators = _family_components(blueprint, :actuator)
+    readouts = _family_components(blueprint, :readout)
     encoder_components = _family_components(blueprint, :encoder)
     isempty(sensors) && throw(ArgumentError("embodiment :$(blueprint.name) requires at least one sensor"))
     isempty(actuators) && throw(ArgumentError("embodiment :$(blueprint.name) requires at least one actuator"))
@@ -469,6 +472,7 @@ function _compose_embodiment(blueprint::EmbodimentBlueprint)
         geometry=geometry.value,
         sensors=Tuple(component.value for component in sensors),
         encoders=Tuple(component.value for component in encoders),
+        readouts=isempty(readouts) ? nothing : Tuple(component.value for component in readouts),
         actuators=Tuple(component.value for component in actuators),
         dynamics=dynamics.value,
         physiology=physiology.value,
@@ -478,6 +482,7 @@ function _compose_embodiment(blueprint::EmbodimentBlueprint)
             geometry=geometry.id,
             sensors=Tuple(component.id for component in sensors),
             encoders=Tuple(component.id for component in encoders),
+            readouts=isempty(readouts) ? (:readout_1,) : Tuple(component.id for component in readouts),
             actuators=Tuple(component.id for component in actuators),
             dynamics=dynamics.id,
             physiology=physiology.id,

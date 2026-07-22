@@ -36,6 +36,7 @@ include("world/BilateralSensing.jl")
 include("world/Body.jl")
 include("world/Motor.jl")
 include("world/PhysicalComponents.jl")
+include("world/Interaction.jl")
 include("world/Embodiment.jl")
 include("world/SectorVision.jl")
 include("world/Homeostasis.jl")
@@ -56,6 +57,7 @@ include("nodes/HomeostaticFlowV2.jl")
 include("envs/WallBox.jl")
 include("envs/Envs.jl")
 include("envs/CartPoleVariants.jl")
+include("envs/PlankCartPole.jl")
 include("tasks/Scoring.jl")
 include("tasks/Tasks.jl")
 include("world/Environments.jl")
@@ -86,6 +88,7 @@ include("drivers/Fixed.jl")
 include("drivers/Plastic.jl")
 include("run/EmbodimentConfig.jl")
 include("run/ComponentCatalog.jl")
+include("run/Evaluation.jl")
 include("world/ObjectWorld.jl")
 include("tasks/ShoalForage.jl")
 include("analysis/ShoalForage.jl")
@@ -128,6 +131,8 @@ export step!,
     rawspec,
     sample!,
     encode!,
+    begin_encoding!,
+    encode_frame!,
     encoder_sources,
     sense!,
     decode!,
@@ -281,6 +286,18 @@ export TaskWorld,
     CartPoleHardEnv,
     CartPoleLongEnv,
     CartPoleSwingupEnv,
+    PlankCartPoleLevel,
+    PLANK_CARTPOLE_LEVELS,
+    PLANK_CARTPOLE_MISSION_STEPS,
+    PLANK_CARTPOLE_NEURAL_FRAMES,
+    PLANK_CARTPOLE_EVAL_EPISODES,
+    plank_cartpole_level,
+    SpikeFF2Encoder,
+    Argyle4Encoder,
+    PlankCartPoleEnv,
+    PlankCartPoleSetup,
+    plank_cartpole_fitness,
+    set_plank_cartpole_state!,
     cartpole_balancer,
     cartpole_swingup_controller,
     distance_last,
@@ -309,6 +326,11 @@ export TaskSpec,
     CARTPOLE_HARD_TASK,
     CARTPOLE_SWINGUP_TASK,
     CARTPOLE_LONG_TASK,
+    PLANK_CARTPOLE_PROTOCOL,
+    CARTPOLE_PLANK_EASY_TASK,
+    CARTPOLE_PLANK_MEDIUM_TASK,
+    CARTPOLE_PLANK_HARD_TASK,
+    CARTPOLE_PLANK_HARDEST_TASK,
     TORUS_TASK,
     FORAGE_TASK,
     FORAGE_FLOOR_ANCHOR,
@@ -394,6 +416,19 @@ export Agent,
     KinematicMotor,
     readout,
     readout_policy,
+    readout_components,
+    primary_readout,
+    begin_readout!,
+    observe_frame!,
+    finish_readout!,
+    InteractionCycle,
+    FixedRateCycle,
+    neural_frames,
+    default_interaction_cycle,
+    AbstractReadout,
+    MeanReadout,
+    InstantReadout,
+    VotingReadout,
     AbstractSensor,
     AbstractEncoder,
     IdentityEncoder,
@@ -606,6 +641,7 @@ export SimResult,
     simulate,
     variants,
     tasks,
+    task_info,
     branching_ratio,
     branching_ratio_mr,
     branching_ratio_mr_windowed,
@@ -667,6 +703,11 @@ export RunConfig,
     write_embodiment_config,
     materialize_embodiment,
     materialize_blueprint,
+    EvaluationProtocol,
+    EvaluationResult,
+    PLANK_CARTPOLE_EVALUATION,
+    plank_cartpole_initial_conditions,
+    evaluate_plank_cartpole,
     MountedFieldProbe,
     sample_field_probe!,
     BilateralContrastEncoder,
@@ -782,6 +823,10 @@ register_task!(:cartpole, CARTPOLE_TASK)
 register_task!(:cartpole_hard, CARTPOLE_HARD_TASK)
 register_task!(:cartpole_swingup, CARTPOLE_SWINGUP_TASK)
 register_task!(:cartpole_long, CARTPOLE_LONG_TASK)
+register_task!(:cartpole_plank_easy, CARTPOLE_PLANK_EASY_TASK)
+register_task!(:cartpole_plank_medium, CARTPOLE_PLANK_MEDIUM_TASK)
+register_task!(:cartpole_plank_hard, CARTPOLE_PLANK_HARD_TASK)
+register_task!(:cartpole_plank_hardest, CARTPOLE_PLANK_HARDEST_TASK)
 register_task!(:torus, TORUS_TASK)
 register_task!(:forage, FORAGE_TASK)
 register_task!(:shoal_forage, SHOAL_FORAGE_TASK)
