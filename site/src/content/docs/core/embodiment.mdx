@@ -18,7 +18,7 @@ An `Embodiment` composes:
 ```text
 geometry
 sensors → encoders → receptor ports
-effector ports → actuators → typed commands → dynamics
+neural-frame outputs → readout → effector ports → actuators → typed commands → dynamics
 optional physiology → feedback receptors, effect interpretation, viability
 traits + runtime state
 ```
@@ -36,8 +36,9 @@ n_effectors(body)
 ## Sensing and action stay separate
 
 A sensor declares and samples raw physical values. An encoder converts identified sensor
-samples into reservoir receptor channels. An actuator converts normalized effector values
-into a bounded command. A dynamics component integrates that command into motion.
+samples into one or more reservoir receptor frames. A readout reduces neural-frame outputs
+to one effector signal. An actuator converts that signal into a bounded typed command. A
+dynamics component integrates that command into motion.
 
 The main path is:
 
@@ -45,8 +46,9 @@ The main path is:
 world sample
   → sensor sample
   → encoder
-  → receptor vector
-  → reservoir
+  → receptor frame(s)
+  → reservoir frame(s)
+  → readout
   → effector vector
   → actuator
   → typed command
@@ -54,12 +56,13 @@ world sample
 ```
 
 The built-in physical component families include spectral cameras, mounted field probes,
-bilateral contrast encoding, wheel or forward-turn actuation, and planar force/yaw
-actuation. Query the catalog instead of assuming parameter names:
+bilateral contrast encoding, mean/instant/voting readouts, wheel or forward-turn actuation,
+and planar force/yaw actuation. Query the catalog instead of assuming parameter names:
 
 ```julia
 components(family=:sensor)
 component_info(:sensor, :spectral_camera)
+component_info(:readout, :voting)
 readiness()
 ```
 

@@ -8,6 +8,9 @@
         (:sensor, :field_probe),
         (:encoder, :identity),
         (:encoder, :bilateral_contrast),
+        (:readout, :mean),
+        (:readout, :instant),
+        (:readout, :voting),
         (:actuator, :forward_turn),
         (:actuator, :antagonistic_turn),
         (:actuator, :differential_drive),
@@ -24,6 +27,7 @@
         (:physiology, :none),
         (:sensor, :spectral_camera),
         (:encoder, :identity),
+        (:readout, :mean),
         (:actuator, :differential_drive),
         (:dynamics, :differential_drive),
     ))

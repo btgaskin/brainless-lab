@@ -333,6 +333,23 @@ Encode a raw percept into receptor values for a reservoir or body.
 function encode! end
 
 """
+    begin_encoding!(encoder_or_body, samples, cycle)
+
+Prepare one world-step observation for frame-wise receptor encoding. The
+environment is sampled once per world step; an encoder may then expose a
+different receptor vector on each neural frame without resampling the world.
+"""
+function begin_encoding! end
+
+"""
+    encode_frame!(encoder_or_body, state, frame, cycle)
+
+Encode one native neural frame from the state returned by
+[`begin_encoding!`](@ref).
+"""
+function encode_frame! end
+
+"""
     encoder_sources(encoder)
 
 Return the stable sensor component IDs consumed by `encoder`, or `nothing`
@@ -398,6 +415,30 @@ function readout end
 Return the reservoir readout policy carried by an `AbstractBody`.
 """
 function readout_policy end
+
+"""
+    readout_components(body)
+
+Return the readout components that reduce neural-frame outputs into effector
+signals. The standard runtime currently requires exactly one readout per body.
+"""
+function readout_components end
+
+"""
+    primary_readout(body)
+
+Return the single readout used by the standard interaction cycle.
+"""
+function primary_readout end
+
+"""Reset a readout accumulator at the start of one world step."""
+function begin_readout! end
+
+"""Observe one reservoir output during a neural frame."""
+function observe_frame! end
+
+"""Finish a readout reduction and return the effector signal."""
+function finish_readout! end
 
 """
     metrics(object, args...)
