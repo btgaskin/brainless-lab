@@ -1,213 +1,209 @@
 ---
 title: Analysis
-description: The analytic suite — criticality, collective, cross-level, and information measures, each with its equation and a code reference.
+description: Choose task, neural, collective, and information measures with the recorder channels and controls they require.
 ---
 
-The analytic suite reads the *statistics of self-organised dynamics* at three scales.
-These measures are **descriptors**—candidate dynamical explanations to read beside task
-performance, not evidence of capacity by themselves. Every measure below carries its
-equation, a one-line reading, and a **Source** callout to its Julia implementation. All
-operate on channels recorded by the `Recorder` (off the compute hot path), so nothing here
-perturbs a run.
+An analysis describes recorded behaviour or dynamics. It does not establish capacity or a
+mechanism by itself. Read each analysis beside the task outcome, sampling protocol,
+diagnostics, and a control that matches the claim.
 
-## Before choosing a measure
+`ProfilePlan` is the standard way to request registered analyses. The executor records the
+channels they require and reports analysis failures explicitly.
 
-Predeclare primary measures before confirmation; treat everything else as exploratory.
-Specify the transient removal, window, threshold or binning choices, missing/dead-run
-handling, estimator diagnostics, minimum data, multiple-comparison policy, and uncertainty
-unit. Bootstrap the independent randomized run or block—not agents or ticks nested inside it.
+## Specify the method before the run
 
-| Family | Current role | Required discipline |
-| --- | --- | --- |
-| task/world metrics | operational performance and gates | task calibration and causal control |
-| target/rate diagnostics | mechanism and failure diagnosis | compare against known component states |
-| branching and avalanches | experimental criticality descriptors | fit diagnostics, surrogate/control, threshold and finite-size sensitivity |
-| spectral radius | linear recurrent-matrix proxy | do not treat as general nonlinear stability |
-| susceptibility/Fano/participation | experimental second-order descriptors | adequate population size and null |
-| swarm order and contact graph | collective organization | torus-aware geometry and independent worlds |
-| transfer entropy | experimental directional association | stationarity, bias, surrogates, multiplicity |
+For each confirmatory analysis, declare:
 
-A nonsignificant contrast can mean low power, large uncertainty, or a small effect. It does
-not establish “no effect”; that claim needs a declared equivalence margin and an equivalence
-procedure. See [Design a study](/core/design-study/).
+- the input channels and sampling interval;
+- transient removal and analysis window;
+- threshold, bin, lag, or neighbourhood settings;
+- treatment of failed, dead, missing, and saturated runs;
+- the independent unit and uncertainty method;
+- estimator diagnostics and minimum data;
+- null or surrogate procedure;
+- multiplicity correction when several measures, lags, or pairs are tested.
 
-For a concrete, runnable end-to-end example that collects these measures at both scales
-from a single forage rollout — per-agent branching, node/agent susceptibility,
-correlation length, contact-graph clusters, and a `crossshift_null` control — see the
-two-scale data-collection harness:
+Bootstrap the independent run or randomised block. Agents and ticks inside one world are
+not additional independent replicates.
 
-<p class="bl-source">Source: <code>examples/forage_criticality.jl</code>.</p>
+## Task and node diagnostics
 
-## Criticality (node scale)
+Task metrics measure the implemented outcome and its descriptors. Node diagnostics help
+explain how a run developed.
 
-### Branching ratio — the MR estimator
-
-For a population-activity series $A(t)$, the branching ratio $m$ is how much activity
-one tick begets the next. The naive slope $\hat m = \sum A_t A_{t+1} / \sum A_t^2$ is
-**biased when only a subset or noisy projection of the underlying process is observed**
-(Wilting & Priesemann 2018). Reducing a fully observed population to a scalar total is not
-by itself proof that the estimator's subsampling assumptions hold. The
-**multistep-regression** estimator is more robust under its model assumptions: for lags
-$k = 1\dots k_{\max}$ take the (intercept-corrected) slope $r_k$ of $A(t{+}k)$ on $A(t)$,
-then fit
+`node_target_error` measures each node's distance from its local target:
 
 $$
-r_k = b\,m^{k} \quad\Longrightarrow\quad \log r_k = \log b + k\log m,
+d_i(t) = |a_i(t)-T_i(t)|.
 $$
 
-and read $m$ off the exponential decay — which is invariant to the subsampling that
-distorts the single-lag slope.
+Report its distribution or a declared summary. A small value means the modelled activation
+is near its target. It does not prove biological homeostasis or useful behaviour.
 
-<p class="bl-source">Source: <code>src/analysis/Branching.jl</code> — <code>branching_ratio</code> (per-tick + legacy σ), <code>branching_ratio_mr</code>.</p>
+<p class="bl-source">Source: <code>src/analysis/TargetError.jl</code>.</p>
 
-:::caution
-The Falandays homeostat regulates the population rate directly, so $m \approx 1$ can be
-*rate-pinned* rather than emergent — read it alongside the spectral radius (below).
-:::
+## Branching estimates
 
-### Neuronal avalanches
+For population activity $A(t)$, a one-step branching estimate asks how strongly activity
+predicts the next sample. A simple regression can be biased when the observed series is a
+subsampled or noisy projection.
 
-Threshold $A(t)$ into supra-threshold excursions; each avalanche has a **size** $S$
-(summed activity) and **duration** $D$. Near criticality both are power laws,
-$P(S)\sim S^{-\tau}$ and $P(D)\sim D^{-\alpha}$, tied by the **crackling-noise scaling
-relation**
+The multistep-regression estimator fits regression slopes across lags:
 
 $$
-\frac{\alpha-1}{\tau-1} \;=\; \gamma, \qquad \langle S\rangle(D)\sim D^{\gamma}.
+r_k = b\,m^k,
+\qquad
+\log r_k = \log b + k\log m.
 $$
 
-Agreement of the three exponents is still insufficient on its own for a criticality claim.
-Require many events, threshold and bin sensitivity, competing-distribution checks, and
-finite-size evidence; otherwise report the fitted avalanche descriptors only.
+The fitted decay gives the branching estimate $m$ under the estimator's assumptions. Read
+it with the accepted lags, fit quality, sample count, and per-agent distribution. A value
+near one is not sufficient evidence of criticality.
 
-<p class="bl-source">Source: <code>src/analysis/Avalanches.jl</code> — <code>avalanches</code> (τ, α, γ_fit vs γ_pred).</p>
+The Falandays rule directly regulates activity. This feedback can hold an activity
+statistic near a target. Compare branching estimates with controls and other diagnostics
+before assigning a critical interpretation.
 
-### Spectral radius
+<p class="bl-source">Source: <code>src/analysis/Branching.jl</code> — <code>branching_ratio</code>, <code>branching_ratio_mr</code>.</p>
 
-The dominant magnitude of the learned recurrent matrix, $\rho(W) = \max_i |\lambda_i(W)|$,
-is a **linear proxy** that complements branching and avalanche reads. In a nonlinear,
-threshold-reset, plastic spiking system it is not a general stability criterion. It is
-tracked over the rollout and per agent.
+## Avalanches
+
+The avalanche analysis thresholds population activity into contiguous events. Each event
+has a size $S$ and duration $D$. Candidate power-law relations are:
+
+$$
+P(S)\sim S^{-\tau},
+\qquad
+P(D)\sim D^{-\alpha},
+\qquad
+\langle S\rangle(D)\sim D^\gamma.
+$$
+
+The crackling relation compares the exponents:
+
+$$
+\frac{\alpha-1}{\tau-1} = \gamma.
+$$
+
+Agreement does not establish criticality. Report the event count, threshold and bin
+sensitivity, fitted range, competing distributions, finite-size checks, and uncertainty.
+Do not interpret a fit based on a small number of events.
+
+<p class="bl-source">Source: <code>src/analysis/Avalanches.jl</code>.</p>
+
+## Spectral radius
+
+For recurrent weight matrix $W$, the spectral radius is:
+
+$$
+\rho(W)=\max_i|\lambda_i(W)|.
+$$
+
+It is a linear matrix diagnostic. A threshold-reset, plastic spiking system is nonlinear,
+so spectral radius is not a general stability criterion. Use it to describe the recurrent
+matrix and compare declared conditions.
 
 <p class="bl-source">Source: <code>src/analysis/Spectral.jl</code>.</p>
 
-### Per-node distance-to-target
+## Second-order measures
 
-Each node has a homeostatic target $T_i$; its instantaneous strain is $|a_i - T_i|$.
-The across-node distribution is an "internal effort map" — which nodes are working,
-which are settled.
-
-<p class="bl-source">Source: <code>src/analysis/TargetError.jl</code> — <code>node_target_error</code>.</p>
-
-## Cross-level — the same measure at two scales
-
-One experimental programme supported by the platform measures the *same* signature at the **node** scale and
-the **agent** scale, and ask where each sits relative to its *own* critical point — because
-[information transmission is expected to peak near criticality](/notes/criticality-and-information/),
-so locating the transition at each scale is the prerequisite for everything downstream.
-Every criticality estimator takes a `level`:
-
-- `:node` — each agent's own reservoir, as its per-agent population rate (fit per agent, then averaged — *not* node-to-node despite the name),
-- `:agent` — the **per-tick count of agents undergoing a turn event** ($|\Delta\theta| > \theta_{\text{thr}}$, default $\pi/12$) — a genuine agent-scale cascade, *not* the pooled node rate rescaled,
-- `:pooled` — all nodes of all agents in one series (the legacy default; it mixes distinct reservoirs, so read it as a population summary, not "the reservoir's" dynamics).
-
-Not every measure is comparable across levels — this matters, because plotting an
-incomparable pair against each other is a real inferential error. **Susceptibility** is the
-natural candidate pair: node ($\chi = N\,\mathrm{Var}[\text{synchrony}]$) and agent
-($\chi = n\,\mathrm{Var}[\text{polarization}]$) are formally the same quantity. In current
-**unpromoted project observations**, neither agent susceptibility nor agent branching cleared
-the circular-shift null; agent branching also appeared dominated by within-agent maneuvers.
-These are working constraints, not promoted cross-level results. Node-scale measures stand on
-their own; cross-level pairing remains an open, actively-nulled question. When a pair does survive,
-compare its *peak positions* as a control parameter is swept, not raw magnitudes (the
-prefactors $N\approx100$ vs $n\approx6$ differ by an order of magnitude).
-
-<p class="bl-source">Source: <code>src/analysis/ActivityLevels.jl</code>; consumed by Branching / Avalanches / SecondOrder.</p>
-
-### Second-order signatures (both levels)
+The analysis suite includes susceptibility, Fano factor, and participation ratio:
 
 $$
-\chi = N\,\mathrm{Var}[\phi], \qquad
-F = \frac{\mathrm{Var}[A]}{\langle A\rangle}, \qquad
-\mathrm{PR} = \frac{(\sum_i \lambda_i)^2}{\sum_i \lambda_i^2}
+\chi=N\,\mathrm{Var}[\phi],
+\qquad
+F=\frac{\mathrm{Var}[A]}{\langle A\rangle},
+\qquad
+\mathrm{PR}=\frac{(\sum_i\lambda_i)^2}{\sum_i\lambda_i^2}.
 $$
 
-**Susceptibility** $\chi$ (order parameter $\phi$ = synchrony at node scale, polarization
-at agent scale), the **Fano factor** $F$, and the **participation ratio** PR (effective
-dimensionality of the activity covariance). A criticality hypothesis predicts these peak
-together across levels as a control parameter is swept.
+At node scale, the order parameter can describe neural synchrony. At agent scale, it can
+describe collective order such as polarisation. Similar equations do not make the two
+levels numerically commensurate. Compare their locations across a declared control sweep,
+not their raw magnitudes.
 
-<p class="bl-source">Source: <code>src/analysis/SecondOrder.jl</code>.</p>
+Participation ratio and correlation measures need enough simultaneously observed units.
+Longer time series do not replace missing population size.
 
-### Null test — `crossshift_null`
+<p class="bl-source">Source: <code>src/analysis/ActivityLevels.jl</code>, <code>src/analysis/SecondOrder.jl</code>.</p>
 
-Before a cross-scale coupling number is trusted, run it through the circular-shift null.
-Each surrogate independently circular-shifts every agent's recorded time series, so each
-agent's *own* dynamics are preserved while the *inter-agent timing* is destroyed. The
-measure is recomputed on the surrogate ensemble; comparing the real value against the
-null distribution separates genuine cross-agent coupling from what any independent set of
-single-agent series would produce by chance. Entity-aligned channels are shifted by stable
-`EntityID`, not vector position. Derived/event channels are removed and static object
-snapshots are retained; an unknown non-entity channel is an error by default rather than
-being left deceptively aligned.
+## Collective measures
 
-The result retains `real`, `null_mean`, `null_std`, and `ratio`, and also reports the full
-`null_values`, `pvalue`, `alternative`, `n_requested`, and effective `n_valid`. The `ratio` is
-descriptive: a value near $1$ does not establish equivalence or absence of coupling. Interpret
-the declared-tail Monte Carlo `pvalue` against the full null distribution and finite
-`n_valid`. Because circular shifts disrupt both inter-agent coupling and common-source timing,
-pair this null with a causal condition appropriate to the claim—for example, vision-on versus
-vision-off—rather than reading the raw ratio alone.
+Collective analyses describe organisation among agents:
 
-<p class="bl-source">Source: <code>src/analysis/NullTest.jl</code> — <code>crossshift_null</code>.</p>
+- polarisation measures heading alignment;
+- milling measures rotational order around a torus-aware centre;
+- cohesion summarises nearest-neighbour and pairwise distance;
+- `swarm_regime` assigns a descriptive state from order and speed;
+- `correlation_length` finds the zero crossing of velocity-fluctuation correlation;
+- `contact_graph_clusters` summarises connected components in a proximity graph.
 
-## Collective (agent scale)
+These values are descriptors, not task scores. A highly aligned group may still fail its
+task. Use torus-aware geometry when the world is periodic, and retain independent worlds as
+the uncertainty unit.
 
-These are **descriptors (qualities), not competence scores** — they measure *how* a swarm is
-organised, read alongside a task's capacity-indicator, never as a competence measure in their
-own right (see [Scoring](/scoring/)).
+<p class="bl-source">Source: <code>src/world/Metrics.jl</code>, <code>src/analysis/SwarmAnalysis.jl</code>.</p>
 
-- **Polarization** $\;P = \big|\frac{1}{N}\sum_i e^{i\theta_i}\big|$ — heading alignment, $0$ disordered → $1$ aligned.
-- **Milling** — rotational order about the torus-aware circular centroid.
-- **Cohesion** — mean nearest-neighbour + pairwise distance (periodic-boundary aware).
-- **Swarm regime** — a discrete label (polarized, milling, swarming, or static) from $P$, milling, and speed.
-- **Correlation length** — the distance at which the velocity-*fluctuation* correlation crosses zero (Cavagna et al. 2010 form: subtract the global mean velocity, normalize once globally).
-- **Contact-graph clusters** — build the per-tick within-vision-radius contact graph and summarize its connected components: number of components, largest-component fraction, and mean component size (torus-aware). A graph-level readout of how the swarm fragments and coalesces (surfaced in sweeps as the `contact_clusters` measure).
+## Transfer entropy
 
-<p class="bl-source">Source: <code>src/world/Metrics.jl</code> (polarization, milling, cohesion) and <code>src/analysis/SwarmAnalysis.jl</code> (<code>swarm_regime</code>, <code>correlation_length</code>, <code>contact_graph_clusters</code>).</p>
-
-:::caution[Read these at the swept sample size]
-Several estimators return a *confident number* rather than `NaN` when they are under-powered, so
-read them against the actual run size. At `n_agents = 6` the **correlation length**, **agent-scale
-susceptibility**, and **agent participation ratio** are severely under-sampled (6 points, 15
-pairs) — time-pooling over a long rollout hides the noise but does not remove it; treat them as
-uninterpretable below ~20–30 agents. **Branching (MR)** should be read with its per-agent
-distribution and fit quality, not the bare mean — a low-$R^2$ exponential fit still returns a
-finite $m$. **Avalanche** exponents need many events (tens to hundreds); a fit from a handful is
-meaningless. And any *cross-agent* claim should clear the circular-shift null (`crossshift_null`,
-`NullTest.jl`) before it is trusted — the null strips both real coupling and common-source drive,
-so the coupling readout is the **vision-on minus vision-off difference**.
-:::
-
-## Information flow
-
-**Transfer entropy** — directional, order-1 discrete plug-in estimator:
+The current transfer-entropy estimator is a directional, order-one, discretised plug-in
+estimate:
 
 $$
-\mathrm{TE}_{X\to Y} = \sum p(y_{t+1}, y_t, x_t)\,\log_2\frac{p(y_{t+1}\mid y_t, x_t)}{p(y_{t+1}\mid y_t)} .
+\mathrm{TE}_{X\to Y}
+=
+\sum p(y_{t+1},y_t,x_t)
+\log_2
+\frac{p(y_{t+1}\mid y_t,x_t)}
+     {p(y_{t+1}\mid y_t)}.
 $$
 
-Two variants: node-to-node **within a reservoir** (spike trains), and agent-to-agent
-(binarised heading change) — the direct measure for the social-foraging "do they use
-each other as a guide?" question. *Experimental*: the plug-in estimate is biased at finite
-samples. Check stationarity, compare against appropriate time-shift surrogates, report sample
-counts, and correct across tested pairs. A KSG upgrade remains future work.
+The suite can apply it to node spike trains or agent movement events. The estimate can be
+biased upwards with finite samples. Check stationarity, binning sensitivity, sample count,
+time-shift surrogates, and correction across tested pairs.
 
-<p class="bl-source">Source: <code>src/analysis/TransferEntropy.jl</code> — <code>transfer_entropy</code>, <code>node_transfer_entropy</code>, <code>agent_transfer_entropy</code>.</p>
+Transfer entropy shows predictive information under the estimator. It does not by itself
+show direct causal influence.
 
----
+<p class="bl-source">Source: <code>src/analysis/TransferEntropy.jl</code>.</p>
 
-## References
+## Circular-shift null
 
-Beggs & Plenz (2003), *J. Neurosci.* · Wilting & Priesemann (2018), *Nat. Commun.* ·
-Del Papa, Priesemann & Triesch (2017), *PLOS ONE* · Cavagna et al. (2010), *PNAS*.
+`crossshift_null` independently circularly shifts each agent's recorded series. This keeps
+each series' internal dynamics while disrupting their alignment across agents.
+
+The result includes the observed value, null values, null mean and standard deviation,
+ratio, Monte Carlo p-value, requested surrogate count, and valid surrogate count. The ratio
+is descriptive. A value near one does not establish equivalence or absence of coupling.
+
+Circular shifts also disrupt timing caused by shared inputs. Pair this surrogate with a
+causal condition suited to the question, such as an input-disabled or sham-input control.
+
+<p class="bl-source">Source: <code>src/analysis/NullTest.jl</code>.</p>
+
+## Registered analysis workflow
+
+Inspect analyses that can apply to a task:
+
+```julia
+analyses(DEFAULT_REGISTRY; task=:tracking)
+```
+
+Then add their keys to a profile plan:
+
+```toml
+[profile]
+target = "tracking"
+analyses = ["branching_ratio_mr", "node_target_error"]
+record_every = 1
+```
+
+If an analysis needs a missing channel or cannot process a trial, the profile result retains
+an explicit error. Do not replace a failed analysis with a silent zero or omit the run.
+
+## Primary references
+
+- Beggs, J. M. and Plenz, D. (2003). [Neuronal avalanches in neocortical circuits](https://doi.org/10.1523/JNEUROSCI.23-35-11167.2003). *Journal of Neuroscience*, 23, 11167–11177.
+- Wilting, J. and Priesemann, V. (2018). [Inferring collective dynamical states from widely unobserved systems](https://doi.org/10.1038/s41467-018-04725-4). *Nature Communications*, 9, 2325.
+- Cavagna, A. et al. (2010). [Scale-free correlations in starling flocks](https://doi.org/10.1073/pnas.1005766107). *Proceedings of the National Academy of Sciences*, 107, 11865–11870.
+- Schreiber, T. (2000). [Measuring information transfer](https://doi.org/10.1103/PhysRevLett.85.461). *Physical Review Letters*, 85, 461–464.

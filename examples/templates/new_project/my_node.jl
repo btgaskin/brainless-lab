@@ -4,7 +4,8 @@ import BrainlessLab
 import BrainlessLab: NodeModel, Reservoir
 import BrainlessLab: step!, effectors, n_nodes, n_receptors, n_effectors, reset!
 import BrainlessLab: snapshot_state, load_state!, pack_params, unpack_params, paramdim
-import BrainlessLab: plasticity, OnlinePlasticity, register_node!
+import BrainlessLab: plasticity, OnlinePlasticity
+import BrainlessLab: NodeBuildContext, NodeSpec, ParameterSpec, DEFAULT_REGISTRY, register!
 
 Base.@kwdef struct MyNodeParams <: NodeModel
     leak::Float64 = 0.25
@@ -275,4 +276,62 @@ function load_state!(r::MyNode, state)
     return r
 end
 
-register_node!(:my_node, MyNode; genome_type=MyNodeParams)
+function build_my_node(context::NodeBuildContext, values)
+    params = MyNodeParams(
+        leak=values[:leak],
+        lrate_wmat=values[:lrate_wmat],
+        lrate_targ=values[:lrate_targ],
+        threshold_mult=values[:threshold_mult],
+        target_floor=values[:target_floor],
+        input_gain=values[:input_gain],
+        recurrent_scale=values[:recurrent_scale],
+        weight_limit=values[:weight_limit],
+        learn_on=values[:learn_on],
+    )
+    seed = Int(mod(context.seeds.topology, UInt64(typemax(Int))))
+    return MyNode(
+        context.n_nodes,
+        n_receptors(context.ports),
+        n_effectors(context.ports);
+        seed=seed,
+        params=params,
+        link_p=values[:link_p],
+    )
+end
+
+const MY_NODE_SPEC = NodeSpec(
+    :my_node,
+    build_my_node;
+    genome_type=MyNodeParams,
+    stability=:experimental,
+    tags=(:experimental,),
+    capabilities=(:online_plasticity, :recurrent_weights, :homeostatic_target),
+    parameters=(
+        ParameterSpec(:leak, 0.25; sweep=(0.1, 0.25, 0.5), evolve=(lower=0.0, upper=0.95)),
+        ParameterSpec(:lrate_wmat, 0.04; sweep=(0.01, 0.04, 0.1), evolve=(lower=1.0e-4, upper=1.0, scale=:log)),
+        ParameterSpec(:lrate_targ, 0.01; evolve=(lower=1.0e-4, upper=0.5, scale=:log)),
+        ParameterSpec(:threshold_mult, 2.0; evolve=(lower=0.1, upper=5.0)),
+        ParameterSpec(:target_floor, 1.0; evolve=(lower=0.01, upper=3.0, scale=:log)),
+        ParameterSpec(:input_gain, 1.4; evolve=(lower=0.0, upper=4.0)),
+        ParameterSpec(:recurrent_scale, 0.7; evolve=(lower=0.0, upper=3.0)),
+        ParameterSpec(:weight_limit, 3.0; evolve=(lower=0.1, upper=10.0, scale=:log)),
+        ParameterSpec(:learn_on, true),
+        ParameterSpec(:link_p, 0.18; owner=:reservoir, sweep=(0.1, 0.18, 0.3), evolve=(lower=0.01, upper=0.8)),
+    ),
+    parameter_sets=Dict(
+        :sweep => (:leak, :lrate_wmat),
+        :evolve => (
+            :leak,
+            :lrate_wmat,
+            :lrate_targ,
+            :threshold_mult,
+            :target_floor,
+            :input_gain,
+            :recurrent_scale,
+            :weight_limit,
+        ),
+        :connectivity => (:link_p,),
+    ),
+)
+
+register!(DEFAULT_REGISTRY, MY_NODE_SPEC)

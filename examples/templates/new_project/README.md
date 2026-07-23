@@ -8,15 +8,16 @@ observations, actions, metrics, controls, and calibration before editing.
 
 ## Files
 
-- `my_node.jl` defines `MyNode <: Reservoir`, a leaky homeostatic reservoir with online recurrent-weight and target adaptation, then registers it as `:my_node`.
-- `my_task.jl` defines `MyTrackingEnv <: TaskWorld`, wraps it in a `TaskSpec`, then registers it as `:my_task`.
+- `my_node.jl` defines `MyNode <: Reservoir`, then registers a typed `NodeSpec` with parameters, capabilities, and default sweep/evolution sets.
+- `my_task.jl` defines `MyTrackingEnv <: TaskWorld`, wraps it in a `TaskSpec`, then registers the task in `DEFAULT_REGISTRY`.
 - `my_metric.jl` registers a small metric function as `:final_error_abs`, requested by symbol in `run.jl`.
-- `run.jl` includes those three files, runs `simulate(:my_task; node=:my_node)`, prints metrics, and saves a Makie figure.
-- `config.toml` is a benchmark config snippet that follows `bench/configs/core.toml`.
+- `run.jl` includes those files, runs one explicit `CompositionSpec`, prints metrics, and saves a Makie figure.
+- `config.toml` is a version-one `ProfilePlan` using the same node, task, and evaluation contracts as every built-in operation.
+- `run_plan.jl` loads the extension, executes `config.toml`, and writes the standard portable record.
 
 ## Setup
 
-From this directory:
+From this directory while the template remains inside a BrainlessLab checkout:
 
 ```bash
 julia --project=. -e 'using Pkg; Pkg.develop(path="../../.."); Pkg.instantiate()'
@@ -28,7 +29,16 @@ Run the example with this template environment:
 julia --project=. run.jl
 ```
 
-The template `Project.toml` depends on `BrainlessLab` and `CairoMakie`. `Pkg.develop(path="../../..")` points the template environment at the local framework checkout, so you can copy this directory into your own project and keep using the framework as a dependency instead of editing `src/`.
+The template `Project.toml` depends on `BrainlessLab` and `CairoMakie`.
+`Pkg.develop(path="../../..")` points this in-repository copy at the local framework
+checkout. After copying the template elsewhere, install the public package source instead:
+
+```bash
+julia --project=. -e 'using Pkg; Pkg.add(url="https://github.com/btgaskin/brainless-lab"); Pkg.instantiate()'
+```
+
+Once BrainlessLab is registered in Julia General, `Pkg.add("BrainlessLab")` becomes the
+normal installation path.
 
 ## First Result
 
@@ -40,6 +50,15 @@ Artifacts:
 
 - Printed task metrics, including `score`, `mean_abs_error`, `final_error`, liveness, and the registered custom `final_error_abs`.
 - `output/my_task_my_node_visualize.png`, containing spike raster, population firing rate, and spike-pattern drift panels.
+
+Then run the repeatable profile:
+
+```bash
+julia --project=. run_plan.jl config.toml records
+```
+
+Open `records/<record-id>/report/index.html`, or inspect the authoritative CSV tables and
+the checksums in `record.toml`.
 
 ## Node Contract
 
@@ -61,7 +80,13 @@ n_receptors(node)
 n_effectors(node)
 ```
 
-`my_node.jl` also implements `snapshot_state` and `load_state!` to show the parameter/state split. `MyNodeParams` is static configuration; `acts`, `targets`, `spikes`, `errors`, and `wmat` are rollout state. The registration declares `genome_type=MyNodeParams`, so `rollout` and `evolve` can derive the genome dimension through `paramdim`, `pack_params`, and `unpack_params`.
+`my_node.jl` also implements `snapshot_state` and `load_state!` to show the parameter/state split. `MyNodeParams` is static configuration; `acts`, `targets`, `spikes`, `errors`, and `wmat` are rollout state.
+
+The public `NodeSpec` builder receives a `NodeBuildContext` and the fully resolved parameter
+dictionary. The context supplies node count, body ports, named seeds, and any receptor
+profile. `ParameterSpec` declares validation, default sweep values, evolution bounds, and
+ownership. Here `link_p` is reservoir-owned connectivity while node count remains part of
+the composition.
 
 Important Julia gotcha: when extending BrainlessLab generics from outside the package, import the names you extend:
 
@@ -69,7 +94,8 @@ Important Julia gotcha: when extending BrainlessLab generics from outside the pa
 import BrainlessLab: step!, effectors, n_nodes, n_receptors, n_effectors, reset!
 ```
 
-Do not rely on `using BrainlessLab` for method extension. Without `import`, Julia may create or call the wrong method surface, and `simulate` will not see your node contract.
+Do not rely on `using BrainlessLab` for method extension. Without `import`, Julia may
+create or call the wrong generic, and `simulate` will not see your node implementation.
 
 ## Task Contract
 
@@ -109,31 +135,16 @@ register_metric!(:final_error_abs, final_error_abs)
 
 In `run.jl`, the simulation requests the metric with `metrics=[:final_error_abs]`; the high-level runner resolves the symbol and appends the derived value to `sim.metrics`.
 
-## Benchmark
+## Operations
 
-`config.toml` follows the schema in `../../../bench/configs/core.toml`:
+`config.toml` uses the single `brainlesslab-plan` schema. Change `operation` and its final
+section to profile, sweep, ablate, evolve, or benchmark. The target composition and
+evaluation section stay the same.
 
-```toml
-neurons = ["falandays_base", "my_node"]
-tasks = ["my_task"]
-n_trials = 5
-n_nodes = 80
-ticks = 300
-baseline = "falandays_base"
-
-[prep]
-my_node = "untrained"
-```
-
-The benchmark runner loads registered BrainlessLab symbols, then uses the node's declared `genome_type` to stamp parameters through the public `NodeModel` contract. No framework fork or private-symbol bridge is needed.
-
-From the repo root, after setting up `bench/` as described in `../../../bench/README.md`, run:
-
-```bash
-julia --project=bench -e 'include("examples/templates/new_project/my_node.jl"); include("examples/templates/new_project/my_task.jl"); include("bench/Benchmark.jl"); using .Benchmark; cfg = Benchmark.read_bench_config("examples/templates/new_project/config.toml"); result = Benchmark.run_benchmark(cfg); println(result.dir); Benchmark.print_short_summary(result.summaries)'
-```
-
-Benchmark artifacts are written under `bench/runs/` and include resolved config, manifest, raw trial CSV, summary CSV, stats JSON, report Markdown, plots, and per-cell figures.
+The node's `:sweep` and `:evolve` parameter sets provide defaults. A plan can instead name
+explicit sweep axes or another registered parameter set. Benchmark conditions reference
+registered nodes and tasks but remain task-specific; registering a component does not
+automatically qualify it for a benchmark.
 
 ## Make It Your Own
 
@@ -142,16 +153,17 @@ Benchmark artifacts are written under `bench/runs/` and include resolved config,
 3. Keep receptor and effector counts aligned: for a vector task, `TaskSpec.n_receptors` must match `sense(env)`; for a composed body, use `portspec(body)` as the source of truth.
 4. Keep online plasticity inside `step!`; no evolution is needed for a Falandays-style first experiment.
 5. Add task-specific metrics to `metrics(env, window)` first. Use `register_metric!` for reusable analysis functions that can be resolved by symbol.
-6. Start with `simulate` and `visualize`; move to `bench/` only after the single run behaves sensibly.
+6. Start with `simulate` and `visualize`; move to `ProfilePlan`, `SweepPlan`, or
+   `BenchmarkPlan` only after the single composition behaves sensibly.
 
 ## Read More
 
 The docs live in the Astro/Starlight site (<https://brainless-lab.pages.dev>, or `cd site && bun run dev`):
 
-- [Nodes — overview](https://brainless-lab.pages.dev/nodes/overview/)
-- [Environments & Tasks](https://brainless-lab.pages.dev/environments-tasks/)
-- [Embodiment](https://brainless-lab.pages.dev/receptors-effectors/)
-- [Extending it](https://brainless-lab.pages.dev/extending/)
-- [Research workflow](https://brainless-lab.pages.dev/research-workflow/)
+- [Reservoirs and node models](https://brainless-lab.pages.dev/core/reservoirs/)
+- [Worlds, tasks and populations](https://brainless-lab.pages.dev/core/worlds-tasks-populations/)
+- [Embodiment](https://brainless-lab.pages.dev/core/embodiment/)
+- [Extend the lab](https://brainless-lab.pages.dev/core/extend/)
+- [Design a study](https://brainless-lab.pages.dev/core/design-study/)
 - [Agentic workflow](https://brainless-lab.pages.dev/agentic-workflow/)
-- `../../../bench/README.md`
+- [Operations and records](https://brainless-lab.pages.dev/core/operations-records/)

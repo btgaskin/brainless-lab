@@ -1,0 +1,26 @@
+format = "brainlesslab-plan"
+format_version = 1
+operation = "profile"
+id = "profile_tracking_example"
+
+[[targets]]
+id = "tracking"
+
+[targets.composition]
+id = "falandays_tracking_profile"
+preset = "falandays_tracking"
+
+[targets.evaluation]
+blocks = 1
+trials_per_block = 2
+horizon = 120
+warmup = 20
+construction_scope = "trial"
+reset = "full"
+root_seed = 1101
+aggregate = "mean"
+
+[profile]
+target = "tracking"
+analyses = ["branching_ratio_mr", "node_target_error"]
+record_every = 1

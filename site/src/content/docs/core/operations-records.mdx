@@ -1,0 +1,158 @@
+---
+title: Operations and records
+description: Run profiles, sweeps, ablations, evolution, and benchmarks through one typed plan and record path.
+---
+
+Use `simulate` for one diagnostic run. Use an operation plan when a question needs repeated
+trials, comparisons, parameter selection, or a portable result.
+
+```text
+CompositionSpec + EvaluationSpec
+  → EvaluationTarget
+  → operation plan
+  → check → resolve → run
+  → typed result
+  → research record
+```
+
+`CompositionSpec` defines what runs. `EvaluationSpec` defines how it is repeated.
+`EvaluationTarget` gives that pair a name. Every repeated operation uses these same types.
+
+## Choose an operation
+
+| Question | Plan | Main output |
+| --- | --- | --- |
+| What dynamics accompany performance? | `ProfilePlan` | trial data and analysis summaries |
+| How does performance vary over declared parameters? | `SweepPlan` | paired trials and cell summaries |
+| What changes when a registered function is disabled? | `AblationPlan` | baseline and paired intervention results |
+| Can registered parameters improve a training target? | `EvolutionPlan` | candidate history, champion, and held-out results |
+| How do declared conditions compare within a task? | `BenchmarkPlan` | per-task summaries and paired contrasts |
+
+The plan supplies the operation-specific choices. It does not define a second sampling
+protocol.
+
+## Check before you run
+
+The repository includes small plans under `plans/examples/`:
+
+```bash
+julia --project=. bin/brainlesslab.jl check plans/examples/profile_tracking.toml
+julia --project=. bin/brainlesslab.jl check plans/examples/benchmark_core.toml
+```
+
+`check` parses the file, rejects unknown keys, resolves registry names and defaults, and
+validates the complete plan. It does not simulate the system.
+
+Run the same file after it passes:
+
+```bash
+julia -t auto --project=. bin/brainlesslab.jl run \
+  plans/examples/profile_tracking.toml --root records
+```
+
+The plan declares the operation. The command line does not repeat its scientific options.
+
+## The common plan fields
+
+Every plan declares its format, operation, ID, targets, and one operation section. Each
+target contains one composition and one evaluation.
+
+```toml
+format = "brainlesslab-plan"
+format_version = 1
+operation = "profile"
+id = "profile_tracking"
+
+[[targets]]
+id = "tracking"
+
+[targets.composition]
+id = "falandays_tracking_profile"
+preset = "falandays_tracking"
+
+[targets.evaluation]
+blocks = 4
+trials_per_block = 2
+horizon = 7200
+warmup = 100
+construction_scope = "trial"
+reset = "full"
+root_seed = 4101
+aggregate = "mean"
+
+[profile]
+target = "tracking"
+analyses = ["branching_ratio_mr", "node_target_error"]
+record_every = 1
+```
+
+A composition may use a registered preset or declare `node`, `task`, `n_nodes`, and
+optional body settings directly. Node count belongs to the composition. A node's
+`ParameterSpec` values define which parameters may be overridden, swept, or evolved.
+
+The evaluation defines replication, warm-up, reset, construction scope, aggregation, and
+named random streams. The resulting `seeds.csv` records the realised stream ledger.
+
+## Group operations into an experiment
+
+`ExperimentSpec` is the scientific envelope around named conditions and ordinary operation
+plans. It records the question, protocol version, evidence state, limitations, and metadata.
+It is not another runner.
+
+```julia
+write_experiment("experiments/my-study", experiment)
+```
+
+The directory contains `experiment.toml` and one normal plan file per operation. Another
+checkout can check or run the complete protocol:
+
+```bash
+julia --project=. bin/brainlesslab.jl check-experiment experiments/my-study
+julia -t auto --project=. bin/brainlesslab.jl run-experiment \
+  experiments/my-study --root experiment-records
+```
+
+Each operation writes its own standard record. The experiment run also preserves the
+protocol and indexes the operation records.
+
+## Read a record
+
+A successful operation writes:
+
+```text
+record-id/
+├── record.toml
+├── request.toml
+├── resolved.toml
+├── seeds.csv
+├── data/
+├── summary/
+├── figures/
+├── report/index.html
+└── DONE
+```
+
+`request.toml` is the submitted plan. `resolved.toml` contains the defaults and options that
+actually ran. `record.toml` contains software provenance, an artifact inventory, and
+SHA-256 checksums. CSV files are the authoritative tables. The HTML report explains the
+method and presents the same typed result.
+
+A failed write receives `FAILED` instead of `DONE`. Shareable records omit hostnames and
+absolute local paths.
+
+## Interpret each operation narrowly
+
+- A profile describes recorded dynamics. It does not prove a mechanism.
+- A sweep reports development cells. Its best cell is not untouched confirmation.
+- An ablation tests one registered intervention and its declared control.
+- Evolution selects on its training target. It evaluates held-out targets only after
+  champion selection.
+- A benchmark keeps task results separate. Normalisation does not create a common unit
+  across tasks.
+
+Small example plans test the software path. They are not evidence-scale studies.
+
+Use [Design a study](/core/design-study/) to place operations inside an evidence protocol.
+Use [Runs and results](/core/runs-results/) to inspect simulation and record outputs.
+
+<p class="bl-source">Source: <code>src/operations/</code>, <code>src/records/</code>, <code>bin/brainlesslab.jl</code>.</p>

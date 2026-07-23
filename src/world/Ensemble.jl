@@ -1,6 +1,31 @@
-struct Agent{R<:Reservoir,B<:AbstractBody}
+struct Agent{R<:Reservoir,B<:AbstractBody,C<:InteractionCycle,S<:InteractionState}
     reservoir::R
     body::B
+    cycle::C
+    interaction::S
+end
+
+function Agent(
+    reservoir::Reservoir,
+    body::AbstractBody;
+    cycle::Union{Nothing,InteractionCycle}=nothing,
+)
+    cycle_ = cycle === nothing ? default_interaction_cycle(reservoir) : cycle
+    cycle_ isa FixedRateCycle || throw(ArgumentError(
+        "the standard runtime currently supports FixedRateCycle, got $(typeof(cycle_))",
+    ))
+    interaction = InteractionState(primary_readout(body), reservoir, body)
+    return Agent(reservoir, body, cycle_, interaction)
+end
+
+Agent(reservoir::Reservoir, body::AbstractBody, cycle::InteractionCycle) =
+    Agent(reservoir, body; cycle=cycle)
+
+function reset!(agent::Agent)
+    reset!(agent.reservoir)
+    applicable(reset!, agent.body) && reset!(agent.body)
+    begin_interaction!(agent.interaction, primary_readout(agent.body), agent.cycle)
+    return agent
 end
 
 """Stable identity for an ensemble entity, independent of its world slot."""
@@ -623,6 +648,29 @@ end
 # (mirrors NoisyInput's transparent effectors/getproperty forwarding).
 readout(m::Motor, w::NoisyInput, spikes) = readout(m, getfield(w, :inner), spikes)
 
+function _run_interaction!(agent::Agent, percept)
+    reservoir = agent.reservoir
+    body = agent.body
+    cycle = agent.cycle
+    readout_component = primary_readout(body)
+    state = agent.interaction
+    encoding_state = begin_encoding!(body, percept, cycle)
+    begin_interaction!(state, readout_component, cycle)
+
+    @inbounds for frame in 1:neural_frames(cycle)
+        receptors = encode_frame!(body, encoding_state, frame, cycle)
+        observe_receptors!(state, receptors)
+        neural_output = step!(reservoir, receptors)
+        observe_frame!(state.readout, readout_component, reservoir, neural_output, frame)
+    end
+
+    receptor_mean = finish_receptors!(state, cycle)
+    effector_signal = finish_readout!(state.readout, readout_component, reservoir, cycle)
+    command = decode!(body, effector_signal)
+    neural_mean = recorded_neural_output(state.readout, cycle)
+    return receptor_mean, neural_mean, command
+end
+
 function _step_homogeneous!(c::Ensemble, store::HomogeneousStore)
     agents = store.agents
     bodies = _agent_bodies(store)
@@ -632,32 +680,26 @@ function _step_homogeneous!(c::Ensemble, store::HomogeneousStore)
     length(percepts) == length(agents) ||
         throw(DimensionMismatch("environment returned $(length(percepts)) percepts for $(length(agents)) agents"))
 
-    receptor_vectors = Vector{Vector{Float64}}(undef, length(agents))
-    @inbounds for i in eachindex(agents)
-        body = agents[i].body
-        receptor_vectors[i] = alive(body) ?
-            _receptor_vector(sense!(body, percepts[i])) :
-            zeros(Float64, n_receptors(body))
-    end
-    remember_receptors!(c.environment, receptor_vectors)
-
     spikes = Vector{Vector{Float64}}(undef, length(agents))
+    receptor_vectors = Vector{Vector{Float64}}(undef, length(agents))
     rates = Vector{Float64}(undef, length(agents))
     Es = _homogeneous_command_storage(bodies)
 
     @inbounds for i in eachindex(agents)
         agent = agents[i]
         if alive(agent.body)
-            s = step_window!(agent.reservoir, receptor_vectors[i])
-            E = readout(readout_policy(agent.body), agent.reservoir, s)
-            Es[i] = decode!(agent.body, E)
+            receptors, s, command = _run_interaction!(agent, percepts[i])
+            receptor_vectors[i] = _receptor_vector(receptors)
+            Es[i] = command
         else
+            receptor_vectors[i] = zeros(Float64, n_receptors(agent.body))
             s = zeros(Float64, n_nodes(agent.reservoir))
             Es[i] = _inactive_command(agent.body)
         end
         spikes[i] = s
         rates[i] = _spike_rate(s)
     end
+    remember_receptors!(c.environment, receptor_vectors)
 
     effects = apply_commands!(c.environment, bodies, Es)
     @inbounds for i in eachindex(bodies)
@@ -685,15 +727,12 @@ function _step_agent_group!(
     agents = group.agents
     @inbounds for (local_index, slot) in enumerate(group.slots)
         agent = agents[local_index]
-        receptors = alive(agent.body) ?
-            _receptor_vector(sense!(agent.body, percepts[slot])) :
-            zeros(Float64, n_receptors(agent.body))
-        receptor_vectors[slot] = receptors
         if alive(agent.body)
-            s = step_window!(agent.reservoir, receptors)
-            output = readout(readout_policy(agent.body), agent.reservoir, s)
-            commands[slot] = decode!(agent.body, output)
+            receptors, s, command = _run_interaction!(agent, percepts[slot])
+            receptor_vectors[slot] = _receptor_vector(receptors)
+            commands[slot] = command
         else
+            receptor_vectors[slot] = zeros(Float64, n_receptors(agent.body))
             s = zeros(Float64, n_nodes(agent.reservoir))
             commands[slot] = _inactive_command(agent.body)
         end

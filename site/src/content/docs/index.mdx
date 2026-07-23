@@ -1,17 +1,17 @@
 ---
 title: BrainlessLab
-description: A runnable Julia lab for minimal neural collectives. Design node models, test why they work and compare variations across cellular cognition and collective intelligence. A Diverse Intelligences Summer Institute 2026 project.
+description: A Julia research platform for designing neural substrates and testing their behaviour across tasks, bodies, receptors, and effectors.
 template: splash
 hero:
   title: From cellular cognition to collective intelligence
-  tagline: An agent-ready, low-code Julia lab for self-organising neural substrates. Run, compare, extend, and test them on a laptop. No GPU required.
+  tagline: Compose neural substrates, embodiments, tasks, and reproducible studies on a CPU-first Julia platform.
   actions:
     - text: Get started
-      link: /getting-started/
+      link: /core/getting-started/
       icon: right-arrow
       variant: primary
-    - text: Research workflow
-      link: /research-workflow/
+    - text: Design a study
+      link: /core/design-study/
       icon: document
       variant: minimal
 ---
@@ -23,60 +23,72 @@ import FalandaysDemo from '../../components/FalandaysDemo.tsx';
 
 <div id="more"></div>
 
-## An experimentation platform
+## A platform for comparative neural design
 
-BrainlessLab is a runnable lab for **minimal neural collectives**. Each collective contains
-simple, homeostatic, neuron-like nodes. It has no trained readout and no controller. It is for
-researchers who study real neurons or cells and want a small, designed collective they can run.
+BrainlessLab connects four parts of an experiment:
 
-The anchor question is why the Falandays node works. You can test that question, design
-variations, and compare them. A task score operationalizes performance under one task
-contract. A capacity claim requires appropriate controls, construct validity, and
-generalization; the score alone does not establish it or rank designs absolutely. These
-tests span the cellular cognition of a reservoir and the collective behavior of a swarm.
+```text
+node model + embodiment + task + evaluation protocol
+```
 
-The collective self-organises toward its own viability, not toward our tasks. BrainlessLab
-measures whether the collective can be made to perform a task.
+The platform begins with a fixture-validated implementation of the Falandays
+homeostatic reservoir and two core tasks from the source study: object Tracking and Pong.
+These provide a small common test set for asking how a node design behaves when its
+sensorimotor setting changes.
 
-You can add tasks and environments. One generic [`Embodiment`](/receptors-effectors/)
-composes geometry, sensors, encoders, actuators, dynamics, and physiology with stable ports;
-[`ObjectWorld`](/environments-tasks/) composes objects, fields, appearance, and typed effects.
-Biological and robotic organisms use the same public structure with different components.
-The compute core is low-code and headless. It runs on a laptop and does not require a GPU.
-The browser demo needs no installation; repository guidance lets a coding agent operate the
-research tools for people who do not write Julia.
+Performance is evidence about a declared composition. It is not a universal measure of
+intelligence. A low score can still identify a missing capacity, an unsuitable body, or a
+parameter regime that does not support the task. That makes the benchmark useful for both
+evolving existing parameters and designing new local mechanisms, such as dendritic
+compartments.
 
-:::note[Ships with two agent skills]
-The repository includes Julia and BrainlessLab skills plus a root `AGENTS.md`. Together they
-teach a compatible coding agent the public architecture, verification gates, and scientific
-boundaries instead of relying on a hidden prompt.
-:::
+## One runtime, five research operations
+
+Use `simulate` to inspect one closed-loop run. Use a typed plan when the work must be
+repeatable:
+
+- `ProfilePlan` characterises one composition;
+- `SweepPlan` maps declared parameters;
+- `AblationPlan` disables registered mechanisms;
+- `EvolutionPlan` develops a registered parameter set;
+- `BenchmarkPlan` compares conditions within tasks.
+
+An `ExperimentSpec` groups named conditions and operation plans into a versioned scientific
+protocol. Every operation writes the same record structure: submitted and resolved
+settings, named random streams, raw tables, summaries, provenance, checksums, and an HTML
+report.
+
+The compute package is headless, runs on a laptop, and does not require a GPU. Optional
+Makie extensions provide figures and interactive views.
 
 ## Choose a path
 
-The full platform includes one-run simulation, task calibration, profiling, sweeps,
-ablations, benchmarks, evolution, and composed experiments. Start from your intent:
-
 <CardGrid>
-  <Card title="No code yet" icon="rocket">
-    Try the browser model or ask an agent to run and explain the stable quickstart.
-    [Getting started →](/getting-started/)
+  <Card title="Run the core tasks" icon="rocket">
+    Install the package, run Tracking and Pong, and inspect their task-native outcomes.
+    [Getting started →](/core/getting-started/)
   </Card>
-  <Card title="Run defensible research" icon="document">
-    Calibrate a task, choose controls, separate tuning from confirmation, and promote
-    traceable evidence. [Research workflow →](/research-workflow/)
+  <Card title="Build a reproducible operation" icon="random">
+    Choose profiling, sweeping, ablation, evolution, or benchmarking and write a portable
+    record. [Operations and records →](/core/operations-records/)
   </Card>
-  <Card title="Use the tools" icon="random">
-    Choose simulation, calibration, profiling, sweep, ablation, benchmark, evolution, or
-    experiment from one capability map. [Tooling →](/tooling/)
+  <Card title="Design a scientific protocol" icon="document">
+    Define conditions, controls, independent units, development data, and held-out
+    evaluation. [Design a study →](/core/design-study/)
   </Card>
-  <Card title="Build a new part" icon="puzzle">
-    Add a neural substrate, sensor, body, task, metric, analysis, intervention, view, or
-    optimizer through a public seam. [Extending →](/extending/)
+  <Card title="Extend the platform" icon="puzzle">
+    Add a node model, body component, task, analysis, or optimiser through the documented
+    Julia interfaces. [Extend the lab →](/core/extend/)
   </Card>
 </CardGrid>
 
+:::note[Agent-assisted use]
+The repository includes BrainlessLab and Julia skills plus a root `AGENTS.md`. A compatible
+coding agent can inspect the live registries, validate plans, run operations, and report the
+limits of the resulting evidence.
+:::
+
 ---
 
-A project of the **[Diverse Intelligences Summer Institute](https://disi.org) 2026**,
-Geneva NY.
+A project of the [Diverse Intelligences Summer Institute](https://disi.org) 2026,
+Geneva, New York.

@@ -1,232 +1,224 @@
 ---
 name: brainless-lab
-description: Guide for operating, extending, and interpreting BrainlessLab.jl — the agent-ready Julia lab for behavior from self-organising neural substrates. Covers low/no-code onboarding, simulate/visualize, calibration/profile/sweep/ablation/benchmark/evolution/experiment workflows, evidence states and safeguards, public composition and registries, and design guidance for nodes, bodies, tasks, metrics, and analyses. Use this skill whenever working in the brainless-lab repo or with BrainlessLab.jl, even when the request does not name it. Pair it with the julia skill for language-level correctness, dispatch, inference, allocations, and package hygiene.
+description: Guide for operating, extending, and interpreting BrainlessLab.jl, the Julia research platform for behaviour from self-organising neural substrates. Use for every task in the brainless-lab repository. Covers CompositionSpec, EvaluationSpec, typed registries, profile, sweep, ablation, evolution, benchmark plans, ExperimentSpec, versioned records, evidence boundaries, and node or task extension. Pair with the Julia skill for language, dispatch, inference, allocation, and package hygiene.
 ---
 
-# BrainlessLab.jl — running, extending, and interpreting the lab
+# BrainlessLab.jl
 
-BrainlessLab is a summer-institute testbed (DISI 2026) for **"brainless" cognition**: behaviour that
-emerges from collectives of simple neuron-like nodes with no homunculus and no hand-wired control. It
-is a *framework for other people to run experiments* around a settled baseline — not a vehicle for one
-person's model. That framing decides almost every design call: prefer a clean seam others can extend
-over a clever one-off, and never quietly break the baseline.
+BrainlessLab studies what simple, locally governed neural units can do when coupled to
+bodies and worlds. It supports node design, closed-loop tasks, repeated research
+operations, and versioned experiments.
 
-This skill is a way of thinking about the lab, not a command cheatsheet. Hold the few load-bearing ideas
-below and the rest — which script, which kwarg, which measure — follows from them or from a `references/`
-file. For anything about the *Julia itself* (why a `step!` allocates, is a node struct type-stable, how to
-profile a sweep), use the **`julia` skill** alongside this one; this skill assumes that layer is handled.
+Always read the repository `AGENTS.md`. Pair this skill with the Julia skill whenever
+Julia code is written or reviewed. Follow `docs/WRITING.md` for public prose.
 
-The user may not know Julia or how to code. Translate their scientific intent into the existing
-high-level API, configs, examples, and tools. Do not make them choose source paths, types, or package
-commands that the repository can determine. Explain the outcome, expected artifact, and interpretive
-limit in plain language; keep implementation detail available but secondary.
+## Preserve the architecture
 
-## The one idea: neurons as nodes in a collective
+```text
+runtime
+NodeSpec + TaskSpec + body + InteractionCycle
+  → CompositionSpec
+  → Reservoir + embodied agent(s) + Environment
+  → SimResult
 
-Everything is *neurons as nodes within a collective* — the **same node contract at every scale**. There
-is one ladder, and one `step!` runs all of it:
+research
+CompositionSpec + EvaluationSpec
+  → EvaluationTarget
+  → operation plan
+  → typed result
+  → record
 
-```
-NodeModel -> Reservoir -> AbstractBody -> Agent -> Ensemble{Environment} -> Task -> Runner -> Run
-                                                  \-> Recorder -> (viz/analysis read this, off the hot path)
-```
-
-A single-agent task is an `Ensemble` of **one** agent; a dyad is `n_agents=2`; a swarm is `n_agents=N`.
-`step!(collective)` runs a solo reservoir and a 200-agent swarm through the *same code path*. When you
-catch yourself thinking "the swarm case is different," stop — it almost never is; it's the same abstraction
-with `n_agents` turned up. This is the single most important thing to internalise before extending anything.
-The task must still declare that it supports a population: `n_agents` is a setup capability, not a magic
-keyword that converts an unrelated single-agent task into a swarm environment.
-
-Named, discoverable presets are wired through **registries**. Nodes, tasks, bodies, drives, metrics,
-analyses, views, ablations, and optimizers can be registered by symbol and resolved at run time. Julia
-generics and directly composed values are equally public: use a registry when discovery or configuration
-by name is useful, not as a substitute for types and methods.
-
-## The first run, and the Makie seam
-
-The safest headline workflow does not alter the root environment:
-
-```bash
-julia --project=. -e 'using Pkg; Pkg.instantiate()'
-julia --project=. examples/quickstart.jl
+named EvaluationTargets + operation plans
+  → ExperimentSpec
 ```
 
-The **compute core does not depend on Makie** — `simulate` runs headless. Plotting is a package extension
-that activates *only when a Makie backend is loaded*: `CairoMakie` for static figures and GIFs (use this on
-SSH/headless), `GLMakie` for interactive `explore(...)` windows. The generic visualization name exists in
-the core, but no plotting method is available until a backend activates the extension. Don't add Makie to
-the core deps to "fix" it — the weakdep split is deliberate.
+Keep each type responsible for one level:
 
-## Stable baseline vs experimental platform — the discipline
+- `NodeSpec` owns the node builder, declared parameters, parameter sets, capabilities,
+  equations, and default analyses. Node count belongs to `CompositionSpec`.
+- `TaskSpec` owns setup, ports, interaction timing, raw outcome, anchors, descriptors, and
+  experimental status. It does not own node parameters.
+- `InteractionCycle` defines neural frames within one world step. It does not define trial
+  replication.
+- `CompositionSpec` records the complete runtime composition.
+- `EvaluationSpec` defines blocks, trials per block, horizon, warm-up, construction scope,
+  reset policy, root seed, named streams, and aggregation.
+- `EvaluationTarget` names one composition with one evaluation protocol.
+- `ExperimentSpec` records a scientific question, version, named conditions, operations,
+  evidence state, limitations, and metadata. It is not another runner.
 
-This distinction is load-bearing and easy to blur; keep it sharp in code, docs, and claims.
+One `step!` lifecycle serves one agent and a population. Express differences through
+typed bodies, tasks, readouts, interaction cycles, and registered implementations. Do not
+add task-name or organism-name branches to the simulation loop.
 
-- **`:falandays`** (`:falandays_base` is a compatibility alias) is the settled, validated, **authors-faithful** published Falandays
-  homeostatic spiking reservoir with its exact constants. It is the reference participants rely on. Validation
-  is numerical trajectory parity with the tested local authors-derived reference construction, within the
-  declared tolerance, not paper fidelity for every component — say "authors-faithful," not "paper-faithful."
-- **Everything else is the experimental platform**: the other Falandays variants (`:falandays_extended`,
-  `:falandays_noisy`, `:falandays_ablated`, `:falandays_hemispheric`, `:falandays_oosawa`, `:falandays_dendritic`,
-  `:falandays_spatial`, `:falandays_delayed`), the SORN reference node, the compartmental/CTRNN nodes, the
-  evolution and embodiment layers, and the collective/ecological extensions. Useful testbed surfaces — but do **not** describe them as the
-  published paper model.
+## Choose the smallest valid path
 
-When you touch the baseline, assume a fidelity fixture guards it (`test/fixtures/authors_<task>.jld2`); run the
-tests. When you add an experimental piece, label it experimental honestly.
-
-The `:shoal_forage` task is a useful example of this division. It places the canonical
-`:falandays` node inside an **Experimental** body, world relation, task, protocol, and set of
-analyses. The node's parity status does not transfer to the fish-like embodiment or to claims
-about social behavior. Its `SectorVision`, `AntagonisticTurnActuator`, `ProximityExposure`,
-and `shoal_*` analyses must remain labelled Experimental until their own contracts and
-scientific interpretations earn stronger evidence.
-
-For this task, keep **fixed-demand performance** distinct from **operating-point
-sensitivity**. `shoal_vision_sweep` compares social-vision conditions at one declared need
-regime. `shoal_sensitivity_screen` varies one gain, curve, rate, range, or association rule at
-a time. Raw satisfaction is mechanically changed by a depletion-rate intervention; use the
-reported no-contact floor and `material_regulation_gain` when comparing demand levels, while
-still noting that the intervention also changes feedback reaching the reservoir. Neither
-screen estimates parameter interactions or licenses calling the best observed cell optimal.
-
-Fixture parity validates the tested node update, not every task, body, ecological mechanism, biological
-interpretation, or study. Read `site/src/content/docs/platform-limits.mdx` before broadening a claim.
-
-## Discovery-first: ask the registries, don't hardcode
-
-The registries are the live source of truth. Before assuming what exists, call them:
+Use `simulate` for one diagnostic run:
 
 ```julia
-variants()            # registered node symbols
-tasks()               # registered task symbols
-analyses(); task_analyses(:forage)   # registered measures (some labeled "experimental")
+using BrainlessLab
+
+sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11)
+task_outcome(sim)
 ```
 
-Any symbol list you hardcode in docs or code will drift; a `variants()` call will not. This is also how you
-sanity-check that your `register_*!` actually landed.
+The symbol form is a convenient façade. Construct a `CompositionSpec` when reusable work
+must record node count, parameters, body, task options, and interaction timing.
 
-## Designing something new — the posture
+Use an operation plan for repeated evaluation:
 
-Adding a part means **adding methods to the package generics** — you `import BrainlessLab: step!, effectors,
-...` and define methods; `using` will *not* let you extend them. This is the most common first mistake. Start
-from `examples/templates/new_project/`, get a single `simulate(:wall; node=:mynode)` to run, and only then
-reach for `bench`/`sweep`.
+```bash
+julia --project=. bin/brainlesslab.jl check plans/examples/profile_tracking.toml
+julia -t auto --project=. bin/brainlesslab.jl run \
+  plans/examples/profile_tracking.toml --root records
+```
 
-Read the matching reference before building:
+`check` parses, validates, and resolves without simulation. `run` executes the plan and
+writes one standard record. Do not introduce another YAML schema, bespoke callback
+runner, or operation-specific protocol format.
 
-- **A new node / reservoir** → `references/designing-nodes.md`. The key design question is *where adaptation
-  lives*: in online-plastic weights (Falandays — fair to test untrained) or in fixed-weight dynamics
-  (compartmental/CTRNN — meaningless untrained, **must be evolved**). Get this wrong and every comparison is
-  unfair. Prefer a kwarg/preset bundle over a whole new `<: Reservoir` when the change is parametric.
-- **A new environment / task / body** → `references/designing-environments-and-tasks.md`. The central object is
-  the synchronous contract (`sample!` → sensor → encoder → reservoir → actuator → dynamics/world → effects →
-  physiology). Prefer one composed `Embodiment` over organism-specific body subclasses. Effector semantics are
-  *intentionally non-uniform* across tasks, which is exactly why raw scores are **not comparable across tasks** —
-  design scoring against a meaningful floor/ceiling.
-- **A new analysis / measure** → `references/designing-analyses.md`. Read this even just to *interpret* results.
+## Use the five operations precisely
 
-The Core [extension guide](https://brainless-lab.pages.dev/core/extend/) maps the remaining public families: drive, intervention, physical component,
-physiology, optimizer/development, metric, and view. Prefer a parameter preset or composed value to a new
-type when the contract has not changed.
+- `ProfilePlan` characterises one node/task composition with declared analyses. It records
+  the channels required by those analyses and reports analysis failures.
+- `SweepPlan` evaluates explicit or node-default parameter axes. Seeds are paired across
+  cells. Call the output a development grid, not a confirmed optimum.
+- `AblationPlan` compares an implicit baseline with registered interventions. Validation
+  checks the intervention stage and required node capabilities. Inapplicable or unchanged
+  interventions are errors, not silent no-ops.
+- `EvolutionPlan` selects one registered node parameter set on a training target. Optimiser
+  randomness is separate from evaluation streams. Held-out targets run only after
+  champion selection.
+- `BenchmarkPlan` compares declared conditions within each task under paired blocks. It
+  reports task-specific outcomes and paired contrasts. It does not create a cross-task
+  competence score.
 
-## Evidence states are part of the API
+Files under `plans/examples/` are executable syntax checks with small budgets. Versioned
+study bundles live under `experiments/`.
 
-Use the ladder in `references/research-workflow.md`: conformance → calibration → exploration →
-tuning/training → variance pilot → frozen protocol → sealed confirmation → robustness → promoted
-evidence. Never call the best observed sweep cell an optimum, use tuned seeds as confirmation, or treat
-a committed run-dir as automatically promoted.
+Use `write_experiment` to write an `ExperimentSpec` as `experiment.toml` plus ordinary plan
+files. `read_experiment` rejects inconsistent definitions of a repeated condition. The CLI
+commands `check-experiment` and `run-experiment` validate or execute the bundle; each
+operation still writes its own record.
 
-The independent randomized block or run is normally the inferential unit. Agents and ticks nested in one
-world do not multiply sample size. The null follows the claim: random action, blind/off, matched sham or
-shift, mechanism ablation, model baseline, and oracle/reference answer different questions. Exact replay is
+## Interpret records correctly
+
+Each operation writes a `brainlesslab-record` bundle:
+
+```text
+record-id/
+├── record.toml
+├── request.toml
+├── resolved.toml
+├── seeds.csv
+├── data/
+├── summary/
+├── figures/
+├── report/index.html
+└── DONE
+```
+
+`request.toml` preserves the plan. `resolved.toml` records node defaults, task and body
+options, interaction timing, evaluation settings, and operation-specific resolution.
+`record.toml` inventories generated files and their SHA-256 checksums. CSV files are the
+authoritative tables; HTML is a readable report over those data.
+
+Shareable records must not contain host names or absolute local paths. `DONE` means record
+generation completed. It does not mean the result is confirmed evidence.
+
+## Keep reference and experimental claims narrow
+
+`:falandays` is validated on declared reference trajectories from the Falandays
+implementation. This validation covers the tested construction and update path. It does
+not automatically cover every body, task, behavioural statistic, analysis, or biological
+interpretation.
+
+Tracking and Pong are the initial core benchmark tasks. Wall remains registered but is not
+part of the core benchmark. The four Plank CartPole levels are experimental challenge
+tasks. All use the general `EvaluationSpec`; there is no CartPole-specific evaluation
+protocol.
+
+Performance can reveal a capacity, limit, trade-off, or missing mechanism. Before
+interpreting a poor score, check the task opportunity, body ports, control floor, horizon,
+initialisation, and score definition.
+
+## Extend nodes and tasks through public interfaces
+
+Start from `examples/templates/new_project/`.
+
+A node extension defines methods on imported BrainlessLab generics and registers a
+`NodeSpec`. The builder receives a `NodeBuildContext` and resolved parameter values.
+Declare:
+
+- parameters and validators;
+- whether each parameter belongs to the node or reservoir;
+- default `:sweep`, `:evolve`, and optional connectivity parameter sets;
+- capabilities used by ablations and tooling;
+- equations and default analyses when known;
+- stability and tags.
+
+Do not infer evolvable parameters from struct fields. Keep runtime state out of the genome.
+Online adaptation remains learning or plasticity even without a task loss, teacher, fitted
+readout, or separate training phase.
+
+A task extension registers a `TaskSpec` whose setup returns a `TaskSetup`. Validate port
+widths before tick zero. A task may omit a scalar outcome and remain useful for profiling.
+It cannot enter a scalar benchmark until it declares an outcome key and anchors.
+
+Use `register!` with typed registries. Duplicate keys fail. Julia multiple dispatch remains
+the extension mechanism; registries make implementations discoverable and configurable.
+
+## Protect scientific evidence
+
+Use the experiment evidence states:
+
+```text
+planned → exploratory → tuned → frozen → confirmed → promoted
+```
+
+`retired` records a withdrawn or superseded protocol. Keep calibration, development,
+variance pilots, and held-out evaluation separate. The independent block or trial is the
+usual inferential unit. Ticks and agents within one world do not multiply sample size.
+
+Match the control to the claim. Random action, blind input, matched sham, mechanism
+ablation, model baseline, and oracle policies answer different questions. Exact replay is
 a regression control, not a causal null.
 
-Software readiness is orthogonal to study evidence. The
-[Core handbook](https://brainless-lab.pages.dev/core/getting-started/) documents stable
-composition contracts; the
-[Experimental catalog](https://brainless-lab.pages.dev/experimental/) lists capabilities
-with repository-backed source, example, and test metadata. `available` and `integrated`
-describe software readiness, not construct validity or evidence promotion.
+Use `task_outcome(sim)` for the declared task result. Report its key, raw score, normalised
+score when used, blocks, trials, construction scope, reset, horizon, warm-up, and seed
+policy. Normalised Tracking and Pong scores remain different quantities.
 
-Use `task_outcome(sim)` as the canonical task result handoff. It returns
-`(key, raw, normalized)` for the objective declared by the task and `nothing` when the task
-declares no scalar objective. Legacy metric fields remain diagnostics and may be useful, but
-they do not define the cross-task outcome contract.
+Treat criticality and information measures as estimator-dependent analyses. State their
+nulls, assumptions, and finite-sample limits. Shared environmental drive can produce
+apparent collective structure.
 
-## Rigor: null-test every measure
+## Verify changes
 
-The analysis layer is deliberately **measure-agnostic**: analyses are pure functions over the recorder's
-channels, so you can point any candidate measure at a `SimResult`. That freedom is also the trap — a number
-that looks "critical" at the collective scale is often an artifact of shared input. The library gives you the
-check: a per-agent **circular-shift null** (`crossshift_null`) that preserves each agent's own temporal
-statistics while destroying cross-agent alignment. Clear it before trusting any cross-agent measure, prefer
-the subsampling-robust estimators the library ships (MR branching over the naive slope), and use the
-`_windowed` variants when the process is non-stationary. Treat an un-null-tested cross-agent number as
-shared-drive until shown otherwise — this project's own swarm runs are a standing reminder that measures which
-*look* collective often don't survive the null. See `references/designing-analyses.md`.
-Entity-aligned channels carry stable `EntityID`s in `EntityFrame`; nulls, analyses, and views must align by
-those IDs rather than assuming vector position is identity. Unknown non-entity channels are not safe to pass
-through a surrogate silently.
+For architecture or behaviour changes, run focused tests before the full package suite:
 
-## Reference files
+```bash
+julia --project=. -e 'using Pkg; Pkg.test()'
+```
 
-Read the relevant file in full when the task calls for depth — don't reconstruct API or schema details from
-memory.
+Build the locked site after guide or skill edits:
 
-- **`references/usage-and-workflows.md`** — the high-level API (`simulate` kwargs, `SimResult`, `visualize` /
-  `animate` / `explore` / `replay`, the recorder), discovery functions, and end-to-end recipes (baseline run,
-  swarm/dyad, headless output). Start here to *use* the lab.
-- **`references/cli-tools.md`** — the batch/tooling surfaces: `bench/` (cross-node comparison,
-  `train.jl`, `compare.jl`), `profile/` (single-node deep stats), `sweep/` (parameter + ablation
-  sweeps), and `calibration/`. Their separate project environments, exact commands, run-dir outputs,
-  and the **sweep TOML config schema**. Composed protocols live in `experiments/`.
-- **`references/designing-nodes.md`** — the node contract as a design contract; the three families and how each
-  must be tested (untrained vs evolved); composition-over-new-types; the `pack_params`/`snapshot_state` (genome
-  vs runtime state) split and `genome_type`; registration and type-stability pitfalls.
-- **`references/designing-environments-and-tasks.md`** — `AbstractBody`/`Embodiment`, stable component ports,
-  direct task adapters versus `ObjectWorld` and the established situated adapter, non-uniform effectors,
-  `TaskSpec` scoring, one-to-many ensembles, multiple needs, and component/task registration.
-- **`references/designing-analyses.md`** — the analysis contract, the criticality / collective / information
-  measure families and their caveats, and above all the **null-test discipline** (circular-shift null, MR
-  estimator, windowed vs pooled) plus a checklist for adding a validated measure.
-- **`references/research-workflow.md`** — evidence states, experimental units, controls, tuning/confirmation
-  separation, prospective power, and promotion provenance. Read before designing or interpreting a study.
-- **`references/agentic-safeguards.md`** — how to translate no/low-code requests, isolate work, protect sealed
-  evidence and user data, verify changes, and hand off without overstating what was established.
+```bash
+cd site
+bun run build
+```
 
-## Naming and conventions
+Check `git diff --check`. Inspect the final diff for unrelated user changes. Keep the
+checked-in and installed BrainlessLab skill identical only after code and documentation
+agree.
 
-Keep **"Reservoir"** for the node collective (the nodes are untrained by default) — not "Network"; this naming
-was chosen deliberately, don't re-propose the rename. User-facing documentation lives in the Astro/Starlight
-site under `site/` (published at <https://brainless-lab.pages.dev>); canonical contracts live
-under `/core/`, experimental capabilities under `/experimental/`, and the old `docs/*.md` set is retired.
+## References
 
-Use the current public body vocabulary exactly: `AbstractBody` is the dispatch boundary and `Embodiment` is the
-generic concrete composition. Its stable-ID components are geometry, sensors, encoders, actuators, dynamics,
-physiology, traits, and state. `ObjectWorld` is the generic fixed-population physical world; the older
-`SituatedEnvironment` remains an adapter for the established torus, forage, and signalling behavior.
-Do not introduce organism-specific body classes when component values express the difference.
+Read the relevant reference in full:
 
-For discoverable physical parts, query `components()` / `component_info(...)`; readiness is software-scoped:
-`:available` is discoverable/materializable, `:integrated` adds standard runtime + exact serialization + docs +
-an executable example, and `:core` is stable/default with named core-test coverage. Scientific
-evidence status remains a separate study property.
-The minimal differential-robot kit has `:core` software readiness: disc geometry, explicit
-no-physiology, spectral camera, identity encoder, differential-drive actuation, and
-differential-drive dynamics. Other built-in physical components remain `:integrated`.
-`ObjectWorld` is still an Experimental composition feature. Embodiment TOML materializes through
-`read_embodiment_config` → `materialize_blueprint` or `materialize_embodiment`. `DevelopmentSpec` evolves bounded
-real scalar paths on stable component IDs into a fresh runnable phenotype. Paths may use one-based tuple indices
-or stable named collection members such as `variables.energy.gain`; it does not vary structure, schedule
-births, or encode runtime state.
-
-For the bounded moving-shoal demonstrator, run
-`julia -t 4 --project=. experiments/run.jl shoal_vision_sweep`. The default is an explicitly
-underpowered two-block pilot that retains all sight/control conditions. Interpret material-
-need satisfaction as the primary endpoint. Keep physical cohesion (nearest-neighbour distance
-and largest proximity component), displacement coherence, and the perceptual graph as separate
-descriptive outcomes; do not convert them into a generic intelligence or shoaling score. With
-`record_every > 1`, contact counts and chord-based movement are recorder-grid diagnostics.
-Always inspect wall occupancy: common boundary following can raise displacement coherence
-without producing a cohesive shoal.
+- `references/usage-and-workflows.md` for simulation, recording, results, and plots;
+- `references/cli-tools.md` for plans, experiments, and records;
+- `references/designing-nodes.md` for node and runtime-state design;
+- `references/designing-environments-and-tasks.md` for tasks, bodies, ports, and worlds;
+- `references/designing-analyses.md` for analysis and null design;
+- `references/research-workflow.md` for evidence and interpretation;
+- `references/agentic-safeguards.md` for safe agent operation.

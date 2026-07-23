@@ -1,91 +1,133 @@
-# Usage and Workflows
+# Usage and workflows
 
-BrainlessLab.jl is a tinkering lab for *brainless* reservoirs — untrained recurrent
-node populations — placed in composed embodiments, dropped into tasks and worlds, and read out
-through analyses and figures. Almost everything you do at the top level flows through
-one function and one struct: `simulate` builds and runs an ensemble, returning a
-`SimResult`; `visualize` (and friends) turn that result into a picture. Prose docs live
-at <https://brainless-lab.pages.dev>; the sibling references cover the extension points
-(`designing-nodes.md`, `designing-environments-and-tasks.md`, `designing-analyses.md`)
-and the batch/CLI surface (`cli-tools.md`).
+Use this reference for interactive simulation, result inspection, recording, and plots.
+Use `cli-tools.md` when a question requires repeated trials or a portable record.
 
-## The two-liner mental model
+## Run one simulation
 
 ```julia
-using BrainlessLab, CairoMakie   # CairoMakie is what "activates" plotting
-sim = simulate(:wall; node=:falandays, ticks=300)
-fig = visualize(sim)
+using BrainlessLab
+
+sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11)
+task_outcome(sim)
 ```
 
-`simulate(task; node, ...) -> SimResult` is the whole compute surface. The core is
-deliberately **Makie-free**: you can run, score, and analyze without any plotting
-dependency loaded. The `visualize`, `animate`, `explore`, and `replay` generics exist in
-the core; their plotting methods and the individual recipes live in a package extension
-(`BrainlessLabMakieExt`, gated on the `Makie` weakdep in
-`Project.toml`). Load **CairoMakie** for static/headless rendering (`save` to PNG/GIF),
-**GLMakie** for the interactive `explore` window. If no backend is loaded, calling a
-plotting generic has no applicable backend method — that's expected, not a missing name.
+The symbol form constructs a registered task and node, runs one closed loop, and returns a
+`SimResult`. It is useful for diagnostics and exploration. Reusable work should construct
+a `CompositionSpec`; repeated evaluation should use an operation plan.
 
-A `SimResult` holds `recorder` (sampled channels for plotting), `metrics` (task or swarm
-diagnostics), and the `task`/`node` symbols plus a `config` snapshot that captured the
-environment bounds, network adjacency, ablation notes, and seed.
+A `SimResult` contains:
 
-## Discover, don't hardcode
+- `recorder`, with sampled channels;
+- `metrics`, with the task outcome and diagnostics;
+- task and node identifiers;
+- a configuration snapshot for the completed run.
 
-The registry is the live source of truth. Node variants, tasks, and analyses are all
-registered at load time, and third-party code can add more — so **query the registry
-rather than pasting symbol lists** that will silently drift:
+## Discover registered parts
+
+Query `DEFAULT_REGISTRY` instead of copying symbol lists:
 
 ```julia
-variants()             # registered node symbols, e.g. :falandays, :sorn, :compartmental_dense
-tasks()                # registered task symbols, e.g. :wall, :tracking, :pong, :cartpole, :torus, :forage
-analyses()             # every registered analysis symbol
-task_analyses(:wall)   # analyses that declare themselves relevant to a given task
-ablations()            # registered intervention symbols
-components()           # configured physical-component descriptors
-readiness()            # evidence-scoped component readiness rows
+nodes(DEFAULT_REGISTRY)
+tasks(DEFAULT_REGISTRY)
+tasks(DEFAULT_REGISTRY; tag=:benchmark)
+analyses(DEFAULT_REGISTRY)
+analyses(DEFAULT_REGISTRY; task=:tracking)
+ablations(DEFAULT_REGISTRY)
+compositions(DEFAULT_REGISTRY)
+components()
+readiness()
 ```
 
-Prefer these in scripts and generated code. A hardcoded `[:falandays, :sorn]` is a bug
-waiting to happen once someone registers a new node.
+Typed queries are the source for new plans and extensions. Zero-argument discovery
+functions remain available for the older symbol-based `simulate` façade.
 
-## `simulate` keyword arguments
+## Common `simulate` options
 
-`simulate(task::Symbol; node=:falandays, ...)` funnels through `_build_ensemble`, which
-sorts a flat bag of kwargs into node options, environment options, and run controls.
-The load-bearing ones:
+`simulate(task::Symbol; node=:falandays, ...)` accepts:
 
-- `node` — a registered variant symbol (default `:falandays`).
-- `ticks` — rollout length (defaults to the task's `default_ticks`).
-- `seed` — base RNG seed; swarm agents get `seed + i` so each reservoir differs.
-- `record` — channels to sample for plotting (default
-  `(:spikes, :rate, :poses, :polarization, :milling)`); `every=N` subsamples them.
-- `spectral_every` — stride for the (expensive) spectral-radius compute channel.
-- `n_nodes` (alias `N`) — reservoir size; defaults are per-node and, for the
-  canonical Falandays node on a paper task, taken from the paper config.
-- `window` — trailing window over which end-of-run metrics are computed.
-- `n_agents` — population size for a task whose setup supports populations. `:torus`
-  and `:forage` do; passing it to an ordinary single-agent task is an error. This is a
-  task capability, not a global switch that silently changes the environment type.
-- `body` — an `AbstractBody`, a registered body symbol, or a zero-argument body
-  constructor. Vector-valued `TaskWorld`s default to a direct `Embodiment`; situated task
-  setups construct their own composed embodiments. The body ports must match the setup.
-- `ablation` — a registered intervention (e.g. `:freeze_plasticity`, `:zero_recurrent`,
-  `:clamp_target`, `:disable_vision`). Interventions are node-aware and record notes;
-  an intervention that doesn't apply to the chosen node is a logged no-op, not an error.
-- `node_kwargs` / `env_kwargs` / `swarm_kwargs` — explicit per-layer option bags, useful
-  when a bare kwarg would be ambiguous.
-- `metrics=[...]` — extra metric symbols to compute at rollout end.
+- `ticks`: rollout length;
+- `seed`: root seed for the diagnostic run;
+- `record`: recorder channels;
+- `every`: recorder sampling interval;
+- `spectral_every`: sampling interval for the costly spectral-radius channel;
+- `n_nodes` or `N`: reservoir width;
+- `window`: trailing window for end-of-run metrics;
+- `n_agents`: population size for tasks that support it;
+- `body`: an `AbstractBody`, registered body name, or body constructor;
+- `node_kwargs`, `env_kwargs`, and `swarm_kwargs`: explicit option groups;
+- `metrics`: extra end-of-run analyses.
 
-For Falandays nodes, the recognized parameter kwargs (`lrate_wmat`, `lrate_targ`,
-`input_amp`, `threshold_mult`, `weight_init_mode`, `topology`, `sign`, `drive`,
-`membrane_noise`, `noise_gain`, ...) are pulled out of the flat kwargs and folded into a
-`FalandaysParams` / drive instance for you — so you can write
-`simulate(:wall; node=:falandays, lrate_wmat=0.02, topology=:watts_strogatz)` directly.
+The interactive `ablation` keyword is a compatibility path and may record a no-op when the
+intervention does not apply. Do not use that behaviour for a causal study. Use an
+`AblationPlan`, which validates capabilities and fails if an intervention is inapplicable
+or leaves the composition unchanged.
 
-## Embodiment configuration
+Falandays parameter options such as `leak`, `lrate_wmat`, `lrate_targ`, `input_amp`,
+`threshold_mult`, `weight_init_mode`, `topology`, `sign`, and `drive` may be passed in the
+node option group. Prefer an explicit `CompositionSpec` when these values must be retained
+as a reusable condition.
 
-Reusable physical bodies are strict component TOML files:
+## Read the declared task outcome
+
+```julia
+outcome = task_outcome(sim)
+```
+
+When the task declares a scalar outcome, the result contains:
+
+- `key`: the task's outcome name;
+- `raw`: the task-specific value;
+- `normalized`: the value mapped between the task's declared anchors.
+
+The function returns `nothing` when the task has no scalar outcome. Other fields under
+`sim.metrics` are diagnostics unless the `TaskSpec` declares them as the outcome.
+
+Raw outcomes are not comparable across tasks. Normalisation places values within each
+task's anchors but does not make the measured capacities identical. Keep Tracking, Pong,
+CartPole, and ecological outcomes separate.
+
+## Record the channels an analysis needs
+
+Analyses read completed recorder channels:
+
+```julia
+sim = simulate(
+    :torus;
+    node=:falandays,
+    n_agents=6,
+    ticks=400,
+    seed=7,
+    record=(:spikes, :rate, :poses, :polarization, :milling),
+    every=1,
+)
+```
+
+Node activity analyses usually need `:spikes` or `:rate`. Agent analyses usually need
+`:poses`. Record `:spectral_radius` only at a suitable `spectral_every` interval because it
+requires an eigenvalue calculation.
+
+Call analyses as ordinary functions:
+
+```julia
+branching_ratio_mr(sim; level=:node, kmax=4)
+susceptibility(sim; level=:agent)
+spectral_radius(sim)
+participation_ratio(sim)
+correlation_length(sim)
+crossshift_null(
+    sim,
+    shifted -> susceptibility(shifted; level=:agent).susceptibility;
+    n_shifts=200,
+)
+```
+
+Many analyses are experimental. State the estimator, scale, window, and null before
+interpreting a result.
+
+## Use physical embodiments
+
+Read and materialise a strict component configuration:
 
 ```julia
 config = read_embodiment_config("examples/embodiments/differential_robot.toml")
@@ -95,199 +137,106 @@ portspec(body)
 component_slots(body)
 ```
 
-Every materialization has fresh state. Stable component IDs survive into namespaced port
-IDs, recording, overrides, and bounded development. `materialize_blueprint(config)` returns
-resolved components without constructing a body. Discover configured kinds and validated
-parameter names with `components()` and `component_info(family, kind)`.
+Each materialisation creates fresh runtime state. Stable component IDs define port names,
+recording names, and bounded parameter overrides. Query
+`component_info(family, kind)` before writing component parameters.
 
-`ObjectWorld` is the generic fixed-population physical runtime: torus/walled arenas, static
-circular object populations, named analytic fields, spectral appearance/illumination,
-mounted field probes, typed effects, and one actuator/dynamics command per body.
-`SituatedEnvironment` is the established adapter for `:torus`, `:forage`, and signalling.
-
-The lower-level physical example exposes its live `Ensemble` and `Recorder`:
+`ObjectWorld` is the generic fixed-population physical runtime. The lower-level example
+returns the live ensemble and recorder:
 
 ```julia
 include("examples/embodiments/object_world_quickstart.jl")
 result = run_object_world_quickstart(ticks=25, seed=7)
-
-result.ensemble
-result.recorder
-result.objects
 ```
 
-An `ObjectType.bank` labels objects and render channels; it does not generate a scalar field.
-`MountedFieldProbe`s sample the independently supplied named analytic fields in `world.fields`.
-
-Add `TaskSpec` when standardized `SimResult`, rollout defaults, and scoring semantics are useful:
+The task example adds a `TaskSpec` and returns a standard `SimResult`:
 
 ```julia
 include("examples/embodiments/object_world_task.jl")
 sim = run_object_world_task(ticks=25, seed=11)
 task_outcome(sim)
-sim.metrics
-getchannel(sim.recorder, :objects)
 ```
 
-## Reading results
+Use a `DevelopmentSpec` to evolve declared scalar component parameters while keeping the
+component graph fixed. Runtime state never belongs to the development genome.
 
-```julia
-task_outcome(sim)                      # task-declared (key, raw, normalized), or nothing
-sim.metrics.polarization               # swarm: order parameter (alignment)
-sim.metrics.milling                    # swarm: rotational/vortex order
-sim.metrics.mean_distance_to_source    # forage: closeness to the resource
-```
+## Plot without changing the compute package
 
-`task_outcome(sim)` reads the objective declared by the recorded task contract. It returns
-the outcome key, raw value, and value normalized between that task's declared anchors;
-tasks with no scalar objective return `nothing`. Legacy fields under `sim.metrics` remain
-available as diagnostics but are not the canonical task-result handoff.
-
-**Raw outcomes are not comparable across tasks.** Each task defines its own effectors,
-success signal, and normalization anchors — this non-uniformity is intentional, not an
-oversight. Even normalized outcomes share a scale, not a construct: they do not make wall
-avoidance and pong performance scientifically interchangeable. See
-[Worlds, tasks, and populations](https://brainless-lab.pages.dev/core/worlds-tasks-populations/)
-and [Runs and results](https://brainless-lab.pages.dev/core/runs-results/) for the contract.
-
-## Visualization surface
-
-Everything below requires a Makie backend loaded.
-
-```julia
-visualize(sim; panels=[:raster, :rate, :trajectory])   # stacked multi-panel overview
-visualize(sim; panels=[:swarm, :rate])                 # swarm variant
-animate(sim; path="activity.gif", branching=true)      # GIF/MP4; branching=true adds σ(t)
-replay(sim)                                             # alias of visualize on a live result
-replay("runs/2026-07-04-wall")                          # rebuild a SimResult from a saved run dir
-explore(:torus; node=:falandays, n_agents=6)            # interactive GLMakie window (Play/Step)
-```
-
-Individual recipes each return a `Figure` and accept a `SimResult` (or bare `Recorder`):
-`rasterplot`, `rateplot`, `trajectoryplot`, `swarmplot`, `networkplot`, and
-`driftplot(sim; bin=N)` (spike-pattern autocorrelation heatmap). `explore` needs GLMakie
-specifically and will raise if only CairoMakie is loaded. Panels resolve through the view
-registry, so a custom registered view can also appear as a `panels=` entry.
-
-For a multi-agent result, select one stable identity with
-`networkplot(sim; entity=EntityID(3))` or `visualize(sim; entity=EntityID(3),
-panels=[:network, :raster])`. A bare integer is interpreted as an `EntityID`, not as a
-world slot. Selection is automatic only when exactly one agent exposes a network; an
-ambiguous multi-network result is an error rather than a silently chosen graph.
-
-## Analyses on a result
-
-The analysis functions are ordinary functions you call on a `SimResult`; the compute core
-exports them independent of Makie:
-
-```julia
-branching_ratio(sim)                              # per-tick σ(t) = A(t+1)/A(t)
-branching_ratio_mr(sim; level=:node, kmax=4)      # MR estimator, subsampling-robust
-branching_ratio_mr(sim; level=:agent, observable=spec)   # agent-level, on a chosen observable
-susceptibility(sim; level=:node)                  # or level=:agent
-spectral_radius(sim)                              # ρ(W)
-participation_ratio(sim)
-correlation_length(sim)                           # swarm velocity correlation length
-crossshift_null(sim, s -> susceptibility(s; level=:agent).susceptibility; n_shifts=5)
-transfer_entropy(sim)
-```
-
-Many are flagged *experimental* in the registry — treat their numbers as exploratory.
-The null test (`crossshift_null`) is the discipline: a real measure should beat its
-circular-shift surrogate. For the full picture — which measures pass which nulls, level
-semantics, and how to register your own — see `designing-analyses.md`.
-
-## Five end-to-end workflows
-
-**(a) Baseline + figure + GIF.** Run, glance at the score, save both a static overview and
-an animation:
+The compute package does not depend on Makie. Load a backend in a downstream or tool
+environment:
 
 ```julia
 using BrainlessLab, CairoMakie
-sim = simulate(:wall; node=:falandays, ticks=300, seed=11)
-@info "wall outcome" task_outcome(sim)
-save("wall_overview.png", visualize(sim))
-animate(sim; path="wall.gif", branching=true)     # needs :rate recorded (it is, by default)
+
+sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11)
+fig = visualize(sim; panels=[:raster, :rate, :trajectory])
+save("tracking.png", fig)
 ```
 
-**(b) Compare variants.** Hold task/seed/ticks fixed, sweep the node symbol, and read the
-per-variant metric — but remember scores are only comparable *within one task*:
+Use `CairoMakie` for saved images and headless work. Use `GLMakie` for `explore`:
 
 ```julia
-for node in (:falandays, :falandays_oosawa, :sorn)
-    s = simulate(:wall; node=node, ticks=220, seed=11)
-    @info node outcome=task_outcome(s)
-end
+using BrainlessLab, GLMakie
+explore(:torus; node=:falandays, n_agents=6)
 ```
 
-For anything beyond a quick loop — proper replicate sweeps, CSV output, parallelism — use
-the batch runner and `run_sweep`; see `cli-tools.md`.
+Available recipes include `rasterplot`, `rateplot`, `trajectoryplot`, `swarmplot`,
+`networkplot`, and `driftplot`. `animate` writes an animation when the recorder contains
+the required channels.
 
-**(c) Swarm / dyad.** Pass `n_agents` (or use `:torus`/`:forage`) and record the swarm
-channels:
+For a multi-agent result, select a stable identity:
 
 ```julia
-sim = simulate(:torus; node=:falandays, n_agents=2, ticks=400, seed=7,
-               record=[:spikes, :rate, :poses, :polarization, :milling])
-save("dyad.png", visualize(sim; panels=[:swarm, :rate]))
-@info "order" P=sim.metrics.polarization M=sim.metrics.milling
+networkplot(sim; entity=EntityID(3))
 ```
 
-Forage adds a resource source and closeness metric:
-`simulate(:forage; node=:falandays, n_agents=4, vision_range=4.5, ...)`.
+Automatic network selection is allowed only when exactly one entity exposes a network.
 
-**(d) Headless / SSH.** There is no display, so **never call `explore`**. Load CairoMakie,
-render, and `save` to a file:
+## Move from exploration to a research operation
 
-```julia
-using BrainlessLab, CairoMakie
-save("out.png", visualize(simulate(:wall; node=:falandays)))
+Use the smallest operation that answers the question:
+
+- use `ProfilePlan` to describe one composition;
+- use `SweepPlan` to map declared parameter values;
+- use `AblationPlan` to test a registered intervention;
+- use `EvolutionPlan` to select parameters and evaluate held-out targets;
+- use `BenchmarkPlan` to compare paired conditions within tasks.
+
+Validate before execution:
+
+```bash
+julia --project=. bin/brainlesslab.jl check plans/examples/profile_tracking.toml
+julia -t auto --project=. bin/brainlesslab.jl run \
+  plans/examples/profile_tracking.toml --root records
 ```
 
-`explore` is GLMakie-only and needs a window server; on a headless box it will fail or
-hang. CairoMakie + `save` is the always-safe path.
+Use an `ExperimentSpec` when several named conditions and operations form one versioned
+scientific protocol. See `cli-tools.md`.
 
-**(e) Inspect a physical preset.** Materialization is useful even before a task is defined:
+## Set up the Julia environment
 
-```julia
-config = read_embodiment_config("examples/embodiments/bilateral_insect.toml")
-body = materialize_embodiment(config)
-@info "ports" receptors=n_receptors(body) effectors=n_effectors(body)
-@info "components" component_slots(body)
-```
-
-To evolve selected scalar component parameters, create a `DevelopmentSpec`, construct or
-unpack a `DevelopmentGenotype`, then call
-`materialize_embodiment(develop(genotype, DevelopmentContext(...)))`. Development keeps the
-component graph fixed and never carries runtime state into the phenotype.
-
-## Environment setup
-
-BrainlessLab is a normal Julia project. Instantiate and run the headless quickstart without
-modifying the root environment:
+Instantiate the repository environment and run the headless quick start:
 
 ```bash
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
 julia --project=. examples/quickstart.jl
 ```
 
-Use `pkg> dev /path/to/brainless-lab` only when a different downstream project should track
-this checkout as one of its dependencies. Install CairoMakie or GLMakie in that downstream
-project or a dedicated tool/example environment; do not add optional plotting packages to
-the BrainlessLab root merely to render one figure.
+Use `Pkg.develop(path="/path/to/brainless-lab")` only from a separate downstream project
+that must track this checkout. Do not add optional plotting packages to the BrainlessLab
+root to render one figure.
 
-Makie is declared under `[weakdeps]`/`[extensions]` in `Project.toml`, so the core
-installs and runs without it. Run the test suite with `Pkg.test()` (or `pkg> test`).
+Run package tests with:
 
-## Stable vs. experimental discipline
+```bash
+julia --project=. -e 'using Pkg; Pkg.test()'
+```
 
-`:falandays` (`:falandays_base` is a compatibility alias) is the **settled,
-authors-faithful published baseline**
-— treat it as the reference point you compare everything against. Every other node
-variant, task, analysis, and ablation is **experimental platform**: useful, but not
-canon. Scores and effectors are intentionally non-uniform across tasks — do not expect a
-single normalized number that lets you rank a wall run against a pong run. When in doubt,
-anchor on `:falandays`, use `task_outcome`, and read the
-[Core handbook](https://brainless-lab.pages.dev/core/getting-started/) before drawing
-conclusions. Use the [Experimental catalog](https://brainless-lab.pages.dev/experimental/)
-to inspect capability readiness; that readiness is separate from study evidence.
+## Interpretation boundary
+
+The `:falandays` node is validated on declared reference trajectories. This does not
+establish behavioural equivalence for every task. Other nodes, tasks, analyses, and
+physical components have their own readiness and evidence status.
+
+A software-ready capability may still lack construct validity. A complete record may still
+be exploratory. Report those facts separately.

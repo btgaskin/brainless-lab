@@ -89,6 +89,10 @@ struct TaskSpec{S,E} <: AbstractTask
     n_effectors::Union{Nothing,Int}
     default_ticks::Int
     default_window::Int
+    interaction_cycle::Union{Nothing,InteractionCycle}
+    status::Symbol
+    tags::Tuple{Vararg{Symbol}}
+    protocol::NamedTuple
     floor::ScoreAnchor
     ceiling::ScoreAnchor
     score_key::Union{Nothing,Symbol}
@@ -102,6 +106,10 @@ function TaskSpec(
     n_effectors::Integer=n_effectors(env_type),
     default_ticks::Integer=default_ticks(env_type),
     default_window::Integer=default_window(env_type),
+    interaction_cycle::Union{Nothing,InteractionCycle}=nothing,
+    status::Symbol=:stable,
+    tags=(),
+    protocol::NamedTuple=NamedTuple(),
     floor=nothing,
     ceiling=nothing,
     score_floor=nothing,
@@ -117,6 +125,10 @@ function TaskSpec(
         n_effectors=n_effectors,
         default_ticks=default_ticks,
         default_window=default_window,
+        interaction_cycle=interaction_cycle,
+        status=status,
+        tags=tags,
+        protocol=protocol,
         floor=floor,
         ceiling=ceiling,
         score_floor=score_floor,
@@ -134,6 +146,10 @@ function TaskSpec(
     n_effectors=nothing,
     default_ticks::Integer=1000,
     default_window::Integer=default_ticks,
+    interaction_cycle::Union{Nothing,InteractionCycle}=nothing,
+    status::Symbol=:stable,
+    tags=(),
+    protocol::NamedTuple=NamedTuple(),
     floor=nothing,
     ceiling=nothing,
     score_floor=nothing,
@@ -142,6 +158,14 @@ function TaskSpec(
     descriptor_keys=Symbol[],
 ) where {S}
     task_name = Symbol(name)
+    status in (:reference, :stable, :experimental, :control, :alias) ||
+        throw(ArgumentError(
+            "task :$(task_name) status must be :reference, :stable, :experimental, :control, or :alias",
+        ))
+    tags_ = Tuple(Symbol(tag) for tag in tags)
+    length(unique(tags_)) == length(tags_) || throw(ArgumentError(
+        "task :$(task_name) tags must be unique; got $(tags_)",
+    ))
     floor_anchor = _task_anchor(
         task_name,
         :floor,
@@ -164,6 +188,10 @@ function TaskSpec(
         n_effectors === nothing ? nothing : Int(n_effectors),
         Int(default_ticks),
         Int(default_window),
+        interaction_cycle,
+        status,
+        tags_,
+        protocol,
         floor_anchor,
         ceiling_anchor,
         score_key,
@@ -227,8 +255,10 @@ end
 const WALL_TASK = TaskSpec(
     :wall,
     WallEnv;
-    floor=null_anchor(0.763125, "null=null_random, score_key=nav_score, seeds 0:7, git d420563, 2026-07-04"),
-    ceiling=analytic(1.0; note="nav_score max = collision-free navigation while moving (a true analytic optimum); untrained falandays ref measured ~0.013 << null 0.763, so the analytic optimum is the honest ceiling, not a reference agent"),
+    status=:experimental,
+    tags=(:extended,),
+    floor=null_anchor(0.775625, "task=wall, null=null_random, score_key=nav_score, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
+    ceiling=analytic(1.0; note="nav_score max = collision-free navigation while moving (a true analytic optimum); untrained falandays ref measured ~0.013 << null 0.776, so the analytic optimum is the honest ceiling, not a reference agent"),
     score_key=:nav_score,
     descriptor_keys=[:collisions_window, :distance_window],
 )
@@ -236,6 +266,8 @@ const WALL_TASK = TaskSpec(
 const TRACKING_TASK = TaskSpec(
     :tracking,
     TrackingEnv;
+    status=:reference,
+    tags=(:benchmark, :qualification, :core),
     floor=analytic(0.0; note="E[cos]=0 chance"),
     ceiling=analytic(1.0; note="perfect heading alignment"),
     score_key=:track_score,
@@ -244,7 +276,9 @@ const TRACKING_TASK = TaskSpec(
 const PONG_TASK = TaskSpec(
     :pong,
     PongEnv;
-    floor=null_anchor(0.3561507936507936, "null=null_random, score_key=hit_rate, seeds 0:7, git d420563, 2026-07-04"),
+    status=:reference,
+    tags=(:benchmark, :qualification, :core),
+    floor=null_anchor(0.35317460317460314, "task=pong, null=null_random, score_key=hit_rate, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
@@ -252,7 +286,9 @@ const PONG_TASK = TaskSpec(
 const PONG_HITRATE_TASK = TaskSpec(
     :pong_hitrate,
     PongEnv;
-    floor=null_anchor(0.3561507936507936, "null=null_random, score_key=hit_rate, seeds 0:7, git d420563, 2026-07-04"),
+    status=:alias,
+    tags=(:alias,),
+    floor=null_anchor(0.35317460317460314, "task=pong_hitrate, null=null_random, score_key=hit_rate, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
@@ -260,6 +296,8 @@ const PONG_HITRATE_TASK = TaskSpec(
 const CARTPOLE_TASK = TaskSpec(
     :cartpole,
     CartPoleEnv;
+    status=:experimental,
+    tags=(:extended, :control),
     floor=analytic(0.0; note="minimum balanced fraction"),
     ceiling=analytic(1.0; note="full episode balanced"),
 )
@@ -267,6 +305,8 @@ const CARTPOLE_TASK = TaskSpec(
 const CARTPOLE_HARD_TASK = TaskSpec(
     :cartpole_hard,
     CartPoleHardEnv;
+    status=:experimental,
+    tags=(:extended, :legacy_cartpole_variant),
     floor=analytic(0.0; note="minimum balanced fraction"),
     ceiling=analytic(1.0; note="full window balanced"),
 )
@@ -274,7 +314,9 @@ const CARTPOLE_HARD_TASK = TaskSpec(
 const CARTPOLE_SWINGUP_TASK = TaskSpec(
     :cartpole_swingup,
     CartPoleSwingupEnv;
-    floor=null_anchor(0.1569039231621101, "null=null_random, score_key=mean_uprightness, seeds 0:7, git d420563, 2026-07-04"),
+    status=:experimental,
+    tags=(:extended, :legacy_cartpole_variant),
+    floor=null_anchor(0.05026043382947809, "task=cartpole_swingup, null=null_random, score_key=mean_uprightness, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
     ceiling=analytic(1.0; note="perfect uprightness"),
     score_key=:mean_uprightness,
 )
@@ -282,12 +324,84 @@ const CARTPOLE_SWINGUP_TASK = TaskSpec(
 const CARTPOLE_LONG_TASK = TaskSpec(
     :cartpole_long,
     CartPoleLongEnv;
+    status=:experimental,
+    tags=(:extended, :legacy_cartpole_variant),
     floor=analytic(0.0; note="minimum balanced fraction"),
     ceiling=analytic(1.0; note="full window balanced"),
 )
 
+const PLANK_CARTPOLE_PROTOCOL = (
+    family=:plank_cartpole_2025,
+    source_doi="10.3390/jlpea15010005",
+    source_repository="TENNLab-UTK/framework-open",
+    source_path="markdown/cartpole_example.md",
+    neural_frames=PLANK_CARTPOLE_NEURAL_FRAMES,
+    evaluation=EvaluationSpec(
+        blocks=1,
+        trials_per_block=PLANK_CARTPOLE_EVAL_EPISODES,
+        horizon=PLANK_CARTPOLE_MISSION_STEPS,
+        construction_scope=:evaluation,
+        reset=:full,
+        root_seed=10_000,
+        aggregate=:mean,
+    ),
+    cross_task_aggregate=false,
+    conformance=(
+        dynamics=:gym_default_explicit_euler,
+        spike_ff_2=:authors_source_example_matched,
+        argyle_4=:paper_specified_adjacent_bins_brainlesslab_schedule_v1,
+        voting=:authors_source_lower_index_tie,
+    ),
+)
+
+function _plank_cartpole_task(level_name::Symbol)
+    level = plank_cartpole_level(level_name)
+    receptor_count = level.encoder === :argyle_4 ?
+        4length(level.observation_indices) :
+        2length(level.observation_indices)
+    return TaskSpec(
+        Symbol(:cartpole_plank_, level.name),
+        PlankCartPoleSetup(level);
+        env_type=PlankCartPoleEnv,
+        n_receptors=receptor_count,
+        n_effectors=length(level.actions),
+        default_ticks=PLANK_CARTPOLE_MISSION_STEPS,
+        default_window=PLANK_CARTPOLE_MISSION_STEPS,
+        interaction_cycle=FixedRateCycle(PLANK_CARTPOLE_NEURAL_FRAMES),
+        status=:experimental,
+        tags=(:experimental, :plank_cartpole),
+        protocol=(;
+            PLANK_CARTPOLE_PROTOCOL...,
+            level=level.name,
+            observations=level.observation_indices,
+            actions=level.actions,
+            encoder=level.encoder,
+            target_fitness=level.target_fitness,
+            activity_threshold=level.activity_threshold,
+        ),
+        floor=analytic(0.0; note="minimum raw CartPole fitness"),
+        ceiling=analytic(
+            PLANK_CARTPOLE_MISSION_STEPS;
+            note="maximum mission time before the Medium activity adjustment",
+        ),
+        score_key=:fitness,
+        descriptor_keys=(
+            :mission_fraction,
+            :steps_balanced,
+            :noop_fraction,
+            :target_fitness,
+            :achieved,
+        ),
+    )
+end
+
+const CARTPOLE_PLANK_EASY_TASK = _plank_cartpole_task(:easy)
+const CARTPOLE_PLANK_MEDIUM_TASK = _plank_cartpole_task(:medium)
+const CARTPOLE_PLANK_HARD_TASK = _plank_cartpole_task(:hard)
+const CARTPOLE_PLANK_HARDEST_TASK = _plank_cartpole_task(:hardest)
+
 const FORAGE_FLOOR_ANCHOR =
-    null_anchor(0.4556865216303779, "null=null_random, score_key=forage_score, seeds 0:7, git d420563, 2026-07-04")
+    null_anchor(0.45826637542592896, "task=forage, null=null_random, score_key=forage_score, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23")
 const FORAGE_CEILING_ANCHOR =
     analytic(1.0; note="agents on source")
 

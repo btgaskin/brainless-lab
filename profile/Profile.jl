@@ -527,7 +527,8 @@ end
     task_profile(node_sym, task; n_seeds=8, canonical_N=CANONICAL_N)
 
 Run `n_seeds` rollouts of `task` with `node_sym` at the task's canonical N,
-recording `(:rate, :scene, :poses)`, over the task's default ticks. Returns a
+recording task signals plus rate and scene channels over the task's default
+ticks. Returns a
 NamedTuple with the seed-averaged branching-ratio series, mean/std sigma,
 mean/std score, the run parameters used (N, R, E, ticks), and `factor_data`:
 per task-scoped analysis registered for the task, the seed-1 σ(t) and
@@ -561,7 +562,9 @@ function task_profile(node_sym::Symbol, task::Symbol; n_seeds::Integer=8, canoni
     seed1_target_error = nothing
 
     seed_results = BrainlessLab.parallel_map(1:Int(n_seeds)) do s
-        record_channels = s == 1 ? (:spikes, :rate, :scene, :poses, :acts, :targets) : (:spikes, :rate, :scene, :poses)
+        record_channels = s == 1 ?
+            (:spikes, :rate, :scene, :poses, :percepts, :acts, :targets) :
+            (:spikes, :rate, :scene, :poses)
         sim = simulate(task; node=node_sym, n_nodes=N, seed=s, record=record_channels)
         br = branching_ratio(sim)
         sigma_mr_value = try

@@ -895,7 +895,8 @@ function _draw_scene_frame!(ax, s, f, nt)
                             color=_TEAL, linewidth=4)                                        # pole
         Makie.scatter!(ax, [s.x + L * sin(s.theta)], [L * cos(s.theta)];
                        markersize=12, color=_TEAL, strokecolor=_PAPER, strokewidth=0.8)
-        ax.title = "cartpole   tick $f/$nt   θ=$(round(rad2deg(s.theta); digits=1))°"
+        level = hasproperty(s, :level) ? " · $(s.level)" : ""
+        ax.title = "cartpole$(level)   tick $f/$nt   θ=$(round(rad2deg(s.theta); digits=1))°"
     else
         ax.title = "tick $f/$nt"
     end

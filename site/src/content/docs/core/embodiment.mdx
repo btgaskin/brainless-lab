@@ -4,7 +4,7 @@ description: Compose geometry, sensing, encoding, actuation, dynamics, physiolog
 ---
 
 An embodiment closes the reservoir through a world. Sensor geometry, encoding, actuator
-limits, dynamics, and optional physiology can all change behavior while the reservoir
+limits, dynamics, and optional physiology can all change behaviour while the reservoir
 remains fixed.
 
 `AbstractBody` is the dispatch boundary. `Embodiment <: AbstractBody` is the standard
@@ -18,7 +18,7 @@ An `Embodiment` composes:
 ```text
 geometry
 sensors → encoders → receptor ports
-effector ports → actuators → typed commands → dynamics
+neural-frame outputs → readout → effector ports → actuators → typed commands → dynamics
 optional physiology → feedback receptors, effect interpretation, viability
 traits + runtime state
 ```
@@ -36,8 +36,9 @@ n_effectors(body)
 ## Sensing and action stay separate
 
 A sensor declares and samples raw physical values. An encoder converts identified sensor
-samples into reservoir receptor channels. An actuator converts normalized effector values
-into a bounded command. A dynamics component integrates that command into motion.
+samples into one or more reservoir receptor frames. A readout reduces neural-frame outputs
+to one effector signal. An actuator converts that signal into a bounded typed command. A
+dynamics component integrates that command into motion.
 
 The main path is:
 
@@ -45,8 +46,9 @@ The main path is:
 world sample
   → sensor sample
   → encoder
-  → receptor vector
-  → reservoir
+  → receptor frame(s)
+  → reservoir frame(s)
+  → readout
   → effector vector
   → actuator
   → typed command
@@ -54,12 +56,13 @@ world sample
 ```
 
 The built-in physical component families include spectral cameras, mounted field probes,
-bilateral contrast encoding, wheel or forward-turn actuation, and planar force/yaw
-actuation. Query the catalog instead of assuming parameter names:
+bilateral contrast encoding, mean/instant/voting readouts, wheel or forward-turn actuation,
+and planar force/yaw actuation. Query the catalog instead of assuming parameter names:
 
 ```julia
 components(family=:sensor)
 component_info(:sensor, :spectral_camera)
+component_info(:readout, :voting)
 readiness()
 ```
 
@@ -76,7 +79,7 @@ robotic fidelity rating.
 - a response curve;
 - feedback mode and gain;
 - stochastic emission and optional receptor-link probability;
-- optional failure behavior.
+- optional failure behaviour.
 
 Feedback is off unless enabled. Available modes include off, tonic, Bernoulli pulses, and
 explicit replay.
@@ -133,7 +136,7 @@ materialization. Do not infer the final graph from the explicit TOML entries alo
 paths. It creates a fresh phenotype from a fixed component structure. It does not add or
 remove components, change port structure, encode runtime state, or schedule births.
 
-Use this seam for parameters such as sensor range, sensor placement, response time,
+Use bounded development for parameters such as sensor range, sensor placement, response time,
 actuator limits, motion constants, or physiology gain. Treat a selected phenotype as a
 development result until it is tested on untouched worlds.
 

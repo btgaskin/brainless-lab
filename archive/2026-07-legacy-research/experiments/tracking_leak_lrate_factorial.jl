@@ -215,5 +215,5 @@ function run_tracking_leak_lrate_factorial(; leaks=TRACKING_FACTORIAL_DEFAULT_LE
     return dir
 end
 
-register_experiment!(:tracking_leak_lrate_factorial, run_tracking_leak_lrate_factorial;
+ExpRegistry.register_experiment!(:tracking_leak_lrate_factorial, run_tracking_leak_lrate_factorial;
     description="leak × lrate_wmat factorial on the paper tracking model — the joint viability landscape over the two interacting homeostatic-gain axes.")

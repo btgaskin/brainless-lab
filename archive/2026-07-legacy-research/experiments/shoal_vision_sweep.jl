@@ -1024,13 +1024,13 @@ end
 run_shoal_sensitivity_screen(; diagnostics=false, kwargs...) =
     run_shoal_vision_sweep(; profile=:sensitivity, diagnostics, kwargs...)
 
-register_experiment!(
+ExpRegistry.register_experiment!(
     :shoal_vision_sweep,
     run_shoal_vision_sweep;
     description="Underpowered exploratory sweep of conspecific sight distance, bearing alignment, and association need in moving Falandays shoals.",
 )
 
-register_experiment!(
+ExpRegistry.register_experiment!(
     :shoal_sensitivity_screen,
     run_shoal_sensitivity_screen;
     description="Underpowered one-factor sensitivity screen for shoal input gains, need dynamics, response curves, and resource sight range.",

@@ -1,58 +1,61 @@
 ---
 title: The Falandays node
-description: The canonical online-plastic Falandays reservoir, its local homeostatic update, and its validation boundary.
+description: The canonical online-plastic Falandays reservoir, its local update, and its fixture-validation boundary.
 ---
 
-Use `node=:falandays` for the canonical BrainlessLab baseline:
+Use `node=:falandays` for the canonical BrainlessLab reference:
 
 ```julia
 sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11)
 ```
 
-`:falandays_base` remains an accepted compatibility name. The handbook uses
-`:falandays`.
+This implementation follows the model in Falandays, Yoshimi, Warren, and Spivey,
+[“A potential mechanism for Gibsonian resonance”](https://doi.org/10.1007/s11571-023-09988-2).
 
-## What the node does
+## Node update
 
-Each Falandays node is a leaky integrate-and-fire unit. A reservoir contains many such
-nodes. The membrane value receives sensory and recurrent input, leaks, and produces a spike
-when it crosses a threshold.
-
-For node \(i\):
+Each node is a leaky integrate-and-fire unit. Its activation receives sensory current and
+recurrent input from spikes at the previous neural step:
 
 $$
-a_i \leftarrow a_i(1-\lambda)
-  + \sum_r W^{\mathrm{in}}_{ri}R_r
-  + \sum_j W_{ji}s^{\mathrm{prev}}_j
+a_i(t) \leftarrow a_i(t-1)(1-\lambda)
+  + \sum_r W^{\mathrm{in}}_{ri}R_r(t)
+  + \sum_j W_{ji}(t)s_j(t-1).
 $$
 
-The node fires above its scaled target threshold:
+The node spikes when its activation crosses a multiple of its local target:
 
 $$
-s_i = \mathbb{1}[a_i \ge \mu T_i].
+s_i(t) = \mathbb{1}[a_i(t) \ge \mu T_i(t)].
 $$
 
-After a spike, the implementation resets by subtracting the threshold. It does not clamp
-the membrane to zero.
-
-## Local homeostatic adaptation
-
-The node compares its post-spike membrane value with its target:
+After a spike, the implementation subtracts the threshold from the activation. It does not
+set the activation to zero. The local error is then
 
 $$
-e_i = a_i - T_i.
+e_i(t) = a_i(t) - T_i(t).
 $$
 
-The implementation changes active recurrent inputs and the node target using this local
-error. Both updates occur during the rollout. There is no separate training phase for the
-canonical model.
+If \(k_i(t)\) presynaptic neighbours spiked at the previous step, the unsigned reference
+update changes each active incoming recurrent weight by
 
-This is why an untrained Falandays reservoir is a meaningful baseline. It self-organises
-online. A fixed-weight reservoir does not have the same preparation contract.
+$$
+W_{ji}(t+1) = W_{ji}(t) -
+  \eta_W\frac{e_i(t)}{k_i(t)}.
+$$
 
-## Task-specific canonical settings
+The target activity level changes as
 
-The canonical tracking, Pong, and wall tasks use authors-derived task settings through:
+$$
+T_i(t+1) = \max\left(T_i(t) + \eta_T e_i(t), T_{\min}\right).
+$$
+
+Both changes occur during behaviour. There is no separate task-loss training phase, but
+the reservoir does adapt online.
+
+## Canonical task settings
+
+Tracking, Pong, and Wall use settings derived from the authors' task implementations:
 
 ```julia
 falandays_paper_config(:tracking)
@@ -60,61 +63,43 @@ falandays_paper_config(:pong)
 falandays_paper_config(:wall)
 ```
 
-These settings include task-specific node count, input amplitude, learning rates, and
-wiring details. A Falandays run in another task does not automatically receive one of those
-single-agent task profiles.
+The settings differ in node count, receptor width, input amplitude, target learning rate,
+and weight initialisation. A named node therefore does not imply one numerical
+parameterisation across tasks. The resolved composition and evaluation record are the
+method.
 
-Record the resolved configuration. Do not assume that one named node implies identical
-numeric settings in every task.
+BrainlessLab uses Tracking and Pong as the initial core task set. Wall remains available
+for experimental work but is not part of that core comparison.
 
-## Baseline and experimental variants
+## Validation boundary
 
-The canonical baseline uses the tested Falandays update and authors-derived construction.
-Other registered Falandays names change one or more axes, such as:
+The canonical implementation is compared with authors-derived, 48-step reference
+trajectories for Tracking, Pong, and Wall. The checks cover activation, targets, spikes,
+errors, and final recurrent weights at the declared tolerances.
 
-- sensory noise;
-- small-world or spatial wiring;
-- excitatory and inhibitory sign constraints;
-- endogenous Oosawa drive;
-- delayed transmission;
-- dendritic eligibility;
-- hemispheric composition;
-- plasticity ablation.
+This is trajectory-level fixture validation. It does not establish:
 
-These variants are experimental platform models. A useful comparison keeps the task,
-body, seed block, and all unrelated axes fixed.
+- closed-loop behavioural replication of every result in the article;
+- fidelity for every body, task, or experimental variant;
+- biological validity of the node model;
+- general performance beyond the declared composition.
 
-Prefer explicit axes or a small preset when the node update contract is unchanged. Add a
-new `Reservoir` subtype only for a genuinely different update or state contract.
+Keep three questions separate:
 
-## What “authors-faithful” means
+1. Does the implementation match the declared reference trajectories?
+2. How does a composed agent perform under a declared task and evaluation protocol?
+3. What scientific claim is supported by the controls and independent replications?
 
-The canonical reservoir is checked against local authors-derived reference trajectories
-within declared numerical tolerances. This validates the tested node construction and
-update path. It does not validate:
+## Variants and new mechanisms
 
-- every task or body;
-- the generic physical world;
-- ecological or multi-agent mechanisms;
-- every experimental variant;
-- every biological interpretation in the paper;
-- behavior outside the tested fixtures.
+Experimental variants alter recurrent structure, signs, delays, dendritic eligibility,
+sensory noise, or endogenous drive. Compare them while holding unrelated parts of the
+composition and evaluation fixed.
 
-The source paper contains an ambiguous printed coefficient. BrainlessLab follows the
-authors' reference implementation and states that choice. “Authors-faithful” is more precise
-than “paper-faithful.”
+Use a parameter or registered mechanism when the update interface stays the same. Add a
+new `Reservoir` subtype when state, stepping, plasticity, or readout changes materially.
 
-## The claim boundary
-
-A fixture-valid reservoir can still perform poorly on a task. A strong task result can
-still depend on a body, initial condition, or parameter choice. Keep three statements
-separate:
-
-1. the node implementation matches its tested reference;
-2. the composed agent performs under a declared task;
-3. the result supports a scientific claim under controls and independent replication.
-
-Use [Reservoirs and node models](/core/reservoirs/) for other node families and preparation
-rules. Use [Design a study](/core/design-study/) before comparing variants.
+Read [Reservoirs and node models](/core/reservoirs/) for preparation rules and
+[Design a study](/core/design-study/) before comparing variants.
 
 <p class="bl-source">Source: <code>src/nodes/Falandays.jl</code>, <code>src/nodes/Axes.jl</code>, <code>src/api/paper_config.jl</code>, <code>test/oracle/authors_falandays.jl</code>.</p>

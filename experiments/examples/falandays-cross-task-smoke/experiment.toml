@@ -1,0 +1,20 @@
+conditions = ["tracking_development", "tracking_confirmation", "pong_heldout", "pong_development", "pong_confirmation", "tracking_heldout"]
+evidence_state = "planned"
+format = "brainlesslab-experiment"
+format_version = 1
+id = "falandays_cross_task_smoke"
+limitations = ["Smoke-test budgets only; the generated outputs are not research evidence.", "The operations evolve registered Falandays parameters while node structure, bodies, receptors, and effectors remain fixed.", "Any later scientific use requires a frozen protocol, larger development budgets, and adequately powered held-out evaluation."]
+question = "Can the versioned experiment path evolve Falandays parameters on Tracking or Pong, confirm performance on fresh seeds, and evaluate the selected parameters on the other task?"
+title = "Reciprocal Falandays parameter evolution smoke experiment"
+version = "1.0.0"
+
+[metadata]
+programme = "initial_core_benchmark"
+role = "workflow_smoke"
+
+[[operations]]
+id = "evolve_tracking_test_pong_example"
+plan = "01-evolve_tracking_test_pong_example.toml"
+[[operations]]
+id = "evolve_pong_test_tracking_example"
+plan = "02-evolve_pong_test_tracking_example.toml"

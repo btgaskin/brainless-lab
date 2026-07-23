@@ -3,16 +3,19 @@ title: Architecture
 description: The core BrainlessLab abstractions, ownership boundaries, and synchronous closed-loop lifecycle.
 ---
 
-BrainlessLab uses one composition from a single agent to a mixed population:
+BrainlessLab separates the runtime that produces behaviour from the research protocol that
+compares behaviour:
 
 ```text
-NodeModel → Reservoir → AbstractBody → Agent → Ensemble{Environment}
-                                                    ↓
-                                                  Task
-                                                    ↓
-                                             Runner → Run
-                                                    ↘
-                                                   Recorder
+runtime
+NodeSpec + TaskSpec + body + InteractionCycle
+  → CompositionSpec → Reservoir + embodied agent(s) + Environment → SimResult
+
+research
+CompositionSpec + EvaluationSpec
+  → EvaluationTarget → operation plan → typed result → research record
+named EvaluationTargets + operation plans
+  → ExperimentSpec
 ```
 
 A reservoir contains nodes. An ensemble contains embodied agents. The same `step!` lifecycle
@@ -24,12 +27,22 @@ runs an ensemble of one and an ensemble of many.
 - **`Reservoir`** stores a population of nodes, wiring, and dynamic state.
 - **`AbstractBody`** is the dispatch boundary between a reservoir and a world.
 - **`Embodiment`** is the generic concrete body composition.
-- **`Agent`** pairs one reservoir with one body.
+- **`Agent`** pairs one reservoir with one body and one interaction cycle.
 - **`Environment`** owns external state and relations.
 - **`Ensemble`** advances one or more agents synchronously.
 - **`TaskSpec`** supplies setup, rollout defaults, and optional score metadata.
+- **`NodeSpec`** registers one node builder, parameters, parameter sets, capabilities,
+  equations, and default analyses.
+- **`CompositionSpec`** selects one node, task, optional body, node count, parameters, and
+  interaction cycle.
+- **`EvaluationSpec`** owns blocks, trials, horizon, warm-up, construction scope, reset,
+  named random streams, and aggregation.
+- **`EvaluationTarget`** names one composition under one evaluation protocol.
 - **`Recorder`** samples declared channels off the simulation hot path.
 - **`SimResult`** carries a recorder, metrics, task, node, and resolved configuration.
+- **operation plans** define profile, sweep, ablation, evolution, or benchmark work.
+- **`ExperimentSpec`** is the versioned scientific envelope: question, named conditions,
+  operations, evidence state, limitations, and metadata.
 
 ## Ownership is explicit
 
@@ -39,6 +52,7 @@ runs an ensemble of one and an ensemble of many.
 | physical footprint | geometry component |
 | raw physical sample | sensor plus world sampling method |
 | raw sample to receptor channels | encoder |
+| neural-frame outputs to one effector signal | readout |
 | effector values to bounded command | actuator |
 | command to motion | dynamics |
 | optional internal regulation, feedback, effects, and viability | physiology |
@@ -55,9 +69,11 @@ the effect came from food.
 ```text
 prepare world
   → sample every body from the same pre-action state
-  → sample sensors and encode receptor ports
-  → append any physiology feedback receptors
-  → step each reservoir and read its effectors
+  → sample sensors once
+  → encode one or more native neural frames
+  → append any physiology feedback receptors to each frame
+  → step each reservoir for each neural frame
+  → reduce neural-frame outputs through the body's readout
   → decode typed commands
   → apply the full command frame
   → collect world effects
@@ -67,6 +83,15 @@ prepare world
 
 No agent sees another agent's already-applied action from the same tick. This invariant
 matters for causal timing and replay.
+
+`FixedRateCycle(K)` makes the world-to-neural clock explicit. The world is sampled once,
+an encoder may distribute that observation over `K` neural frames, and the body emits one
+command after its readout finishes. A reservoir may still own internal integration below
+one neural frame. These are separate clocks; neither belongs in the task-specific world.
+
+The default `MeanReadout` preserves the prior held-input behaviour. `InstantReadout` selects
+the final neural frame. `VotingReadout` makes categorical frame voting explicit, including
+its deterministic first-index tie rule. See [Interaction cycles](/core/interaction-cycle/).
 
 ## Ports join the body and reservoir
 
@@ -106,15 +131,28 @@ Julia methods are the public extension mechanism. Registries add discoverable na
 configuration:
 
 ```julia
-variants()
-tasks()
+nodes(DEFAULT_REGISTRY)
+tasks(DEFAULT_REGISTRY)
 components()
-analyses()
-ablations()
+analyses(DEFAULT_REGISTRY)
+ablations(DEFAULT_REGISTRY)
+compositions(DEFAULT_REGISTRY)
 ```
 
-Use a registry when selection by name is useful. Use direct typed composition when a name
-does not add value. A registry does not replace the Julia contract.
+`DEFAULT_REGISTRY` is the canonical authority for plans and typed composition. Use a
+registry when selection by name is useful. Use direct typed composition when a name does
+not add value. A registry does not replace the Julia contract. The zero-argument discovery
+and `register_*!` helpers support the older symbol-based simulation façade only.
+
+Component registries and the experiment registry are deliberately separate. A
+`RegistrySet` resolves runtime components and composition presets. An `ExperimentRegistry`
+contains versioned `ExperimentSpec`s. Registering an experiment validates every operation
+against the component registry and rejects conditions that change under the same name.
+
+`ExperimentSpec` is not another runner. It groups the exact operation plans that implement
+a scientific question. Each operation still writes its own record, so selection,
+evaluation, and benchmarking remain visible rather than being hidden inside an experiment
+callback.
 
 ## No hidden controller
 
@@ -130,4 +168,4 @@ Falandays node has a narrower validated implementation boundary. Read
 [The Falandays node](/core/falandays/) and [Platform limits](/platform-limits/) before
 making a fidelity claim.
 
-<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>, <code>src/world/Embodiment.jl</code>, <code>src/world/Ensemble.jl</code>, <code>src/tasks/Tasks.jl</code>, <code>src/core/Recorder.jl</code>.</p>
+<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>, <code>src/core/Composition.jl</code>, <code>src/operations/</code>, <code>src/world/Ensemble.jl</code>, <code>src/core/Recorder.jl</code>.</p>

@@ -1,0 +1,108 @@
+---
+title: Node mechanisms and biological scope
+description: Relate implemented node mechanisms to their biological motivations without treating an abstraction as a cell model.
+---
+
+BrainlessLab uses node models to test local rules inside closed sensorimotor systems. These
+models select a few mechanisms from neuroscience. They do not reproduce a complete neuron,
+tissue, or nervous system.
+
+This page distinguishes three things:
+
+- the biological phenomenon that motivates a mechanism;
+- the implemented abstraction;
+- the claim that the abstraction can support.
+
+## Integration, threshold, and reset
+
+The Falandays node integrates sensory and recurrent input into one activation value. A leak
+term reduces that value over time. The node spikes above an adaptive threshold and then
+subtracts the threshold from its activation.
+
+This mechanism is a discrete leaky integrate-and-fire abstraction. It supports tests of
+temporal integration and thresholded signalling. It does not model ion channels, membrane
+geometry, refractory dynamics, or metabolic cost.
+
+See [Falandays](/core/falandays/) for the equations and fixture-validation boundary.
+
+## Local homeostatic adaptation
+
+Neurons regulate excitability and synaptic strength through several biological processes.
+The Falandays node represents this broad idea with a local target activity and a local
+weight update. Both updates use values available to the modelled node.
+
+The implementation can test whether this rule maintains useful behaviour in a declared
+body and task. It does not identify the rule with intrinsic plasticity, synaptic scaling, or
+another specific cellular process.
+
+The registered ablations provide controlled changes to the implemented rule. Their results
+apply to that implementation and control, not to homeostasis in general.
+
+## Dendritic compartments
+
+Biological dendrites can integrate inputs locally and generate nonlinear events. The
+experimental `:falandays_dendritic` node partitions recurrent inputs across discrete
+compartments. A compartment can generate a local event and mark incoming synapses as
+eligible for the homeostatic update.
+
+This design tests whether branch-local state changes behaviour or adaptation. It is not a
+conductance-based dendrite, and it does not model morphology or detailed dendritic
+electrophysiology.
+
+```julia
+simulate(:tracking; node=:falandays_dendritic, ticks=300)
+```
+
+<p class="bl-source">Source: <code>src/nodes/Dendritic.jl</code>.</p>
+
+## Sign constraints
+
+Dale's principle motivates a constraint in which one node's outgoing synapses share a sign.
+The experimental Falandays variants can apply this constraint through their sign settings.
+
+This option tests the effect of sign-consistent output. It does not establish a biological
+cell type or reproduce excitatory and inhibitory development.
+
+## Delay and spatial structure
+
+Biological signals travel through spatially organised tissue. The experimental delayed and
+spatial nodes add per-edge delays, metric positions, and distance-dependent connection
+probabilities. The hemispheric variant adds two spatial groups and controlled connections
+between them.
+
+These mechanisms let a study vary propagation time and connection geometry. Distances are
+model coordinates, not anatomical measurements unless a study supplies a calibration.
+
+<p class="bl-source">Source: <code>src/nodes/Spatial.jl</code>, <code>src/nodes/Delays.jl</code>.</p>
+
+## Endogenous drive
+
+Living cells can remain active without immediate external stimulation. The experimental
+Oosawa drive adds stochastic membrane input whose scale depends on the gap to threshold.
+It provides an internally generated source of activity for a reservoir.
+
+The drive is motivated by Oosawa's account of spontaneous cellular activity. It is a
+computational drive, not a model of metabolism or a reconstruction of the recorded cell
+dynamics.
+
+## What is not modelled
+
+Current node mechanisms omit many features that may matter:
+
+- gene regulation and protein turnover;
+- metabolism and resource use inside a cell;
+- detailed membrane conductances and ion concentrations;
+- realistic dendritic and axonal morphology;
+- glia and extracellular signalling;
+- growth, cell division, and tissue remodelling;
+- learning rules tied to a validated biological preparation.
+
+These omissions define design opportunities. A new node should state which mechanism it
+adds, which variables remain local, and which task capacity could distinguish it from a
+simpler node.
+
+## References
+
+- London, M. and Häusser, M. (2005). [Dendritic computation](https://doi.org/10.1146/annurev.neuro.28.061604.135703). *Annual Review of Neuroscience*, 28, 503–532.
+- Poirazi, P. and Papoutsi, A. (2020). [Illuminating dendritic function with computational models](https://doi.org/10.1038/s41583-020-0301-7). *Nature Reviews Neuroscience*, 21, 303–321.
+- Oosawa, F. (2007). [Spontaneous activity of living cells](https://doi.org/10.1016/j.biosystems.2006.05.006). *BioSystems*, 88, 191–201.

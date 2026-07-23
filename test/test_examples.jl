@@ -4,7 +4,12 @@ using Test
 
 @testset "Runnable examples" begin
     examples_dir = normpath(joinpath(@__DIR__, "..", "examples"))
-    scripts = sort(filter(path -> endswith(path, ".jl"), readdir(examples_dir; join=true)))
+    # The shoal quickstart is a console-only runtime smoke test. It is included
+    # and exercised separately in test_shoal_forage.jl.
+    scripts = sort(filter(
+        path -> endswith(path, ".jl") && basename(path) != "shoal_forage_quickstart.jl",
+        readdir(examples_dir; join=true),
+    ))
     @test !isempty(scripts)
 
     mktempdir() do output_dir

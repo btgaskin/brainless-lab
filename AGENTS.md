@@ -16,19 +16,19 @@ human-readable guide; update it when the public contract changes.
 
 ## Preserve the scientific boundary
 
-- `:falandays` is the canonical fixture-validated baseline; `:falandays_base` remains a
-  compatibility alias. Do not change their shared behavior, fixtures, or fidelity language
-  to make another change pass.
-- Everything outside that baseline is experimental unless evidence says otherwise.
+- `:falandays` is the canonical node validated on declared reference trajectories. Do not
+  change its behaviour, fixtures, or validation language to make another change pass.
+- Each other node, task, analysis, and component has its own declared stability and
+  readiness. Do not inherit the Falandays validation boundary.
 - A task score operationalizes performance on that task. It is not, by itself, evidence of
   cognition, general capability, biological fidelity, or external validity.
 - Use `task_outcome(sim)` for the task-declared outcome. Report its key, raw value, and
-  normalized value together; `nothing` means the task declares no scalar objective. Treat
+  normalised value together; `nothing` means the task declares no scalar objective. Treat
   other metric fields as diagnostics unless the task contract says otherwise.
 - Never present development seeds, tuned cells, representative runs, or exploratory plots
   as sealed evidence.
 - Do not inspect a sealed evaluation set to answer a planning or debugging question.
-- Use the independent randomized block or trial as the inferential unit. Agents and ticks
+- Use the independent randomised block or trial as the inferential unit. Agents and ticks
   within one world do not create additional independent samples.
 
 ## Work safely
@@ -41,23 +41,24 @@ human-readable guide; update it when the public contract changes.
 6. Use stable component and entity IDs; do not infer identity from tuple or vector position.
 7. Use `apply_patch` for hand edits. Avoid destructive Git commands.
 8. Run the narrowest relevant tests first, then the full package and site gates when the
-   public surface changes.
+   public interface changes.
 9. Report what is verified, what is inferred, and what remains experimental.
 
 ## Keep software readiness separate from study evidence
 
-- The canonical handbook lives under `site/src/content/docs/core/`; it documents stable
-  composition contracts.
+- The public guide lives under `site/src/content/docs/`. Core pages document the main
+  composition and research interfaces.
 - Experimental capabilities are listed under `site/src/content/docs/experimental/` with
   repository-backed source, example, and test metadata.
 - `available` and `integrated` describe software readiness. They do not validate a
   biological interpretation, promote a study, or increase its evidence status.
-- Experiment evidence (`exploratory`, `tuned`, `frozen`, `confirmed`, `promoted`, or
-  `retired`) belongs to the study record and is independent of component readiness.
+- Experiment evidence (`planned`, `exploratory`, `tuned`, `frozen`, `confirmed`,
+  `promoted`, or `retired`) belongs to the versioned `ExperimentSpec` and its records. It
+  is independent of component readiness.
 
 ## Choose the narrowest extension
 
-| Intent | Preferred seam |
+| Intent | Preferred approach |
 | --- | --- |
 | Change parameters of an existing reservoir | config or registered preset |
 | Add a genuinely different neural substrate | `Reservoir` methods plus node registration |
@@ -81,11 +82,15 @@ Use the evidence ladder in `site/src/content/docs/core/design-study.mdx`:
 conformance → calibration → exploration → tuning/training → variance pilot → frozen
 protocol → sealed confirmation → robustness → promoted evidence.
 
-For causal comparisons, share randomized worlds within a paired block while giving distinct
+For causal comparisons, share randomised worlds within a paired block while giving distinct
 mechanisms their declared streams. Keep training, selection, variance-pilot, confirmation,
 and robustness seeds disjoint. The null must match the claim: random action, blind input,
 shifted or sham input, an ablation, a baseline model, and an oracle answer different
 questions.
+
+Use an `ExperimentSpec` when a study needs a stable question, version, named conditions,
+limitations, and one or more operations. Keep these bundles under `experiments/`. Do not
+revive the archived bespoke experiment runner or add another operation-specific schema.
 
 ## Verification
 
@@ -96,7 +101,7 @@ julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
 Also run focused contract tests while iterating. For hot paths, warm the call before checking
-inference or allocations. Fixture parity is a separate gate from behavioral performance.
+inference or allocations. Fixture parity is a separate gate from behavioural performance.
 
 For site changes:
 
@@ -111,7 +116,7 @@ For public changes, also check:
 - `Test.detect_ambiguities(BrainlessLab; recursive=true)` has no new ambiguity;
 - examples referenced by docs execute;
 - no absolute local paths or retired study references remain;
-- README, site, examples, and both skills use the same vocabulary.
+- README, site, examples, and both skills use the same vocabulary;
 - canonical Core routes and Experimental feature metadata resolve.
 
 ## Documentation standard
@@ -129,3 +134,6 @@ guide should say:
 
 Do not describe planned automation as implemented. Keep current limits visible and link to
 `site/src/content/docs/platform-limits.mdx`.
+
+Follow `docs/WRITING.md`: use British English, stable technical terms, soft-STE sentence
+control, and minimal decorative emphasis.

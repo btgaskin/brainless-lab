@@ -1,0 +1,80 @@
+format = "brainlesslab-plan"
+format_version = 1
+operation = "benchmark"
+id = "core_benchmark_example"
+
+[[targets]]
+id = "tracking_falandays"
+[targets.composition]
+id = "tracking_falandays"
+preset = "falandays_tracking"
+[targets.evaluation]
+blocks = 2
+trials_per_block = 1
+horizon = 120
+warmup = 20
+construction_scope = "trial"
+reset = "full"
+root_seed = 1501
+aggregate = "mean"
+
+[[targets]]
+id = "tracking_random"
+[targets.composition]
+id = "tracking_random"
+node = "null_random"
+task = "tracking"
+n_nodes = 200
+[targets.evaluation]
+blocks = 2
+trials_per_block = 1
+horizon = 120
+warmup = 20
+construction_scope = "trial"
+reset = "full"
+root_seed = 1501
+aggregate = "mean"
+
+[[targets]]
+id = "pong_falandays"
+[targets.composition]
+id = "pong_falandays"
+preset = "falandays_pong"
+[targets.evaluation]
+blocks = 2
+trials_per_block = 1
+horizon = 400
+warmup = 40
+construction_scope = "trial"
+reset = "full"
+root_seed = 2501
+aggregate = "mean"
+
+[[targets]]
+id = "pong_random"
+[targets.composition]
+id = "pong_random"
+node = "null_random"
+task = "pong"
+n_nodes = 500
+[targets.evaluation]
+blocks = 2
+trials_per_block = 1
+horizon = 400
+warmup = 40
+construction_scope = "trial"
+reset = "full"
+root_seed = 2501
+aggregate = "mean"
+
+[benchmark]
+
+[[benchmark.cases]]
+id = "tracking"
+conditions = ["tracking_falandays", "tracking_random"]
+baseline = "tracking_random"
+
+[[benchmark.cases]]
+id = "pong"
+conditions = ["pong_falandays", "pong_random"]
+baseline = "pong_random"

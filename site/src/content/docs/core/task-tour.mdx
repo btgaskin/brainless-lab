@@ -7,11 +7,11 @@ A task defines a closed-loop question. It selects a world, one body per agent, r
 defaults, metrics, and optional score anchors. A task name is not a universal ability
 label.
 
-Use `tasks()` for the live registered list. Use `resolve_task` and `setup_task` to inspect
-a task:
+Use `tasks(DEFAULT_REGISTRY)` for the canonical registered list. Use `task_spec` and
+`setup_task` to inspect a task:
 
 ```julia
-task = resolve_task(:tracking)
+task = task_spec(DEFAULT_REGISTRY, :tracking)
 setup = setup_task(task; seed=11)
 has_objective(task)
 resolved_task_ports(task)
@@ -86,6 +86,54 @@ number of independent runs before treating the mean as reliable.
 These tasks use direct vector adapters. Their worlds already produce the reservoir receptor
 vector and consume a task-specific effector vector.
 
+## Experimental Plank CartPole levels
+
+Four additional task profiles reproduce the interface ladder proposed by Plank and
+colleagues for neuromorphic systems:
+
+| Task | Observations | Actions | Encoder | Target raw fitness |
+| --- | --- | --- | --- | ---: |
+| `:cartpole_plank_easy` | position and velocity of cart and pole | left, right | Spike-FF-2 | 14,250 |
+| `:cartpole_plank_medium` | position and velocity of cart and pole | no-op, left, right, with 75% no-op pressure | Spike-FF-2 | 12,000 |
+| `:cartpole_plank_hard` | cart position and pole angle | no-op, left, right | Spike-FF-2 | 9,000 |
+| `:cartpole_plank_hardest` | cart position and pole angle | left, right | Argyle-4 | 6,000 |
+
+All four run a 15,000-step mission with 24 native neural frames per world step and a
+frame-voting readout. They are tagged `:experimental` and `:plank_cartpole`; they are deliberately
+outside the Tracking/Pong core benchmark. The useful first result may simply be a clear
+performance boundary for an otherwise capable design.
+
+For a quick integration check, use `simulate`. For repeated starts, use the same
+`EvaluationSpec` as every other task:
+
+```julia
+composition = CompositionSpec(
+    :plank_easy_falandays,
+    :falandays,
+    :cartpole_plank_easy;
+    n_nodes=500,
+)
+protocol = EvaluationSpec(
+    blocks=1,
+    trials_per_block=1000,
+    horizon=15_000,
+    construction_scope=:evaluation,
+    root_seed=20_000,
+)
+result = evaluate(EvaluationTarget(:plank_easy, composition, protocol))
+```
+
+The evaluation reconstructs the same seeded design with fresh dynamic and plastic state for
+every trial and retains each realized initial condition with its named seed ledger. Do not
+average the four levels into a generic competence score.
+The Spike-FF-2 schedule is checked against the authors' public example. The present
+Argyle-4 implementation follows the paper's adjacent-bin, nine-spike description, but is
+marked as a BrainlessLab schedule until a source fixture establishes trajectory-level
+conformance.
+
+Sources: [published benchmark paper](https://www.mdpi.com/2079-9268/15/1/5) and
+[TENNLab CartPole example](https://github.com/TENNLab-UTK/framework-open/blob/main/markdown/cartpole_example.md).
+
 ## Population tasks
 
 `:torus` and `:forage` use the established situated adapter.
@@ -134,8 +182,8 @@ Choose the task whose operational contract matches the question. Before a compar
 record:
 
 - observations and action meanings;
-- initialization and randomized quantities;
-- ticks, warmup, scoring window, and reset behavior;
+- initialisation and randomised quantities;
+- ticks, warm-up, scoring window, and reset behaviour;
 - primary raw outcome and any gates;
 - floor and ceiling provenance;
 - degenerate policies;

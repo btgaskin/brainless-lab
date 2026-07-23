@@ -77,7 +77,7 @@ configuration, replay, and visualization support. The setup accepts the `seed`, 
 
 `object_world_quickstart.jl` deliberately shows the lower-level alternative: direct
 `ObjectWorld` composition exposes `Ensemble` + `Recorder`. Add a `TaskSpec` when an experiment
-needs the standardized `SimResult`, scoring, or rendering surface.
+needs the standard `SimResult`, scoring, or rendering APIs.
 
 The current world supports toroidal or walled 2-D arenas, fixed agent populations, static
 circular objects, named analytic fields, spectral appearance/illumination, and one

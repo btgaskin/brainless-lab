@@ -61,5 +61,5 @@ function run_freeze_onset(; tasks=[:tracking, :wall, :pong],
     return dir
 end
 
-register_experiment!(:freeze_onset, run_freeze_onset;
+ExpRegistry.register_experiment!(:freeze_onset, run_freeze_onset;
     description="Freeze plasticity at tick T across single-agent tasks; find the dead→alive onset (normalized score + rate).")

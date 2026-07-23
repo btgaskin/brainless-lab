@@ -1,156 +1,176 @@
-# Designing Analyses and Measures
+# Designing analyses and measures
 
-An analysis in BrainlessLab is a pure function over a finished rollout. It reads the
-channels the `Recorder` captured off the hot path and returns a scalar or a NamedTuple of
-summaries — it never perturbs the run, and it never touches the compute loop. That
-separation is the whole point: the analytic surface is deliberately **measure-agnostic**,
-so you can throw any candidate signature at a `SimResult` and ask whether it survives.
+An analysis reads a completed `SimResult`. It must not alter the simulation. Keep analysis
+code outside the runtime loop so the same recorded run can support several measures and
+null tests.
 
-The principle this file exists to encode: *a cross-agent number that looks critical is
-often an artifact of common input.* The library's answer is a built-in tool — a per-agent
-**circular-shift null** (`crossshift_null`) that every candidate cross-agent measure must
-clear before you trust it. Use it as a gate, not an afterthought. (This project's own
-forage runs are a concrete reminder: measures that looked collective did not beat the null
-— null-test rather than assume.)
+## Analysis interface
 
-See also `usage-and-workflows.md` (recording, the `SimResult` surface),
-`cli-tools.md` (the sweep `[analytics] measures` set), and
-`designing-environments-and-tasks.md` (what channels a task can emit). Prose:
-<https://brainless-lab.pages.dev/core/runs-results/>,
-<https://brainless-lab.pages.dev/experimental/analyses/>, and
-<https://brainless-lab.pages.dev/notes/criticality-and-information/>.
-
-## The analysis contract
-
-An analysis is a function `f(sim::SimResult; kwargs...)` returning a `Number` or a
-NamedTuple of summary fields. Register it so tooling can discover it:
+An analysis function accepts a `SimResult` and returns a `Number` or named tuple:
 
 ```julia
-register_analysis!(:susceptibility, susceptibility;
-                   label="susceptibility χ (experimental)")     # global
-register_analysis!(:distance_to_source, distance_to_source;
-                   task=:forage, label="mean distance to forage source")  # task-scoped
+function my_measure(sim::SimResult; window=nothing)
+    samples = getchannel(sim.recorder, :rate)
+    isempty(samples) &&
+        throw(ArgumentError("record :rate before running my_measure"))
+    # Compute and return a scalar or named tuple.
+end
 ```
 
-`register_analysis!(sym, f; task=nothing, label=string(sym))` stores `(f, task, label)`.
-Discover with `analyses()` / `analyses(task=:forage)` (global measures plus that task's
-own) and `task_analyses(:forage)` (only that task's). `analysis_meta(sym)` returns
-`(task, label)`; `resolve_analysis(sym)` returns the bare function. Most measures are also
-callable directly on `sim`: `branching_ratio(sim)`, `branching_ratio_mr(sim; level=:node)`,
-`susceptibility(sim)`, `spectral_radius(sim)`, `participation_ratio(sim)`,
-`correlation_length(sim)`, `crossshift_null(sim, measure_fn; n_shifts, rng)`,
-`transfer_entropy(...)`.
+Register it for discovery and profile plans:
 
-An honest `label` is part of the contract: mark a measure `(experimental)` until it has
-been validated (null-tested, checked for finite-size sanity) — see the registry, where
-transfer entropy, susceptibility, Fano factor, participation ratio, swarm regime,
-correlation length, and the contact-graph clusters all carry that flag today.
+```julia
+register!(
+    DEFAULT_REGISTRY,
+    :analyses,
+    ImplementationSpec(
+        :my_measure,
+        my_measure;
+        label="my measure (experimental)",
+        metadata=(task=nothing,),
+    ),
+)
+```
 
-## The measure families
+Typed registration rejects duplicate keys. Discover analyses with:
 
-**Criticality (node scale).** For population activity $A(t)$, the branching ratio $m$ is
-how much activity one tick begets the next. The naive slope
-$\hat m = \sum A_t A_{t+1}/\sum A_t^2$ can be **biased when only a subset or noisy
-projection of the underlying process is observed**, so prefer the Wilting–Priesemann
-multistep-regression estimator `branching_ratio_mr` when its model assumptions are
-appropriate: fit $r_k = b\,m^{k}$ across lags and read $m$ off the exponential decay.
-Reducing a fully observed population to one scalar total is not, by itself, proof that the
-subsampling assumptions hold. `branching_ratio` keeps the legacy through-origin `sigma`
-for back-compat visualizations only. Avalanche size/duration exponents ($\tau$, $\alpha$)
-with the crackling-noise check $\gamma_{\text{pred}} = (\alpha-1)/(\tau-1)$ come from
-`avalanches`; require enough events, competing-distribution checks, threshold/bin
-sensitivity, and finite-size evidence before a criticality claim. The spectral radius
-$\rho(W) = \max_i|\lambda_i(W)|$ from `spectral_radius` is a linear recurrent-matrix
-proxy, not a general stability criterion for a nonlinear plastic spiking system. (The
-Falandays homeostat can rate-pin $m\approx1$; read all three as diagnostics, not verdicts.)
+```julia
+analyses(DEFAULT_REGISTRY)
+analyses(DEFAULT_REGISTRY; task=:tracking)
+```
 
-**Collective (agent scale).** Polarization and milling (from `Metrics.jl`), the
-`swarm_regime` classifier, `correlation_length` (velocity-*fluctuation* correlation, Cavagna
-form), and `contact_graph_clusters` (connected components of the within-vision contact
-graph). All experimental.
+The task filter returns global measures and measures assigned to that task.
 
-**Cross-level / information.** `susceptibility` and `participation_ratio` at
-`level=:node|:agent`; transfer entropy (`node_transfer_entropy`, `agent_transfer_entropy`)
-— a plug-in, order-1, quantile-binned estimator with no bias correction, biased upward on
-short series, hence **experimental**.
+A registered analysis may declare `required_channels` in its metadata. `ProfilePlan`
+combines these requirements before running the target. If an analysis still cannot run,
+the profile result must report the failure rather than omit it silently.
 
-## Rigor: why null tests are the heart of this
+## Choose the scale before the estimator
 
-A "collective" number is only interesting if it exceeds what *independent* single-agent
-series would produce by chance. The **circular-shift null** constructs exactly that
-counterfactual: it independently circular-shifts every agent's recorded time series by a
-random offset, so each agent's *own* temporal statistics (autocorrelation, spectrum, event
-rate) are preserved while the *cross-agent alignment* is destroyed.
+State whether a measure describes:
+
+- nodes within one reservoir;
+- agents within one world;
+- a relation between levels;
+- the task outcome;
+- a body or world variable.
+
+Do not pool nodes from distinct reservoirs and call the result one reservoir statistic.
+Do not treat agents or ticks within one world as independent replicates.
+
+## Built-in measure families
+
+Node-scale activity measures include:
+
+- `branching_ratio` for the legacy one-step activity ratio;
+- `branching_ratio_mr` for multistep regression;
+- `avalanches` for thresholded event sizes and durations;
+- `spectral_radius` for the recurrent weight matrix;
+- `node_target_error` for homeostatic target error;
+- node-level susceptibility, participation ratio, and transfer entropy.
+
+Agent-scale measures include polarization, milling, velocity-fluctuation correlation
+length, contact-graph clusters, susceptibility, participation ratio, and transfer entropy.
+Most are experimental.
+
+The estimators answer different questions. The spectral radius
+$\rho(W)=\max_i|\lambda_i(W)|$ is a linear matrix diagnostic, not a general stability
+criterion for a nonlinear plastic system. Avalanche exponents require enough events,
+threshold checks, competing distributions, and finite-size evidence.
+
+The multistep-regression branching estimator fits activity correlations across lags and is
+more robust to subsampling under its assumptions. It is not universally unbiased. Report
+fit quality, lag range, observation process, and aggregation. See Wilting and Priesemann,
+*Nature Communications* 9, 2325 (2018),
+<https://doi.org/10.1038/s41467-018-04725-4>.
+
+The transfer-entropy implementation is an order-one, quantile-binned plug-in estimator
+without bias correction. Short series can bias it upward. Keep it experimental and report
+binning, history order, sample size, and null distribution.
+
+## Record the required channels
+
+Analyses can only read channels retained by the recorder:
+
+```julia
+sim = simulate(
+    :torus;
+    node=:falandays,
+    n_agents=6,
+    ticks=400,
+    record=(:spikes, :rate, :poses, :polarization, :milling),
+    every=1,
+)
+```
+
+Node activity measures need `:spikes` or `:rate`. Agent motion measures need `:poses`.
+The spectral-radius measure needs its own channel. Sample that channel with
+`spectral_every=K` because each sample requires an eigenvalue calculation.
+
+If a measure needs a new channel, add and test the recorder path before registering the
+measure. Do not reach into live private state from a post-run analysis.
+
+## Use windows for non-stationary processes
+
+A pooled value can hide movement between regimes. Provide a windowed form when activity,
+distance, density, or coupling changes during the run. Return window bounds or centres
+with each value.
+
+Built-in windowed functions include forms of multistep branching, susceptibility,
+correlation length, and contact-graph clustering. Select the window length before viewing
+held-out outcomes.
+
+## Match the null to the claim
+
+A cross-agent statistic can arise from shared environmental drive. `crossshift_null`
+independently circular-shifts each agent's recorded series. It preserves each series'
+temporal structure while disrupting cross-agent alignment:
 
 ```julia
 using Random
-res = crossshift_null(sim, s -> susceptibility(s; level=:agent);
-                      n_shifts=200, rng=MersenneTwister(11))
-# Includes real, null_values, null_mean/std, ratio, pvalue,
-# n_valid, n_requested, and alternative.
+
+result = crossshift_null(
+    sim,
+    shifted -> susceptibility(shifted; level=:agent).susceptibility;
+    n_shifts=200,
+    rng=MersenneTwister(11),
+)
 ```
 
-The `measure_fn` must return a `Number` or a NamedTuple with a known scalar field
-(`:m_mr`, `:susceptibility`, `:correlation_length`, or a contact-graph component field).
-Read `ratio = real / null_mean` as a descriptive effect-size summary, not an equivalence
-test: a value near 1 does not establish absence of coupling. Interpret the declared-tail
-Monte Carlo `pvalue` against `null_values`, the selected `alternative`, and effective
-`n_valid`. Because circular shifts disrupt *both* inter-agent coupling and common-source
-timing, pair the surrogate with a causal condition appropriate to the claim—e.g.
-vision-on minus vision-off—rather than interpreting the raw ratio of one run alone.
+Report the observed value, null distribution, valid surrogate count, alternative, effect
+summary, and Monte Carlo p-value. A value near the null mean does not establish
+equivalence.
 
-Two further rigor points baked into the code:
+Circular shifts disrupt both interaction timing and common-source timing. Pair the
+surrogate with a causal condition when the claim concerns communication or social
+coupling. Examples include vision-on versus vision-off, a matched sham, or a yoked input.
 
-- **Windowed vs pooled.** Most estimators have a `_windowed` variant
-  (`branching_ratio_mr_windowed`, `susceptibility_windowed`, `correlation_length_windowed`,
-  `contact_graph_clusters_windowed`). When the process is non-stationary — a forager
-  approaching a source, a swarm condensing — a single pooled number averages over distinct
-  regimes and reads as noise-flattened. Slide a window; report the trajectory. The
-  branching-windowed path even lets you `residualize` against a `drive` series
-  (e.g. `:distance_to_source`) so a slow common trend does not masquerade as $m$.
-- **Subsampling bias.** The reason `branching_ratio_mr` exists at all: the single-lag
-  slope can be biased under partial/noisy observation. A scalar population summary is not
-  automatically a valid subsampling model; inspect the observation process and fit
-  diagnostics. The multi-lag estimator is more robust under its assumptions, not
-  universally invariant.
+Use another null when circular shifts do not represent the intended counterfactual:
 
-## Designing a NEW measure — the checklist
+- event shuffles for event-timing claims;
+- phase randomisation for spectral dependence;
+- label permutation for group assignments;
+- random-action or blind policies for task opportunity;
+- registered ablations for mechanism necessity.
 
-1. **Define it over recorded channels**, not over live simulation state. If the channel
-   you need is not captured, the measure cannot run — decide what to record (below).
-2. **Pick the scale.** Node-scale (`level=:node`, within each reservoir) or agent-scale
-   (`level=:agent`, the ensemble)? Validate supported symbols in your own public function.
-   Do not call underscore-prefixed package helpers: they are implementation details. Do not
-   conflate scales; pooling distinct reservoirs is a population summary, not "the
-   reservoir's" dynamics.
-3. **Provide a windowed variant** if the underlying dynamics are non-stationary. Reuse
-   ordinary Julia ranges and return the window bounds or centers explicitly so semantics
-   are inspectable.
-4. **Write a null test.** Circular-shift (`crossshift_null`) for any cross-agent claim; a
-   phase-randomization or event-shuffle null for a within-series claim. Report the effect
-   size *against the null distribution*, not the bare value.
-5. **Register honestly.** `register_analysis!(:my_measure, my_measure; label="… (experimental)")`
-   and keep the experimental flag until the null test and a finite-size sanity check pass.
-6. **Make sure the channel is recorded** — see below.
+Exact replay tests deterministic equivalence. It is not a causal null.
 
-Registration and a passing null-test implementation establish software readiness, not
-construct validity. Keep non-core analyses in the
-[Experimental catalog](https://brainless-lab.pages.dev/experimental/), with source, example,
-and test metadata, until their scientific interpretation has independent evidence.
+## Example: agent coactivation
 
 ```julia
 using Statistics
 
 function coactivation(sim::SimResult; level::Symbol=:agent)
     level === :agent ||
-        throw(ArgumentError("coactivation currently supports level=:agent"))
+        throw(ArgumentError("coactivation supports only level=:agent"))
     samples = getchannel(sim.recorder, :rate)
     isempty(samples) &&
-        throw(ArgumentError("record :rate when running the simulation"))
+        throw(ArgumentError("record :rate before running coactivation"))
 
     n_agents = length(first(samples))
     n_agents >= 2 ||
         throw(ArgumentError("coactivation needs at least two agents"))
+
     rates = Matrix{Float64}(undef, length(samples), n_agents)
     for (tick, sample) in enumerate(samples)
         length(sample) == n_agents ||
@@ -158,52 +178,29 @@ function coactivation(sim::SimResult; level::Symbol=:agent)
         rates[tick, :] .= Float64.(collect(sample))
     end
 
-    C = cor(rates)
-    return (; level, coactivation = mean(C[i,j] for i in axes(C,1) for j in axes(C,2) if i<j))
+    correlations = cor(rates)
+    pairs = (
+        correlations[i, j]
+        for i in axes(correlations, 1), j in axes(correlations, 2)
+        if i < j
+    )
+    return (; level, coactivation=mean(pairs))
 end
-register_analysis!(:coactivation, coactivation; label="mean pairwise coactivation (experimental)")
-# validate before trusting:
-crossshift_null(sim, s -> coactivation(s).coactivation; n_shifts=200, rng=MersenneTwister(1))
 ```
 
-## Recording: analyses read what the recorder captured
+Register the function as experimental. Test it on synthetic independent, shared-drive,
+and coupled data before interpreting a real run. Then apply a suitable surrogate and
+causal control.
 
-Analyses can only read channels the `Recorder` was told to keep:
+## Readiness and evidence
 
-```julia
-sim = simulate(:torus; node=:falandays, n_agents=6, ticks=400,
-               record=(:spikes, :rate, :poses, :polarization, :milling), every=1)
-```
+A registered analysis with tests is software-ready. This does not establish construct
+validity. Keep estimator limits, task scope, finite-size behaviour, and null requirements
+in its metadata and documentation.
 
-Node measures need `:spikes` (or fall back to `:rate` × node count); agent measures need
-`:poses` (and `:polarization`/`:milling` if you want to skip recomputation); the spectral
-radius needs its own `:spectral_radius` channel. That channel is expensive (an eigenvalue
-solve per sample), so **stride it** with `spectral_every=K` rather than recording every
-tick. `crossshift_null` shifts every `EntityFrame` by stable `EntityID`, including
-receptors, component state, and contact indicators, while preserving the frame's IDs.
-Derived and event channels such as `:polarization`, `:milling`, `:interactions`, and
-`:deaths` are removed so the measure must recompute them from shifted entity data; static
-object snapshots pass through unchanged. Unknown non-entity channels are errors by default
-because an apparently nulled but still aligned channel is unsafe. Use `strict=false` only
-to inspect a legacy result, and treat its warning as a request to classify that channel
-explicitly before drawing a result.
+Use a `ProfilePlan` for repeatable descriptive analysis. Use an `ExperimentSpec` when the
+analysis forms part of a versioned scientific protocol. Store the resulting tables in the
+standard operation record rather than in a bespoke analysis directory.
 
-The sweep tool exposes measures by short name in `[analytics] measures`
-(`sigma_mr`, `susceptibility_node`, `correlation_length`, `contact_clusters`,
-`spectral_radius`, `regime`, …); see `cli-tools.md`.
-
-## Pitfalls
-
-- **Trusting an un-null-tested measure.** The default assumption is that a cross-agent
-  number reflects shared drive until the circular-shift null says otherwise.
-- **Naive branching under subsampling.** Read `branching_ratio_mr` with its per-agent
-  distribution and fit quality ($R^2$), not the bare mean — a low-$R^2$ fit still returns a
-  finite $m$.
-- **Comparing a measure across tasks with different R/E** (reservoir/embodiment) or across
-  levels whose prefactors differ by an order of magnitude ($N\approx100$ nodes vs
-  $n\approx6$ agents). Compare *peak positions* as a control parameter is swept, not raw
-  magnitudes.
-- **Reading a pooled number when the process is non-stationary.** Use the windowed variant.
-- **Under-powered "confident" numbers.** Correlation length, agent susceptibility, and
-  agent participation ratio return a finite value even at `n_agents=6`, where they are
-  severely under-sampled — treat them as uninterpretable below ~20–30 agents.
+See `usage-and-workflows.md` for recording, `cli-tools.md` for profile plans, and
+`research-workflow.md` for evidence stages.

@@ -2,20 +2,7 @@
 import DefaultPageTitle from '@astrojs/starlight/components/PageTitle.astro';
 
 const entry = Astro.locals.starlightRoute.entry;
-const evidence = entry.data.evidence;
 const experimental = entry.data.experimental;
-const isLiterature =
-  entry.slug.startsWith('notes/') && entry.slug !== 'notes/papers-overview';
-
-const evidenceRows = evidence
-  ? [
-      ['Study', evidence.id],
-      ['Protocol', evidence.protocol_version],
-      ['Independent unit', evidence.randomization_unit],
-      ['Independent blocks', String(evidence.n_independent_blocks)],
-      ['Primary endpoint', evidence.primary_endpoint],
-    ]
-  : [];
 
 const titleCase = (value: string) =>
   value
@@ -25,40 +12,6 @@ const titleCase = (value: string) =>
 ---
 
 <DefaultPageTitle />
-
-{
-  isLiterature && (
-    <aside class="page-label page-label--literature" aria-label="Literature note">
-      <strong>Literature note</strong>
-      <span>This page reviews external work. It does not report BrainlessLab evidence.</span>
-    </aside>
-  )
-}
-
-{
-  evidence && (
-    <aside class="page-label page-label--evidence" aria-label="Study evidence record">
-      <div class="page-label__heading">
-        <strong>Study evidence</strong>
-        <span class="page-label__badge">{titleCase(evidence.status)}</span>
-      </div>
-      <dl>
-        {evidenceRows.map(([label, value]) => (
-          <div>
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-      </dl>
-      <p>
-        <strong>Block summary:</strong> {evidence.block_summary}
-      </p>
-      <p>
-        <strong>Limitations:</strong> {evidence.limitations}
-      </p>
-    </aside>
-  )
-}
 
 {
   experimental && (
@@ -88,11 +41,6 @@ const titleCase = (value: string) =>
     font-size: var(--sl-text-sm);
   }
 
-  .page-label--literature {
-    border-left-color: var(--bl-amber);
-    background: color-mix(in srgb, var(--bl-amber) 8%, transparent);
-  }
-
   .page-label__heading {
     display: flex;
     align-items: baseline;
@@ -112,30 +60,6 @@ const titleCase = (value: string) =>
     letter-spacing: 0.04em;
     line-height: 1.4;
     text-transform: uppercase;
-  }
-
-  dl {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-    gap: 0.6rem 1rem;
-    margin: 0.75rem 0;
-  }
-
-  dl div {
-    min-width: 0;
-  }
-
-  dt {
-    color: var(--sl-color-gray-2);
-    font-size: 0.74rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-  }
-
-  dd {
-    margin: 0.12rem 0 0;
-    overflow-wrap: anywhere;
   }
 
   p {

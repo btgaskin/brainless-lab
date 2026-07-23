@@ -152,28 +152,64 @@ function sense(env::CartPoleVariantEnv)
     return sensors
 end
 
-function _cartpole_step_state!(env::CartPoleVariantEnv, force::Real)
-    x = env.state[1]
-    x_dot = env.state[2]
-    theta = env.state[3]
-    theta_dot = env.state[4]
+function _integrate_cartpole_state!(
+    state::Vector{Float64},
+    force::Real;
+    tau::Real,
+    gravity::Real,
+    pole_length::Real,
+    pole_mass::Real,
+    total_mass::Real,
+    integrator::Symbol=:semi_implicit_euler,
+)
+    length(state) == 4 || throw(DimensionMismatch(
+        "CartPole state must contain x, x_dot, theta, and theta_dot",
+    ))
+    x = state[1]
+    x_dot = state[2]
+    theta = state[3]
+    theta_dot = state[4]
 
     costheta = cos(theta)
     sintheta = sin(theta)
-    temp = (Float64(force) + env.pole_mass * env.pole_length * theta_dot^2 * sintheta) / env.total_mass
-    thetaacc = (env.gravity * sintheta - costheta * temp) /
-        (env.pole_length * ((4.0 / 3.0) - env.pole_mass * costheta^2 / env.total_mass))
-    xacc = temp - env.pole_mass * env.pole_length * thetaacc * costheta / env.total_mass
+    temp = (Float64(force) + pole_mass * pole_length * theta_dot^2 * sintheta) / total_mass
+    thetaacc = (gravity * sintheta - costheta * temp) /
+        (pole_length * ((4.0 / 3.0) - pole_mass * costheta^2 / total_mass))
+    xacc = temp - pole_mass * pole_length * thetaacc * costheta / total_mass
 
-    x_dot += env.tau * xacc
-    x += env.tau * x_dot
-    theta_dot += env.tau * thetaacc
-    theta += env.tau * theta_dot
+    if integrator === :euler
+        x += tau * x_dot
+        x_dot += tau * xacc
+        theta += tau * theta_dot
+        theta_dot += tau * thetaacc
+    elseif integrator === :semi_implicit_euler
+        x_dot += tau * xacc
+        x += tau * x_dot
+        theta_dot += tau * thetaacc
+        theta += tau * theta_dot
+    else
+        throw(ArgumentError(
+            "unsupported CartPole integrator $(repr(integrator)); expected :euler or :semi_implicit_euler",
+        ))
+    end
 
-    env.state[1] = Float64(x)
-    env.state[2] = Float64(x_dot)
-    env.state[3] = Float64(theta)
-    env.state[4] = Float64(theta_dot)
+    state[1] = Float64(x)
+    state[2] = Float64(x_dot)
+    state[3] = Float64(theta)
+    state[4] = Float64(theta_dot)
+    return state
+end
+
+function _cartpole_step_state!(env::CartPoleVariantEnv, force::Real)
+    _integrate_cartpole_state!(
+        env.state,
+        force;
+        tau=env.tau,
+        gravity=env.gravity,
+        pole_length=env.pole_length,
+        pole_mass=env.pole_mass,
+        total_mass=env.total_mass,
+    )
     return env
 end
 

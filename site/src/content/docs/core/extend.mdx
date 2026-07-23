@@ -1,13 +1,13 @@
 ---
 title: Extend the lab
-description: Add a node, component, body, world, task, metric, analysis, optimizer, or view through the public contracts.
+description: Add a node, component, body, world, task, metric, analysis, optimiser, or view through the public interfaces.
 ---
 
 BrainlessLab extension points are Julia generics plus optional registries. Add methods to a
 public contract. Register a name when discovery or configuration needs one. Prefer a
 composed value or parameter preset when the contract has not changed.
 
-## Choose the narrowest seam
+## Choose the narrowest interface
 
 | You want to add | Start with | Minimum evidence |
 | --- | --- | --- |
@@ -19,9 +19,9 @@ composed value or parameter preset when the contract has not changed.
 | body | composed `Embodiment` | strict round trip, ports, and ensemble run |
 | vector task | `TaskWorld` plus `TaskSpec` | static, random, blind or sham, and oracle calibration |
 | physical composition | `ObjectWorld` plus `TaskSpec` | identities, effects, randomization, and task calibration |
-| task metric | `metrics(environment, window)` | raw definition, gate behavior, and anchor provenance |
+| task metric | `metrics(environment, window)` | raw definition, gate behaviour, and anchor provenance |
 | reusable analysis | pure function plus analysis registry | channels, diagnostics, minimum data, null, and failure case |
-| optimizer or development seam | optimizer contract or `DevelopmentSpec` | pack/unpack, bounds, fresh phenotype, and search variance |
+| optimiser or development facility | optimiser interface or `DevelopmentSpec` | pack/unpack, bounds, fresh phenotype, and search variance |
 | visualization | view registry in the Makie extension | render test and a Makie-free compute core |
 
 ## Extend package generics correctly
@@ -29,7 +29,8 @@ composed value or parameter preset when the contract has not changed.
 Import the function names that receive new methods:
 
 ```julia
-using BrainlessLab: Reservoir, register_node!, simulate
+using BrainlessLab: Reservoir, NodeSpec, ParameterSpec, CompositionSpec
+using BrainlessLab: NodeBuildContext, DEFAULT_REGISTRY, register!, simulate
 import BrainlessLab: step!, effectors, reset!
 import BrainlessLab: n_nodes, n_receptors, n_effectors
 ```
@@ -39,22 +40,42 @@ The framework will not dispatch to it.
 
 ## Add a node
 
-Use `examples/templates/new_project/my_node.jl` as the scaffold. Keep the constructor
-task-agnostic:
+Use `examples/templates/new_project/my_node.jl` as the scaffold. A registered builder
+receives the composition's node count, body ports, named seeds, and resolved values:
 
 ```julia
-MyReservoir(n_nodes, n_receptors, n_effectors; seed=0, kwargs...)
+function build_my_reservoir(context::NodeBuildContext, values)
+    MyReservoir(
+        context.n_nodes,
+        n_receptors(context.ports),
+        n_effectors(context.ports);
+        seed=Int(mod(context.seeds.topology, UInt64(typemax(Int)))),
+        params=values,
+    )
+end
 ```
 
-Register only after the contract works:
+Declare the parameter set rather than inferring it from fields. Node count belongs to
+the composition; connectivity can declare `owner=:reservoir`:
 
 ```julia
-register_node!(:my_reservoir, MyReservoir; genome_type=MyParams)
-simulate(:tracking; node=:my_reservoir, seed=11)
-simulate(:pong; node=:my_reservoir, seed=11)
+spec = NodeSpec(
+    :my_reservoir,
+    build_my_reservoir;
+    genome_type=MyParams,
+    parameters=(
+        ParameterSpec(:leak, 0.25; sweep=(0.1, 0.25, 0.5), evolve=(lower=0.0, upper=0.95)),
+        ParameterSpec(:link_p, 0.1; owner=:reservoir, evolve=(lower=0.01, upper=0.8)),
+    ),
+    parameter_sets=Dict(:sweep => (:leak,), :evolve => (:leak,)),
+)
+register!(DEFAULT_REGISTRY, spec)
+
+simulate(CompositionSpec(:my_tracking, :my_reservoir, :tracking; n_nodes=200); seed=11)
+simulate(CompositionSpec(:my_pong, :my_reservoir, :pong; n_nodes=500); seed=11)
 ```
 
-Declare online plasticity only when `step!` performs online adaptation. Keep optimizer
+Declare online plasticity only when `step!` performs online adaptation. Keep optimiser
 parameters separate from replay state.
 
 ## Add a physical component
@@ -110,7 +131,8 @@ contract.
 ## Add a task or world
 
 For a vector-valued task, implement the `TaskWorld` methods and wrap the world in a
-`TaskSpec`. Start from `examples/templates/new_project/my_task.jl`.
+`TaskSpec`, then register it with `register!(DEFAULT_REGISTRY, task_spec)`. Start from
+`examples/templates/new_project/my_task.jl`.
 
 For a physical composition, build bodies and an `ObjectWorld` in the setup callable. Start
 from `examples/embodiments/object_world_task.jl`.
@@ -135,7 +157,7 @@ Before adding an analysis, declare:
 - node, agent, or world level;
 - output and units;
 - independent resampling unit;
-- transient and missing-data behavior;
+- transient and missing-data behaviour;
 - minimum data and diagnostics;
 - causal null or surrogate;
 - known bias and unsupported interpretations.

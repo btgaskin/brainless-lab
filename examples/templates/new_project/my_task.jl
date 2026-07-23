@@ -1,9 +1,9 @@
 using Random
 
-import BrainlessLab: TaskSpec, TaskWorld
+import BrainlessLab: TaskSpec, TaskWorld, analytic
 import BrainlessLab: sense, step!, reset!, metrics
 import BrainlessLab: n_receptors, n_effectors, default_ticks, default_window
-import BrainlessLab: register_task!
+import BrainlessLab: DEFAULT_REGISTRY, register!
 
 mutable struct MyTrackingEnv{R<:AbstractRNG} <: TaskWorld
     rng::R
@@ -130,9 +130,9 @@ const MY_TASK = TaskSpec(
     MyTrackingEnv;
     default_ticks=default_ticks(MyTrackingEnv),
     default_window=default_window(MyTrackingEnv),
-    score_floor=0.0,
-    score_ceiling=1.0,
+    floor=analytic(0.0; note="minimum score under this example contract"),
+    ceiling=analytic(1.0; note="zero tracking error"),
     score_key=:score,
 )
 
-register_task!(:my_task, MY_TASK)
+register!(DEFAULT_REGISTRY, MY_TASK)

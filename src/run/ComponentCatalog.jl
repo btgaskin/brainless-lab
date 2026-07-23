@@ -446,6 +446,21 @@ function _resolve_identity_encoder(config::ComponentConfig)
     return IdentityEncoder(port_ids; sources=source_ids)
 end
 
+function _resolve_mean_readout(config::ComponentConfig)
+    _component_parameters(config; allowed=())
+    return MeanReadout()
+end
+
+function _resolve_instant_readout(config::ComponentConfig)
+    _component_parameters(config; allowed=())
+    return InstantReadout()
+end
+
+function _resolve_voting_readout(config::ComponentConfig)
+    _component_parameters(config; allowed=())
+    return VotingReadout()
+end
+
 
 const _CAMERA_CHANNEL_CENTRES_NM = Dict(
     :ultraviolet => 365.0,
@@ -770,6 +785,7 @@ end
 function _register_builtin_component_catalog!()
     core_docs = "site/src/content/docs/core/embodiment.mdx"
     robot_example = "examples/embodiments/differential_robot.toml"
+    shoal_example = "examples/shoal_forage_quickstart.jl"
     robot_tests = (:core_differential_robot_roundtrip, :core_object_world_runtime)
     descriptors = (
         _builtin_component_descriptor(
@@ -841,7 +857,7 @@ function _register_builtin_component_catalog!()
             ),
             conformance=:sector_vision_contract,
             conformance_path="test/test_shoal_forage.jl",
-            example_path="experiments/shoal_vision_sweep/protocol.toml",
+            example_path=shoal_example,
             docs_path="site/src/content/docs/experimental/embodiment.mdx",
         ),
         _builtin_component_descriptor(
@@ -878,6 +894,33 @@ function _register_builtin_component_catalog!()
             core_tests=(:core_differential_robot_roundtrip, :core_identity_encoder_composition),
         ),
         _builtin_component_descriptor(
+            :readout, :mean, _resolve_mean_readout;
+            capabilities=(:config_materialization, :temporal_reduction, :graded_output),
+            parameters=(required=(), optional=()),
+            conformance=:mean_readout_contract,
+            conformance_path="test/test_interaction_cycle.jl",
+            example_path=robot_example,
+            readiness=:core,
+            docs_path=core_docs,
+            core_tests=(:core_differential_robot_roundtrip,),
+        ),
+        _builtin_component_descriptor(
+            :readout, :instant, _resolve_instant_readout;
+            capabilities=(:config_materialization, :temporal_reduction, :final_frame_output),
+            parameters=(required=(), optional=()),
+            conformance=:instant_readout_contract,
+            conformance_path="test/test_interaction_cycle.jl",
+            example_path="test/test_interaction_cycle.jl",
+        ),
+        _builtin_component_descriptor(
+            :readout, :voting, _resolve_voting_readout;
+            capabilities=(:config_materialization, :temporal_reduction, :categorical_output),
+            parameters=(required=(), optional=()),
+            conformance=:voting_readout_contract,
+            conformance_path="test/test_interaction_cycle.jl",
+            example_path="test/test_interaction_cycle.jl",
+        ),
+        _builtin_component_descriptor(
             :actuator, :forward_turn, _resolve_forward_turn;
             capabilities=(:config_materialization, :effector_decode),
             parameters=(required=(:max_forward, :max_turn), optional=(:allow_reverse,)),
@@ -891,7 +934,7 @@ function _register_builtin_component_catalog!()
             parameters=(required=(:max_forward, :max_turn), optional=()),
             conformance=:antagonistic_turn_actuator_contract,
             conformance_path="test/test_shoal_forage.jl",
-            example_path="experiments/shoal_vision_sweep/protocol.toml",
+            example_path=shoal_example,
             docs_path="site/src/content/docs/experimental/embodiment.mdx",
         ),
         _builtin_component_descriptor(

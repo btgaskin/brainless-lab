@@ -588,10 +588,11 @@ end
 The single composed body type. Biological and robotic embodiments differ only
 in their component values; no morphology or organism subclass is required.
 """
-struct Embodiment{G<:AbstractGeometry,S<:Tuple,E<:Tuple,A<:Tuple,D<:AbstractDynamics,P<:AbstractPhysiology,T,St} <: AbstractBody
+struct Embodiment{G<:AbstractGeometry,S<:Tuple,E<:Tuple,R<:Tuple,A<:Tuple,D<:AbstractDynamics,P<:AbstractPhysiology,T,St} <: AbstractBody
     geometry::G
     sensors::S
     encoders::E
+    readouts::R
     actuators::A
     dynamics::D
     physiology::P
@@ -603,6 +604,7 @@ function Embodiment(;
     geometry::AbstractGeometry=NoGeometry(),
     sensors=(DirectRelaySensor(0),),
     encoders=(IdentityEncoder(0; prefix=:direct),),
+    readouts=nothing,
     actuators=(DirectRelayActuator(1),),
     dynamics::AbstractDynamics=NoDynamics(),
     physiology::AbstractPhysiology=NoPhysiology(),
@@ -613,19 +615,26 @@ function Embodiment(;
     sensors_ = Tuple(sensors)
     encoders_ = Tuple(encoders)
     actuators_ = Tuple(actuators)
+    readouts_ = readouts === nothing ? _default_readouts(actuators_) : Tuple(readouts)
     isempty(sensors_) && throw(ArgumentError("Embodiment requires at least one sensor component"))
     isempty(encoders_) && throw(ArgumentError("Embodiment requires at least one encoder component"))
+    length(readouts_) == 1 || throw(ArgumentError(
+        "the standard Embodiment runtime currently requires exactly one readout component",
+    ))
     isempty(actuators_) && throw(ArgumentError("Embodiment requires at least one actuator component"))
     all(sensor -> sensor isa AbstractSensor, sensors_) ||
         throw(ArgumentError("Embodiment sensors must all subtype AbstractSensor"))
     all(encoder -> encoder isa AbstractEncoder, encoders_) ||
         throw(ArgumentError("Embodiment encoders must all subtype AbstractEncoder"))
+    all(readout -> readout isa AbstractReadout, readouts_) ||
+        throw(ArgumentError("Embodiment readouts must all subtype AbstractReadout"))
     all(actuator -> actuator isa AbstractActuator, actuators_) ||
         throw(ArgumentError("Embodiment actuators must all subtype AbstractActuator"))
     ids = _normalize_component_ids(
         component_ids,
         length(sensors_),
         length(encoders_),
+        length(readouts_),
         length(actuators_),
     )
     encoders_, encoder_ids = _complete_encoder_components(
@@ -634,7 +643,7 @@ function Embodiment(;
     ids = _normalize_component_ids((;
         ids...,
         encoders=encoder_ids,
-    ), length(sensors_), length(encoders_), length(actuators_))
+    ), length(sensors_), length(encoders_), length(readouts_), length(actuators_))
     encoder_groups = _encoder_groups(sensors_, encoders_, ids.sensors, ids.encoders)
     commands = Tuple(command_buffer(actuator) for actuator in actuators_)
     port_spec = _embodiment_portspec(ids, encoder_groups, actuators_, physiology)
@@ -647,16 +656,22 @@ function Embodiment(;
         receptor_buffer,
         state,
     )
-    return Embodiment{typeof(geometry),typeof(sensors_),typeof(encoders_),typeof(actuators_),typeof(dynamics),typeof(physiology),typeof(traits),typeof(state_)}(
+    return Embodiment{typeof(geometry),typeof(sensors_),typeof(encoders_),typeof(readouts_),typeof(actuators_),typeof(dynamics),typeof(physiology),typeof(traits),typeof(state_)}(
         geometry,
         sensors_,
         encoders_,
+        readouts_,
         actuators_,
         dynamics,
         physiology,
         traits,
         state_,
     )
+end
+
+function _default_readouts(actuators::Tuple)
+    policy = length(actuators) == 1 ? readout_policy(only(actuators)) : PASSTHROUGH_MOTOR
+    return (MeanReadout(policy),)
 end
 
 function _sensor_identity_port_ids(sensor_id::Symbol, sensor::AbstractSensor)
@@ -723,30 +738,52 @@ end
 
 _default_ids(prefix::Symbol, count::Int) = ntuple(i -> Symbol(prefix, :_, i), count)
 
-function _normalize_component_ids(component_ids, nsensors::Int, nencoders::Int, nactuators::Int)
+function _normalize_component_ids(
+    component_ids,
+    nsensors::Int,
+    nencoders::Int,
+    nreadouts::Int,
+    nactuators::Int,
+)
     defaults = (
         geometry=:geometry,
         sensors=_default_ids(:sensor, nsensors),
         encoders=_default_ids(:encoder, nencoders),
+        readouts=_default_ids(:readout, nreadouts),
         actuators=_default_ids(:actuator, nactuators),
         dynamics=:dynamics,
         physiology=:physiology,
     )
     ids = component_ids === nothing ? defaults : component_ids
+    legacy_fields = (:geometry, :sensors, :encoders, :actuators, :dynamics, :physiology)
+    if propertynames(ids) == legacy_fields
+        ids = (
+            geometry=ids.geometry,
+            sensors=ids.sensors,
+            encoders=ids.encoders,
+            readouts=defaults.readouts,
+            actuators=ids.actuators,
+            dynamics=ids.dynamics,
+            physiology=ids.physiology,
+        )
+    end
     required = propertynames(defaults)
     propertynames(ids) == required || throw(ArgumentError(
         "component_ids must have fields $(required), got $(propertynames(ids))",
     ))
     sensors = Tuple(Symbol(id) for id in ids.sensors)
     encoders = Tuple(Symbol(id) for id in ids.encoders)
+    readouts = Tuple(Symbol(id) for id in ids.readouts)
     actuators = Tuple(Symbol(id) for id in ids.actuators)
     length(sensors) == nsensors || throw(DimensionMismatch("sensor component ID count does not match sensors"))
     length(encoders) == nencoders || throw(DimensionMismatch("encoder component ID count does not match encoders"))
+    length(readouts) == nreadouts || throw(DimensionMismatch("readout component ID count does not match readouts"))
     length(actuators) == nactuators || throw(DimensionMismatch("actuator component ID count does not match actuators"))
     normalized = (
         geometry=Symbol(ids.geometry),
         sensors=sensors,
         encoders=encoders,
+        readouts=readouts,
         actuators=actuators,
         dynamics=Symbol(ids.dynamics),
         physiology=Symbol(ids.physiology),
@@ -755,6 +792,7 @@ function _normalize_component_ids(component_ids, nsensors::Int, nencoders::Int, 
         normalized.geometry,
         normalized.sensors...,
         normalized.encoders...,
+        normalized.readouts...,
         normalized.actuators...,
         normalized.dynamics,
         normalized.physiology,
@@ -812,6 +850,7 @@ end
 
 sensor_components(body::Embodiment) = body.sensors
 encoder_components(body::Embodiment) = body.encoders
+readout_components(body::Embodiment) = body.readouts
 actuator_components(body::Embodiment) = body.actuators
 function component_slots(body::Embodiment)
     ids = body.state.ids
@@ -819,6 +858,7 @@ function component_slots(body::Embodiment)
         geometry=ComponentSlot(ids.geometry, body.geometry),
         sensors=Tuple(ComponentSlot(id, value) for (id, value) in zip(ids.sensors, body.sensors)),
         encoders=Tuple(ComponentSlot(id, value) for (id, value) in zip(ids.encoders, body.encoders)),
+        readouts=Tuple(ComponentSlot(id, value) for (id, value) in zip(ids.readouts, body.readouts)),
         actuators=Tuple(ComponentSlot(id, value) for (id, value) in zip(ids.actuators, body.actuators)),
         dynamics=ComponentSlot(ids.dynamics, body.dynamics),
         physiology=ComponentSlot(ids.physiology, body.physiology),
@@ -829,7 +869,8 @@ situated_sensor(body::AbstractBody) = throw(ArgumentError(
 ))
 situated_sensor(body::Embodiment) = only(body.sensors)
 primary_actuator(body::Embodiment) = only(body.actuators)
-readout_policy(body::Embodiment) = readout_policy(primary_actuator(body))
+primary_readout(body::Embodiment) = only(body.readouts)
+readout_policy(body::Embodiment) = readout_policy(primary_readout(body))
 
 _namespaced_port(component_id::Symbol, port) =
     Port{Any}(Symbol(component_id, :__, port.id), port.placement)
@@ -958,18 +999,18 @@ function _flatten_raw_samples(samples::Tuple)
     return reduce(vcat, (_component_float_vector(sample) for sample in samples); init=Float64[])
 end
 
-function _encode_group(encoder::SituatedEncoder, sensors::Tuple, samples::Tuple)
+function _encoder_input(encoder::SituatedEncoder, sensors::Tuple, samples::Tuple)
     length(sensors) == length(samples) == 1 || throw(DimensionMismatch(
         "SituatedEncoder consumes exactly one SituatedSensorLayout",
     ))
     only(sensors) isa SituatedSensorLayout || throw(ArgumentError(
         "SituatedEncoder requires a SituatedSensorLayout sensor",
     ))
-    return encode!(encoder, only(samples))
+    return only(samples)
 end
 
 
-function _encode_group(encoder::AbstractBilateralEncoder, sensors::Tuple, samples::Tuple)
+function _encoder_input(encoder::AbstractBilateralEncoder, sensors::Tuple, samples::Tuple)
     length(sensors) == length(samples) == 2 || throw(DimensionMismatch(
         "bilateral encoders consume exactly two sensor sample vectors",
     ))
@@ -983,46 +1024,91 @@ function _encode_group(encoder::AbstractBilateralEncoder, sensors::Tuple, sample
         paired[2channel - 1] = left[channel]
         paired[2channel] = right[channel]
     end
-    return encode!(encoder, paired)
+    return paired
 end
 
-function _encode_group(encoder::AbstractEncoder, sensors::Tuple, samples::Tuple)
+function _encoder_input(encoder::AbstractEncoder, sensors::Tuple, samples::Tuple)
     expected = sum(_raw_width, sensors; init=0)
     raw = _flatten_raw_samples(samples)
     length(raw) == expected || throw(DimensionMismatch(
         "raw sensor group declared width $(expected), got $(length(raw)) samples",
     ))
-    return encode!(encoder, raw)
+    return raw
 end
 
-function _encoded_sensors!(output::Vector{Float64}, body::Embodiment, percept)
+function _encode_group(encoder::AbstractEncoder, sensors::Tuple, samples::Tuple)
+    return encode!(encoder, _encoder_input(encoder, sensors, samples))
+end
+
+struct EmbodimentEncodingState{G}
+    groups::G
+    feedback_width::Int
+end
+
+function begin_encoding!(body::Embodiment, percept, cycle::FixedRateCycle)
     samples = _sensor_samples(body, percept)
-    offset = 0
-    for (_, encoder, sensors, indices) in _encoder_groups(body)
+    groups = map(_encoder_groups(body)) do (_, encoder, sensors, indices)
         selected_samples = Tuple(samples[index] for index in indices)
-        encoded = _component_float_vector(_encode_group(encoder, sensors, selected_samples))
+        input = _encoder_input(encoder, sensors, selected_samples)
+        begin_encoding!(encoder, input, cycle)
+    end
+    sensor_width = sum(
+        n_receptors(_encoder_portspec(group[2], group[3]))
+        for group in _encoder_groups(body);
+        init=0,
+    )
+    feedback_width = length(body.state.receptor_buffer) - sensor_width
+    feedback_width >= 0 || throw(DimensionMismatch(
+        "Embodiment encoders expose $(sensor_width) receptors, but its cached port " *
+        "contract has width $(length(body.state.receptor_buffer))",
+    ))
+    feedback = @view body.state.receptor_buffer[(sensor_width + 1):end]
+    physiology_feedback!(feedback, body.physiology)
+    return EmbodimentEncodingState(groups, feedback_width)
+end
+
+function _encoded_sensor_frame!(
+    output::Vector{Float64},
+    body::Embodiment,
+    encoding_states::Tuple,
+    frame::Integer,
+    cycle::FixedRateCycle,
+)
+    length(encoding_states) == length(_encoder_groups(body)) || throw(DimensionMismatch(
+        "Embodiment has $(length(_encoder_groups(body))) encoder groups but received " *
+        "$(length(encoding_states)) encoding states",
+    ))
+    offset = 0
+    for ((_, encoder, _, _), encoding_state) in zip(_encoder_groups(body), encoding_states)
+        encoded = _component_float_vector(encode_frame!(encoder, encoding_state, frame, cycle))
         copyto!(output, offset + 1, encoded, 1, length(encoded))
         offset += length(encoded)
     end
     return offset
 end
 
-function sense!(body::Embodiment, percept)
+function encode_frame!(
+    body::Embodiment,
+    state::EmbodimentEncodingState,
+    frame::Integer,
+    cycle::FixedRateCycle,
+)
+    1 <= frame <= neural_frames(cycle) || throw(BoundsError(1:neural_frames(cycle), frame))
     output = body.state.receptor_buffer
-    base_width = _encoded_sensors!(output, body, percept)
+    base_width = _encoded_sensor_frame!(output, body, state.groups, frame, cycle)
     feedback_width = length(output) - base_width
-    feedback_width >= 0 || throw(DimensionMismatch(
-        "Embodiment encoded $(base_width) sensor receptors, but its cached port " *
-        "contract has width $(length(output))",
-    ))
-    feedback = @view output[(base_width + 1):length(output)]
-    physiology_feedback!(feedback, body.physiology)
-    base_width + length(feedback) == length(output) || throw(DimensionMismatch(
-        "Embodiment encoded $(base_width) sensor receptors and $(length(feedback)) " *
-        "physiology receptors, but its cached port contract has width $(length(output))",
+    feedback_width == state.feedback_width || throw(DimensionMismatch(
+        "Embodiment frame requires $(feedback_width) physiology receptors, but the " *
+        "held feedback state has $(state.feedback_width)",
     ))
     physiology_alive(body.physiology) || fill!(output, 0.0)
     return output
+end
+
+function sense!(body::Embodiment, percept)
+    cycle = FixedRateCycle(1)
+    state = begin_encoding!(body, percept, cycle)
+    return encode_frame!(body, state, 1, cycle)
 end
 
 function decode!(body::Embodiment, values)
@@ -1051,7 +1137,13 @@ function update!(body::Embodiment, effects=())
     return nothing
 end
 function reset!(body::Embodiment)
-    for component in (body.sensors..., body.encoders..., body.actuators..., body.dynamics)
+    for component in (
+        body.sensors...,
+        body.encoders...,
+        body.readouts...,
+        body.actuators...,
+        body.dynamics,
+    )
         applicable(reset!, component) && reset!(component)
     end
     applicable(reset!, body.state.user) && reset!(body.state.user)
@@ -1070,6 +1162,7 @@ function _component_states(body::Embodiment)
         slots.geometry,
         slots.sensors...,
         slots.encoders...,
+        slots.readouts...,
         slots.actuators...,
         slots.dynamics,
         slots.physiology,

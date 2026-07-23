@@ -1,18 +1,28 @@
-# Benchmark config snippet following bench/configs/core.toml.
-# Load my_node.jl and my_task.jl before running the benchmark so the symbols are
-# registered in BrainlessLab.
+format = "brainlesslab-plan"
+format_version = 1
+operation = "profile"
+id = "my_project_profile"
 
-neurons = ["falandays", "my_node"]
-tasks = ["my_task"]
+[[targets]]
+id = "my_task"
 
-n_trials = 5
+[targets.composition]
+id = "my_project"
+node = "my_node"
+task = "my_task"
 n_nodes = 80
-ticks = 300
-seed_base = 2000
-baseline = "falandays"
-alpha = 0.05
-gifs = false
 
-[prep]
-falandays = "untrained"
-my_node = "untrained"
+[targets.evaluation]
+blocks = 2
+trials_per_block = 2
+horizon = 300
+warmup = 50
+construction_scope = "trial"
+reset = "full"
+root_seed = 3001
+aggregate = "mean"
+
+[profile]
+target = "my_task"
+analyses = []
+record_every = 1

@@ -449,5 +449,5 @@ function run_tracking_param_sweep(; seeds=0:99, ticks=7200, warmup=100, nnodes=2
     return dir
 end
 
-register_experiment!(:tracking_param_sweep, run_tracking_param_sweep;
+ExpRegistry.register_experiment!(:tracking_param_sweep, run_tracking_param_sweep;
     description="One-at-a-time parameter sweep of the paper Falandays object-tracking model (leak, lrate_targ, lrate_wmat, input_amp, movement_amp, eye_offset); post-warmup heading error + branching over N random-init seeds.")

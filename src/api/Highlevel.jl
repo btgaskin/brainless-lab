@@ -87,11 +87,38 @@ Return the registered high-level node variant symbols.
 variants() = sort!(collect(keys(NODES)))
 
 """
-    tasks()
+    tasks(; tag=nothing, status=nothing)
 
-Return the registered high-level task symbols.
+Return registered high-level task symbols, optionally filtered by one declared
+task tag and/or stability status. Registration remains distinct from benchmark
+participation: tags select active sets without hiding other tasks.
 """
-tasks() = sort!(collect(keys(TASKS)))
+function tasks(; tag=nothing, status=nothing)
+    tag === nothing && status === nothing && return sort!(collect(keys(TASKS)))
+    tag_ = tag === nothing ? nothing : Symbol(tag)
+    status_ = status === nothing ? nothing : Symbol(status)
+    found = Symbol[]
+    for (name, task) in TASKS
+        task isa TaskSpec || continue
+        tag_ === nothing || tag_ in task.tags || continue
+        status_ === nothing || task.status === status_ || continue
+        push!(found, name)
+    end
+    return sort!(found)
+end
+
+"""Return typed discovery metadata for one registered task."""
+function task_info(task::Union{Symbol,AbstractString,TaskSpec})
+    spec = task isa TaskSpec ? task : resolve_task(Symbol(task))
+    return (
+        name=spec.name,
+        status=spec.status,
+        tags=spec.tags,
+        protocol=spec.protocol,
+        interaction_cycle=spec.interaction_cycle,
+        score_key=spec.score_key,
+    )
+end
 
 function _record_symbols(record)
     record === nothing && return Symbol[]
@@ -753,9 +780,13 @@ function _validate_agent_ports(reservoir::Reservoir, body::AbstractBody)
     return nothing
 end
 
-function _make_agent(reservoir::Reservoir, body::AbstractBody)
+function _make_agent(
+    reservoir::Reservoir,
+    body::AbstractBody;
+    cycle::Union{Nothing,InteractionCycle}=nothing,
+)
     _validate_agent_ports(reservoir, body)
-    return Agent(reservoir, body)
+    return Agent(reservoir, body; cycle=cycle)
 end
 
 function _setup_for_node_count(
@@ -838,7 +869,11 @@ function _make_ensemble(
             node_kwargs=body_node_options,
             ablation=ablation,
         )
-        agents[i] = _make_agent(reservoir, bodies[i])
+        agents[i] = _make_agent(
+            reservoir,
+            bodies[i];
+            cycle=task_spec.interaction_cycle,
+        )
     end
 
     recorder = Recorder(enabled=record, every=every, compute_every=_spectral_compute_every(spectral_every))
@@ -1026,6 +1061,22 @@ _encoder_component_config(encoder::IdentityEncoder) = (
     sources=encoder.source_ids,
 )
 _encoder_component_config(encoder::SituatedEncoder) = (kind=:situated,)
+_encoder_component_config(encoder::SpikeFF2Encoder) = (
+    kind=:spike_ff_2,
+    scales=encoder.scales,
+    port_ids=encoder.port_ids,
+    sources=encoder.source_ids,
+    neural_frames=PLANK_CARTPOLE_NEURAL_FRAMES,
+)
+_encoder_component_config(encoder::Argyle4Encoder) = (
+    kind=:argyle_4,
+    minima=encoder.minima,
+    maxima=encoder.maxima,
+    port_ids=encoder.port_ids,
+    sources=encoder.source_ids,
+    spike_schedule=_ARGYLE_9_FRAME_SCHEDULE,
+    implementation=:brainlesslab_v1,
+)
 _encoder_component_config(encoder::AbstractEncoder) = (
     kind=:custom,
     type=_config_type(encoder),
@@ -1114,12 +1165,31 @@ _physiology_config(physiology::RegulatedPhysiology) = (
 )
 _physiology_config(physiology) = (kind=:custom, type=_config_type(physiology))
 
+_readout_config(readout_component::MeanReadout) = (
+    kind=:mean,
+    policy=_motor_config(readout_policy(readout_component)),
+)
+_readout_config(readout_component::InstantReadout) = (
+    kind=:instant,
+    policy=_motor_config(readout_policy(readout_component)),
+)
+_readout_config(readout_component::VotingReadout) = (
+    kind=:voting,
+    tie_break=:lowest_index,
+    policy=_motor_config(readout_policy(readout_component)),
+)
+_readout_config(readout_component::AbstractReadout) = (
+    kind=:custom,
+    type=_config_type(readout_component),
+)
+
 function _body_config(body::Embodiment)
     return (
         kind=:embodiment,
         geometry=_geometry_config(body.geometry),
         sensors=Tuple(_sensor_component_config(sensor) for sensor in body.sensors),
         encoders=Tuple(_encoder_component_config(encoder) for encoder in body.encoders),
+        readouts=Tuple(_readout_config(readout_component) for readout_component in body.readouts),
         actuators=Tuple(_actuator_component_config(actuator) for actuator in body.actuators),
         dynamics=_dynamics_config(body.dynamics),
         physiology=_physiology_config(body.physiology),
@@ -1129,6 +1199,15 @@ function _body_config(body::Embodiment)
         ports=_ports_config(body),
     )
 end
+
+_interaction_cycle_config(cycle::FixedRateCycle) = (
+    kind=:fixed_rate,
+    neural_frames=neural_frames(cycle),
+)
+_interaction_cycle_config(cycle::InteractionCycle) = (
+    kind=:custom,
+    type=_config_type(cycle),
+)
 
 _body_config(body::AbstractBody) = (
     kind=:custom,
@@ -1277,6 +1356,29 @@ function _environment_config(world::TaskWorld)
     )
 end
 
+function _environment_config(world::PlankCartPoleEnv)
+    return (
+        kind=:task,
+        world=:plank_cartpole,
+        level=world.level.name,
+        observations=world.level.observation_indices,
+        actions=world.level.actions,
+        encoder=world.level.encoder,
+        target_fitness=world.level.target_fitness,
+        activity_threshold=world.level.activity_threshold,
+        mission_steps=PLANK_CARTPOLE_MISSION_STEPS,
+        tau=world.tau,
+        gravity=world.gravity,
+        force=world.force_mag,
+        pole_length=world.pole_length,
+        pole_mass=world.pole_mass,
+        cart_mass=world.cart_mass,
+        maximum_cart_position=world.max_x,
+        maximum_pole_angle=world.max_theta,
+        initial_ranges=world.initial_ranges,
+    )
+end
+
 function _situated_config_value(m::SituatedEnvironment, name::Symbol)
     name === :n_agents && return length(m.positions)
     name === :visual_coupling && return m.visual_coupling
@@ -1392,6 +1494,7 @@ function _simulation_config(
             slot=slot,
             body=_body_config(body_at_slot(c, slot)),
             network=network_snapshot(agent_at_slot(c, slot).reservoir),
+            interaction_cycle=_interaction_cycle_config(agent_at_slot(c, slot).cycle),
         )
         for slot in 1:nagents(c)
     )
@@ -1411,6 +1514,12 @@ function _simulation_config(
         ablation=ablation,
         ablation_notes=Tuple(ablation_notes),
         interventions=interventions === nothing ? () : Tuple(interventions),
+        task_contract=task_spec isa TaskSpec ? (
+            name=task_spec.name,
+            status=task_spec.status,
+            tags=task_spec.tags,
+            protocol=task_spec.protocol,
+        ) : nothing,
         outcome_contract=task_spec isa TaskSpec && task_spec.score_key !== nothing ? (
             key=task_spec.score_key,
             floor=score_floor(task_spec),

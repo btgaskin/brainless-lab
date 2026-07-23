@@ -1,0 +1,76 @@
+---
+title: Interaction cycles
+description: One timing contract for held inputs, temporal encoders, neural-frame readouts, and synchronous action.
+---
+
+An interaction cycle defines how one world observation becomes one world action. It does
+not define the task's trial count, reset policy, or statistical aggregation.
+
+```text
+world time t
+  → sample world and sensors once
+  → begin encoder state
+  → for neural frame 1:K
+       encode receptor frame
+       step reservoir once
+       observe neural output in readout
+  → finish readout
+  → decode one typed actuator command
+  → apply all agents' commands synchronously
+world time t + 1
+```
+
+The three clocks are deliberately separate:
+
+| Clock | Owner | Example |
+| --- | --- | --- |
+| world step | environment and ensemble | one CartPole physics update |
+| neural frame | `InteractionCycle` | 24 input/readout frames before that update |
+| reservoir-internal substep | reservoir implementation | compartment integration within one frame |
+
+## The default contract
+
+`FixedRateCycle(K)` runs exactly `K` native reservoir frames per world step. The world is
+sampled only once. A memoryless encoder repeats that sample; a temporal encoder may spread
+it across frames.
+
+An embodiment owns exactly one readout in the standard runtime:
+
+- `MeanReadout` averages neural outputs, then applies the declared output projection;
+- `InstantReadout` uses the final neural output;
+- `VotingReadout` projects every frame, votes for a categorical effector, and resolves ties
+  by first index.
+
+The default cycle and `MeanReadout` preserve existing one-frame and held-input behaviour.
+Temporal behaviour is therefore opt-in and visible in the resolved simulation configuration.
+
+## Why readout belongs to embodiment
+
+The reservoir produces neural state. The readout states how a body observes that state over
+the interaction interval. The actuator then turns the resulting effector signal into a
+bounded command. Keeping these distinct avoids mixing sensory encoding, temporal reduction,
+and motor physics in one "decoder" object.
+
+Embodiment TOML may select a registered readout:
+
+```toml
+[[components]]
+id = "neural_readout"
+family = "readout"
+kind = "mean"
+[components.parameters]
+```
+
+Custom temporal encoders extend `begin_encoding!` and `encode_frame!`. Custom readouts
+extend `begin_readout!`, `observe_frame!`, and `finish_readout!`. Validate port widths and
+cycle requirements before a rollout begins.
+
+## Evaluation is a different layer
+
+`EvaluationSpec` governs complete trials: blocks, trials per block, horizon, warm-up, reset
+rule, construction scope, named random streams, and aggregation. It does not alter the
+interaction cycle.
+This distinction lets the same embodied agent run one diagnostic simulation, a held-out
+benchmark, a sweep, or evolution without changing its sensorimotor semantics.
+
+<p class="bl-source">Source: <code>src/world/Interaction.jl</code>, <code>src/world/Ensemble.jl</code>, <code>src/world/Embodiment.jl</code>, <code>src/operations/Evaluation.jl</code>.</p>

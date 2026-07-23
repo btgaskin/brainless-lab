@@ -12,11 +12,12 @@ Makie-free.
 """
 module BrainlessLab
 
-import Base: view
+import Base: summary, view
 
 include("core/Interfaces.jl")
 include("core/Traits.jl")
 include("core/Params.jl")
+include("core/Specifications.jl")
 include("core/Registry.jl")
 include("core/Components.jl")
 include("core/Recorder.jl")
@@ -36,6 +37,7 @@ include("world/BilateralSensing.jl")
 include("world/Body.jl")
 include("world/Motor.jl")
 include("world/PhysicalComponents.jl")
+include("world/Interaction.jl")
 include("world/Embodiment.jl")
 include("world/SectorVision.jl")
 include("world/Homeostasis.jl")
@@ -56,13 +58,27 @@ include("nodes/HomeostaticFlowV2.jl")
 include("envs/WallBox.jl")
 include("envs/Envs.jl")
 include("envs/CartPoleVariants.jl")
+include("envs/PlankCartPole.jl")
 include("tasks/Scoring.jl")
 include("tasks/Tasks.jl")
+include("core/Composition.jl")
 include("world/Environments.jl")
 include("world/Ensemble.jl")
 include("world/Metrics.jl")
 include("api/paper_config.jl")
 include("api/Highlevel.jl")
+include("core/Catalog.jl")
+include("api/Composition.jl")
+include("operations/Plans.jl")
+include("operations/Evaluation.jl")
+include("operations/Profile.jl")
+include("operations/Sweep.jl")
+include("operations/Ablation.jl")
+include("operations/Evolution.jl")
+include("operations/Benchmark.jl")
+include("records/PlanIO.jl")
+include("records/ExperimentIO.jl")
+include("records/Records.jl")
 include("analysis/ActivityLevels.jl")
 include("analysis/Branching.jl")
 include("analysis/Avalanches.jl")
@@ -128,6 +144,8 @@ export step!,
     rawspec,
     sample!,
     encode!,
+    begin_encoding!,
+    encode_frame!,
     encoder_sources,
     sense!,
     decode!,
@@ -281,6 +299,18 @@ export TaskWorld,
     CartPoleHardEnv,
     CartPoleLongEnv,
     CartPoleSwingupEnv,
+    PlankCartPoleLevel,
+    PLANK_CARTPOLE_LEVELS,
+    PLANK_CARTPOLE_MISSION_STEPS,
+    PLANK_CARTPOLE_NEURAL_FRAMES,
+    PLANK_CARTPOLE_EVAL_EPISODES,
+    plank_cartpole_level,
+    SpikeFF2Encoder,
+    Argyle4Encoder,
+    PlankCartPoleEnv,
+    PlankCartPoleSetup,
+    plank_cartpole_fitness,
+    set_plank_cartpole_state!,
     cartpole_balancer,
     cartpole_swingup_controller,
     distance_last,
@@ -309,6 +339,11 @@ export TaskSpec,
     CARTPOLE_HARD_TASK,
     CARTPOLE_SWINGUP_TASK,
     CARTPOLE_LONG_TASK,
+    PLANK_CARTPOLE_PROTOCOL,
+    CARTPOLE_PLANK_EASY_TASK,
+    CARTPOLE_PLANK_MEDIUM_TASK,
+    CARTPOLE_PLANK_HARD_TASK,
+    CARTPOLE_PLANK_HARDEST_TASK,
     TORUS_TASK,
     FORAGE_TASK,
     FORAGE_FLOOR_ANCHOR,
@@ -394,6 +429,19 @@ export Agent,
     KinematicMotor,
     readout,
     readout_policy,
+    readout_components,
+    primary_readout,
+    begin_readout!,
+    observe_frame!,
+    finish_readout!,
+    InteractionCycle,
+    FixedRateCycle,
+    neural_frames,
+    default_interaction_cycle,
+    AbstractReadout,
+    MeanReadout,
+    InstantReadout,
+    VotingReadout,
     AbstractSensor,
     AbstractEncoder,
     IdentityEncoder,
@@ -602,10 +650,115 @@ export Recorder,
 export parallel_map,
     init_parallelism!
 
+export Registry,
+    register!,
+    ImplementationSpec,
+    EquationSpec,
+    ParameterSpec,
+    validate_parameter,
+    sweepable,
+    evolvable,
+    SeedStreamSpec,
+    EvaluationSpec,
+    seed_stream_names,
+    derive_seed
+
+export NodeBuildContext,
+    NodeSpec,
+    node_parameter,
+    node_parameter_set,
+    resolve_parameters,
+    CompositionSpec,
+    ResolvedComposition,
+    RegistrySet,
+    DEFAULT_REGISTRY,
+    register_default!,
+    register_builtins!,
+    node_spec,
+    task_spec,
+    composition_spec,
+    nodes,
+    compositions,
+    default_composition,
+    resolve_composition,
+    falandays_node_spec
+
+export AbstractOperationPlan,
+    AbstractResolvedOperationPlan,
+    AbstractOperationResult,
+    EvaluationTarget,
+    ProfilePlan,
+    SweepAxis,
+    SweepPlan,
+    AblationSpec,
+    AblationPlan,
+    EvolutionPlan,
+    BenchmarkCasePlan,
+    BenchmarkPlan,
+    ExperimentSpec,
+    ExperimentRegistry,
+    DEFAULT_EXPERIMENTS,
+    operation_targets,
+    register_experiment!,
+    experiment_spec,
+    experiments,
+    validate,
+    execute,
+    tables,
+    summary
+
+export EvaluationTrial,
+    EvaluationBatch,
+    evaluate,
+    realized_initial_state,
+    trial_row,
+    trial_table
+
+export ResolvedBenchmarkPlan,
+    BenchmarkResult
+
+export ResolvedProfilePlan,
+    ProfileAnalysisRow,
+    ProfileAnalysisSummary,
+    ProfileSummary,
+    ProfileResult,
+    ProfileAnalysisError,
+    ResolvedSweepCell,
+    ResolvedSweepPlan,
+    SweepResult,
+    ResolvedAblationCase,
+    ResolvedAblationPlan,
+    AblationResult,
+    ResolvedEvolutionPlan,
+    EvolutionCandidate,
+    EvolutionGeneration,
+    EvolutionEvaluation,
+    EvolutionResult
+
+export PLAN_FORMAT,
+    PLAN_FORMAT_VERSION,
+    plan_document,
+    read_plan,
+    write_plan
+
+export EXPERIMENT_FORMAT,
+    EXPERIMENT_FORMAT_VERSION,
+    experiment_document,
+    read_experiment,
+    write_experiment
+
+export RECORD_FORMAT,
+    RECORD_FORMAT_VERSION,
+    operation_kind,
+    write_record,
+    run_operation,
+    run_experiment
+
 export SimResult,
     simulate,
     variants,
     tasks,
+    task_info,
     branching_ratio,
     branching_ratio_mr,
     branching_ratio_mr_windowed,
@@ -684,7 +837,6 @@ export RunConfig,
     write_config,
     resolve,
     save_recorder,
-    run_experiment,
     run_from_config,
     run_sweep,
     ablate,
@@ -782,6 +934,10 @@ register_task!(:cartpole, CARTPOLE_TASK)
 register_task!(:cartpole_hard, CARTPOLE_HARD_TASK)
 register_task!(:cartpole_swingup, CARTPOLE_SWINGUP_TASK)
 register_task!(:cartpole_long, CARTPOLE_LONG_TASK)
+register_task!(:cartpole_plank_easy, CARTPOLE_PLANK_EASY_TASK)
+register_task!(:cartpole_plank_medium, CARTPOLE_PLANK_MEDIUM_TASK)
+register_task!(:cartpole_plank_hard, CARTPOLE_PLANK_HARD_TASK)
+register_task!(:cartpole_plank_hardest, CARTPOLE_PLANK_HARDEST_TASK)
 register_task!(:torus, TORUS_TASK)
 register_task!(:forage, FORAGE_TASK)
 register_task!(:shoal_forage, SHOAL_FORAGE_TASK)
@@ -856,5 +1012,7 @@ register_ablation!(:clamp_target, ClampTarget)
 register_ablation!(:disable_vision, DisableVision)
 
 register_optimizer!(:sepcma, SepCMA)
+
+register_builtins!(DEFAULT_REGISTRY)
 
 end
