@@ -1,3 +1,5 @@
+using TOML
+
 @testset "embodiment TOML configuration" begin
     root = pkgdir(BrainlessLab)
     examples = (
@@ -107,11 +109,16 @@
         @test_throws ArgumentError read_embodiment_config(self_path)
 
         absolute_base = joinpath(temp, "absolute_base.toml")
-        write(absolute_base, """
-            schema_version = 1
-            name = "absolute_base"
-            extends = "$(base_path)"
-            """)
+        open(absolute_base, "w") do io
+            TOML.print(
+                io,
+                Dict(
+                    "schema_version" => 1,
+                    "name" => "absolute_base",
+                    "extends" => base_path,
+                ),
+            )
+        end
         @test_throws ArgumentError read_embodiment_config(absolute_base)
 
         nested_base = joinpath(temp, "nested_base.toml")
