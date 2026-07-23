@@ -17,6 +17,7 @@ import Base: view
 include("core/Interfaces.jl")
 include("core/Traits.jl")
 include("core/Params.jl")
+include("core/Specifications.jl")
 include("core/Registry.jl")
 include("core/Components.jl")
 include("core/Recorder.jl")
@@ -60,11 +61,14 @@ include("envs/CartPoleVariants.jl")
 include("envs/PlankCartPole.jl")
 include("tasks/Scoring.jl")
 include("tasks/Tasks.jl")
+include("core/Composition.jl")
 include("world/Environments.jl")
 include("world/Ensemble.jl")
 include("world/Metrics.jl")
 include("api/paper_config.jl")
 include("api/Highlevel.jl")
+include("core/Catalog.jl")
+include("api/Composition.jl")
 include("analysis/ActivityLevels.jl")
 include("analysis/Branching.jl")
 include("analysis/Avalanches.jl")
@@ -637,6 +641,39 @@ export Recorder,
 export parallel_map,
     init_parallelism!
 
+export Registry,
+    register!,
+    ImplementationSpec,
+    EquationSpec,
+    ParameterSpec,
+    validate_parameter,
+    sweepable,
+    evolvable,
+    SeedStreamSpec,
+    EvaluationSpec,
+    seed_stream_names,
+    derive_seed
+
+export NodeBuildContext,
+    NodeSpec,
+    node_parameter,
+    node_parameter_set,
+    resolve_parameters,
+    CompositionSpec,
+    ResolvedComposition,
+    RegistrySet,
+    DEFAULT_REGISTRY,
+    register_default!,
+    register_builtins!,
+    node_spec,
+    task_spec,
+    composition_spec,
+    nodes,
+    compositions,
+    default_composition,
+    resolve_composition,
+    falandays_node_spec
+
 export SimResult,
     simulate,
     variants,
@@ -901,5 +938,7 @@ register_ablation!(:clamp_target, ClampTarget)
 register_ablation!(:disable_vision, DisableVision)
 
 register_optimizer!(:sepcma, SepCMA)
+
+register_builtins!(DEFAULT_REGISTRY)
 
 end

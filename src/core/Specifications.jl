@@ -318,6 +318,7 @@ optional `scale`/`mutation_scale`.
 struct ParameterSpec{T,V,S,E}
     name::Symbol
     owner::Symbol
+    datatype::Type
     default::T
     validator::V
     sweep::S
@@ -330,6 +331,7 @@ function ParameterSpec(
     name::Union{Symbol,AbstractString},
     default;
     owner::Union{Symbol,AbstractString}=:node,
+    datatype::Type=typeof(default),
     validator=nothing,
     sweep=nothing,
     evolve=nothing,
@@ -338,6 +340,9 @@ function ParameterSpec(
 )
     name_ = _nonempty_symbol(name, "parameter name")
     owner_ = _nonempty_symbol(owner, "parameter owner")
+    default isa datatype || throw(ArgumentError(
+        "default for parameter :$(name_) must be a $(datatype), got $(typeof(default))",
+    ))
     units_ = units === nothing ? nothing : String(units)
     units_ !== nothing && isempty(strip(units_)) &&
         throw(ArgumentError("parameter units must not be empty"))
@@ -352,6 +357,7 @@ function ParameterSpec(
     }(
         name_,
         owner_,
+        datatype,
         default,
         validator,
         sweep_,
@@ -362,8 +368,12 @@ function ParameterSpec(
 end
 
 """Validate and return a candidate value for a parameter."""
-validate_parameter(spec::ParameterSpec, value) =
-    _parameter_value_valid(spec.validator, value, spec.name)
+function validate_parameter(spec::ParameterSpec, value)
+    value isa spec.datatype || throw(ArgumentError(
+        "parameter :$(spec.name) must be a $(spec.datatype), got $(typeof(value))",
+    ))
+    return _parameter_value_valid(spec.validator, value, spec.name)
+end
 
 sweepable(spec::ParameterSpec) = spec.sweep !== nothing
 evolvable(spec::ParameterSpec) = spec.evolve !== nothing
@@ -388,12 +398,12 @@ struct SeedStreamSpec
 end
 
 const DEFAULT_SEED_STREAMS = (
-    SeedStreamSpec(:environment),
-    SeedStreamSpec(:node_construction),
-    SeedStreamSpec(:runtime),
-    SeedStreamSpec(:trial),
-    SeedStreamSpec(:optimizer),
-    SeedStreamSpec(:bootstrap),
+    SeedStreamSpec(:topology),
+    SeedStreamSpec(:node_state),
+    SeedStreamSpec(:world),
+    SeedStreamSpec(:body),
+    SeedStreamSpec(:task),
+    SeedStreamSpec(:mechanism),
 )
 
 function _seed_streams(streams)
@@ -456,6 +466,9 @@ function EvaluationSpec(;
     trials_ > 0 || throw(ArgumentError("evaluation trials_per_block must be positive"))
     horizon_ > 0 || throw(ArgumentError("evaluation horizon must be positive"))
     warmup_ >= 0 || throw(ArgumentError("evaluation warmup must be non-negative"))
+    warmup_ < horizon_ || throw(ArgumentError(
+        "evaluation warmup must be less than its horizon",
+    ))
     construction_scope in CONSTRUCTION_SCOPES || throw(ArgumentError(
         "evaluation construction_scope must be one of " *
         join(":" .* string.(CONSTRUCTION_SCOPES), ", "),

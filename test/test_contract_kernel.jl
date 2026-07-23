@@ -1,10 +1,5 @@
 using Test
-
-module ContractKernel
-include(joinpath(@__DIR__, "..", "src", "core", "Specifications.jl"))
-end
-
-using .ContractKernel:
+using BrainlessLab:
     EquationSpec,
     EvaluationSpec,
     ImplementationSpec,
@@ -93,12 +88,14 @@ end
         description="activation retained between ticks",
     )
     @test leak.default == 0.25
+    @test leak.datatype === Float64
     @test leak.sweep == (0.1, 0.25, 0.5)
     @test leak.evolve.scale === :linear
     @test sweepable(leak)
     @test evolvable(leak)
     @test validate_parameter(leak, 0.75) == 0.75
     @test_throws ArgumentError validate_parameter(leak, 1.1)
+    @test_throws ArgumentError validate_parameter(leak, 1)
 
     connectivity = ParameterSpec(
         :recurrent_connectivity,
@@ -177,6 +174,7 @@ end
     @test derive_seed(reordered, :environment, 1, 1) == environment_seed
 
     @test_throws ArgumentError EvaluationSpec(horizon=0)
+    @test_throws ArgumentError EvaluationSpec(horizon=10, warmup=10)
     @test_throws ArgumentError EvaluationSpec(horizon=10, construction_scope=:episode)
     @test_throws ArgumentError EvaluationSpec(horizon=10, reset=:partial)
     @test_throws ArgumentError EvaluationSpec(horizon=10, aggregate=:standard_error)
