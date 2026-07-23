@@ -4,7 +4,7 @@ You do not need to know Julia before contributing. You can begin by running an e
 simulation, improving a task description, checking an example, or working with a coding
 agent. The repository contains guidance for both humans and agents.
 
-Start with the online [Getting started](https://brainless-lab.pages.dev/getting-started/)
+Start with the online [Getting started](https://brainless-lab.pages.dev/core/getting-started/)
 guide. If you are using an agent, point it at `AGENTS.md`; that file tells it which
 repository skills and safeguards to follow.
 
@@ -20,12 +20,13 @@ repository skills and safeguards to follow.
 - **Add a body component:** extend the narrow physical interface and add strict config
   materialization, an example, and conformance evidence.
 - **Add a metric or analysis:** declare its input channels, unit of analysis, diagnostics,
-  valid null, failure behavior, and scientific limitations.
-- **Add an experiment:** use only public BrainlessLab APIs and follow the evidence ladder in
-  the [Research workflow](https://brainless-lab.pages.dev/research-workflow/).
+  valid null, failure behaviour, and scientific limitations.
+- **Add an experiment:** compose named conditions and typed operations in an
+  `ExperimentSpec`, then follow the evidence ladder in
+  [Design a study](https://brainless-lab.pages.dev/core/design-study/).
 
-The [Extending](https://brainless-lab.pages.dev/extending/) page maps every public family to
-its contract, example, and required tests.
+[Extend the lab](https://brainless-lab.pages.dev/core/extend/) maps each public interface to
+its example and required tests.
 
 ## Local setup
 
@@ -49,12 +50,12 @@ The first run compiles the package and can be slower than later runs.
 ## Change discipline
 
 1. Create a branch or isolated worktree.
-2. Reproduce the current behavior before editing.
+2. Reproduce the current behaviour before editing.
 3. Add or update the narrow contract test.
 4. Implement through public dispatch boundaries.
 5. Run focused tests, then the full applicable gates.
 6. Update the canonical site page and executable example.
-7. Keep exploratory output out of the evidence surface.
+7. Keep exploratory output out of promoted research records.
 
 Do not modify fidelity fixtures, committed evidence, or a sealed protocol merely to make a
 new implementation agree with an expectation. If a scientific expectation changes, explain
@@ -75,7 +76,7 @@ bun run build
 ```
 
 The relevant change should also have a focused test. New hot-loop code should be checked
-after warmup for inference and avoidable allocations. New stochastic behavior needs reset,
+after warm-up for inference and avoidable allocations. New stochastic behaviour needs reset,
 replay, stream-ownership, and iteration-order tests.
 
 ## Pull-request handoff
@@ -89,4 +90,4 @@ State:
 - the evidence status of scientific outputs;
 - current limitations and follow-up work.
 
-Keep implementation conformance, behavioral observations, and scientific claims separate.
+Keep implementation conformance, behavioural observations, and scientific claims separate.

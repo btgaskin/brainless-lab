@@ -94,7 +94,8 @@ Important Julia gotcha: when extending BrainlessLab generics from outside the pa
 import BrainlessLab: step!, effectors, n_nodes, n_receptors, n_effectors, reset!
 ```
 
-Do not rely on `using BrainlessLab` for method extension. Without `import`, Julia may create or call the wrong method surface, and `simulate` will not see your node contract.
+Do not rely on `using BrainlessLab` for method extension. Without `import`, Julia may
+create or call the wrong generic, and `simulate` will not see your node implementation.
 
 ## Task Contract
 
@@ -159,10 +160,10 @@ automatically qualify it for a benchmark.
 
 The docs live in the Astro/Starlight site (<https://brainless-lab.pages.dev>, or `cd site && bun run dev`):
 
-- [Nodes — overview](https://brainless-lab.pages.dev/nodes/overview/)
-- [Environments & Tasks](https://brainless-lab.pages.dev/environments-tasks/)
-- [Embodiment](https://brainless-lab.pages.dev/receptors-effectors/)
-- [Extending it](https://brainless-lab.pages.dev/extending/)
-- [Research workflow](https://brainless-lab.pages.dev/research-workflow/)
+- [Reservoirs and node models](https://brainless-lab.pages.dev/core/reservoirs/)
+- [Worlds, tasks and populations](https://brainless-lab.pages.dev/core/worlds-tasks-populations/)
+- [Embodiment](https://brainless-lab.pages.dev/core/embodiment/)
+- [Extend the lab](https://brainless-lab.pages.dev/core/extend/)
+- [Design a study](https://brainless-lab.pages.dev/core/design-study/)
 - [Agentic workflow](https://brainless-lab.pages.dev/agentic-workflow/)
-- [Operations and records](https://brainless-lab.pages.dev/core/tools-artifacts/)
+- [Operations and records](https://brainless-lab.pages.dev/core/operations-records/)

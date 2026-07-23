@@ -7,8 +7,6 @@ using Test
     @test basename.(paths) == [
         "ablate_tracking.toml",
         "benchmark_core.toml",
-        "evolve_pong_test_tracking.toml",
-        "evolve_tracking_test_pong.toml",
         "profile_tracking.toml",
         "sweep_tracking.toml",
     ]

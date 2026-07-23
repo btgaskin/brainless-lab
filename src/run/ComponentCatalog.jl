@@ -785,6 +785,7 @@ end
 function _register_builtin_component_catalog!()
     core_docs = "site/src/content/docs/core/embodiment.mdx"
     robot_example = "examples/embodiments/differential_robot.toml"
+    shoal_example = "examples/shoal_forage_quickstart.jl"
     robot_tests = (:core_differential_robot_roundtrip, :core_object_world_runtime)
     descriptors = (
         _builtin_component_descriptor(
@@ -856,7 +857,7 @@ function _register_builtin_component_catalog!()
             ),
             conformance=:sector_vision_contract,
             conformance_path="test/test_shoal_forage.jl",
-            example_path="experiments/shoal_vision_sweep/protocol.toml",
+            example_path=shoal_example,
             docs_path="site/src/content/docs/experimental/embodiment.mdx",
         ),
         _builtin_component_descriptor(
@@ -933,7 +934,7 @@ function _register_builtin_component_catalog!()
             parameters=(required=(:max_forward, :max_turn), optional=()),
             conformance=:antagonistic_turn_actuator_contract,
             conformance_path="test/test_shoal_forage.jl",
-            example_path="experiments/shoal_vision_sweep/protocol.toml",
+            example_path=shoal_example,
             docs_path="site/src/content/docs/experimental/embodiment.mdx",
         ),
         _builtin_component_descriptor(

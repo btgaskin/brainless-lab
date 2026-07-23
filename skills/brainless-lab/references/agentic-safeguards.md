@@ -1,53 +1,62 @@
-# Agentic Safeguards
+# Agent safeguards
 
-BrainlessLab may be operated by a person who does not know Julia. Translate their intent
-into repository-native commands and public contracts; do not ask them to choose technical
-details the code can reveal.
+BrainlessLab may be operated by a researcher who does not know Julia. Translate the
+research intent into repository commands and public types. Do not ask the researcher to
+choose a technical detail that the registry, code, or tests can resolve.
 
-## Safe loop
+## Safe work loop
 
-1. Read root `AGENTS.md` and both repository skills.
-2. Inspect branch/worktree, dirty files, code, tests, configs, and artifact status.
-3. Restate outcome, allowed scope, evidence stage, and verification.
+1. Read root `AGENTS.md` and the repository BrainlessLab and Julia skills.
+2. Inspect the branch, worktree, dirty files, code, tests, plans, and record status.
+3. State the intended outcome, allowed scope, evidence stage, and verification.
 4. Use an isolated worktree for broad or parallel changes.
-5. Conform components before optimizing behavior.
-6. Prefer composition and dispatch; preserve stable IDs and fast paths.
-7. Run focused tests, then applicable package/API/example/site gates.
-8. Use an independent read-only review for broad architecture or science changes.
-9. Report `task_outcome` (key, raw, normalized) when defined, exact verification, software
-   readiness, study evidence status, and remaining limits as separate facts.
+5. Verify component conformance before optimising behaviour.
+6. Prefer composition and dispatch. Preserve stable component and entity IDs.
+7. Run focused tests, then the applicable package, example, and site checks.
+8. Use an independent read-only review for broad architecture or scientific changes.
+9. Report the exact checks, task outcome when defined, software readiness, experiment
+   evidence state, and remaining limits as separate facts.
 
-## Human decision points
+## Human decisions
 
-Pause before changing the research question, primary endpoint, sealed-data access,
-expensive search cap, baseline fixture semantics, user data, publication, or unrequested
-external state.
+Pause before:
+
+- changing the research question or primary endpoint;
+- opening sealed evaluation data;
+- increasing an expensive search cap;
+- changing reference fixtures;
+- modifying user data;
+- publishing or changing unrequested external state.
 
 Never silently:
 
 - overwrite dirty user work;
-- modify a fixture to make a regression pass;
-- call tuned data confirmation;
-- treat agents/ticks as independent trials;
-- infer “no effect” from nonsignificance;
-- describe a browser demo, preset body, or simulation as biological/robotic fidelity;
-- promise bit reproducibility outside explicit fixture/replay evidence.
+- change a fixture to make a regression pass;
+- call tuned or exploratory data confirmation;
+- treat agents or ticks as independent trials;
+- infer no effect from a non-significant test;
+- describe a browser demonstration or simulated body as biological or robotic fidelity;
+- promise cross-version bitwise reproduction from a seed alone.
 
-## No/low-code response standard
+## No-code and low-code responses
 
 Lead with:
 
-- what the user can accomplish;
-- the smallest safe command/config;
-- expected artifact;
+- what the researcher can accomplish;
+- the smallest safe command or plan;
+- the expected record or in-memory result;
 - how success is checked;
 - what the result cannot establish;
-- the next decision.
+- the next scientific decision.
 
-Keep Julia details secondary unless they affect correctness or the user asks to learn them.
-The canonical prose and prompt recipes are in
-`site/src/content/docs/agentic-workflow.mdx`.
+Keep Julia details secondary unless they affect correctness or the researcher asks to learn
+them.
 
-Use `site/src/content/docs/core/` as the stable contract handbook and
-`site/src/content/docs/experimental/` as the capability catalog. `available` or `integrated`
-describes software readiness; it does not promote a study or validate a biological claim.
+Use `simulate` for one diagnostic run. Use a typed operation plan for repeated work. Use
+`ExperimentSpec` for a versioned scientific protocol. Do not create another runner or
+configuration schema for agent convenience.
+
+Use `site/src/content/docs/` as the public guide and
+`site/src/content/docs/experimental/` for capability readiness. `available` and
+`integrated` are software states. They do not promote an experiment or validate a
+biological claim.

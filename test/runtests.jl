@@ -9,7 +9,7 @@ end
 include("testutils.jl")
 include("test_components.jl")
 include("test_public_vocabulary.jl")
-include("test_experiment_evidence.jl")
+include("test_documentation_contract.jl")
 include("test_embodiment_config.jl")
 include("test_component_catalog.jl")
 include("test_core_platform.jl")

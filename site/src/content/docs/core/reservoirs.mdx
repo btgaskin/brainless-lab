@@ -36,7 +36,7 @@ construction and runtime stream that should be reproducible.
 | Family | Adaptation during a rollout | Preparation for comparison |
 | --- | --- | --- |
 | Falandays | online homeostatic plasticity | an untrained run is meaningful |
-| SORN | online STDP, intrinsic plasticity, and normalization | untrained use is experimental |
+| SORN | online STDP, intrinsic plasticity, and normalisation | untrained use is experimental |
 | compartmental / CTRNN | fixed weights during the rollout | evolve or otherwise train before comparison |
 | `:null_random` | random output control | no training; use only as its declared task-specific floor |
 
@@ -86,13 +86,13 @@ Keep these representations separate:
 - the registered `genome_type` tells tools how to size a model genome.
 
 Membrane values, spikes, learned weights, and RNG positions are runtime state. They are not
-optimizer genes unless a protocol explicitly defines them as initial parameters.
+optimiser genes unless a protocol explicitly defines them as initial parameters.
 
 ## Wrappers must forward methods
 
 A reservoir wrapper can add noise, a drive, a delay, or another transformation. Julia
 field access does not forward method dispatch. A wrapper must forward the full public
-behavior:
+behaviour:
 
 - widths and node count;
 - plasticity and timing traits;

@@ -1,110 +1,131 @@
 ---
 title: Platform limits
-description: What BrainlessLab currently models, what remains simplified or experimental, and which claims the platform cannot establish alone.
+description: What BrainlessLab can test, what remains simplified, and where its evidence stops.
 ---
 
-BrainlessLab is a laboratory for a particular question: what behavior and dynamical
-signatures can arise when self-organising, neuron-like reservoirs are closed through bodies
-and tasks without a trained readout or hand-written controller? It is not a general robotics
-simulator, neuroscience model, benchmark authority, or proof that a behavior is cognitive.
+BrainlessLab tests neural substrates inside declared bodies, tasks, and worlds. The current
+core starts with Falandays nodes in Tracking and Pong. The platform also includes
+experimental nodes, physical components, collective worlds, analyses, and challenge tasks.
+
+It is not a general robotics simulator, a complete neuroscience model, or an authority that
+turns a task score into a claim about cognition.
 
 ## Scientific scope
 
-The core object is a self-organising neural substrate and its closed sensorimotor loop.
-Tasks operationalize behavior; analyses describe internal or collective dynamics; sweeps,
-ablations, and controls test how those observations change.
+The platform can support a claim about an implemented mechanism under a recorded protocol.
+It cannot establish, on its own:
 
-The platform can support evidence about an explicitly implemented mechanism under declared
-simulation conditions. It cannot by itself establish:
-
-- biological fidelity beyond the validated implementation boundary;
+- biological fidelity outside the validated implementation boundary;
 - cognition, intelligence, autonomy, or motivation as natural kinds;
-- transfer to animals, physical robots, or unmodeled environments;
-- optimality outside the searched parameter and task region;
-- causal necessity without an appropriate intervention and control;
-- equivalence from a nonsignificant difference;
-- criticality from a power law or one scalar estimator.
+- transfer to animals, physical robots, or unmodelled environments;
+- optimality outside the searched task and parameter region;
+- causal necessity without an intervention and appropriate control;
+- equivalence from a non-significant difference;
+- criticality from one fitted distribution or scalar estimator;
+- general competence from normalised values on different tasks.
 
-## Baseline fidelity
+Performance can still be informative when it is poor. A task can expose a missing capacity,
+an incompatible body, an unsuitable timescale, or a parameter trade-off. Check the task
+opportunity, ports, body, horizon, null, and reset before interpreting failure.
 
-Fixture parity for `:falandays` validates the Julia node update against the local
-authors-derived reference construction on tested fixtures. It does not validate every body,
-task, experimental Falandays variant, ecological layer, or interpretation of the paper. The
-package's additional variants and platform components are its own experimental work.
-`:falandays_base` remains a compatibility alias.
+## Falandays validation boundary
+
+The `:falandays` node is numerically fixture-validated against declared trajectories from a
+local authors-derived reference implementation. The fixtures cover the tested construction
+and update path.
+
+They do not validate every body, task outcome, experimental Falandays variant, analysis, or
+biological interpretation. Behavioural performance remains a separate empirical result.
+
+## Node and learning limits
+
+The canonical Falandays node adapts local targets and recurrent weights during behaviour.
+It has no reward signal, task-loss backpropagation, or fitted readout. Other registered
+nodes can have different learning or fixed-weight behaviour.
+
+Therefore, statements about online self-organisation apply to the relevant node, not to
+every composition that BrainlessLab can run.
+
+Current node models omit most cellular biology. See
+[Node mechanisms and biological scope](/node-mechanisms/) for the implemented mechanisms
+and omissions.
 
 ## Physical and ecological limits
 
-The generic `ObjectWorld` currently provides:
+`ObjectWorld` currently supports:
 
-- two-dimensional toroidal or walled arenas in simulation units;
+- two-dimensional toroidal or walled arenas;
 - fixed agent populations;
 - static circular objects;
 - named analytic scalar fields;
 - simplified spectral appearance and illumination;
-- typed contact or exposure effects;
-- one compatible actuator/dynamics command path per assembled body.
+- typed contact and exposure effects;
+- one compatible actuator and dynamics command path per physical body.
 
-It does not currently provide general meshes, rigid-body collision physics, fluid dynamics,
-moving non-agent objects, births, replacement, lineage scheduling, or structural evolution
-of the component graph. Death can make an existing agent inactive; it is not a population
-turnover system.
+It does not provide general meshes, rigid-body collision physics, fluid dynamics, moving
+non-agent objects, birth, replacement, lineage scheduling, or structural evolution of a
+component graph.
 
-Body presets named insect, robot, or UAV are reusable compositions, not high-fidelity models
-of a species or vehicle. Sensor geometry, noise, actuator limits, and environmental fields
-remain experimental assumptions that must be calibrated for each question.
+Body presets named for insects, robots, or aircraft are reusable compositions. They are not
+validated models of a species or vehicle. A study must justify its sensor geometry, noise,
+actuator limits, and fields.
 
 ## Sensing limits
 
-Field probes sample explicitly supplied analytic fields. Object banks do not automatically
-emit gradients. Spectral cameras use a simplified channel basis and illuminant; they do not
-model a complete optical pipeline, wavelength-continuous material reflectance, diffraction,
-or atmospheric effects. Their ray casts do implement simplified geometric occlusion.
-Observations and action spaces remain task-designed.
+Field probes sample explicit analytic fields. An object bank does not create a field
+automatically.
 
-`SectorVision` uses hard angular bins, a finite field of view, a configurable power-shaped
-distance activation (linear by default), a configurable output gain, and only the nearest
-target in each sector. Its bearing-sham control preserves the sampled
-sector values while circularly shifting their alignment; it does not reproduce every
-possible matched social null. The moving-shoal embodiment has no fluid forces, fin mechanics,
-optic-flow stabilization, body-body collision response, or species-specific vision. Calling
-it fish-like describes a compact moving visual-agent assay, not zoological fidelity.
+Spectral cameras use simplified channels, appearance, illumination, and ray occlusion. They
+do not provide a wavelength-continuous optical model, diffraction, atmospheric effects, or
+calibrated hardware response.
 
-## Evolution and development limits
+`SectorVision` uses hard angular sectors, finite range, and the nearest target per sector.
+Its bearing-shift control preserves sampled values while changing their alignment. This is
+one matched control, not a complete set of social nulls.
 
-`DevelopmentSpec` varies bounded scalar paths on a fixed component graph. It does not add or
-remove components, evolve arbitrary topology, encode runtime state, or schedule
-developmental events. The included optimizer is experimental infrastructure, and one
-optimization run does not characterize search variance.
+The shoal-foraging example omits fluid forces, fin mechanics, optic-flow stabilisation,
+body-body collision response, and species-specific vision.
+
+## Evolution limits
+
+`EvolutionPlan` searches one registered node parameter set while node count and composition
+structure remain fixed. The included optimiser is experimental infrastructure. One run
+does not measure search variance.
+
+`DevelopmentSpec` varies bounded scalar paths on a fixed embodiment graph. It does not add
+or remove components, vary port count, encode runtime state, or schedule developmental
+events.
+
+The platform does not yet provide one typed operation that evolves arbitrary node
+structure, connectivity graph, and embodiment structure together.
 
 ## Analysis limits
 
-Finite runs and finite populations constrain every estimator. In particular:
+Finite runs and populations constrain every estimator:
 
 - agent-scale statistics need enough independent agents and worlds;
-- avalanche fits need many events, threshold/bin sensitivity, competing-distribution checks,
-  and finite-size evidence;
-- spectral radius is a linear proxy, not a general nonlinear stability criterion;
-- transfer entropy needs adequate samples, stationarity checks, surrogate tests, and
+- avalanche fits need enough events and sensitivity checks;
+- spectral radius is a linear matrix proxy;
+- transfer entropy needs adequate samples, stationarity checks, surrogates, and
   multiple-pair correction;
-- shared input can mimic collective coupling;
-- dead, failed, or saturated runs require declared handling.
+- shared input can imitate collective coupling;
+- failed, dead, missing, and saturated runs need declared handling.
 
-The analysis pages label current caveats, but each new task and sampling regime still needs
-its own validation.
+The [Analysis](/analysis/) guide gives method-specific checks. Every new task and sampling
+regime still needs validation.
 
-## Software and workflow limits
+## Workflow limits
 
-The public interfaces are intended to be generic, but the physical, heterogeneous, and
-ecological layers remain experimental. The current platform has fixed membership and no
-browser-based protocol builder, automatic preregistration, sealed-data service, or automated
-evidence-promotion command. Reproducibility means a traceable rerun in a declared environment;
-bit-for-bit guarantees apply only where explicit fixture tests establish them.
+BrainlessLab records plans, named seeds, resolved settings, tables, reports, provenance, and
+checksums. This supports a traceable rerun in a declared environment.
 
-Direct `Ensemble` simulation supports heterogeneous body and reservoir groups. Current
-TOML/config-driven optimization and several high-level builders still require one fixed
-receptor/effector layout for the population being materialized; they do not yet evolve
-variable port structure.
+The platform does not yet provide a graphical study builder, automatic preregistration,
+sealed-data service, permissions sandbox, or automatic evidence promotion. Bit-for-bit
+claims apply only where explicit fixture tests establish them.
 
-See [Research workflow](/research-workflow/) for the evidence ladder and
-[Agentic workflow](/agentic-workflow/) for the current automation boundary.
+Direct `Ensemble` simulation supports heterogeneous bodies and reservoirs. Some
+configuration and optimisation paths still require a fixed receptor and effector layout
+for the population they construct.
+
+Use [Design a study](/core/design-study/) for the evidence ladder and
+[Agent-assisted workflow](/agentic-workflow/) for the automation boundary.

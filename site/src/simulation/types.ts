@@ -84,12 +84,28 @@ export interface ReservoirSnapshot {
   effectorOutputs: number[];
 }
 
-export type TaskName = 'wall' | 'tracking' | 'pong';
+export type PlankCartPoleTaskName =
+  | 'cartpole_plank_easy'
+  | 'cartpole_plank_medium'
+  | 'cartpole_plank_hard'
+  | 'cartpole_plank_hardest';
+
+export type TaskName = 'wall' | 'tracking' | 'pong' | PlankCartPoleTaskName;
 
 export interface TaskEnv<Snapshot = unknown> {
   readonly nReceptors: number;
   readonly nEffectors: number;
+  /**
+   * Native reservoir updates per world step. Most browser tasks use one.
+   * Temporal tasks can expose frame-specific receptor vectors and reduce the
+   * resulting effector frames without coupling the simulation loop to a task
+   * name.
+   */
+  readonly neuralFrames?: number;
   sense(): Float64Array;
+  senseFrame?(frame: number): Float64Array;
+  reduceEffectors?(frames: readonly number[][]): number[];
+  isTerminal?(): boolean;
   step(effectors: number[]): void;
   reset(): void;
   snapshot(): Snapshot;

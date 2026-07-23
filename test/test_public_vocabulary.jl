@@ -13,6 +13,9 @@ using Test
     forbidden = (
         r"VEN[A-Za-z_]*|:ven(?:_|\b)|\"ven(?:_|\")|SensorimotorBody|HomeostaticBody|PassthroughBody|NeedSpec|NeedDelta|Morphology\.jl|encode_receptors|decode_effectors|update_body!",
         r"""docs_path\s*=\s*"docs/""",
+        r"authors-faithful|authors faithful",
+        r"\brun_sweep\b|whole compute surface",
+        r":falandays_base\b",
     )
     offenders = String[]
     for surface in surfaces

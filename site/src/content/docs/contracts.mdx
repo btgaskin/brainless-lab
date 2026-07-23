@@ -1,18 +1,18 @@
 ---
-title: Contracts
-description: "The public rules for reservoirs, bodies, components, worlds, scores, identity, and evolvable parameters."
+title: Interface contracts
+description: The public interfaces for nodes, tasks, bodies, worlds, identity, and registered interventions.
 ---
 
-The contracts make experimental substitutions legible. A reservoir knows vector widths,
-not task physics. A body owns physical and physiological interpretation. A world owns
-external relations. Stable IDs—not tuple positions—join configuration, runtime, recording,
-and development.
+These interfaces keep experimental parts replaceable. A node receives ports and parameters,
+not task physics. A body gives receptor and effector channels physical meaning. A task owns
+the world setup and outcome definition.
 
-## Reservoir contract
+Use this page as a method reference. The [Architecture](/core/architecture/) guide explains
+how the parts fit together.
 
-A registered node constructor accepts
-`(n_nodes, n_receptors, n_effectors; seed=0, kwargs...)` and returns a `Reservoir`
-implementing:
+## Node
+
+A reusable neural substrate is a subtype of `Reservoir`. It implements:
 
 ```julia
 step!(reservoir, receptors)
@@ -23,168 +23,144 @@ n_receptors(reservoir)
 n_effectors(reservoir)
 ```
 
-When extending package generics, import them explicitly:
+Import BrainlessLab generics before adding methods:
 
 ```julia
 import BrainlessLab: step!, effectors, reset!, n_nodes, n_receptors, n_effectors
 ```
 
-`n_nodes` is also used when a dead or otherwise inactive body retains its stable ensemble
-slot: the runtime returns a correctly sized zero-activity vector without advancing the
-reservoir.
+Register the implementation with `NodeSpec`. Its builder receives a `NodeBuildContext` and
+the resolved parameter dictionary. The context supplies node count, resolved ports, named
+seeds, and any receptor connection profile.
 
-## Body and component contract
+`ParameterSpec` defines each configurable value. It can declare an owner, validator, sweep
+values, and evolution bounds. Named parameter sets such as `:sweep` and `:evolve` select
+the values available to an operation. Runtime state must not enter these parameter sets.
 
-`AbstractBody` is the dispatch boundary. At minimum an extension body supplies
-`n_receptors`, `n_effectors`, `sense!`, and `decode!`; it may specialize `portspec`,
-`alive`, `inactive_command`, `update!`, `reset!`, `component_state`, and
-`receptor_link_profile`. A body whose `decode!` returns a typed command must implement
-`inactive_command(body)` with a neutral value of that same command type.
+## Task
 
-The standard `Embodiment` composes these component families:
+`TaskSpec` holds a setup callable and task metadata. The setup returns:
 
-| family | owns | central methods |
-|---|---|---|
-| geometry | footprint and collision/ray bounds | `geometry_radius`, `geometry_area` |
-| sensor | raw physical sampling declaration/state | `rawspec`, `sample_world_sensor!` |
-| encoder | raw samples → receptor ports | `encoder_sources`, `encode!`, `portspec` |
-| actuator | effectors → typed reusable command | `command_buffer`, `decode!`, `portspec` |
-| dynamics | command + motion state → new motion state | `integrate!` |
-| physiology | feedback receptors, effects, viability | `physiology_*` methods |
+```julia
+TaskSetup(environment, bodies)
+```
 
-Every component ID is globally unique within one body. Receptor and effector port IDs are
-namespaced from those IDs. Encoders either declare stable sensor sources or follow the
-one-for-all / one-per-sensor grouping convention; mixed source-aware and conventional
-grouping is rejected.
+The resolved body ports determine reservoir widths. Static receptor and effector counts on
+`TaskSpec` are optional default metadata.
 
-Commands must be finite. Built-in actuators clamp normalized effector values before applying
-physical limits. A physical assembled body currently has one actuator/dynamics command pair;
-the assembler rejects incompatible command and dynamics types.
+A scored task declares one `score_key`, a floor, and a ceiling. It may also declare
+descriptor keys. A task with `score_key=nothing` remains valid for profiling, but it cannot
+supply a scalar objective to evolution or a scalar benchmark case.
 
-An inactive body is not sensed, stepped, or decoded. Its stable slot receives zero receptors,
-zero node activity, and `inactive_command(body)`. `sense!` may return a borrowed body-owned
-buffer; the ensemble copies that vector at its gather boundary before any other agent is
-sensed.
+## Body
 
-An `Ensemble` validates each reservoir/body receptor and effector width before it binds identities
-or steps the world. Node constructors that accept a body-specific receptor connection profile
-declare their keyword with `register_node!(...; receptor_profile_keyword=:input_link_p)`; this
-keeps physiology `link_p` routing capability-driven rather than coupled to node names.
+`AbstractBody` connects a reservoir to a task or physical world. At minimum, a custom body
+implements:
 
-## World contract and lifecycle
+```julia
+n_receptors(body)
+n_effectors(body)
+sense!(body, percept)
+decode!(body, effectors)
+```
 
-The ensemble calls:
+A body may also specialise `portspec`, `alive`, `inactive_command`, `update!`, `reset!`,
+`component_state`, and `receptor_link_profile`.
+
+`Embodiment` composes six registered component families:
+
+| Family | Responsibility |
+| --- | --- |
+| geometry | footprint and geometric bounds |
+| sensor | physical sampling |
+| encoder | raw sensor values to receptor ports |
+| actuator | effector values to a typed command |
+| dynamics | command and motion state to new motion state |
+| physiology | internal feedback, effects, and viability |
+
+Component IDs are unique within a body. Port IDs derive from those stable component IDs.
+Materialisation rejects incompatible actuator and dynamics command types.
+
+An inactive body keeps its stable ensemble slot. The runtime supplies zero receptor and node
+activity vectors and uses `inactive_command(body)` without advancing the reservoir.
+
+## World lifecycle
+
+An `Ensemble` uses one synchronous lifecycle:
 
 ```julia
 sync_activity!(environment, bodies)
 prepare_step!(environment, bodies)
 percepts = sample!(environment, bodies)
-commands = # sense! → reservoir → decode! for every body
+# sense! → step! → effectors → decode! for each body
 effects = apply_commands!(environment, bodies, commands)
 update!(body, effects_for_body)
 sync_activity!(environment, bodies)
 ```
 
-`sample!` must return one percept per body from the same pre-action state.
-`apply_commands!` commits the frame and returns one effect collection per body. Effects are
-interpreted by physiology, not by the environment.
-`sync_activity!` is the public lifecycle boundary: before observation it makes current
-activity authoritative for sensing, and after physiology it makes the same boundary
-authoritative for metrics and rendering. An inactive body has neutral motion and is
-excluded from active-only summaries such as mean speed; cohort-level survival or
-homeostasis scores retain the initial population so death cannot improve a score by
-shrinking its denominator.
+`sample!` returns one percept per body from the same pre-action state.
+`apply_commands!` commits the frame and returns effects for each body. Physiology interprets
+those effects.
 
-`ObjectWorld` additionally exposes `bind_entity_ids!`, `interaction_events`, and
-`object_snapshot`. New physical sensor kinds extend
-`sample_world_sensor!(sensor, world, motion_state)` and return their raw vector. The `!`
-permits mutation of sensor or RNG state; there is no caller-owned destination or zero-allocation
-guarantee. The current
-generic world supports fixed agent populations, static circular objects, named analytic
-fields, and one physical command per body; do not assume a birth/death scheduler or arbitrary
-entity dynamics.
+`ObjectWorld` also supports `bind_entity_ids!`, `interaction_events`, and
+`object_snapshot`. A new physical sensor extends
+`sample_world_sensor!(sensor, world, motion_state)`.
 
 ## Identity and recording
 
-`EntityID` is stable independently of world slot and heterogeneous group. `ObjectID` is the
-corresponding stable object identity. Use public accessors (`entity_ids`, `agent_at_slot`,
-`body_at_slot`, `foreach_group`) rather than store fields. `EntityFrame` keeps IDs attached
-to recorded values.
+`EntityID` and `ObjectID` remain stable when vector positions or heterogeneous groups
+change. Use `entity_ids`, `agent_at_slot`, `body_at_slot`, and `foreach_group` instead of
+reading storage fields.
 
-`component_state(body)` is keyed by stable component IDs. A recorder or analysis should not
-branch on the concrete body type to find physiology or sensor state.
+Entity-aligned recorder channels store `EntityFrame` values. The frame keeps IDs attached
+to the recorded values. World-level interactions and object snapshots are not
+`EntityFrame`s.
 
-Entity-aligned recorder channels (`:poses`, `:sensors`, `:receptors`, `:components`, `:needs`,
-`:feedback`, `:body_alive`, and `:deaths`) store `EntityFrame`s. Their `.ids` field preserves
-identity while ordinary indexing and iteration access the values. World-global
-`:interactions` and `:objects` samples are respectively the current tick's event vector and a
-full object snapshot; they are not `EntityFrame`s.
+`component_state(body)` is keyed by component ID. A recorder or analysis should not inspect
+the concrete body type to find component state.
 
-Reservoir network inspection is optional through `network_snapshot(reservoir)`. Results
-store per-agent network metadata under `config.agents`; uniform runs may also expose
-plural compatibility projections such as `config.networks`. New results do not use a
-singular `config.network`. Network views require an `EntityID` when more than one agent
-exposes a network, and pair the selected graph with that same entity's activity.
+## Configuration and registration
 
-## Configuration and component registration
+Embodiment TOML is strict and schema-versioned. Each component table declares an ID,
+family, registered kind, and parameters. Unknown keys and parameters are errors.
 
-An embodiment TOML file is strict and schema-versioned. Each `[[components]]` table has an
-`id`, generic `family`, registered `kind`, and parameters. Unknown keys and unknown parameters
-are errors. `materialize_blueprint` resolves typed components without assembling runtime;
-`materialize_embodiment` produces fresh runnable state.
+`materialize_blueprint` resolves the configuration for inspection.
+`materialize_embodiment` creates fresh runtime state.
 
-If no encoder is configured, materialization inserts one `:identity_encoder`. In a
-source-aware composition, unclaimed sensors receive `<sensor>__identity_encoder`. These
-stable generated IDs are visible through `component_slots(body)`.
-
-`ComponentDescriptor` is cold-path metadata. It declares a resolver, experimental status,
-readiness, capabilities, required/optional parameter names, focused conformance, docs, and an executable
-example. Registration validates those paths and refuses silent replacement:
+Typed registries support discovery and serialisable names. Register nodes and tasks with:
 
 ```julia
-register_component!(descriptor)
-register_component!(replacement; replace=true)
+register!(DEFAULT_REGISTRY, node_spec)
+register!(DEFAULT_REGISTRY, task_spec)
 ```
 
-Readiness is evidence-scoped: `:available` means discoverable/materializable;
-`:integrated` adds standard runtime, exact serialization, docs, and an executable example;
-`:core` is a stable/default contract with named core-test coverage. Status remains
-`:experimental` independently of readiness. Query `components`, `component_info`,
-`readiness`, or `readiness_markdown` rather than copying a static catalog.
-`component_info(...).parameters` reports names only; it does not currently describe types,
-defaults, or constraints.
+Register generic implementations through the appropriate registry field or helper.
+Duplicate keys fail. Julia dispatch remains the implementation mechanism; registration
+does not replace it.
 
-## Effectors and scores are task-specific
+## Ablations
 
-Every reservoir emits an effector vector, but its meaning comes from the actuator or task
-adapter. The existing tasks decode their two channels as wheel, eye, paddle, or force votes;
-the situated collective adapter uses three movement channels by default. A generic physical
-body instead names ports such as `:forward`, `:turn`, `:left_wheel`, or `:yaw_torque` through
-its actuator.
+`AblationSpec` declares an intervention function, application stage, required capabilities,
+description, and metadata. `AblationPlan` always includes an implicit baseline and compares
+it with one or more registered ablations.
 
-`normalized_score(task, raw_score)` applies the task's declared floor and ceiling:
+Validation rejects missing capabilities and invalid stages before simulation. An ablation
+must not silently do nothing.
 
-$$
-\operatorname{clamp}\!\left(
-\frac{\text{raw}-\text{floor}}{\text{ceiling}-\text{floor}}, 0, 1
-\right).
-$$
+## Parameters, development, and state
 
-It is bounded optimizer bookkeeping, not a universal physical unit. Saturation means the
-raw score lies outside the anchors. A task with `score_key=nothing` must be interpreted
-through its metrics rather than forced into a scalar objective.
+Keep these representations separate:
 
-## Genotype, development, and runtime state are separate
+- node or embodiment parameters are values that an operation may search;
+- a developed blueprint is a resolved component configuration;
+- runtime state includes activations, learned weights, sensor buffers, physiology, and
+  motion.
 
-- `pack_params` / `unpack_params` / `paramdim` describe an evolvable parameter vector.
-- `snapshot_state` / `load_state!` preserve transient reservoir state for replay.
-- `DevelopmentSpec` selects bounded real scalar component parameters on stable component IDs.
-- `DevelopmentGenotype` stores those bounded values.
-- `develop(genotype, context)` creates a fresh, deterministically seeded blueprint;
-  `materialize_embodiment` creates its runnable phenotype.
+`pack_params` and `unpack_params` handle an explicit parameter genome.
+`snapshot_state` and `load_state!` handle transient replay state.
+`DevelopmentSpec` selects bounded scalar paths on a fixed component graph.
 
-Development keeps component structure fixed. It does not evolve topology, component count,
-runtime buffers, birth time, or lineage. Mutation and recombination require compatible
-development structure.
+Current development does not add components, vary port count, encode runtime buffers, or
+schedule births and lineages.
 
-<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>, <code>src/core/Components.jl</code>, <code>src/world/Ports.jl</code>, <code>src/world/Embodiment.jl</code>, <code>src/world/Ensemble.jl</code>, <code>src/run/EmbodimentConfig.jl</code>, <code>src/run/Development.jl</code>.</p>
+<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>, <code>src/core/Composition.jl</code>, <code>src/core/Specifications.jl</code>, <code>src/tasks/Tasks.jl</code>, <code>src/world/Ensemble.jl</code>.</p>

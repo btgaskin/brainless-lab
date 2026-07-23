@@ -2,6 +2,8 @@ using BrainlessLab
 using Random
 using Test
 
+include(joinpath(@__DIR__, "..", "examples", "shoal_forage_quickstart.jl"))
+
 function _sector_test_body(sensor; physiology=NoPhysiology())
     return Embodiment(
         geometry=DiscGeometry(0.25),
@@ -241,6 +243,14 @@ end
     @test 0.0 <= grouped.largest_proximity_component_fraction <= 1.0
     @test 0.0 <= grouped.movement_coherence <= 1.0 + eps(Float64)
     @test grouped.group_translation_speed >= 0.0
+end
+
+@testset "shoal forage quickstart" begin
+    sim = run_shoal_forage_quickstart(; ticks=2)
+    @test sim.task === :shoal_forage
+    @test length(getchannel(sim.recorder, :poses)) == 2
+    @test sim.config.agents[1].body.sensors[1].kind === :sector_vision
+    @test sim.config.agents[1].body.actuators[1].kind === :antagonistic_turn
 end
 
 @testset "experimental component catalog entries" begin

@@ -1,125 +1,66 @@
-# experiments/
+# Versioned experiments
 
-The multi-run protocol surface. It complements one-run simulation, task calibration,
-profiling, sweeps, ablations, benchmarks, and evolution; see the site's Tooling page for the
-capability map. `experiments/run.jl` uses the **root project**.
+This directory contains reusable scientific protocols written as `ExperimentSpec` bundles.
+An experiment gives a stable identity and version to:
 
-It holds composed, reproducible experiment protocols that are **not part of the
-core library** — core stays lean (the settled Falandays baseline, the validated
-per-run measures). This is for studies that combine those parts in a specific way
-we want to run *regularly and replicably*, without promoting each one into core.
+- the research question;
+- named `EvaluationTarget` conditions;
+- one or more ordinary operation plans;
+- the current evidence state;
+- known limitations and descriptive metadata.
 
-> Note: `run_experiment` is a **core** name (`src/run/Artifacts.jl` — run one
-> `RunConfig` and write reproducible artifacts). This tool deliberately does not
-> reuse it; experiments are invoked as `experiments/run.jl <name>`.
-
-Rule of thumb: a question answered by **one measure over one run** belongs in the
-analysis registry. A **protocol over many runs** (sweep a schedule, contrast
-conditions, detect a knee) that isn't general enough to be a core CLI tool belongs
-here.
-
-## Run by name
-
-Experiments are registered by symbol — the same pattern core uses for
-nodes/tasks/analyses — but the registry lives here, not in core. One entrypoint:
-
-```bash
-julia --project=. experiments/run.jl --list                 # discover
-julia --project=. experiments/run.jl freeze_onset           # run with defaults
-julia --project=. experiments/run.jl freeze_onset seeds=0:9 tasks=tracking,pong window=600
-julia -t 4 --project=. experiments/run.jl shoal_vision_sweep # 44-run exploratory pilot
-julia -t 4 --project=. experiments/run.jl shoal_sensitivity_screen # 70-run OFAT screen
-```
-
-`key=val` values parse as Int (`600`), Float (`0.5`), range (`0:9`), comma-list
-(`tracking,pong` → Symbols; `1,2,4,8` → Ints), else a Symbol. Each run writes
-`experiments/runs/<name>/<UTCstamp>_<gitsha>/` with `results.json` + `manifest.txt`
-(node, tasks, ticks, seeds, git SHA, timestamp). That is a traceable exploratory run, not
-an exact-reproduction or promoted-evidence guarantee.
+`ExperimentSpec` is not a second execution path. Each contained profile, sweep, ablation,
+evolution, or benchmark plan uses the same validator, executor, and record writer as a
+standalone plan.
 
 ## Layout
 
-```
+```text
 experiments/
-  run.jl          # CLI entrypoint: registers all experiments, dispatches by name
-  registry.jl     # ExpRegistry — register/resolve/list experiments by symbol
-  harness.jl      # ExpHarness — reusable building blocks (public-API only)
-  freeze_onset.jl                   # experiment (:freeze_onset)
-  tracking_param_sweep.jl           # experiment (:tracking_param_sweep)
-  tracking_leak_lrate_factorial.jl  # experiment (:tracking_leak_lrate_factorial)
-  shoal_vision_sweep.jl             # experiment (:shoal_vision_sweep)
-  shoal_vision_sweep/protocol.toml  # full, pilot, and operating-point sensitivity profiles
-  figures/        # CairoMakie figure scripts (own env; read a run's results.json)
-  runs/           # scratch/exploratory outputs (git-ignored)
-  results/        # curated evidence bundles, committed & traceable to a study/figure
+└── examples/
+    └── falandays-cross-task-smoke/
+        ├── experiment.toml
+        └── plans/
+            ├── 01-evolve_tracking_test_pong_example.toml
+            └── 02-evolve_pong_test_tracking_example.toml
 ```
 
-**Data retention.** Exploratory runs land in the git-ignored `runs/`. Committing a directory
-under `results/` makes it reviewable; it does not by itself promote the scientific result.
-Large raw data may live in an external archive, but the immutable URI and checksum belong in
-the committed bundle.
+The reciprocal Falandays example is a small planned smoke protocol. It demonstrates how to
+evolve parameters on Tracking and evaluate the selected champion on Pong, then reverse the
+direction. Its small budgets are for validation only and do not support a performance
+claim.
 
-## Evidence states and promotion
+## Validate and run
 
-Every study page declares `exploratory`, `tuned`, `frozen`, `confirmed`, `promoted`, or
-`retired`. `frozen` is a fixed protocol whose sealed outcomes remain unopened; `confirmed`
-means the frozen protocol has been executed on those blocks.
-Development outputs, selected winners, and representative runs remain exploratory unless a
-frozen protocol is evaluated on untouched randomized blocks.
+Validate the whole bundle without simulation:
 
-A promoted bundle requires:
+```bash
+julia --project=. bin/brainlesslab.jl check-experiment \
+  experiments/examples/falandays-cross-task-smoke
+```
 
-- frozen protocol and analysis plan;
-- resolved config and selected parameters;
-- full git SHA plus dirty-worktree status;
-- Julia version and Project/Manifest hashes;
-- named seed ledger with disjoint-stage and overlap checks;
-- per-block results and declared paired contrasts;
-- inferential unit, exclusions, and dead/failed-run policy;
-- analysis-code version or hash;
-- schema-versioned summary JSON;
-- figure inputs and representative-selection rule;
-- checksums for every promoted artifact;
-- immutable external-archive URI and hash when raw data is not committed.
+Run each contained operation and write standard records:
 
-Do not hardcode numerical prose from a scratch run. Site figures and claims should read from
-the promoted summary. Opening sealed data and then changing a parameter, endpoint, exclusion,
-or analysis restarts the evidence cycle.
+```bash
+julia -t auto --project=. bin/brainlesslab.jl run-experiment \
+  experiments/examples/falandays-cross-task-smoke --root experiment-records
+```
 
-`harness.jl` composes only the **public** `BrainlessLab` API (`simulate`,
-`task_outcome`, …), so experiments survive core refactors:
+Use `write_experiment(directory, spec)` when publishing a new bundle. It validates the
+conditions and writes `experiment.toml` plus one strict plan file for each operation.
+`read_experiment(directory)` rejects disagreements between repeated condition definitions.
 
-- `freeze_sweep(task; freeze_ticks, window, seeds, verb)` — normalized score + rate
-  vs. the tick an intervention is applied, with a matched full-learning control.
-- `onset_tick(freeze_ticks, fz_mean)` — the knee of a score-vs-tick curve (a
-  sweep-level readout, deliberately *not* a `register_analysis!`, which is per-run).
-- `run_dir` / `write_text` / `git_sha` / `stamp` — a traceable run directory.
+## Evidence rules
 
-## Adding an experiment
+The allowed evidence states are `planned`, `exploratory`, `tuned`, `frozen`, `confirmed`,
+`promoted`, and `retired`. Changing the state does not change the data. It records how the
+protocol and results may be interpreted.
 
-1. Write `experiments/<name>.jl` that defines `run_<name>(; kwargs...)::String`
-   (does the work, writes a run dir via `run_dir`, returns its path) and registers
-   it: `register_experiment!(:<name>, run_<name>; description="…")`.
-2. Add `include(joinpath(@__DIR__, "<name>.jl"))` to `run.jl`.
+Create a new version when a scientific change alters the question, conditions, endpoint,
+seed policy, exclusions, or operation. Do not edit an executed version in place. Store
+operation outputs under a records root or an immutable external archive; do not copy
+numerical claims into this directory by hand.
 
-Keep it public-API-only; reaching into `BrainlessLab` internals is a signal the
-piece wants to be a registered analysis or a core feature instead.
-
-Before adding a protocol, follow the site's Research workflow: calibrate the task, choose
-controls that match the claim, separate development and confirmation seeds, name the
-independent block, and plan power prospectively from a fresh variance pilot.
-
-Natural next studies on this seam:
-- **What sets the onset tick** — sweep `freeze_tick × lrate_targ|threshold_mult`
-  and read `onset_tick` as a function of the homeostatic rate.
-- **Which plasticity carries the load** — `freeze_sweep(...; verb=:clamp_target)`
-  (targets only) vs `:freeze_plasticity` (weights + targets).
-
-## Physical composition
-
-New ecological experiments that need independently composed physical cameras,
-field probes, actuators, dynamics, and physiology should start from the public
-`ObjectWorld` surface. The copy-ready examples under `examples/embodiments/`
-show both levels: `object_world_quickstart.jl` exposes the live `Ensemble` and
-`Recorder`, while `object_world_task.jl` adds a `TaskSpec` and returns the
-standardized `SimResult`.
+The archived bespoke experiment runner is retained under
+`archive/2026-07-legacy-research/experiments/` for historical reproduction. It is not part
+of the current public workflow.

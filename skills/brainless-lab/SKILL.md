@@ -1,56 +1,59 @@
 ---
 name: brainless-lab
-description: Guide for operating, extending, and interpreting BrainlessLab.jl, the Julia research platform for behavior from self-organising neural substrates. Use for every task in the brainless-lab repository. Covers CompositionSpec, EvaluationSpec, typed registries, profile/sweep/ablation/evolution/benchmark plans, ExperimentSpec, version-one records, evidence boundaries, and node/task extension. Pair with the Julia skill for language, dispatch, inference, allocation, and package hygiene.
+description: Guide for operating, extending, and interpreting BrainlessLab.jl, the Julia research platform for behaviour from self-organising neural substrates. Use for every task in the brainless-lab repository. Covers CompositionSpec, EvaluationSpec, typed registries, profile, sweep, ablation, evolution, benchmark plans, ExperimentSpec, versioned records, evidence boundaries, and node or task extension. Pair with the Julia skill for language, dispatch, inference, allocation, and package hygiene.
 ---
 
 # BrainlessLab.jl
 
-BrainlessLab is a research platform for asking what simple, locally governed neural units
-can do when coupled to bodies and worlds. It is not one model and it is not a leaderboard.
-Its public value is a clean way to design a node, compose it with a sensorimotor task,
-measure performance and dynamics, and preserve the exact protocol and evidence surface.
+BrainlessLab studies what simple, locally governed neural units can do when coupled to
+bodies and worlds. It supports node design, closed-loop tasks, repeated research
+operations, and versioned experiments.
 
-Always read the repository `AGENTS.md`. Pair this skill with the Julia skill whenever code
-is written or reviewed.
+Always read the repository `AGENTS.md`. Pair this skill with the Julia skill whenever
+Julia code is written or reviewed. Follow `docs/WRITING.md` for public prose.
 
-## The architecture to preserve
-
-There are two ladders:
+## Preserve the architecture
 
 ```text
 runtime
 NodeSpec + TaskSpec + body + InteractionCycle
-  → CompositionSpec → Reservoir + embodied agent(s) + Environment → SimResult
+  → CompositionSpec
+  → Reservoir + embodied agent(s) + Environment
+  → SimResult
 
 research
 CompositionSpec + EvaluationSpec
-  → EvaluationTarget → operation plan → typed result → research record
+  → EvaluationTarget
+  → operation plan
+  → typed result
+  → record
+
 named EvaluationTargets + operation plans
   → ExperimentSpec
 ```
 
-Keep the boundaries explicit:
+Keep each type responsible for one level:
 
 - `NodeSpec` owns the node builder, declared parameters, parameter sets, capabilities,
-  equations, and default analyses. Node count belongs to `CompositionSpec`, not the node
-  parameter genome. Connectivity may be reservoir-owned and should say so in
-  `ParameterSpec.owner`.
+  equations, and default analyses. Node count belongs to `CompositionSpec`.
 - `TaskSpec` owns setup, ports, interaction timing, raw outcome, anchors, descriptors, and
   experimental status. It does not own node parameters.
-- `InteractionCycle` governs neural frames inside one world step. It does not govern trial
+- `InteractionCycle` defines neural frames within one world step. It does not define trial
   replication.
-- `EvaluationSpec` is the only outer evaluation protocol: blocks, trials per block,
-  horizon, warm-up, construction scope, reset, root seed, named streams, and aggregation.
-- `ExperimentSpec` is the scientific envelope above operations: version, question, named
-  conditions, evidence state, limitations, and metadata. It is not another runner.
+- `CompositionSpec` records the complete runtime composition.
+- `EvaluationSpec` defines blocks, trials per block, horizon, warm-up, construction scope,
+  reset policy, root seed, named streams, and aggregation.
+- `EvaluationTarget` names one composition with one evaluation protocol.
+- `ExperimentSpec` records a scientific question, version, named conditions, operations,
+  evidence state, limitations, and metadata. It is not another runner.
 
-One `step!` lifecycle serves a single agent and a population. Do not create task- or
-organism-name branches inside the simulation loop when a typed body, task, readout,
-interaction cycle, or registered implementation expresses the distinction.
+One `step!` lifecycle serves one agent and a population. Express differences through
+typed bodies, tasks, readouts, interaction cycles, and registered implementations. Do not
+add task-name or organism-name branches to the simulation loop.
 
-## Start with the smallest surface
+## Choose the smallest valid path
 
-For one diagnostic run:
+Use `simulate` for one diagnostic run:
 
 ```julia
 using BrainlessLab
@@ -59,11 +62,10 @@ sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11)
 task_outcome(sim)
 ```
 
-The symbol/keyword form remains a friendly façade. New reusable work should construct a
-`CompositionSpec` so node count, parameters, body, task options, and interaction timing are
-explicit.
+The symbol form is a convenient façade. Construct a `CompositionSpec` when reusable work
+must record node count, parameters, body, task options, and interaction timing.
 
-For a repeated operation, use the one plan path:
+Use an operation plan for repeated evaluation:
 
 ```bash
 julia --project=. bin/brainlesslab.jl check plans/examples/profile_tracking.toml
@@ -71,40 +73,37 @@ julia -t auto --project=. bin/brainlesslab.jl run \
   plans/examples/profile_tracking.toml --root records
 ```
 
-`check` must parse, validate, and resolve without simulation. `run` executes the operation
-and writes the record. Do not introduce another YAML schema, operation-specific protocol,
-or independent configuration path.
+`check` parses, validates, and resolves without simulation. `run` executes the plan and
+writes one standard record. Do not introduce another YAML schema, bespoke callback
+runner, or operation-specific protocol format.
 
-## The five operations
+## Use the five operations precisely
 
-- `ProfilePlan`: characterize one node/task composition with declared analyses. The
-  executor unions required recorder channels and reports analysis failures explicitly.
-- `SweepPlan`: evaluate explicit or node-default parameter axes. Seeds are paired across
-  cells. Call the result a development grid, never a confirmed optimum.
-- `AblationPlan`: compare an implicit baseline with registered capability-checked
-  interventions. An ablation must declare its stage and required capabilities and must not
-  silently no-op.
-- `EvolutionPlan`: select a registered node parameter set on one training target. Optimizer
-  randomness is separate from evaluation streams. Held-out targets run only after champion
-  selection. Candidate evaluations run in parallel when Julia has multiple threads, while
-  records retain every candidate's trial outcomes and seeds.
-- `BenchmarkPlan`: compare declared conditions within each task under paired blocks. Report
-  raw and normalized Student-t intervals and paired contrasts, keep tasks separate, and do
-  not form a cross-task aggregate merely because scores are normalized.
+- `ProfilePlan` characterises one node/task composition with declared analyses. It records
+  the channels required by those analyses and reports analysis failures.
+- `SweepPlan` evaluates explicit or node-default parameter axes. Seeds are paired across
+  cells. Call the output a development grid, not a confirmed optimum.
+- `AblationPlan` compares an implicit baseline with registered interventions. Validation
+  checks the intervention stage and required node capabilities. Inapplicable or unchanged
+  interventions are errors, not silent no-ops.
+- `EvolutionPlan` selects one registered node parameter set on a training target. Optimiser
+  randomness is separate from evaluation streams. Held-out targets run only after
+  champion selection.
+- `BenchmarkPlan` compares declared conditions within each task under paired blocks. It
+  reports task-specific outcomes and paired contrasts. It does not create a cross-task
+  competence score.
 
-Checked-in smoke plans live in `plans/examples/`. The reciprocal evolution examples encode
-the intended first flagship direction: evolve Falandays parameters on Tracking, then test
-on fresh Tracking seeds and held-out Pong; reverse the direction for Pong. They are small
-executable examples, not finished evidence.
+Files under `plans/examples/` are executable syntax checks with small budgets. Versioned
+study bundles live under `experiments/`.
 
-Use `write_experiment` to publish an `ExperimentSpec` as one strict manifest plus its
-ordinary operation plan files. `read_experiment` validates that repeated condition names
-have identical definitions. The unified CLI provides `check-experiment` and
-`run-experiment`; every contained operation still produces its own standard record.
+Use `write_experiment` to write an `ExperimentSpec` as `experiment.toml` plus ordinary plan
+files. `read_experiment` rejects inconsistent definitions of a repeated condition. The CLI
+commands `check-experiment` and `run-experiment` validate or execute the bundle; each
+operation still writes its own record.
 
-## Records are the evidence surface
+## Interpret records correctly
 
-Every operation writes `brainlesslab-record`, format version 1:
+Each operation writes a `brainlesslab-record` bundle:
 
 ```text
 record-id/
@@ -119,99 +118,107 @@ record-id/
 └── DONE
 ```
 
-The request and executed result must correspond exactly. `resolved.toml` must contain full
-node defaults, task/body options, interaction timing, evaluation settings, and
-operation-specific resolution. `record.toml` must derive Git provenance from the package
-checkout, enumerate every generated artifact, and include SHA-256 checksums. Shareable
-records must not include hostnames or absolute local paths.
+`request.toml` preserves the plan. `resolved.toml` records node defaults, task and body
+options, interaction timing, evaluation settings, and operation-specific resolution.
+`record.toml` inventories generated files and their SHA-256 checksums. CSV files are the
+authoritative tables; HTML is a readable report over those data.
 
-CSV is the authoritative tabular format. The generated HTML is a readable view over the
-same typed result: method, tables, node equations, and convergence where relevant. `DONE`
-means the bundle completed; `FAILED` means it did not. A complete record is not
-automatically confirmed evidence.
+Shareable records must not contain host names or absolute local paths. `DONE` means record
+generation completed. It does not mean the result is confirmed evidence.
 
-## Reference and experimental boundaries
+## Keep reference and experimental claims narrow
 
-`:falandays` is the authors-faithful reference node on the declared trajectory fixtures.
-That claim does not transfer automatically to a body, task, behavioral statistic,
-analysis, or biological interpretation. Preserve its update equations, initialization,
-and task presets unless a deliberate divergence is documented and tested.
+`:falandays` is validated on declared reference trajectories from the Falandays
+implementation. This validation covers the tested construction and update path. It does
+not automatically cover every body, task, behavioural statistic, analysis, or biological
+interpretation.
 
 Tracking and Pong are the initial core benchmark tasks. Wall remains registered but is not
-core qualification. The four Plank CartPole levels are experimental challenge tasks. They
-use the general `EvaluationSpec`; there is no CartPole-specific evaluation protocol. Do not
-average their levels or the core tasks into a generic competence number.
+part of the core benchmark. The four Plank CartPole levels are experimental challenge
+tasks. All use the general `EvaluationSpec`; there is no CartPole-specific evaluation
+protocol.
 
-Performance can be informative without being a success story. A task can expose a limit,
-a trade-off, or missing capacity. Before interpreting failure, verify the task opportunity,
-body and port contract, null/controller floor, horizon, initialization, and score.
+Performance can reveal a capacity, limit, trade-off, or missing mechanism. Before
+interpreting a poor score, check the task opportunity, body ports, control floor, horizon,
+initialisation, and score definition.
 
-## Extending nodes and tasks
+## Extend nodes and tasks through public interfaces
 
 Start from `examples/templates/new_project/`.
 
-A node extension defines methods on imported BrainlessLab generics, then registers a
-`NodeSpec`. The builder receives `NodeBuildContext` and resolved values. Declare:
+A node extension defines methods on imported BrainlessLab generics and registers a
+`NodeSpec`. The builder receives a `NodeBuildContext` and resolved parameter values.
+Declare:
 
 - parameters and validators;
-- `owner` for node or reservoir concerns;
+- whether each parameter belongs to the node or reservoir;
 - default `:sweep`, `:evolve`, and optional connectivity parameter sets;
 - capabilities used by ablations and tooling;
 - equations and default analyses when known;
 - stability and tags.
 
-Do not infer a node's evolvable surface from struct fields. Do not place runtime state in
-the genome. Online adaptation remains runtime behavior even when there is no task loss,
-teacher, fitted readout, or separate training phase.
+Do not infer evolvable parameters from struct fields. Keep runtime state out of the genome.
+Online adaptation remains learning or plasticity even without a task loss, teacher, fitted
+readout, or separate training phase.
 
-A task extension registers a `TaskSpec` with a setup returning a `TaskSetup`. Port widths
-must be validated before tick zero. A task may omit a scalar outcome; it remains valid for
-profiling or descriptive work but cannot enter a scalar benchmark until it declares an
-outcome contract and anchors.
+A task extension registers a `TaskSpec` whose setup returns a `TaskSetup`. Validate port
+widths before tick zero. A task may omit a scalar outcome and remain useful for profiling.
+It cannot enter a scalar benchmark until it declares an outcome key and anchors.
 
-Use `register!` on typed registries. Duplicate keys fail. Julia multiple dispatch is still
+Use `register!` with typed registries. Duplicate keys fail. Julia multiple dispatch remains
 the extension mechanism; registries make implementations discoverable and configurable.
 
-## Scientific discipline
+## Protect scientific evidence
 
-Use the evidence ladder: planned → exploratory → tuned → frozen → confirmed → promoted.
-Keep calibration, development, variance pilots, and held-out evaluation separate. The
-independent randomized block or trial is normally the inferential unit; ticks and agents in
-one world do not multiply sample size.
+Use the experiment evidence states:
+
+```text
+planned → exploratory → tuned → frozen → confirmed → promoted
+```
+
+`retired` records a withdrawn or superseded protocol. Keep calibration, development,
+variance pilots, and held-out evaluation separate. The independent block or trial is the
+usual inferential unit. Ticks and agents within one world do not multiply sample size.
 
 Match the control to the claim. Random action, blind input, matched sham, mechanism
-ablation, model baseline, and oracle answer different questions. Exact replay is a
-regression control, not a causal null.
+ablation, model baseline, and oracle policies answer different questions. Exact replay is
+a regression control, not a causal null.
 
-Use `task_outcome(sim)` for the declared task result. Report raw score, normalized score if
-used, viability gates, blocks/trials, construction scope, reset, horizon, warm-up, and seed
-policy. A normalized Tracking value and normalized Pong value are still different
-quantities.
+Use `task_outcome(sim)` for the declared task result. Report its key, raw score, normalised
+score when used, blocks, trials, construction scope, reset, horizon, warm-up, and seed
+policy. Normalised Tracking and Pong scores remain different quantities.
 
-Criticality and information measures require nulls and estimator caveats. Prefer MR
-branching estimates to naive slopes, use windowed analyses for non-stationary processes,
-and treat apparent collective structure as shared drive until a suitable surrogate test is
-cleared.
+Treat criticality and information measures as estimator-dependent analyses. State their
+nulls, assumptions, and finite-sample limits. Shared environmental drive can produce
+apparent collective structure.
 
-## Verification
+## Verify changes
 
-For architecture or behavior changes, run the narrow tests first, then the root suite in
-the pinned project. Preserve authors-parity fixtures. Build the locked site after handbook
-or skill edits. Check `git diff --check` and inspect the final diff for unrelated user work.
+For architecture or behaviour changes, run focused tests before the full package suite:
 
-The canonical documentation is under `site/src/content/docs/core/`. Historical experiment
-pages may describe older bespoke scripts; do not treat them as the public platform
-contract. The checked-in skill and installed copy should be updated only after code and
-docs agree.
+```bash
+julia --project=. -e 'using Pkg; Pkg.test()'
+```
+
+Build the locked site after guide or skill edits:
+
+```bash
+cd site
+bun run build
+```
+
+Check `git diff --check`. Inspect the final diff for unrelated user changes. Keep the
+checked-in and installed BrainlessLab skill identical only after code and documentation
+agree.
 
 ## References
 
-Read the relevant reference in full when needed:
+Read the relevant reference in full:
 
-- `references/usage-and-workflows.md` for interactive simulation, recording, and plots;
-- `references/cli-tools.md` for the unified plan CLI, schemas, operations, and records;
-- `references/designing-nodes.md` for node/runtime-state design;
-- `references/designing-environments-and-tasks.md` for task, body, ports, and worlds;
-- `references/designing-analyses.md` for analysis and null contracts;
+- `references/usage-and-workflows.md` for simulation, recording, results, and plots;
+- `references/cli-tools.md` for plans, experiments, and records;
+- `references/designing-nodes.md` for node and runtime-state design;
+- `references/designing-environments-and-tasks.md` for tasks, bodies, ports, and worlds;
+- `references/designing-analyses.md` for analysis and null design;
 - `references/research-workflow.md` for evidence and interpretation;
 - `references/agentic-safeguards.md` for safe agent operation.

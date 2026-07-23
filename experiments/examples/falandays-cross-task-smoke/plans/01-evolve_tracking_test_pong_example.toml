@@ -1,0 +1,99 @@
+format = "brainlesslab-plan"
+format_version = 1
+id = "evolve_tracking_test_pong_example"
+operation = "evolve"
+
+[evolve]
+generations = 2
+heldout = ["tracking_confirmation", "pong_heldout"]
+objective = "normalized_score"
+optimizer = "sepcma"
+parameter_set = "evolve"
+popsize = 6
+sigma0 = 0.5
+training = "tracking_development"
+
+[[targets]]
+id = "tracking_development"
+
+    [targets.composition]
+    id = "falandays_tracking_evolution"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 1
+    construction_scope = "trial"
+    horizon = 240
+    reset = "full"
+    root_seed = 0x0579
+    streams = ["topology", "node_state", "world", "body", "task", "mechanism"]
+    trials_per_block = 2
+    warmup = 40
+[[targets]]
+id = "tracking_confirmation"
+
+    [targets.composition]
+    id = "falandays_tracking_confirmation"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 1
+    construction_scope = "trial"
+    horizon = 240
+    reset = "full"
+    root_seed = 0x0d49
+    streams = ["topology", "node_state", "world", "body", "task", "mechanism"]
+    trials_per_block = 2
+    warmup = 40
+[[targets]]
+id = "pong_heldout"
+
+    [targets.composition]
+    id = "falandays_pong_heldout"
+    n_nodes = 500
+    node = "falandays"
+    task = "pong"
+
+        [targets.composition.parameters]
+        input_weight = 2.75
+        lrate_targ = 0.1
+        lrate_wmat = 1.0
+        rectify = false
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "pong_mixed"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 1
+    construction_scope = "trial"
+    horizon = 400
+    reset = "full"
+    root_seed = 0x0961
+    streams = ["topology", "node_state", "world", "body", "task", "mechanism"]
+    trials_per_block = 2
+    warmup = 40

@@ -27,6 +27,14 @@ export interface TaskTuning {
   weightInitMode: FalandaysParams['weightInitMode'];
 }
 
+const PLANK_CARTPOLE_TUNING: TaskTuning = {
+  inputWeight: 1.875,
+  N: 100,
+  lrateWmat: 0.1,
+  lrateTarg: 0.01,
+  weightInitMode: 'excitatory',
+};
+
 /**
  * Per-task tuning, mostly mirrored from src/api/paper_config.jl, which is backed by
  * the authors' original Julia task scripts — NOT the numpy reference's defaults:
@@ -55,6 +63,10 @@ export const TASK_TUNING: Record<TaskName, TaskTuning> = {
   wall: { inputWeight: 4.0, N: 200, lrateWmat: 0.2, lrateTarg: 0.01, weightInitMode: 'excitatory' },
   tracking: { inputWeight: 0.75, N: 200, lrateWmat: 0.2, lrateTarg: 0.01, weightInitMode: 'excitatory' },
   pong: { inputWeight: 2.75, N: 500, lrateWmat: 0.2, lrateTarg: 0.1, weightInitMode: 'pongMixed' },
+  cartpole_plank_easy: PLANK_CARTPOLE_TUNING,
+  cartpole_plank_medium: PLANK_CARTPOLE_TUNING,
+  cartpole_plank_hard: PLANK_CARTPOLE_TUNING,
+  cartpole_plank_hardest: PLANK_CARTPOLE_TUNING,
 };
 
 export function taskTuningFor(task: TaskName): TaskTuning {

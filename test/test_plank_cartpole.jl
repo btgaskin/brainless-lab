@@ -55,6 +55,7 @@ end
 
         setup = setup_task(resolve_task(task); seed=11)
         @test setup.environment isa PlankCartPoleEnv
+        @test BrainlessLab.scene(setup.environment).level === setup.environment.level.name
         body = only(setup.bodies)
         @test primary_readout(body) isa VotingReadout
         @test n_receptors(body) == resolve_task(task).n_receptors

@@ -396,6 +396,7 @@ end
 
 scene(environment::PlankCartPoleEnv) = (
     kind=:cartpole,
+    level=environment.level.name,
     x=environment.state[1],
     theta=environment.state[3],
     max_x=environment.max_x,

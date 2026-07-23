@@ -1,66 +1,132 @@
-# Research Workflow
+# Research workflow
 
-Use this reference whenever a request moves beyond mechanism conformance into tuning,
+Use this reference when a request moves beyond software conformance into selection,
 comparison, or a scientific claim.
 
 ## Evidence ladder
 
-1. **Conformance:** component equations, geometry, ports, reset, replay, and RNG ownership.
-2. **Calibration:** static/random/blind/oracle policies establish task opportunity and
-   timescales.
-3. **Exploration:** inspect behavior and failure modes; generate hypotheses.
-4. **Tuning/training:** select parameters or genomes on development-only worlds.
-5. **Variance pilot:** estimate paired variability on fresh blocks for sample-size planning.
-6. **Frozen protocol:** fix conditions, endpoints, exclusions, analysis, and stopping rule.
-7. **Sealed confirmation:** execute once on untouched independent blocks.
-8. **Robustness:** test declared perturbations without rewriting the primary result.
-9. **Promotion:** bundle protocol, code/environment provenance, seeds, data, analysis, and
-   figures immutably.
+1. Conformance: verify equations, geometry, ports, reset, replay, and RNG ownership.
+2. Calibration: use static, random, blind, or oracle policies to establish task
+   opportunity and timescale.
+3. Exploration: inspect behaviour and failure modes; generate hypotheses.
+4. Tuning or training: select parameters or genomes on development worlds.
+5. Variance pilot: estimate paired variability on fresh blocks.
+6. Frozen protocol: fix conditions, endpoints, exclusions, analysis, and stopping rule.
+7. Sealed confirmation: execute once on untouched independent blocks.
+8. Robustness: test declared perturbations without changing the primary result.
+9. Promotion: archive the protocol, provenance, seeds, data, analysis, and figures.
 
-Looking at sealed outcomes and then changing a parameter, endpoint, exclusion, or analysis
-returns the study to development.
+Map this workflow to `ExperimentSpec.evidence_state`:
 
-## Units and controls
+```text
+planned → exploratory → tuned → frozen → confirmed → promoted
+```
 
-Name tick, agent, run, condition, sweep cell, paired block, seed, and independent unit.
+Use `retired` for a withdrawn or superseded protocol. Looking at sealed outcomes and then
+changing an endpoint, exclusion, condition, or analysis returns the study to development.
+
+## Version the scientific protocol
+
+Use `ExperimentSpec` when a question has named conditions and one or more operations. It
+records:
+
+- a stable ID and version;
+- title and research question;
+- named `EvaluationTarget` conditions;
+- operation plans;
+- evidence state;
+- limitations and metadata.
+
+Write the bundle with `write_experiment`. Execute it with `run-experiment`. Each operation
+still writes an ordinary record.
+
+Create a new experiment version when a scientific change alters the question, conditions,
+endpoint, seed policy, exclusions, or operation. A code correction that changes realised
+behaviour also requires a new version or an explicit invalidation note.
+
+## Define units and controls
+
+Name the tick, agent, run, condition, sweep cell, paired block, seed, and independent unit.
 Agents and ticks within one world are not automatically independent samples.
 
-Choose the null from the claim:
+Choose the control from the claim:
 
-- static/no-action: does action help?
-- random action: above this task/body/action floor?
-- blind/off: is the channel necessary relative to zero input?
-- matched sham, shift, or yoke: does timing/direction/information matter at matched dose?
-- mechanism ablation: is the mechanism necessary?
+- static or no-action: does action help?
+- random action: does performance exceed the task/body/action floor?
+- blind or off: is an information channel necessary?
+- matched sham, shift, or yoke: do timing, direction, or information matter at matched
+  exposure?
+- registered ablation: is the mechanism necessary?
 - model baseline: does the candidate differ from the declared reference?
-- oracle/reference: is the task solvable and how much headroom remains?
+- oracle: is the task solvable and how much headroom remains?
 
-Exact replay establishes deterministic equivalence; it is not a causal null.
+Exact replay establishes deterministic equivalence. It is not a causal control.
 
-## Seed stages and power
+Use `AblationPlan` for causal interventions. Typed validation checks the intervention stage
+and node capabilities. An inapplicable intervention must fail before evaluation.
 
-Keep conformance, tuning/training, variance-pilot, confirmation, and robustness seed
-ledgers disjoint. Within a paired block, share declared nuisance randomization across
-conditions. Record independent streams for topology, initial state, world layout, agent
-pose, mechanism noise, and endogenous drive as applicable.
+## Separate seed stages
 
-Declare a smallest meaningful effect. Estimate paired variance on fresh pilot blocks and
-plan the number of independent blocks prospectively. Resample blocks, not nested agents or
-ticks. Retrospective achieved power does not certify confirmation. A no-effect claim needs
-a declared equivalence margin and equivalence procedure.
+Keep these ledgers disjoint:
 
-## Promotion bundle
+- conformance;
+- calibration;
+- tuning or training;
+- variance pilot;
+- confirmation;
+- robustness.
 
-Require frozen protocol/analysis, resolved config, full SHA and dirty flag, Julia and
-Project/Manifest hashes, seed ledger and overlap check, per-block data, contrasts,
-inferential unit, failure/exclusion policy, analysis version, schema-versioned summary,
-figure inputs, representative-selection rule, checksums, and immutable external archive
-hashes where needed.
+Within a paired block, share declared nuisance randomisation across conditions. Record
+separate streams for topology, node state, world layout, body state, task randomness, and
+mechanism noise when applicable.
 
-Software readiness is independent of this ladder. An Experimental feature marked
-`available` or `integrated` may be suitable for use without validating a scientific claim;
-likewise, a confirmed study may use a small stable Core surface. Report both states
-separately, together with `task_outcome(sim)` when the task declares a scalar objective.
+Declare the smallest meaningful effect before confirmation. Estimate paired variance on
+fresh pilot blocks and plan the number of independent blocks prospectively. Resample
+blocks, not nested agents or ticks. A no-effect claim needs an equivalence margin and a
+prespecified equivalence procedure.
 
-The canonical prose is `site/src/content/docs/core/design-study.mdx`; Experimental
-capability records live under `site/src/content/docs/experimental/`.
+## Report operation results
+
+For task performance, report:
+
+- outcome key;
+- raw score;
+- normalised score when used;
+- blocks and trials per block;
+- construction scope and reset;
+- horizon and warm-up;
+- root seed and stream policy;
+- missing, failed, and excluded trials.
+
+For sweeps, report development cells rather than an optimum unless a selected cell has
+fresh held-out evaluation. For evolution, retain the candidate history and report champion
+selection separately from held-out performance. For benchmarks, keep tasks separate and
+report paired within-task contrasts.
+
+## Promotion requirements
+
+A promoted study needs:
+
+- frozen protocol and analysis plan;
+- resolved configuration;
+- full Git SHA and dirty-worktree state;
+- Julia and project-environment provenance;
+- seed ledger with overlap checks;
+- per-block data and declared contrasts;
+- inferential unit and failure policy;
+- analysis version;
+- machine-readable summary;
+- figure inputs and representative-selection rule;
+- checksums;
+- immutable external archive identifiers for data not stored in Git.
+
+The operation record supplies much of this provenance. Promotion still requires scientific
+review of the protocol and interpretation.
+
+Software readiness is independent of experiment evidence. An integrated component may lack
+construct validity. A confirmed experiment may use a small stable implementation. Report
+both states.
+
+The public guide is `site/src/content/docs/core/design-study.mdx`. Current protocol bundles
+live under `experiments/`; generated operation records live under the selected records
+root.

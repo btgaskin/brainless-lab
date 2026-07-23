@@ -3,8 +3,8 @@ title: Architecture
 description: The core BrainlessLab abstractions, ownership boundaries, and synchronous closed-loop lifecycle.
 ---
 
-BrainlessLab separates the runtime that produces behavior from the research protocol that
-compares behavior:
+BrainlessLab separates the runtime that produces behaviour from the research protocol that
+compares behaviour:
 
 ```text
 runtime
@@ -89,7 +89,7 @@ an encoder may distribute that observation over `K` neural frames, and the body 
 command after its readout finishes. A reservoir may still own internal integration below
 one neural frame. These are separate clocks; neither belongs in the task-specific world.
 
-The default `MeanReadout` preserves the prior held-input behavior. `InstantReadout` selects
+The default `MeanReadout` preserves the prior held-input behaviour. `InstantReadout` selects
 the final neural frame. `VotingReadout` makes categorical frame voting explicit, including
 its deterministic first-index tie rule. See [Interaction cycles](/core/interaction-cycle/).
 

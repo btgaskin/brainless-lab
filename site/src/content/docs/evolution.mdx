@@ -1,137 +1,166 @@
 ---
 title: Evolution
-description: "Reservoir evolution, bounded embodiment development, and the strict separation between genotype, phenotype, and transient state."
+description: Select registered node parameters with EvolutionPlan, then evaluate the champion on untouched targets.
 ---
 
-Evolution is experimental platform infrastructure. Some reservoirs adapt online and can be
-run directly; fixed-weight reservoirs are not meaningful comparisons until evolved.
-Embodiment parameters can now join a search through a bounded development plan, without
-turning runtime state into a genome.
+`EvolutionPlan` is the supported operation for parameter evolution. It selects one
+registered node parameter set on a training target. It can then evaluate the selected
+champion on fresh seeds or other tasks.
 
-## Which reservoirs need evolution?
+Evolution changes a declared parameter vector. It does not change the meaning of the
+reference preset, and it does not establish generality from one search.
 
-| family | online plasticity | evolution |
-|---|---|---|
-| `:falandays` (`:falandays_base` compatibility alias) | yes | optional; defaults are the settled authors-faithful baseline |
-| experimental Falandays variants | generally yes | optional experimental perturbation |
-| `:compartmental_dense`, `:compartmental_structured` | no | required; untrained weights are random |
+## Declare what may evolve
 
-The baseline's authors-faithful fixtures remain fixed. Evolving its control parameters is a
-new experiment, not a replacement baseline.
+Each node uses `ParameterSpec` to define its configurable values. A parameter can include
+bounded or categorical evolution metadata. `NodeSpec.parameter_sets` gives a stable name to
+the group that an operation may search.
 
-## Reservoir optimizer
+For example, the Falandays `:evolve` set currently includes its registered local-rule and
+initialisation parameters. `EvolutionPlan` resolves this set from the registry. It does not
+infer evolvable values from reservoir fields.
 
-The built-in optimizer is separable CMA-ES (diagonal covariance), minimizing
-`loss = -fitness`. Independent rollouts are thread-parallel and returned in deterministic
-seed order. Within one generation, candidates share common-random-number trial seeds so
-candidate differences are not confounded by different task draws.
+Node count belongs to `CompositionSpec`, so it is fixed by this operation. Structural
+evolution also remains outside `EvolutionPlan`.
 
-For each task, fitness is the mean normalized score over `k_trials`. A multi-task run then
-aggregates across tasks with `:min` (default worst-task fitness) or `:mean`. Normalized
-scores use each task's own anchors and remain task-specific indicators; see
-[Contracts](/contracts/).
+## Write an evolution plan
 
-```julia
-result = evolve(
-    model_sym=:compartmental_structured,
-    train_tasks=(:wall,),
-    generations=30,
-    popsize=32,
-    k_trials=8,
-    N=200,
-)
+An evolution plan has one training target and zero or more held-out targets:
+
+```toml
+format = "brainlesslab-plan"
+format_version = 1
+operation = "evolve"
+id = "evolve_tracking_test_pong"
+
+[[targets]]
+id = "tracking_development"
+
+[targets.composition]
+id = "falandays_tracking_evolution"
+preset = "falandays_tracking"
+
+[targets.evaluation]
+blocks = 4
+trials_per_block = 2
+horizon = 7200
+warmup = 100
+construction_scope = "trial"
+reset = "full"
+root_seed = 1401
+aggregate = "mean"
+
+[[targets]]
+id = "pong_heldout"
+
+[targets.composition]
+id = "falandays_pong_heldout"
+preset = "falandays_pong"
+
+[targets.evaluation]
+blocks = 4
+trials_per_block = 2
+horizon = 100000
+warmup = 100
+construction_scope = "trial"
+reset = "full"
+root_seed = 2401
+aggregate = "mean"
+
+[evolve]
+training = "tracking_development"
+heldout = ["pong_heldout"]
+optimizer = "sepcma"
+parameter_set = "evolve"
+objective = "normalized_score"
+generations = 50
+popsize = 64
+sigma0 = 0.5
 ```
 
-`find_alive_centroid` can initialize searches away from a dead region of fixed-weight
-genome space. The benchmark genotype store records the genome alongside its training
-manifest and content tag so evaluation artifacts identify the exact trained parameters.
+Use `check` before the run:
+
+```bash
+julia --project=. bin/brainlesslab.jl check path/to/evolution.toml
+julia -t auto --project=. bin/brainlesslab.jl run \
+  path/to/evolution.toml --root records
+```
+
+Validation requires every target to use the same registered node. Each target must use
+`reset = "full"` and a scalar aggregation policy. Held-out tasks must accept every evolved
+parameter.
+
+## What the operation does
+
+The registered `:sepcma` optimiser proposes a population in each generation. Candidate
+evaluations use the training target only. Within one generation, candidates share the same
+trial protocol and seed derivation.
+
+The optimiser random stream is derived separately from evaluation streams. Candidate
+evaluations run in parallel when Julia has more than one thread, but output order and seed
+records remain deterministic.
+
+After the final generation, the operation selects one champion. It evaluates that champion
+on the training target and then on each held-out target. Held-out outcomes do not influence
+selection.
+
+The result contains:
+
+- every candidate's coordinates, resolved parameters, trial values, and fitness;
+- one convergence row per generation;
+- the champion parameters and training fitness;
+- fresh training and held-out evaluation batches;
+- the optimiser seed and complete trial seed ledger.
+
+The generated HTML report includes convergence and champion comparisons. CSV remains the
+authoritative tabular output.
+
+## Choose an objective carefully
+
+`objective = "normalized_score"` uses the task's declared score anchors.
+`objective = "raw_score"` uses its raw outcome. A plan can also name the task outcome key or
+a numeric metric field.
+
+The evaluation's aggregation policy combines trial values for one candidate. This policy
+must match the scientific question. Normalised scores remain task-specific, even when they
+share a numeric range.
+
+## Separate selection from evidence
+
+Training evaluations are development data. A held-out target in the same operation protects
+that target from direct selection, but one evolutionary run still gives only one selected
+genome.
+
+A stronger study should:
+
+1. run several independent searches;
+2. preserve the distribution of selected genomes and search outcomes;
+3. freeze the selection procedure before confirmation;
+4. use untouched confirmation blocks;
+5. report both search variance and evaluation variance.
+
+The reciprocal Tracking and Pong example is a useful demonstration design: evolve on
+Tracking and test on Pong, then reverse the direction. Small checked-in versions test the
+operation path. They are not evidence about transfer.
 
 ## Bounded embodiment development
 
-`DevelopmentSpec` connects a fixed embodiment configuration to an evolvable vector. Each
-`DevelopmentBlock` targets real scalar parameter paths on one stable component ID and gives
-each path finite bounds:
+`DevelopmentSpec` is a lower-level way to expose bounded scalar parameters from a fixed
+embodiment graph. Stable component IDs and parameter paths identify each value.
 
-```julia
-config = read_embodiment_config("examples/embodiments/differential_robot.toml")
+It keeps genome, developed blueprint, and runtime state separate. Development currently
+does not add components, vary sensor count, or evolve graph structure. A future operation
+can compose this facility with a study protocol without changing the node-parameter
+meaning of `EvolutionPlan`.
 
-spec = DevelopmentSpec(
-    config,
-    DevelopmentBlock(
-        :camera_genes,
-        :camera,
-        "range" => (2.0, 15.0),
-    ),
-    DevelopmentBlock(
-        :wheel_genes,
-        :wheels,
-        "max_speed" => (0.2, 2.0),
-    ),
-)
+## Legacy optimiser API
 
-genotype = DevelopmentGenotype(spec)
-context = DevelopmentContext(seed=7, entity_id=EntityID(41), generation=3)
-blueprint = develop(genotype, context)
-body = materialize_embodiment(blueprint)
-```
+The package still exposes the lower-level `evolve(...)` driver and `DevelopmentSpec`
+machinery for specialised Julia workflows. That API predates typed operation plans and has
+different multi-task and genome options.
 
-Paths may cross fixed tuples by one-based index (`"mount.2"`) and collections whose entries
-carry stable names (`"variables.energy.gain"`). Named need paths remain stable if the tuple is
-reordered; numeric paths such as `"variables.1.gain"` are available when position is the
-intended genotype contract.
+Use it when you need those low-level facilities. Do not treat its keyword interface or
+output tuple as the record-producing experiment path. New reproducible studies should use
+`EvolutionPlan`, `EvaluationSpec`, and the standard record writer.
 
-`paramspace(spec)` exposes labeled bounds and `pack_params(spec)` returns initial values.
-`unpack_params`, `mutate`, and `recombine` preserve bounds and require the same structural
-signature. `composite_genome(spec)` adapts development blocks to the existing composite
-genome machinery.
-
-The context derives stable per-component/per-stream seeds from the experiment seed,
-`EntityID`, generation, component ID, and stream name without Julia's randomized `hash`.
-This includes field-probe shared/independent noise and regulated-physiology feedback noise.
-Every development event materializes fresh component state; it never carries a previous
-body's lag buffers, physiology, commands, or noise position into a new phenotype.
-
-## What development does not encode
-
-The current seam is intentionally bounded:
-
-- component families, IDs, ordering, and references stay fixed;
-- genes target existing real scalar TOML parameters only;
-- actuator/dynamics compatibility is validated before search;
-- bilateral encoders must reference two existing distinct sensor IDs;
-- every runnable standard embodiment requires at least one sensor and actuator, with
-  geometry, dynamics, and physiology each singular;
-- physical development additionally requires exactly one geometry, actuator, and dynamics
-  component; multiple actuators are only valid for a non-physical composition with no
-  dynamics component;
-- component addition/removal, variable sensor count, graph topology, runtime births,
-  replacement, and lineage scheduling are outside the contract.
-
-That is enough to evolve sensor range/exposure, physical placement coordinates, response
-times, actuator limits, dynamics constants, or physiological gains while preserving a
-clean, reproducible phenotype structure. Structural evolution can be added later as a
-separate operation rather than smuggled into scalar parameters.
-
-## Genotype is not state
-
-Keep three representations distinct:
-
-1. **genome** — parameters an optimizer stores and mutates;
-2. **developed blueprint** — resolved component structure plus deterministic development
-   context;
-3. **runtime state** — membrane values, learned weights, sensor lag/noise state, command
-   buffers, physiology, and motion state.
-
-For reservoirs, `pack_params`/`unpack_params` describe the genome and
-`snapshot_state`/`load_state!` describe transient replay state. For embodiments,
-`DevelopmentSpec`/`DevelopmentGenotype` describe the genome and
-`materialize_embodiment(develop(...))` constructs a fresh phenotype.
-
-## Statistical honesty
-
-A trained cell evaluated over many seeds measures evaluation variance for one selected
-genome. It does not measure search variance. Strong comparisons should run multiple
-independent evolutionary searches and report the distribution across selected genomes,
-then evaluate each on untouched seeds.
-
-<p class="bl-source">Source: <code>src/drivers/Evolve.jl</code>, <code>src/drivers/Composite.jl</code>, <code>src/run/Development.jl</code>.</p>
+<p class="bl-source">Source: <code>src/operations/Evolution.jl</code>, <code>src/operations/Plans.jl</code>, <code>src/drivers/Evolve.jl</code>, <code>src/run/Development.jl</code>.</p>

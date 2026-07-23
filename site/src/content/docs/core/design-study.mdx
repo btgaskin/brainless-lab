@@ -38,7 +38,7 @@ julia -t auto --project=. bin/brainlesslab.jl run \
 ```
 
 This is a small development example, not a prospective power calculation. The random-action
-control asks whether behavior exceeds random effector output. It does not show that sensory
+control asks whether behaviour exceeds random effector output. It does not show that sensory
 information or a particular neural mechanism is necessary. A blind input or registered
 mechanism ablation is needed for those questions.
 
@@ -51,11 +51,11 @@ Use these terms consistently:
 
 - **tick:** one synchronous update;
 - **agent:** one reservoir-body pair;
-- **run or trial:** one rollout from one randomized setup;
+- **run or trial:** one rollout from one randomised setup;
 - **condition:** the compared intervention or model;
-- **block:** one shared randomized setup used for a paired contrast;
+- **block:** one shared randomised setup used for a paired contrast;
 - **seed:** an identifier for a random stream;
-- **independent unit:** the smallest independently randomized unit for inference.
+- **independent unit:** the smallest independently randomised unit for inference.
 
 Agents and ticks in one world are usually repeated observations. A 20-agent world is not
 automatically `n=20`.
@@ -126,42 +126,33 @@ Nonsignificance does not establish equivalence.
 ## Register the scientific protocol
 
 An operation answers one computational question. `ExperimentSpec` records why a set of
-operations exists and fixes their relationship:
+operations exists and fixes their relationship. It contains a versioned ID, question,
+named `EvaluationTarget`s, operation plans, evidence state, limitations, and metadata.
+`write_experiment` writes the manifest and each operation plan to one portable directory.
 
-```julia
-experiment = ExperimentSpec(
-    :falandays_cross_task,
-    v"1.0.0";
-    title="Reciprocal parameter evolution across the core benchmark",
-    question="How does parameter evolution on one core task move performance on the other?",
-    conditions=(tracking_development, pong_evaluation,
-                pong_development, tracking_evaluation),
-    operations=(evolve_tracking, evolve_pong),
-    evidence_state=:planned,
-    limitations=("Parameter evolution only; node structure remains fixed.",),
-)
+Every operation target must exactly match a named experiment condition. Validation rejects
+duplicate operation IDs, missing conditions, changed condition details, unused conditions,
+and invalid operations. The experiment registry is separate from the component registry:
+publishing a protocol does not make a node or task part of the core benchmark.
 
-register_experiment!(experiment)
-write_experiment("protocols/falandays_cross_task", experiment)
+The checked example is reciprocal:
+
+```bash
+julia --project=. bin/brainlesslab.jl check-experiment \
+  experiments/examples/falandays-cross-task-smoke
+julia -t auto --project=. bin/brainlesslab.jl run-experiment \
+  experiments/examples/falandays-cross-task-smoke --root records
 ```
 
-Every operation target must exactly match a named experiment condition. Registration
-rejects duplicate `(id, version)` keys, missing conditions, and changed condition details.
-The experiment registry is separate from the component registry: publishing a protocol
-does not turn a node or task into a benchmark standard.
+One operation evolves Falandays parameters on Tracking, confirms the selected parameters
+on fresh Tracking seeds, and evaluates them on Pong. The other operation reverses the
+tasks. The checked budgets are only large enough to test the workflow.
 
-The intended first flagship is reciprocal. Evolve the Falandays parameter set on Tracking,
-then evaluate the selected champion on fresh Tracking seeds and held-out Pong; reverse the
-design for Pong. The same-task confirmation estimates improvement without reusing selection
-seeds, while the other task estimates transfer. Only after both selections are frozen should
-a benchmark compare their per-task performance. That design shows movement across a task
-set without pretending that task-normalized values form one universal competence score.
-
-Future node designs can use the same protocol. A node may expose a different parameter set,
-registered structural elements, or local mechanisms such as dendritic compartments. The
-benchmark then indicates which capacities improve, remain absent, or trade off. Performance
-is informative even when a design fails a task, provided the task opportunity and control
-are sound.
+A later study can increase and freeze the development budget, use adequately powered
+held-out evaluations, and then compare the two selected parameter sets across the core
+tasks. Future node designs can use the same experiment shape while exposing different
+parameter sets or local mechanisms. The per-task pattern shows which capacities improve,
+remain absent, or trade off; it does not form one universal competence score.
 
 ## Evidence states
 
@@ -177,5 +168,8 @@ Changing a condition, endpoint, exclusion, or analysis after seeing sealed outco
 the study to development. A committed or reproducible artifact is not automatically
 confirmed.
 
-Use [Runs, recording, and results](/core/runs-results/) for the result contract and
-[Tools and artifacts](/core/tools-artifacts/) for execution surfaces.
+The checked bundle at `experiments/examples/falandays-cross-task-smoke/` uses smoke-test
+budgets only. It validates the protocol path; it is not a result.
+
+Use [Runs and results](/core/runs-results/) for the result structure and
+[Operations and records](/core/operations-records/) for execution.

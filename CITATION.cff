@@ -1,12 +1,13 @@
 cff-version: 1.2.0
 message: >-
   If you use BrainlessLab, please cite this software, and also cite the
-  original Falandays et al. work that the :falandays model reimplements.
+  original Falandays et al. work on which the :falandays model is based.
 title: BrainlessLab.jl
 abstract: >-
   An experimental Julia research platform for behaviour that emerges from
-  collectives of simple neuron-like nodes, built around an authors-faithful
-  reimplementation of the Falandays et al. homeostatic spiking reservoir.
+  collectives of simple neuron-like nodes, built around a Falandays et al.
+  homeostatic spiking reservoir that is validated on declared reference
+  trajectories.
 type: software
 authors:
   - given-names: Polyphony

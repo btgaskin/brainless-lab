@@ -4,7 +4,7 @@ description: Compose geometry, sensing, encoding, actuation, dynamics, physiolog
 ---
 
 An embodiment closes the reservoir through a world. Sensor geometry, encoding, actuator
-limits, dynamics, and optional physiology can all change behavior while the reservoir
+limits, dynamics, and optional physiology can all change behaviour while the reservoir
 remains fixed.
 
 `AbstractBody` is the dispatch boundary. `Embodiment <: AbstractBody` is the standard
@@ -79,7 +79,7 @@ robotic fidelity rating.
 - a response curve;
 - feedback mode and gain;
 - stochastic emission and optional receptor-link probability;
-- optional failure behavior.
+- optional failure behaviour.
 
 Feedback is off unless enabled. Available modes include off, tonic, Bernoulli pulses, and
 explicit replay.
@@ -136,7 +136,7 @@ materialization. Do not infer the final graph from the explicit TOML entries alo
 paths. It creates a fresh phenotype from a fixed component structure. It does not add or
 remove components, change port structure, encode runtime state, or schedule births.
 
-Use this seam for parameters such as sensor range, sensor placement, response time,
+Use bounded development for parameters such as sensor range, sensor placement, response time,
 actuator limits, motion constants, or physiology gain. Treat a selected phenotype as a
 development result until it is tested on untouched worlds.
 

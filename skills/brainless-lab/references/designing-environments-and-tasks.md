@@ -50,14 +50,14 @@ search logic in the body.
 subtype. It holds geometry, sensor, encoder, actuator, dynamics, physiology, traits, and
 runtime state components. Give every component a stable globally unique ID.
 `traits` are optional metadata for direct Julia composition. Embodiment TOML does not
-currently represent them, and preset materialization or physics must not depend on them.
+currently represent them, and preset materialisation or physics must not depend on them.
 
 `portspec(body)` derives namespaced receptor/effector ports from those IDs. Encoders can
 bind inputs by stable sensor ID with `encoder_sources`; this is required for cross-sensor
 encoders such as bilateral contrast. Actuators own reusable command buffers and mutate them
 in `decode!`; dynamics integrate only compatible command types.
 
-Strict TOML is the reusable composition surface:
+Strict TOML is the reusable body configuration:
 
 ```julia
 config = read_embodiment_config("examples/embodiments/bilateral_insect.toml")
@@ -137,7 +137,7 @@ It constructs ordinary `Embodiment`s with
 `SituatedSensorLayout`, `SituatedEncoder`, `SituatedActuator`, and `KinematicMotor`, but the
 adapter retains its bearing-bank assembly, collisions, signalling, and history channels.
 
-Do not generalize new physical component behavior into this adapter by default. Start with
+Do not generalise new physical component behaviour into this adapter by default. Start with
 `ObjectWorld`; change the situated path only when an established experiment requires it.
 
 ## Multiple needs and effects
@@ -148,7 +148,7 @@ emission probability, optional receptor link probability, and failure. `OffFeedb
 default control; tonic, Bernoulli, and replay modes are explicit.
 
 World relations such as `ProximityExposure` return `Exposure(name, delta)` values separately
-from perception. This is the correct seam for a physiological consequence of physical
+from perception. This boundary keeps a physiological consequence of physical
 proximity that must remain active in a blind-sensor control. Unknown effects are rejected by
 default. Effects for one tick are accumulated before clamping/failure, so contact can rescue
 an agent on a threshold tick. Death keeps stable identity but disables neural stepping,
@@ -178,24 +178,33 @@ register!(DEFAULT_REGISTRY, MY_TASK)
 ```
 
 Import `register!` and `DEFAULT_REGISTRY` from BrainlessLab. Typed registration rejects a
-duplicate task name rather than silently changing the active experiment surface.
+duplicate task name rather than silently changing the active registry.
 
 For a generic setup callable, accept `seed`, `rng`, `body`, `n_nodes`, and `kwargs...` so
 the high-level runner can supply deterministic construction context without task-specific
 coupling. `examples/embodiments/object_world_task.jl` is the copy-ready physical example.
 Direct `ObjectWorld` construction exposes `Ensemble` + `Recorder`; `TaskSpec` adds
-standardized `SimResult`, rollout defaults, and optional scoring.
+standardised `SimResult`, rollout defaults, and optional scoring.
 
 `TaskSpec.n_receptors`/`n_effectors` are optional default metadata. The setup's body ports
-are runtime truth. Use `score_key=nothing` when the task is characterized by multiple
+are runtime truth. Use `score_key=nothing` when the task is characterised by multiple
 collective/ecological measures rather than one objective.
 
-`task_outcome(sim)` is the canonical handoff: it returns `(key, raw, normalized)` from the
+`task_outcome(sim)` returns `(key, raw, normalized)` from the
 task contract recorded in the result, and returns `nothing` when `score_key=nothing`.
-Legacy metric fields remain diagnostics. The normalized value maps the task's raw outcome
+Legacy metric fields remain diagnostics. The `normalized` value maps the task's raw outcome
 between its own floor and ceiling, clamped to `[0,1]`. Prefer measured null anchors with
 provenance over guessed zero floors. A saturated value is outside the anchors, not
 physically equal to another task's result.
+
+Put a registered task, node, body, and interaction cycle into `CompositionSpec`. Put
+blocks, trials, horizon, warm-up, reset, construction scope, and root seed into
+`EvaluationSpec`. Do not add trial replication to `TaskSpec` or task timing to
+`EvaluationSpec`.
+
+Use a `ProfilePlan` for descriptive task analysis and a `BenchmarkPlan` for paired
+condition comparisons. Use `ExperimentSpec` when the task forms part of a versioned
+scientific protocol. The task implementation must remain the same across these operations.
 
 ## One to many, including mixed agents
 
@@ -212,7 +221,7 @@ birth, replacement, or lineage dynamics.
 There is no implicit social force. Coupling is whatever agents can sense and affect in the
 world. In the established swarm tasks, bearing vision is the interaction topology; in a
 generic world, spectral rays, mounted probes, fields, contact, and effects can play that
-role. Always identify the actual coupling seam before interpreting collective order.
+role. Always identify the actual coupling mechanism before interpreting collective order.
 
 Collective measures need nulls. Shared environmental input can mimic interaction; use
 `crossshift_null` before interpreting a cross-agent statistic.
@@ -233,7 +242,7 @@ Register configured components with a `ComponentDescriptor` carrying:
 - one focused conformance name and existing path;
 - documentation and executable-example paths;
 - readiness (`:available` = discoverable/materializable; `:integrated` adds standard
-  runtime, exact serialization, docs, and executable example; `:core` is stable/default
+  runtime, exact serialisation, docs, and executable example; `:core` is stable/default
   with named core-test coverage).
 
 Registration validates evidence and refuses duplicate keys without `replace=true`.
@@ -243,18 +252,18 @@ minimal differential-robot kit is `:core`; other built-in physical components re
 
 ## Pitfalls
 
-- **Hardcoded widths.** Derive node dimensions from `portspec(body)`.
-- **Positional identity.** Target component/agent/object IDs, not tuple or vector positions.
-- **Allocating command decode.** Reuse `command_buffer` and mutate it in `decode!`.
-- **World-aware encoders.** Sensors sample worlds; encoders transform samples.
-- **Body-aware ecology.** Worlds emit typed effects; physiology interprets them.
-- **Overclaiming `ObjectWorld`.** It is currently fixed-population, circular-object, 2-D,
+- Hardcoded widths: derive node dimensions from `portspec(body)`.
+- Positional identity: target component, agent, and object IDs, not tuple or vector positions.
+- Allocating command decode: reuse `command_buffer` and mutate it in `decode!`.
+- World-aware encoders: sensors sample worlds; encoders transform samples.
+- Body-aware ecology: worlds emit typed effects; physiology interprets them.
+- Overclaiming `ObjectWorld`: it is currently fixed-population, circular-object, 2-D,
   one-command infrastructure. Analytic fields are explicit and independent of object banks,
   and support for other agents is sensor-specific rather than implicit object visibility.
-- **Treating the situated adapter as the generic API.** It preserves established tasks;
+- Treating the situated adapter as the generic API: it preserves established tasks;
   new physical composition belongs in `ObjectWorld`.
-- **Unbounded effectors or meaningless anchors.** Validate physical commands and scoring.
-- **Mixing genotype and state.** `DevelopmentSpec` targets bounded configuration scalars;
+- Unbounded effectors or meaningless anchors: validate physical commands and scoring.
+- Mixing genotype and state: `DevelopmentSpec` targets bounded configuration scalars;
   transient component state is never a gene.
 
 See also `designing-nodes.md`, `designing-analyses.md`, `usage-and-workflows.md`, and
@@ -263,5 +272,5 @@ See also `designing-nodes.md`, `designing-analyses.md`, `usage-and-workflows.md`
 The canonical public contracts are in
 [Core: worlds, tasks, and populations](https://brainless-lab.pages.dev/core/worlds-tasks-populations/)
 and [Core: embodiment](https://brainless-lab.pages.dev/core/embodiment/). List non-core
-capabilities in the [Experimental catalog](https://brainless-lab.pages.dev/experimental/);
+capabilities in [Experimental capabilities](https://brainless-lab.pages.dev/experimental/);
 software readiness there does not promote a study or validate a biological interpretation.

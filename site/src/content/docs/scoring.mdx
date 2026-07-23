@@ -1,83 +1,103 @@
 ---
 title: Scoring
-description: What a score means for a self-organising system — calibrated anchors, honest nulls, and gates that keep an indicator from being gamed.
+description: Interpret task outcomes, anchor normalisation, descriptors, gates, and calibration without creating a universal competence scale.
 ---
 
-A score here is a **task-specific operational measure of performance**—never the capacity
-itself and never sufficient evidence that a capacity is present. A self-organising
-collective maintains its own *viability*; it has no intrinsic reason to play Pong. We
-measure what it does under an explicit task contract, and a bare number means nothing until
-we say what it is measured *against*. Each task's raw metric can be mapped onto $[0,1]$
-against two **anchors**, a floor and a ceiling:
+A task score is an operational measurement under one declared task. It is not the capacity
+itself, and it is not sufficient evidence of cognition, intelligence, or biological
+validity.
+
+Use `task_outcome(sim)` as the task's declared scalar result:
+
+```julia
+outcome = task_outcome(sim)
+# (key=:track_score, raw=..., normalized=...)
+```
+
+The result is `nothing` when the task declares no scalar outcome. Other metric fields remain
+diagnostics unless the task declares them as its outcome.
+
+## Anchor normalisation
+
+A scored `TaskSpec` contains a floor and ceiling. BrainlessLab maps the raw score into their
+declared interval:
 
 $$
-\text{normalised} = \operatorname{clamp}\!\left(\frac{\text{raw} - \text{floor}}{\text{ceiling} - \text{floor}},\; 0,\; 1\right)
+\text{normalised}
+=
+\operatorname{clamp}\!\left(
+\frac{\text{raw}-\text{floor}}
+     {\text{ceiling}-\text{floor}},
+0,1
+\right).
 $$
 
-Read it as *the fraction of this task's declared anchor gap that the run closed*. Zero is
-not necessarily “did nothing”; it is performance at or below this floor.
+Read this value as the fraction of that task's anchor interval reached by the run. A value
+of zero means the raw result was at or below the declared floor. A value of one means it was
+at or above the declared ceiling.
 
-## Anchors carry their provenance
+This transformation does not make two tasks commensurate. Tracking and Pong still have
+different observations, actions, opportunities, floors, and uncertainty.
 
-`ScoreAnchor` replaces the hand-typed magic numbers. Each anchor is a value, a **kind**, and
-a provenance string, so no floor or ceiling is a number someone once eyeballed:
+## Anchors and provenance
 
-- **`ANALYTIC`** — a principled bound: tracking's chance level $\mathbb{E}[\cos\theta]=0$, or
-  a true maximum such as "intercept every ball" ($\text{hit\_rate}=1$).
-- **`NULL_MEASURED`** — a measured chance floor: the score of a null policy, *run*, not guessed.
-- **`REFERENCE_MEASURED`** — a measured ceiling from a named reference agent.
+`ScoreAnchor` records a value, kind, and provenance note. The kinds are:
 
-<p class="bl-source">Source: <code>src/tasks/Scoring.jl</code> (<code>ScoreAnchor</code>, <code>normalized_score</code>), <code>src/tasks/Tasks.jl</code> (the per-task anchors).</p>
+- `ANALYTIC` for a mathematical bound or reference value;
+- `NULL_MEASURED` for a measured null policy;
+- `REFERENCE_MEASURED` for a measured reference agent.
 
-## The random policy is one task-specific floor
+Inspect the live task descriptor:
 
-The floor is the score of **`:null_random`** — a policy that ignores its input and emits
-uniform-random effectors. The policy is reservoir-independent, but its score is specific to
-the task, body, actuator mapping, episode length, and randomization. It establishes “no
-better than this random-action policy,” not a universal null. `calibrate_task` runs it over
-seeds and records the floor with provenance, e.g.
-`null=null_random, score_key=forage_score, seeds 0:7, git …`.
+```julia
+task = task_spec(DEFAULT_REGISTRY, :pong)
+task.floor
+task.ceiling
+```
 
-This is why several floors sit well above zero: a random forager still drifts $\approx 0.46$
-of the way to the source just by wandering, so a forage score only *counts* once agents beat
-undirected search.
+A measured null floor answers a narrow question. For example, `:null_random` estimates the
+performance of random effectors under the declared body, task, horizon, and randomisation.
+It is not a universal chance level.
 
-<p class="bl-source">Source: <code>src/nodes/NullRandom.jl</code>, <code>src/tasks/Calibration.jl</code> (<code>calibrate_task</code>).</p>
+`calibrate_task` measures anchors over declared seeds and stores provenance. Recalibrate
+measured anchors when task dynamics, body semantics, the null policy, or the pinned runtime
+changes.
 
-## Gates keep the indicator honest
+<p class="bl-source">Source: <code>src/tasks/Scoring.jl</code>, <code>src/tasks/Calibration.jl</code>, <code>src/tasks/Tasks.jl</code>.</p>
 
-An indicator is only trustworthy if a degenerate solution can't game it. The wall task
-rewards **collision avoidance** — but "avoid every collision" is trivially won by *not
-moving*. So the wall score is collision-free navigation **gated by movement**: a frozen agent
-scores $\approx 0$ because the gate — not the score — zeroes it. The gate encodes the
-unstated half of the task ("*while behaving*"); it is never the competence signal. (The same
-pattern gates rhythm tasks on oscillation amplitude.)
+## Gates
 
-## Descriptors are read alongside a score, never as one
+Some raw indicators admit a degenerate solution. A gate makes the missing condition
+explicit.
 
-Each task names one **`score_key`** (the capacity indicator) plus any **`descriptor_keys`** —
-channels reported next to it but never treated as competence. Collective order parameters
-such as **polarization** and **milling** are descriptors in exactly this sense: they measure
-*how* a swarm is organised, not whether it succeeded, and reporting one as a "score" would
-confuse a quality with a capacity.
+For example, collision avoidance can be maximised by remaining still. A navigation task can
+therefore require movement before its collision-free score counts. The gate is part of that
+task's outcome definition. It is not a general measure of viability or competence.
 
-## Where the anchors stand today
+Report the gate, its threshold, and the ungated descriptor when a reader needs to understand
+why a run received its score.
 
-Current tasks mix analytic and measured floors and use analytic ceilings because no
-validated reference agent yet serves as a measured ceiling:
+## Descriptors
 
-| task | floor | ceiling |
-|---|---|---|
-| wall | `null` ≈ 0.76 (`nav_score`) | analytic `1.0` — collision-free navigation |
-| tracking | analytic `0.0` — chance | analytic `1.0` |
-| pong / pong_hitrate | `null` ≈ 0.36 (`hit_rate`) | analytic `1.0` — intercept every ball |
-| cartpole (+ swingup) | analytic `0.0` / `null` ≈ 0.16 | analytic `1.0` |
-| forage | `null` ≈ 0.46 | analytic `1.0` — agents on source |
+A task can declare `descriptor_keys` beside one `score_key`. Descriptors explain the run but
+do not become additional task outcomes.
 
-A `REFERENCE_MEASURED` ceiling—a genuinely good, *trained* agent as the “1”—is a future
-calibration step. Equal ceiling kinds or equal numeric maxima do not make scores from
-different tasks commensurate: observation/action semantics, difficulty, gates, and floor
-uncertainty differ. Compare models within a declared task; aggregate across tasks only with
-an explicit, justified weighting and preparation policy.
+Examples include collision count, distance moved, no-op fraction, polarisation, and milling.
+Do not choose a favourable descriptor after the run and present it as the primary result.
 
-<p class="bl-source">Source: <code>src/run/Sweep.jl</code> (<code>_sim_score</code>, descriptor columns), <code>src/tasks/Tasks.jl</code>.</p>
+## Comparisons
+
+For a within-task comparison, report:
+
+- the outcome key;
+- raw values and uncertainty;
+- normalised values when they aid interpretation;
+- floor and ceiling kinds with provenance;
+- blocks, trials, horizon, warm-up, and seed policy;
+- any gate and descriptor used to diagnose it;
+- paired contrasts when conditions share randomised blocks.
+
+Keep raw task results separate across tasks. A cross-task summary requires a declared
+weighting and a reason that the aggregation answers the research question.
+
+<p class="bl-source">Source: <code>src/api/Highlevel.jl</code> — <code>task_outcome</code>; <code>src/operations/Benchmark.jl</code>.</p>

@@ -59,3 +59,28 @@ end
     @test isfile(joinpath(run.directory, "DONE"))
     @test isfile(joinpath(run.directory, only(run.records), "DONE"))
 end
+
+@testset "checked reciprocal evolution experiment is planned and valid" begin
+    directory = normpath(joinpath(
+        @__DIR__,
+        "..",
+        "experiments",
+        "examples",
+        "falandays-cross-task-smoke",
+    ))
+    experiment = read_experiment(directory)
+    @test experiment.id === :falandays_cross_task_smoke
+    @test experiment.evidence_state === :planned
+    @test length(experiment.operations) == 2
+    @test all(operation -> operation isa EvolutionPlan, experiment.operations)
+    @test Set(condition.id for condition in experiment.conditions) == Set((
+        :tracking_development,
+        :tracking_confirmation,
+        :pong_heldout,
+        :pong_development,
+        :pong_confirmation,
+        :tracking_heldout,
+    ))
+    @test all(operation -> length(operation.heldout_targets) == 2, experiment.operations)
+    @test validate(experiment, DEFAULT_REGISTRY) === experiment
+end

@@ -1,27 +1,31 @@
-# BrainlessLab plans
+# Operation plans
 
-This directory contains strict `brainlesslab-plan` version-one TOML files for the canonical
-operation path:
+This directory contains strict `brainlesslab-plan` TOML files. Each plan combines one or
+more `EvaluationTarget`s with one research operation:
 
 ```text
-CompositionSpec + EvaluationSpec → EvaluationTarget → operation → record
+CompositionSpec + EvaluationSpec
+  → EvaluationTarget
+  → ProfilePlan | SweepPlan | AblationPlan | EvolutionPlan | BenchmarkPlan
+  → record
 ```
 
-Validate without running:
+Validate a plan without simulation:
 
 ```bash
 julia --project=. bin/brainlesslab.jl check plans/examples/profile_tracking.toml
 ```
 
-Execute and write a portable record:
+Run it and write a portable record:
 
 ```bash
 julia -t auto --project=. bin/brainlesslab.jl run \
   plans/examples/profile_tracking.toml --root records
 ```
 
-The examples are deliberately small exploratory smoke plans. They are executable examples,
-not benchmark evidence. The reciprocal evolution files show the intended direction of the
-first flagship design: select on Tracking and evaluate on held-out Pong, then reverse the
-direction. Larger budgets and frozen evaluation blocks should be declared in new versioned
-plans rather than silently changing these examples.
+Files under `plans/examples/` are small executable checks. They demonstrate plan syntax
+and validation, not benchmark evidence.
+
+A versioned scientific protocol belongs under [`../experiments/`](../experiments/).
+`ExperimentSpec` names its conditions and refers to ordinary operation plans, so the
+experiment and standalone paths use the same executor and record format.

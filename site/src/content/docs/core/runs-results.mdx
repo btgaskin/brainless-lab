@@ -3,7 +3,7 @@ title: Runs, recording, and results
 description: Execute a simulation, select recorded channels, inspect a SimResult, and distinguish an observation from an evidence artifact.
 ---
 
-`simulate` is the main in-memory run surface:
+`simulate` is the main in-memory entry point:
 
 ```julia
 using BrainlessLab
@@ -137,7 +137,7 @@ repository SHA and state, every generated artifact, and its SHA-256 checksum. Sh
 metadata omit hostnames and absolute local paths.
 
 `data/trials.csv` is the raw audit table. `data/task_metrics.csv` is the compact outcome
-surface. Other data tables depend on the operation: analyses, sweep cells, ablation cases,
+table. Other data tables depend on the operation: analyses, sweep cells, ablation cases,
 evolution history and champion parameters. `summary/statistics.csv` and
 `summary/contrasts.csv` are derived. The generated HTML report explains the method and
 node equations, but the CSV tables remain authoritative.
@@ -162,6 +162,6 @@ Next human decision:
 ```
 
 Use [Design a study](/core/design-study/) to define the comparison. Use
-[Tools and artifacts](/core/tools-artifacts/) for persistent batch outputs.
+[Operations and records](/core/operations-records/) for persistent batch outputs.
 
 <p class="bl-source">Source: <code>src/api/Highlevel.jl</code>, <code>src/core/Recorder.jl</code>, <code>src/operations/</code>, <code>src/records/</code>.</p>

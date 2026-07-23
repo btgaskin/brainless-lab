@@ -1,202 +1,240 @@
 ---
 title: Reference
-description: "Live discovery calls, embodiment presets and component catalog, tasks, ablations, and sweep configuration."
+description: Discover registered implementations and inspect the current composition, evaluation, plan, experiment, and record schemas.
 ---
 
-Use discovery functions as the live source of truth:
+This page lists the stable entry points for current platform work. Query the registries
+instead of copying a static list of built-in names.
+
+## Discover registered items
+
+`DEFAULT_REGISTRY` contains nodes, tasks, bodies, analyses, optimisers, ablations, and named
+composition presets.
 
 ```julia
-variants()
-tasks()
-analyses()
-ablations()
+using BrainlessLab
+
+nodes(DEFAULT_REGISTRY)
+tasks(DEFAULT_REGISTRY)
+tasks(DEFAULT_REGISTRY; tag=:benchmark)
+analyses(DEFAULT_REGISTRY; task=:tracking)
+ablations(DEFAULT_REGISTRY)
+compositions(DEFAULT_REGISTRY)
+```
+
+Resolve one descriptor:
+
+```julia
+node = node_spec(DEFAULT_REGISTRY, :falandays)
+task = task_spec(DEFAULT_REGISTRY, :tracking)
+preset = composition_spec(DEFAULT_REGISTRY, :falandays_tracking)
+```
+
+Other typed registries are available as fields of `DEFAULT_REGISTRY`:
+
+```julia
+sort!(collect(keys(DEFAULT_REGISTRY.bodies)); by=string)
+sort!(collect(keys(DEFAULT_REGISTRY.optimizers)); by=string)
+```
+
+The configured embodiment component catalogue is separate:
+
+```julia
 components()
+components(family=:sensor)
+component_info(:sensor, :spectral_camera)
 readiness()
 ```
 
-## Embodiment configuration
+Component readiness describes software integration. It does not establish scientific
+evidence.
+
+## CompositionSpec
+
+`CompositionSpec` is one serialisable node, task, and body composition:
 
 ```julia
-config = read_embodiment_config(path)
-embodiment_config_namedtuple(config)
-canonical_embodiment_toml(config)
-write_embodiment_config(output_path, config)
+composition = CompositionSpec(
+    :tracking_example,
+    :falandays,
+    :tracking;
+    n_nodes=200,
+    parameters=Dict(:leak => 0.25),
+)
 
-blueprint = materialize_blueprint(config)
-body = materialize_embodiment(config)
+resolved = resolve_composition(composition, DEFAULT_REGISTRY)
 ```
 
-Schema version: `EMBODIMENT_SCHEMA_VERSION == 1`.
+Fields:
 
-Top level:
+| Field | Meaning |
+| --- | --- |
+| `id` | stable name for this composition |
+| `node` | registered node key |
+| `task` | registered task key |
+| `body` | optional registered body key |
+| `n_agents` | optional task population override |
+| `n_nodes` | node count per reservoir |
+| `parameters` | declared node parameter overrides |
+| `task_options` | task setup options |
+| `body_options` | registered body options |
+| `interaction_cycle` | optional override for neural frames per world step |
+
+`default_composition(DEFAULT_REGISTRY, node, task)` returns the registered default for a
+node and task pair when one exists.
+
+## EvaluationSpec
+
+`EvaluationSpec` is the only outer repetition protocol:
+
+```julia
+evaluation = EvaluationSpec(
+    blocks=4,
+    trials_per_block=2,
+    horizon=7200,
+    warmup=100,
+    construction_scope=:trial,
+    reset=:full,
+    root_seed=4101,
+    aggregate=:mean,
+)
+
+target = EvaluationTarget(:tracking, composition, evaluation)
+```
+
+Allowed construction scopes are `:evaluation`, `:block`, and `:trial`. Reset policies are
+`:full`, `:body_environment`, and `:none`. Aggregation policies are `:none`, `:mean`,
+`:median`, `:sum`, `:minimum`, and `:maximum`.
+
+Default named streams are `:topology`, `:node_state`, `:world`, `:body`, `:task`, and
+`:mechanism`. Use `SeedStreamSpec` to declare another stream and `derive_seed` to derive a
+stable seed.
+
+## Operation plans
+
+All plan files use:
+
+```toml
+format = "brainlesslab-plan"
+format_version = 1
+operation = "profile"
+id = "my_plan"
+```
+
+They then contain one or more `[[targets]]` tables and one operation section.
+
+| Operation | Type | Section |
+| --- | --- | --- |
+| profile | `ProfilePlan` | `[profile]` |
+| sweep | `SweepPlan` | `[sweep]` |
+| ablation | `AblationPlan` | `[ablate]` |
+| evolution | `EvolutionPlan` | `[evolve]` |
+| benchmark | `BenchmarkPlan` | `[benchmark]` |
+
+Read, check, resolve, and write plans with:
+
+```julia
+plan = read_plan("path/to/plan.toml")
+validate(plan, DEFAULT_REGISTRY)
+resolved = resolve(plan, DEFAULT_REGISTRY)
+write_plan("path/to/copy.toml", plan)
+```
+
+Run the corresponding CLI:
+
+```bash
+julia --project=. bin/brainlesslab.jl check path/to/plan.toml
+julia -t auto --project=. bin/brainlesslab.jl run path/to/plan.toml --root records
+```
+
+See [Operations and records](/core/operations-records/) for the complete workflow.
+
+## ExperimentSpec
+
+`ExperimentSpec` groups named conditions and operation plans under one scientific question:
+
+```julia
+experiment = ExperimentSpec(
+    :my_experiment,
+    v"1.0.0";
+    title="My experiment",
+    question="How does the declared change affect tracking?",
+    conditions=(target,),
+    operations=(plan,),
+    evidence_state=:planned,
+    limitations=("Smoke-scale example only.",),
+)
+```
+
+Allowed evidence states are `:planned`, `:exploratory`, `:tuned`, `:frozen`, `:confirmed`,
+`:promoted`, and `:retired`.
+
+```julia
+write_experiment("experiments/my-experiment", experiment)
+loaded = read_experiment("experiments/my-experiment")
+register_experiment!(loaded)
+experiments()
+experiment_spec(:my_experiment, v"1.0.0")
+```
+
+Repeated condition names must have identical definitions in every operation. Declared
+conditions must be used.
+
+## Embodiment configuration
+
+Embodiment TOML uses schema version 1:
 
 ```toml
 schema_version = 1
 name = "my_embodiment"
-# extends = "base.toml"      # optional one-level base
 
 [[components]]
-id = "stable_id"
+id = "camera"
 family = "sensor"
-kind = "field_probe"
+kind = "spectral_camera"
+
 [components.parameters]
-# kind-specific validated parameters
-
-[overrides]
-# "stable_id.parameter.path" = value
+range = 10.0
 ```
 
-Generic families are `geometry`, `sensor`, `encoder`, `actuator`, `dynamics`, and
-`physiology`. IDs are globally unique and may not contain `.` because dot paths address
-parameters. Unknown keys and parameters are errors.
-
-Checked-in presets:
-
-| file | composition |
-|---|---|
-| `examples/embodiments/bilateral_insect.toml` | two field probes → contrast encoder; forward/turn + unicycle; energy and temperature physiology |
-| `examples/embodiments/differential_robot.toml` | three-channel spectral camera; differential actuator + dynamics |
-| `examples/embodiments/planar_uav.toml` | spectral camera + paired radio probes; planar force/yaw + rigid-body dynamics |
-
-Executable physical example:
-`examples/embodiments/object_world_quickstart.jl` →
-`run_object_world_quickstart(; ticks=25, seed=7)`. It returns the live `Ensemble`,
-`Recorder`, and object snapshot.
-
-Executable task example:
-`examples/embodiments/object_world_task.jl` →
-`run_object_world_task(; ticks=25, seed=11)`. It wraps a generic setup callable in
-`TaskSpec` and returns a standardized `SimResult`.
-
-## Built-in configured components
-
-Query accepted parameter names rather than copying constructor fields:
+Use:
 
 ```julia
-component_info(:sensor, :spectral_camera).parameters
-components(family=:actuator)
-components(readiness=:integrated)
-readiness_markdown()
+config = read_embodiment_config(path)
+canonical_embodiment_toml(config)
+write_embodiment_config(output_path, config)
+body = materialize_embodiment(config)
 ```
 
-The catalog reports required/optional names only; it is not a typed schema of defaults or
-constraints.
+Component IDs must be unique and cannot contain `.`. Unknown keys and parameters fail
+validation.
 
-The built-in configured kinds are:
+## Results and outcomes
 
-- `:geometry/:disc`
-- `:sensor/:spectral_camera`, `:sensor/:field_probe`
-- `:encoder/:identity`, `:encoder/:bilateral_contrast`
-- `:actuator/:forward_turn`, `:actuator/:differential_drive`,
-  `:actuator/:planar_force_yaw`
-- `:dynamics/:unicycle`, `:dynamics/:differential_drive`,
-  `:dynamics/:planar_rigid_body`
-- `:physiology/:none`, `:physiology/:regulated`
-
-Readiness levels are ordered `:available`, `:integrated`, `:core`; the filter is a minimum.
-Available means discoverable/materializable; integrated adds standard runtime, exact
-serialization, docs, and an executable example; core is a stable/default contract with named
-core-test coverage. The minimal differential-robot kit is `:core`; the other built-in
-physical components are `:integrated`. Every descriptor still has
-`status=:experimental`, independently of readiness.
-
-## Generic world surface
-
-`ObjectWorld` composes `Torus`/`WalledArena`, `MotionState2D`s, `ObjectPopulation`s, named
-analytic fields, and an optional spectral illuminant. Its public inspection/identity surface
-is:
+`simulate` returns `SimResult`. Use:
 
 ```julia
-bind_entity_ids!(world, ids)
-interaction_events(world)
-object_snapshot(world)
+outcome = task_outcome(sim)
 ```
 
-Objects use `ObjectType` with optional `appearance`, capacity, effects, and respawn policy.
-`AbstractObjectAppearance` is the extension boundary. Built-ins are `NoAppearance` and
-`SpectralAppearance`; `rgb_appearance` provides a convenient spectral approximation. The current world is fixed-population with static
-circular objects and one physical actuator/dynamics command per body.
-Each `object_snapshot` row includes both stable object identity and `type_index`; repeated
-instances of one `ObjectType` therefore keep one rendering category.
+The result is `nothing` when the task declares no scalar outcome. Otherwise it contains the
+task key, raw value, and normalised value. Inspect the resolved `TaskSpec` when you also need
+the anchor values and provenance.
 
-Object banks and analytic fields are independent: assigning an object `bank` does not emit a
-field. `MountedFieldProbe`s sample only fields explicitly present in `world.fields`. With no
-explicit illuminant, spectral cameras receive a unit illuminant on their own wavelength grid.
-
-## Node presets
-
-| symbol | family | status |
-|---|---|---|
-| `:falandays` (`:falandays_base` compatibility alias) | Falandays | stable authors-faithful reservoir baseline |
-| `:falandays_extended` | Falandays | experimental combined variant |
-| `:falandays_noisy`, `_ablated`, `_hemispheric`, `_oosawa`, `_dendritic`, `_spatial`, `_delayed` | Falandays | experimental variants |
-| `:compartmental_dense`, `:compartmental_structured` | CTRNN | evolution required |
-| `:sorn` | SORN | experimental |
-| `:null_random` | control | random-output null |
-
-## Registered tasks
-
-`:wall`, `:tracking`, `:pong`, `:pong_hitrate`, `:cartpole` (+ `_hard`, `_swingup`,
-`_long`), `:torus`, and `:forage`.
-
-The generic physical `ObjectWorld` is a composition surface, not an additional default task
-symbol. Wrap a setup in a local or registered `TaskSpec` when standardized rollout and result
-semantics are needed.
-
-`RngNoise(seed)` passed through the high-level multi-agent builder is materialized as an
-independently owned stream per agent with seeds `seed`, `seed + 1`, and so on. Use
-`AgentNoiseFactory(index -> source)` when a custom noise source needs an explicit construction
-rule; custom source types may instead extend `agent_noise_source`.
-
-## Development
+Typed operation results support:
 
 ```julia
-block = DevelopmentBlock(
-    :sensor_genes,
-    :camera,
-    "range" => (2.0, 12.0),
-)
-spec = DevelopmentSpec(config, block)
-genotype = DevelopmentGenotype(spec)
-context = DevelopmentContext(seed=0, entity_id=EntityID(1), generation=0)
-body = materialize_embodiment(develop(genotype, context))
+tables(result)
+summary(result)
 ```
 
-Discovery/helpers: `paramdim`, `paramspace`, `pack_params`, `unpack_params`,
-`development_seed`, `validate_development_structure`, and `composite_genome`.
+The record writer stores authoritative CSV tables, a compact JSON summary, the submitted
+and resolved plans, provenance, checksums, and a generated HTML report.
 
-`materialize_blueprint` remains an inspection surface and can resolve registered component
-families that the standard runtime does not compose. `materialize_embodiment`,
-`DevelopmentSpec`, and `develop` validate runnable structure early: sensors and actuators
-are required, geometry/dynamics/physiology are singular, and physical development requires
-exactly one geometry, actuator, and dynamics component.
+## Optional inspection hooks
 
-## Network inspection
+`network_snapshot(reservoir)` returns read-only network metadata when a node supports it.
+`component_state(body)` returns state keyed by stable component IDs. These hooks support
+recording and visualisation; they are not parameter genomes or replay snapshots.
 
-`network_snapshot(reservoir)` is an optional read-only visualization hook. A `SimResult`
-stores per-agent entries in `config.agents` and plural compatibility projections in
-`config.networks`; singular `config.network` is read only for legacy replay. On a
-multi-network result, use `networkplot(sim; entity=EntityID(...))`.
-
-## Ablations
-
-`:freeze_plasticity`, `:zero_recurrent`, `:clamp_target`, `:disable_vision`, plus
-compartmental `:reset_dendrites`, `:no_soma_back`, and `:no_hillock_back`.
-
-## Sweep config schema
-
-```toml
-[sweep]     # id, mode = one_at_a_time | factorial, seeds, max_cells
-[baseline]  # node, task, N, ticks and fixed dotted options
-[axes]      # "node.x" / "env.x" / "drive.x" / "task.x" / "ablation" / "seed"
-[analytics] # measures = [...]
-```
-
-Run `sweep --list-axes <node> <task>` for resolved axes. Common baseline keys are `node`,
-`task`, `N`/`n_nodes`, `ticks`, `window`, `n_agents`, `seed_base`/`seed`, `body`, `drive`,
-and `ablation`. Dotted environment and node options pass through to the run builder.
-
-Common measures include `sigma_mr`, `sigma_mr_node`, `sigma_mr_agent`,
-`spectral_radius`, `susceptibility_node`, `susceptibility_agent`, `correlation_length`,
-`contact_clusters`, `dist_to_source`, `forage_score`, `liveness`, and `regime`. See
-[Tooling](/tooling/) for the workflow and [Analysis](/analysis/) for interpretation.
+<p class="bl-source">Source: <code>src/core/Composition.jl</code>, <code>src/core/Specifications.jl</code>, <code>src/operations/Plans.jl</code>, <code>src/records/PlanIO.jl</code>, <code>src/records/ExperimentIO.jl</code>.</p>

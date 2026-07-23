@@ -102,7 +102,7 @@ task_outcome(pong)
 Tracking and Pong do not share a score unit. Compare conditions within one task. Do not
 compare a tracking score directly with a Pong hit rate.
 
-## Discover the live surface
+## Discover registered parts
 
 Query the registries instead of copying static lists:
 
@@ -117,8 +117,8 @@ readiness()
 ```
 
 The typed registry includes project and extension entries loaded in the current environment.
-The [Experimental catalog](/experimental/) lists studies and components that are outside
-the canonical core path.
+The [Experimental catalog](/experimental/) lists components that are outside the
+canonical core path.
 
 ## Create a portable profile record
 
@@ -132,7 +132,7 @@ julia -t auto --project=. bin/brainlesslab.jl run \
 ```
 
 Open the generated `report/index.html` for the readable report. Use these files when you
-need the exact evidence surface:
+need the exact research record:
 
 - `request.toml`: what was requested;
 - `resolved.toml`: all registry defaults and operation settings actually used;
@@ -165,9 +165,10 @@ Do not add Makie to the BrainlessLab root project only to make a figure.
 ## What this run establishes
 
 A successful run shows that the selected task, body, reservoir, and recorder compose and
-execute. It may reveal behavior worth studying. It does not establish a general capacity,
+execute. It may reveal behaviour worth studying. It does not establish a general capacity,
 biological fidelity, superiority, or statistical reliability.
 
-Next, read [Operations and records](/core/tools-artifacts/) and the [core task tour](/core/task-tour/).
+Next, read [Operations and records](/core/operations-records/) and the
+[core task tour](/core/task-tour/).
 Then use [Design a study](/core/design-study/) to place an operation inside a controlled,
 versioned experiment.
