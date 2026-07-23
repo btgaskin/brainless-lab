@@ -1,0 +1,107 @@
+---
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+interface Statistic {
+  case: string;
+  condition: string;
+  n: number;
+  raw_mean: number;
+  raw_ci_lower: number;
+  raw_ci_upper: number;
+  normalized_mean: number;
+  normalized_ci_lower: number;
+  normalized_ci_upper: number;
+}
+
+interface Props {
+  recordPath: string;
+}
+
+const { recordPath } = Astro.props;
+const candidates = [process.cwd(), resolve(process.cwd(), '..')];
+const repositoryRoot = candidates.find((candidate) => {
+  try {
+    readFileSync(resolve(candidate, 'Project.toml'));
+    readFileSync(resolve(candidate, 'site', 'package.json'));
+    return true;
+  } catch {
+    return false;
+  }
+});
+
+if (!repositoryRoot) {
+  throw new Error('cannot locate the BrainlessLab repository root');
+}
+
+const summary = JSON.parse(
+  readFileSync(resolve(repositoryRoot, recordPath, 'summary', 'summary.json'), 'utf8'),
+) as { statistics: Statistic[]; contrasts: unknown[] };
+const record = readFileSync(resolve(repositoryRoot, recordPath, 'record.toml'), 'utf8');
+const field = (name: string) =>
+  record.match(new RegExp(`^${name} = "([^"]+)"$`, 'm'))?.[1] ?? 'unknown';
+const format = (value: number) => value.toFixed(3);
+---
+
+<section class="benchmark-record" aria-labelledby="benchmark-results">
+  <h2 id="benchmark-results">Recorded result</h2>
+  <p>
+    Generated with Julia {field('julia_version')} from clean commit{' '}
+    <code>{field('git_sha').slice(0, 7)}</code>. Values and intervals below are read from
+    the committed machine-readable summary during the site build.
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Task</th>
+          <th>Blocks</th>
+          <th>Raw mean [95% CI]</th>
+          <th>Normalised mean [95% CI]</th>
+        </tr>
+      </thead>
+      <tbody>
+        {summary.statistics.map((row) => (
+          <tr>
+            <th>{row.case}</th>
+            <td>{row.n}</td>
+            <td>
+              {format(row.raw_mean)} [{format(row.raw_ci_lower)}, {format(row.raw_ci_upper)}]
+            </td>
+            <td>
+              {format(row.normalized_mean)} [{format(row.normalized_ci_lower)},{' '}
+              {format(row.normalized_ci_upper)}]
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The record contains {summary.contrasts.length} condition contrasts because this protocol
+    declares no comparator. Tracking and Pong scores remain separate task outcomes.
+  </p>
+</section>
+
+<style>
+  .benchmark-record {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    background: var(--sl-color-bg-nav);
+  }
+
+  .benchmark-record h2 {
+    margin-top: 0;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    min-width: 44rem;
+  }
+</style>

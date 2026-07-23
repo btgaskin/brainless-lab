@@ -5,16 +5,20 @@ experimental:
   family: embodiment
   readiness: integrated
   tags: [embodiment, sensors, actuators, physiology, homeostasis]
-  core_page: /core/embodiment/
-  source_paths: [src/world/Embodiment.jl, src/world/PhysicalComponents.jl, src/world/Homeostasis.jl, src/run/EmbodimentConfig.jl]
-  example_paths: [examples/embodiments/object_world_quickstart.jl, examples/embodiments/bilateral_insect.toml]
-  test_paths: [test/test_embodiment_runtime.jl, test/test_embodiment_config.jl, test/test_homeostasis.jl]
+  core_page: /handbook/bodies-interaction/
+  source_paths: [src/world/Embodiment.jl, src/world/PhysicalComponents.jl, src/world/SectorVision.jl, src/world/Homeostasis.jl, src/run/EmbodimentConfig.jl]
+  example_paths: [examples/embodiments/object_world_quickstart.jl, examples/embodiments/bilateral_insect.toml, examples/shoal_forage_quickstart.jl]
+  test_paths: [test/test_embodiment_runtime.jl, test/test_embodiment_config.jl, test/test_homeostasis.jl, test/test_shoal_forage.jl]
 ---
 
 The stable Core `Embodiment` contract composes identified physical parts. This feature
 record tracks the current discoverable sensor, encoder, actuator, dynamics, and physiology
 implementations, including optional regulated variables. Configuration round trips, the
 object-world quickstart, and focused runtime tests exercise that composition.
+
+`SectorVision` provides observer-relative sectors for objects or conspecifics.
+`AntagonisticTurnActuator` maps left-turn, right-turn, and thrust outputs to a bounded
+unicycle command. The shoal-foraging quick start exercises both components.
 
 Integration does not establish biological or robotic fidelity. Multiple regulated variables,
 feedback, and absorbing failure are implemented mechanisms; successful multi-need

@@ -14,14 +14,6 @@ const familyLabels: Record<string, string> = {
   analyses: 'Analyses',
   evolution: 'Evolution',
 };
-const familyRoutes: Record<string, string> = {
-  reservoirs: '/experimental/reservoirs/',
-  embodiment: '/experimental/embodiment/',
-  'worlds-tasks': '/experimental/worlds-tasks/',
-  collectives: '/experimental/collectives/',
-  analyses: '/experimental/analyses/',
-  evolution: '/experimental/evolution/',
-};
 const allFeatures = (
   await getCollection('docs', ({ data }) => Boolean(data.experimental))
 ).sort((a, b) => a.data.title.localeCompare(b.data.title));
@@ -36,23 +28,6 @@ const routeFor = (id: string) => `/${id.replace(/\/index$/, '')}/`;
 ---
 
 <section class="catalog" data-experimental-catalog>
-  {
-    !family && (
-      <nav class="family-nav" aria-label="Experimental feature families">
-        {Object.entries(familyLabels).map(([key, label]) => {
-          const count = allFeatures.filter(
-            (entry) => entry.data.experimental?.family === key,
-          ).length;
-          return (
-            <a href={familyRoutes[key]}>
-              {label} <span>{count}</span>
-            </a>
-          );
-        })}
-      </nav>
-    )
-  }
-
   <form class="catalog-filters" role="search" aria-label="Filter Experimental features">
     <label>
       Search
@@ -198,28 +173,6 @@ const routeFor = (id: string) => `/${id.replace(/\/index$/, '')}/`;
 <style>
   .catalog {
     margin-top: 1.25rem;
-  }
-
-  .family-nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin: 1rem 0 1.5rem;
-  }
-
-  .family-nav a {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    padding: 0.45rem 0.7rem;
-    border: 1px solid var(--sl-color-gray-5);
-    border-radius: 0.4rem;
-    text-decoration: none;
-  }
-
-  .family-nav span {
-    color: var(--sl-color-gray-2);
-    font-variant-numeric: tabular-nums;
   }
 
   .catalog-filters {

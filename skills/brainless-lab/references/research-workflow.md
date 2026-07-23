@@ -100,8 +100,8 @@ For task performance, report:
 
 For sweeps, report development cells rather than an optimum unless a selected cell has
 fresh held-out evaluation. For evolution, retain the candidate history and report champion
-selection separately from held-out performance. For benchmarks, keep tasks separate and
-report paired within-task contrasts.
+selection separately from held-out performance. For benchmarks, keep tasks separate.
+Report paired within-task contrasts when a case declares a baseline.
 
 ## Promotion requirements
 
@@ -127,6 +127,6 @@ Software readiness is independent of experiment evidence. An integrated componen
 construct validity. A confirmed experiment may use a small stable implementation. Report
 both states.
 
-The public guide is `site/src/content/docs/core/design-study.mdx`. Current protocol bundles
+The public guide is `site/src/content/docs/handbook/experiments-evidence.mdx`. Current protocol bundles
 live under `experiments/`; generated operation records live under the selected records
 root.

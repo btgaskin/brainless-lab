@@ -1,0 +1,68 @@
+format = "brainlesslab-plan"
+format_version = 1
+id = "falandays_core_v1"
+operation = "benchmark"
+
+[[benchmark.cases]]
+conditions = ["tracking_falandays"]
+id = "tracking"
+[[benchmark.cases]]
+conditions = ["pong_falandays"]
+id = "pong"
+
+[[targets]]
+id = "tracking_falandays"
+
+    [targets.composition]
+    id = "tracking_falandays"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 20
+    construction_scope = "trial"
+    horizon = 1000
+    reset = "full"
+    root_seed = 0xc739
+    streams = ["topology", "node_state", "world", "body", "task", "mechanism"]
+    trials_per_block = 1
+    warmup = 800
+[[targets]]
+id = "pong_falandays"
+
+    [targets.composition]
+    id = "pong_falandays"
+    n_nodes = 500
+    node = "falandays"
+    task = "pong"
+
+        [targets.composition.parameters]
+        input_weight = 2.75
+        lrate_targ = 0.1
+        lrate_wmat = 1.0
+        rectify = false
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "pong_mixed"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 20
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0xcb21
+    streams = ["topology", "node_state", "world", "body", "task", "mechanism"]
+    trials_per_block = 1
+    warmup = 1000

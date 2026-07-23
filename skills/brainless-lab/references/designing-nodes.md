@@ -196,6 +196,6 @@ against the runtime contract.
 The project keeps the term `Reservoir` for the runtime node population. Do not rename it
 to `Network` in the public interface.
 
-See the [reservoir guide](https://brainless-lab.pages.dev/core/reservoirs/), the
-[extension guide](https://brainless-lab.pages.dev/core/extend/), `cli-tools.md`, and
+See the [node and reservoir guide](https://brainless-lab.pages.dev/handbook/nodes-reservoirs/), the
+[extension guide](https://brainless-lab.pages.dev/handbook/extending/), `cli-tools.md`, and
 `designing-environments-and-tasks.md`.

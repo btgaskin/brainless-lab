@@ -1,0 +1,209 @@
+---
+title: Analysis reference
+description: Choose task, neural, collective, and information measures with the recorder channels and controls they require.
+---
+
+An analysis describes recorded behaviour or dynamics. It does not establish capacity or a
+mechanism by itself. Read each analysis beside the task outcome, sampling protocol,
+diagnostics, and a control that matches the claim.
+
+`ProfilePlan` is the standard way to request registered analyses. The executor records the
+channels they require and reports analysis failures explicitly.
+
+## Specify the method before the run
+
+For each confirmatory analysis, declare:
+
+- the input channels and sampling interval;
+- transient removal and analysis window;
+- threshold, bin, lag, or neighbourhood settings;
+- treatment of failed, dead, missing, and saturated runs;
+- the independent unit and uncertainty method;
+- estimator diagnostics and minimum data;
+- null or surrogate procedure;
+- multiplicity correction when several measures, lags, or pairs are tested.
+
+Bootstrap the independent run or randomised block. Agents and ticks inside one world are
+not additional independent replicates.
+
+## Task and node diagnostics
+
+Task metrics measure the implemented outcome and its descriptors. Node diagnostics help
+explain how a run developed.
+
+`node_target_error` measures each node's distance from its local target:
+
+$$
+d_i(t) = |a_i(t)-T_i(t)|.
+$$
+
+Report its distribution or a declared summary. A small value means the modelled activation
+is near its target. It does not prove biological homeostasis or useful behaviour.
+
+<p class="bl-source">Source: <code>src/analysis/TargetError.jl</code>.</p>
+
+## Branching estimates
+
+For population activity $A(t)$, a one-step branching estimate asks how strongly activity
+predicts the next sample. A simple regression can be biased when the observed series is a
+subsampled or noisy projection.
+
+The multistep-regression estimator fits regression slopes across lags:
+
+$$
+r_k = b\,m^k,
+\qquad
+\log r_k = \log b + k\log m.
+$$
+
+The fitted decay gives the branching estimate $m$ under the estimator's assumptions. Read
+it with the accepted lags, fit quality, sample count, and per-agent distribution. A value
+near one is not sufficient evidence of criticality.
+
+The Falandays rule directly regulates activity. This feedback can hold an activity
+statistic near a target. Compare branching estimates with controls and other diagnostics
+before assigning a critical interpretation.
+
+<p class="bl-source">Source: <code>src/analysis/Branching.jl</code> — <code>branching_ratio</code>, <code>branching_ratio_mr</code>.</p>
+
+## Avalanches
+
+The avalanche analysis thresholds population activity into contiguous events. Each event
+has a size $S$ and duration $D$. Candidate power-law relations are:
+
+$$
+P(S)\sim S^{-\tau},
+\qquad
+P(D)\sim D^{-\alpha},
+\qquad
+\langle S\rangle(D)\sim D^\gamma.
+$$
+
+The crackling relation compares the exponents:
+
+$$
+\frac{\alpha-1}{\tau-1} = \gamma.
+$$
+
+Agreement does not establish criticality. Report the event count, threshold and bin
+sensitivity, fitted range, competing distributions, finite-size checks, and uncertainty.
+Do not interpret a fit based on a small number of events.
+
+<p class="bl-source">Source: <code>src/analysis/Avalanches.jl</code>.</p>
+
+## Spectral radius
+
+For recurrent weight matrix $W$, the spectral radius is:
+
+$$
+\rho(W)=\max_i|\lambda_i(W)|.
+$$
+
+It is a linear matrix diagnostic. A threshold-reset, plastic spiking system is nonlinear,
+so spectral radius is not a general stability criterion. Use it to describe the recurrent
+matrix and compare declared conditions.
+
+<p class="bl-source">Source: <code>src/analysis/Spectral.jl</code>.</p>
+
+## Second-order measures
+
+The analysis suite includes susceptibility, Fano factor, and participation ratio:
+
+$$
+\chi=N\,\mathrm{Var}[\phi],
+\qquad
+F=\frac{\mathrm{Var}[A]}{\langle A\rangle},
+\qquad
+\mathrm{PR}=\frac{(\sum_i\lambda_i)^2}{\sum_i\lambda_i^2}.
+$$
+
+At node scale, the order parameter can describe neural synchrony. At agent scale, it can
+describe collective order such as polarisation. Similar equations do not make the two
+levels numerically commensurate. Compare their locations across a declared control sweep,
+not their raw magnitudes.
+
+Participation ratio and correlation measures need enough simultaneously observed units.
+Longer time series do not replace missing population size.
+
+<p class="bl-source">Source: <code>src/analysis/ActivityLevels.jl</code>, <code>src/analysis/SecondOrder.jl</code>.</p>
+
+## Collective measures
+
+Collective analyses describe organisation among agents:
+
+- polarisation measures heading alignment;
+- milling measures rotational order around a torus-aware centre;
+- cohesion summarises nearest-neighbour and pairwise distance;
+- `swarm_regime` assigns a descriptive state from order and speed;
+- `correlation_length` finds the zero crossing of velocity-fluctuation correlation;
+- `contact_graph_clusters` summarises connected components in a proximity graph.
+
+These values are descriptors, not task scores. A highly aligned group may still fail its
+task. Use torus-aware geometry when the world is periodic, and retain independent worlds as
+the uncertainty unit.
+
+<p class="bl-source">Source: <code>src/world/Metrics.jl</code>, <code>src/analysis/SwarmAnalysis.jl</code>.</p>
+
+## Transfer entropy
+
+The current transfer-entropy estimator is a directional, order-one, discretised plug-in
+estimate:
+
+$$
+\mathrm{TE}_{X\to Y}
+=
+\sum p(y_{t+1},y_t,x_t)
+\log_2
+\frac{p(y_{t+1}\mid y_t,x_t)}
+     {p(y_{t+1}\mid y_t)}.
+$$
+
+The suite can apply it to node spike trains or agent movement events. The estimate can be
+biased upwards with finite samples. Check stationarity, binning sensitivity, sample count,
+time-shift surrogates, and correction across tested pairs.
+
+Transfer entropy shows predictive information under the estimator. It does not by itself
+show direct causal influence.
+
+<p class="bl-source">Source: <code>src/analysis/TransferEntropy.jl</code>.</p>
+
+## Circular-shift null
+
+`crossshift_null` independently circularly shifts each agent's recorded series. This keeps
+each series' internal dynamics while disrupting their alignment across agents.
+
+The result includes the observed value, null values, null mean and standard deviation,
+ratio, Monte Carlo p-value, requested surrogate count, and valid surrogate count. The ratio
+is descriptive. A value near one does not establish equivalence or absence of coupling.
+
+Circular shifts also disrupt timing caused by shared inputs. Pair this surrogate with a
+causal condition suited to the question, such as an input-disabled or sham-input control.
+
+<p class="bl-source">Source: <code>src/analysis/NullTest.jl</code>.</p>
+
+## Registered analysis workflow
+
+Inspect analyses that can apply to a task:
+
+```julia
+analyses(DEFAULT_REGISTRY; task=:tracking)
+```
+
+Then add their keys to a profile plan:
+
+```toml
+[profile]
+target = "tracking"
+analyses = ["branching_ratio_mr", "node_target_error"]
+record_every = 1
+```
+
+If an analysis needs a missing channel or cannot process a trial, the profile result retains
+an explicit error. Do not replace a failed analysis with a silent zero or omit the run.
+
+## Primary references
+
+- Beggs, J. M. and Plenz, D. (2003). [Neuronal avalanches in neocortical circuits](https://doi.org/10.1523/JNEUROSCI.23-35-11167.2003). *Journal of Neuroscience*, 23, 11167–11177.
+- Wilting, J. and Priesemann, V. (2018). [Inferring collective dynamical states from widely unobserved systems](https://doi.org/10.1038/s41467-018-04725-4). *Nature Communications*, 9, 2325.
+- Cavagna, A. et al. (2010). [Scale-free correlations in starling flocks](https://doi.org/10.1073/pnas.1005766107). *Proceedings of the National Academy of Sciences*, 107, 11865–11870.
+- Schreiber, T. (2000). [Measuring information transfer](https://doi.org/10.1103/PhysRevLett.85.461). *Physical Review Letters*, 85, 461–464.

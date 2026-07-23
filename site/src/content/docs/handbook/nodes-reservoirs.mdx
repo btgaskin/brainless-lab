@@ -1,0 +1,52 @@
+---
+title: Nodes and reservoirs
+description: Understand the shared reservoir interface, the canonical Falandays node, and its validation boundary.
+---
+
+A node is the local neural unit model. A reservoir is a runtime population of nodes with
+wiring and dynamic state. The reservoir receives receptor values and returns activity for
+a body readout.
+
+## Shared interface
+
+A reservoir implements `step!`, `effectors`, `reset!`, node and port widths, and any
+declared replay or inspection methods. A registered `NodeSpec` owns:
+
+- its builder and parameters;
+- named parameter sets for sweeps or evolution;
+- capabilities required by ablations;
+- equations, default analyses, stability, and tags.
+
+Node count belongs to `CompositionSpec`. Runtime membrane values, spikes, learned weights,
+and random-number positions do not belong to a parameter genome.
+
+## Canonical Falandays node
+
+Use `node=:falandays` for the canonical online-plastic node. It is based on Falandays and
+colleagues, [“A potential mechanism for Gibsonian resonance”](https://doi.org/10.1007/s11571-023-09988-2).
+
+Each unit integrates sensory and recurrent input, emits a spike above its local target,
+and adapts its target and active incoming weights during behaviour. The implementation has
+no task-loss backpropagation or fitted readout.
+
+Task-specific presets resolve the numerical settings:
+
+```julia
+composition_spec(DEFAULT_REGISTRY, :falandays_tracking)
+composition_spec(DEFAULT_REGISTRY, :falandays_pong)
+```
+
+The canonical implementation is validated on declared reference trajectories. This covers
+the tested construction and update path. It does not establish behavioural equivalence,
+biological validity, or performance on every task.
+
+## Other node families
+
+Other registered nodes may use fixed weights, different plasticity, noise, drives, delays,
+or structural assumptions. Query `nodes(DEFAULT_REGISTRY)` and inspect each `NodeSpec`.
+Software registration does not qualify a node for a benchmark.
+
+Add a new reservoir subtype when state, stepping, plasticity, or readout changes
+materially. Use a parameter, preset, wrapper, or ablation when the interface stays the same.
+
+<p class="bl-source">Source: <code>src/core/Registry.jl</code>, <code>src/nodes/Falandays.jl</code>, <code>test/oracle/authors_falandays.jl</code>.</p>

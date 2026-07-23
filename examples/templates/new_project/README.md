@@ -160,10 +160,10 @@ automatically qualify it for a benchmark.
 
 The docs live in the Astro/Starlight site (<https://brainless-lab.pages.dev>, or `cd site && bun run dev`):
 
-- [Reservoirs and node models](https://brainless-lab.pages.dev/core/reservoirs/)
-- [Worlds, tasks and populations](https://brainless-lab.pages.dev/core/worlds-tasks-populations/)
-- [Embodiment](https://brainless-lab.pages.dev/core/embodiment/)
-- [Extend the lab](https://brainless-lab.pages.dev/core/extend/)
-- [Design a study](https://brainless-lab.pages.dev/core/design-study/)
-- [Agentic workflow](https://brainless-lab.pages.dev/agentic-workflow/)
-- [Operations and records](https://brainless-lab.pages.dev/core/operations-records/)
+- [Nodes and reservoirs](https://brainless-lab.pages.dev/handbook/nodes-reservoirs/)
+- [Worlds, tasks and populations](https://brainless-lab.pages.dev/handbook/worlds-tasks-populations/)
+- [Bodies and interaction](https://brainless-lab.pages.dev/handbook/bodies-interaction/)
+- [Extending BrainlessLab](https://brainless-lab.pages.dev/handbook/extending/)
+- [Experiments and evidence](https://brainless-lab.pages.dev/handbook/experiments-evidence/)
+- [Research records](https://brainless-lab.pages.dev/research/)
+- [Operations](https://brainless-lab.pages.dev/handbook/operations/)

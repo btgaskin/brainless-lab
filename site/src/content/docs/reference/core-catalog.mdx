@@ -1,0 +1,49 @@
+---
+title: Core catalogue
+description: Inspect the canonical Falandays node, the Tracking and Pong tasks, and their declared outcomes and anchors.
+---
+
+The core catalogue is intentionally small. Query `DEFAULT_REGISTRY` for the current
+machine-readable definitions.
+
+## Canonical node
+
+| Key | Status | Boundary |
+| --- | --- | --- |
+| `:falandays` | reference | validated on declared reference trajectories |
+
+The registered presets `:falandays_tracking` and `:falandays_pong` select task-specific
+node counts and parameters.
+
+## Core tasks
+
+| Task | Outcome | Floor | Ceiling |
+| --- | --- | --- | --- |
+| Tracking | `track_score` | analytic chance alignment, `0.0` | perfect alignment, `1.0` |
+| Pong | `hit_rate` | calibrated `null_random` control | analytic interception maximum, `1.0` |
+
+The exact Pong floor and its provenance live in `TaskSpec`. Inspect them rather than
+copying a number into a new protocol:
+
+```julia
+tracking = task_spec(DEFAULT_REGISTRY, :tracking)
+pong = task_spec(DEFAULT_REGISTRY, :pong)
+
+tracking.floor
+tracking.ceiling
+pong.floor
+pong.ceiling
+```
+
+Tracking and Pong carry `:benchmark`, `:qualification`, and `:core` tags. Wall is
+registered and experimental, but it is not part of the core benchmark.
+
+## Score use
+
+`task_outcome(sim)` returns the task key, raw value, and normalised value. The normalised
+value uses the task's own anchors and can be clamped by its scoring contract. Report the
+anchor kind and provenance with benchmark results.
+
+The [Experimental catalogue](/experimental/) lists capabilities outside this compact core.
+
+<p class="bl-source">Source: <code>src/tasks/Tasks.jl</code>, <code>src/core/Registry.jl</code>.</p>

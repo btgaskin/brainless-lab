@@ -4,10 +4,19 @@ using Test
     repository = normpath(joinpath(@__DIR__, ".."))
     docs = joinpath(repository, "site", "src", "content", "docs")
 
-    @test isfile(joinpath(docs, "core", "operations-records.mdx"))
-    @test isfile(joinpath(docs, "node-mechanisms.mdx"))
+    @test isfile(joinpath(docs, "tutorials", "first-simulation.mdx"))
+    @test isfile(joinpath(docs, "handbook", "operations.mdx"))
+    @test isfile(joinpath(docs, "reference", "interfaces.mdx"))
+    @test isfile(joinpath(docs, "research", "index.mdx"))
+    @test isfile(joinpath(docs, "benchmarks", "index.mdx"))
+    @test isfile(joinpath(docs, "experiments", "index.mdx"))
+    @test isfile(joinpath(docs, "experimental", "index.mdx"))
     @test !isdir(joinpath(docs, "notes"))
-    @test !isdir(joinpath(docs, "experiments"))
+    @test !any(isfile, (
+        joinpath(docs, "core", "operations-records.mdx"),
+        joinpath(docs, "core", "architecture.mdx"),
+        joinpath(docs, "node-mechanisms.mdx"),
+    ))
 
     retired_files = (
         "collective.mdx",
@@ -38,7 +47,6 @@ using Test
     )
     retired_links = (
         r"\]\(/notes/",
-        r"\]\(/experiments/",
         r"\]\(/collective/",
         r"\]\(/concepts/",
         r"\]\(/environments-tasks/",
@@ -51,6 +59,13 @@ using Test
         r"\]\(/research-workflow/",
         r"\]\(/task-reference/",
         r"\]\(/tooling/",
+        r"\]\(/core/",
+        r"\]\(/analysis/",
+        r"\]\(/contracts/",
+        r"\]\(/evolution/",
+        r"\]\(/node-mechanisms/",
+        r"\]\(/scoring/",
+        r"\]\(/agentic-workflow/",
         r"/core/tools-artifacts/",
     )
     offenders = String[]

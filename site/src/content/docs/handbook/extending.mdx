@@ -1,0 +1,42 @@
+---
+title: Extending BrainlessLab
+description: Add nodes, tasks, bodies, analyses, and interventions through the narrowest public interface.
+---
+
+Start from [the external-project tutorial](/tutorials/extend-project/) when an extension
+does not belong in the package.
+
+## Choose the boundary
+
+| Intent | Public boundary |
+| --- | --- |
+| Change declared node values | parameter or preset |
+| Add a different neural substrate | `Reservoir` methods and `NodeSpec` |
+| Reuse sensorimotor organisation | body or embodiment configuration |
+| Add sensing or action | sensor, encoder, readout, actuator, or dynamics method |
+| Add a vector or physical task | `TaskSpec` and compatible setup |
+| Add a reusable measure | analysis function and registration |
+| Test mechanism necessity | registered ablation |
+
+Julia multiple dispatch is the extension mechanism. Registries make implementations
+discoverable and selectable by name. Do not add a registry only to avoid a clear method.
+
+## Node checklist
+
+Declare parameters, ownership, validators, parameter sets, capabilities, equations, tags,
+and stability. Test port widths, deterministic construction, stepping, readout, reset, and
+replay. Inspect inference and allocations after correctness is established.
+
+## Task checklist
+
+Define observations, actions, timing, reset, horizon, randomised quantities, an optional
+scalar outcome, anchors, descriptors, gates, and degenerate policies. A task without a
+scalar outcome can support profiling but cannot enter a scalar benchmark.
+
+## Evidence boundary
+
+Focused tests establish software behaviour. They do not establish construct validity,
+biological fidelity, or useful task performance. Add experimental capability metadata
+when the feature is discoverable but not part of the core path.
+
+<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>, <code>src/core/Registry.jl</code>, <code>examples/templates/new_project/</code>.</p>

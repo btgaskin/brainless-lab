@@ -202,7 +202,7 @@ blocks, trials, horizon, warm-up, reset, construction scope, and root seed into
 `EvaluationSpec`. Do not add trial replication to `TaskSpec` or task timing to
 `EvaluationSpec`.
 
-Use a `ProfilePlan` for descriptive task analysis and a `BenchmarkPlan` for paired
+Use a `ProfilePlan` for descriptive task analysis and a `BenchmarkPlan` for task-specific
 condition comparisons. Use `ExperimentSpec` when the task forms part of a versioned
 scientific protocol. The task implementation must remain the same across these operations.
 
@@ -270,7 +270,7 @@ See also `designing-nodes.md`, `designing-analyses.md`, `usage-and-workflows.md`
 `cli-tools.md`.
 
 The canonical public contracts are in
-[Core: worlds, tasks, and populations](https://brainless-lab.pages.dev/core/worlds-tasks-populations/)
-and [Core: embodiment](https://brainless-lab.pages.dev/core/embodiment/). List non-core
+[Worlds, tasks, and populations](https://brainless-lab.pages.dev/handbook/worlds-tasks-populations/)
+and [Bodies and interaction](https://brainless-lab.pages.dev/handbook/bodies-interaction/). List non-core
 capabilities in [Experimental capabilities](https://brainless-lab.pages.dev/experimental/);
 software readiness there does not promote a study or validate a biological interpretation.

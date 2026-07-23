@@ -252,7 +252,7 @@ using TOML
                 capabilities=(:config_materialization,),
                 conformance=:embodiment_config_contract,
                 conformance_path="test/test_embodiment_config.jl",
-                docs_path="site/src/content/docs/contracts.mdx",
+                docs_path="site/src/content/docs/reference/interfaces.mdx",
                 example_path=relpath(example, root),
                 root=root,
             )
@@ -293,7 +293,7 @@ end
         capabilities=(:config_materialization,),
         conformance=:embodiment_config_contract,
         conformance_path="test/test_embodiment_config.jl",
-        docs_path="site/src/content/docs/contracts.mdx",
+        docs_path="site/src/content/docs/reference/interfaces.mdx",
         example_path="examples/embodiments/differential_robot.toml",
         root=root,
     )

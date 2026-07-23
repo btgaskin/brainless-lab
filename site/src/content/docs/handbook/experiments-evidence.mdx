@@ -1,0 +1,46 @@
+---
+title: Experiments and evidence
+description: Version a scientific question, keep seed stages separate, and state where the evidence stops.
+---
+
+Use `ExperimentSpec` when named conditions and one or more operations answer one scientific
+question. It records a stable ID, version, question, evidence state, limitations, metadata,
+conditions, and ordinary operation plans.
+
+## Evidence states
+
+```text
+planned → exploratory → tuned → frozen → confirmed → promoted
+```
+
+Use `retired` for a withdrawn or superseded protocol. A complete record does not change the
+evidence state automatically.
+
+## Research sequence
+
+1. Verify implementation conformance, ports, reset, replay, and random streams.
+2. Calibrate task opportunity with an appropriate floor and ceiling.
+3. Explore behaviour and failure modes.
+4. Tune or train on development seeds.
+5. Estimate variance on fresh pilot blocks.
+6. Freeze the question, endpoint, controls, exclusions, and analysis.
+7. Run sealed confirmation once on untouched blocks.
+8. Test declared robustness conditions.
+9. Promote the complete protocol and records after scientific review.
+
+Changing an endpoint, exclusion, condition, or analysis after viewing confirmation returns
+the study to development.
+
+## Controls and claims
+
+Choose the control that answers the claim. Random action, blind input, matched sham,
+registered ablation, model baseline, replay, and oracle policies answer different
+questions.
+
+Report what the code implements, what tests verify, what the experiment observes, and what
+the evidence supports as separate statements.
+
+The [Experiments catalogue](/experiments/) lists versioned protocols. The
+[Benchmarks catalogue](/benchmarks/) lists task-specific benchmark records.
+
+<p class="bl-source">Source: <code>src/experiments/Experiment.jl</code>, <code>src/records/ExperimentIO.jl</code>.</p>

@@ -1,0 +1,98 @@
+---
+import { getCollection } from 'astro:content';
+
+interface Props {
+  kind: 'benchmark' | 'experiment';
+}
+
+const { kind } = Astro.props;
+const entries = (
+  await getCollection(
+    'docs',
+    ({ data }) => data.research?.kind === kind,
+  )
+).sort((a, b) => a.data.title.localeCompare(b.data.title));
+const routeFor = (id: string) => `/${id.replace(/\/index$/, '')}/`;
+---
+
+<div class="research-grid">
+  {
+    entries.map((entry) => {
+      const item = entry.data.research;
+      if (!item) return null;
+      return (
+        <article>
+          <div class="research-meta">
+            <span>{item.evidence_state}</span>
+            <span>{item.version}</span>
+          </div>
+          <h2><a href={routeFor(entry.id)}>{entry.data.title}</a></h2>
+          <p>{entry.data.description}</p>
+          <dl>
+            <div>
+              <dt>Tasks</dt>
+              <dd>{item.tasks.length ? item.tasks.join(', ') : 'Not fixed'}</dd>
+            </div>
+            <div>
+              <dt>Nodes</dt>
+              <dd>{item.nodes.length ? item.nodes.join(', ') : 'Not fixed'}</dd>
+            </div>
+            <div>
+              <dt>Records</dt>
+              <dd>{item.record_paths.length}</dd>
+            </div>
+          </dl>
+          <a href={routeFor(entry.id)}>Open {kind} →</a>
+        </article>
+      );
+    })
+  }
+</div>
+
+<style>
+  .research-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  article {
+    padding: 1rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    background: var(--sl-color-bg-nav);
+  }
+
+  article h2 {
+    margin: 0.75rem 0 0.4rem;
+    font-size: var(--sl-text-xl);
+  }
+
+  .research-meta {
+    display: flex;
+    justify-content: space-between;
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-xs);
+    text-transform: uppercase;
+  }
+
+  dl {
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  dl div {
+    display: grid;
+    grid-template-columns: 4rem 1fr;
+    gap: 0.5rem;
+  }
+
+  dt {
+    color: var(--sl-color-gray-2);
+  }
+
+  dd {
+    margin: 0;
+  }
+</style>

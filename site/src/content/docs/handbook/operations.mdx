@@ -1,0 +1,45 @@
+---
+title: Operations
+description: Choose a profile, sweep, ablation, evolution, or benchmark plan for repeated work.
+---
+
+Every operation combines named `EvaluationTarget`s with one strict TOML plan. Validate a
+plan before simulation:
+
+```bash
+julia --project=. bin/brainlesslab.jl check PLAN.toml
+julia -t auto --project=. bin/brainlesslab.jl run PLAN.toml --root records
+```
+
+## Choose the operation
+
+| Question | Operation | Interpretation |
+| --- | --- | --- |
+| What dynamics occur in one composition? | `ProfilePlan` | descriptive profile |
+| How do declared parameter cells behave? | `SweepPlan` | development grid |
+| Is a registered mechanism necessary? | `AblationPlan` | paired intervention |
+| Which registered parameters perform better on training targets? | `EvolutionPlan` | selected candidate |
+| How do declared conditions behave within tasks? | `BenchmarkPlan` | task-specific statistics and contrasts |
+
+Profiles run declared analyses over raw trials. Sweeps pair seeds across explicit cells.
+Ablations include an implicit baseline and validate capabilities before execution.
+Evolution selects on training targets before held-out evaluation.
+
+## Benchmark cases
+
+A multi-condition benchmark case must declare a baseline. The operation then reports paired
+within-task contrasts.
+
+An anchor-only case has exactly one condition and omits `baseline`. It reports the
+condition's raw and normalised intervals with an empty contrasts table. Task anchors are
+reference points, not comparison conditions.
+
+No benchmark operation creates a cross-task aggregate. A leaderboard or qualification
+policy is a separate choice from registry membership and record publication.
+
+## Plans and experiments
+
+Files under `plans/examples/` are small executable examples. Versioned scientific protocols
+belong under `experiments/` as `ExperimentSpec` bundles.
+
+<p class="bl-source">Source: <code>src/operations/</code>, <code>src/records/PlanIO.jl</code>, <code>bin/brainlesslab.jl</code>.</p>

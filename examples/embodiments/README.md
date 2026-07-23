@@ -112,5 +112,6 @@ Use `canonical_embodiment_toml(config)` to inspect the fully resolved form and
 
 `DevelopmentSpec` targets existing real scalar parameter paths on stable component IDs.
 Development preserves the graph: it does not add components, vary topology, or carry
-runtime state between phenotypes. See the site [Evolution](../../site/src/content/docs/evolution.mdx)
-page for a complete example.
+runtime state between phenotypes. See
+[Operations](../../site/src/content/docs/handbook/operations.mdx) for the supported
+evolution operation.

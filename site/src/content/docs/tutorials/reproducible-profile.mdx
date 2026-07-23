@@ -1,0 +1,46 @@
+---
+title: Create a reproducible profile
+description: Validate and run a ProfilePlan, then inspect its standard record.
+---
+
+A profile describes one composition across declared trials. Use it when one in-memory run
+is not enough and you need a portable result.
+
+## Validate the plan
+
+The repository includes a small executable example:
+
+```bash
+julia --project=. bin/brainlesslab.jl check \
+  plans/examples/profile_tracking.toml
+```
+
+`check` parses, validates, and resolves the plan without simulation. It should report a
+valid `profile` plan and its resolved target.
+
+## Run the profile
+
+```bash
+julia -t auto --project=. bin/brainlesslab.jl run \
+  plans/examples/profile_tracking.toml --root records
+```
+
+The command prints the new record path. Open `report/index.html` for a readable summary.
+Use the CSV files for analysis.
+
+## Check the record
+
+A successful record contains `DONE`, not `FAILED`. Begin with:
+
+- `request.toml` for the submitted plan;
+- `resolved.toml` for the values that ran;
+- `seeds.csv` for realised random streams;
+- `data/trials.csv` for independent trial rows;
+- `record.toml` for provenance and checksums.
+
+The example uses a small budget to teach the workflow. Its output is exploratory software
+evidence, not a confirmed scientific result.
+
+Next, [compare conditions](/tutorials/compare-conditions/) under paired blocks.
+
+<p class="bl-source">Source: <code>plans/examples/profile_tracking.toml</code>, <code>src/operations/Profile.jl</code>, <code>src/records/Records.jl</code>.</p>

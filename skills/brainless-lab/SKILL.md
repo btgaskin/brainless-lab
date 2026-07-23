@@ -89,8 +89,9 @@ runner, or operation-specific protocol format.
 - `EvolutionPlan` selects one registered node parameter set on a training target. Optimiser
   randomness is separate from evaluation streams. Held-out targets run only after
   champion selection.
-- `BenchmarkPlan` compares declared conditions within each task under paired blocks. It
-  reports task-specific outcomes and paired contrasts. It does not create a cross-task
+- `BenchmarkPlan` reports declared conditions within each task. A multi-condition case uses
+  paired blocks and a declared baseline. A one-condition case can omit the baseline and
+  report anchor-relative statistics without contrasts. It does not create a cross-task
   competence score.
 
 Files under `plans/examples/` are executable syntax checks with small budgets. Versioned

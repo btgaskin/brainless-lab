@@ -1,0 +1,51 @@
+---
+title: Evaluation
+description: Define repeated trials, random streams, construction, reset, warm-up, and aggregation with EvaluationSpec.
+---
+
+`EvaluationSpec` is the outer repetition protocol for every operation. It is separate from
+neural frames and world ticks.
+
+```julia
+evaluation = EvaluationSpec(
+    blocks=20,
+    trials_per_block=1,
+    horizon=1000,
+    warmup=800,
+    construction_scope=:trial,
+    reset=:full,
+    root_seed=51001,
+    aggregate=:mean,
+)
+```
+
+## Independent units
+
+A block or trial is usually the independent randomised unit. Agents, nodes, samples, and
+ticks within one world do not multiply the sample size.
+
+Use blocks to pair declared conditions under shared nuisance randomisation. Use
+`trials_per_block` when a block contains repeated trials by design.
+
+## Construction and reset
+
+`construction_scope` controls whether topology and node state are constructed once per
+evaluation, block, or trial. `reset` controls what is reset between trials.
+
+`warmup` runs before recording and scoring. The scored duration is `horizon - warmup`.
+Choose both values from the task timescale, not from compute convenience alone.
+
+## Random streams
+
+The root seed derives named streams for topology, node state, world, body, task, and
+mechanism randomness. Records retain realised seeds for every trial and agent.
+
+Separate calibration, development, variance-pilot, confirmation, and robustness seed
+ledgers. A reproducible seed does not make reused development data independent evidence.
+
+## Aggregation
+
+Aggregation combines declared trial values inside an operation. It does not authorise a
+cross-task aggregate. Keep task-native results and missing or failed trials visible.
+
+<p class="bl-source">Source: <code>src/core/Evaluation.jl</code>, <code>src/core/Seeds.jl</code>.</p>

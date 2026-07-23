@@ -114,6 +114,10 @@ baseline = "tracking_random"
 Conditions in one case must share block count, trials per block, and root seed. The result
 reports within-task statistics and paired contrasts. It has no cross-task aggregate.
 
+A case with exactly one condition may omit `baseline`. It then reports the condition's raw
+and normalised statistics and writes an empty contrasts table. A case with multiple
+conditions must declare its baseline.
+
 ## Record contents
 
 ```text

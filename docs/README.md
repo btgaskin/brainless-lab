@@ -6,10 +6,10 @@ interfaces.
 
 The main entry points are:
 
-- [Getting started](https://brainless-lab.pages.dev/core/getting-started/)
-- [Operations and records](https://brainless-lab.pages.dev/core/operations-records/)
-- [Design a study](https://brainless-lab.pages.dev/core/design-study/)
-- [Extend the lab](https://brainless-lab.pages.dev/core/extend/)
+- [Run your first simulation](https://brainless-lab.pages.dev/tutorials/first-simulation/)
+- [System map](https://brainless-lab.pages.dev/handbook/system-map/)
+- [Research records](https://brainless-lab.pages.dev/research/)
+- [Extend BrainlessLab](https://brainless-lab.pages.dev/handbook/extending/)
 - [Platform limits](https://brainless-lab.pages.dev/platform-limits/)
 
 Run the site locally:

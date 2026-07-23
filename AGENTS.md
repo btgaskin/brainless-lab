@@ -77,7 +77,7 @@ method.
 
 ## Research workflow
 
-Use the evidence ladder in `site/src/content/docs/core/design-study.mdx`:
+Use the evidence ladder in `site/src/content/docs/handbook/experiments-evidence.mdx`:
 
 conformance → calibration → exploration → tuning/training → variance pilot → frozen
 protocol → sealed confirmation → robustness → promoted evidence.

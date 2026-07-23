@@ -200,7 +200,7 @@ Use the smallest operation that answers the question:
 - use `SweepPlan` to map declared parameter values;
 - use `AblationPlan` to test a registered intervention;
 - use `EvolutionPlan` to select parameters and evaluate held-out targets;
-- use `BenchmarkPlan` to compare paired conditions within tasks.
+- use `BenchmarkPlan` to describe or compare conditions within tasks.
 
 Validate before execution:
 
