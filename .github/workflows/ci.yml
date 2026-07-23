@@ -29,9 +29,13 @@ jobs:
         with:
           version: ${{ matrix.julia-version }}
       - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3
+        with:
+          delete-old-caches: false
       - name: Instantiate the pinned environment
         run: julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
       - uses: julia-actions/julia-runtest@6e050c8013b833b1195105ff2fce9cd802f53271 # v1
+        with:
+          coverage: false
 
   compat-floor:
     name: Manifest-free resolution / Julia 1.10.11
@@ -43,6 +47,8 @@ jobs:
         with:
           version: '1.10.11'
       - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3
+        with:
+          delete-old-caches: false
       - name: Resolve and test without the checked-in manifest
         run: julia --project=. -e 'using Pkg; rm("Manifest.toml"; force=true); Pkg.instantiate(); Pkg.test()'
 
@@ -58,6 +64,8 @@ jobs:
         with:
           version: '1.10.11'
       - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3
+        with:
+          delete-old-caches: false
       - name: Instantiate benchmark environment
         run: julia --project=bench -e 'using Pkg; Pkg.instantiate()'
       - name: Benchmark statistics and execution smoke
