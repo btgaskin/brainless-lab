@@ -286,6 +286,52 @@ function _falandays_reference_composition(task::Symbol)
     )
 end
 
+function _with_composition_parameters(
+    source::CompositionSpec,
+    suffix::Symbol,
+    overrides::Pair...,
+)
+    parameters = copy(source.parameters)
+    foreach(override -> (parameters[Symbol(first(override))] = last(override)), overrides)
+    return CompositionSpec(
+        Symbol(source.id, :__, suffix),
+        source.node,
+        source.task;
+        body=source.body,
+        n_agents=source.n_agents,
+        n_nodes=source.n_nodes,
+        parameters=parameters,
+        task_options=copy(source.task_options),
+        body_options=copy(source.body_options),
+        interaction_cycle=source.interaction_cycle,
+    )
+end
+
+
+function _typed_builtin_ablation(id::Symbol)
+    id === :freeze_plasticity && return AblationSpec(
+        id,
+        composition -> _with_composition_parameters(
+            composition,
+            :freeze_plasticity,
+            :learn_on => false,
+        );
+        required_capabilities=(:online_plasticity,),
+        description="Disable online plasticity while preserving the composition.",
+    )
+    id === :clamp_target && return AblationSpec(
+        id,
+        composition -> _with_composition_parameters(
+            composition,
+            :clamp_target,
+            :lrate_targ => 0.0,
+        );
+        required_capabilities=(:homeostatic_target,),
+        description="Clamp the homeostatic target by setting its adaptation rate to zero.",
+    )
+    return nothing
+end
+
 function register_builtins!(registry::RegistrySet)
     register!(registry, falandays_node_spec())
     for (id, constructor) in sort!(collect(NODES); by=pair -> string(first(pair)))
@@ -333,7 +379,12 @@ function register_builtins!(registry::RegistrySet)
         register!(registry, :optimizers, ImplementationSpec(id, implementation))
     end
     for (id, implementation) in sort!(collect(ABLATIONS); by=pair -> string(first(pair)))
-        register!(registry, :ablations, ImplementationSpec(id, implementation))
+        typed = _typed_builtin_ablation(id)
+        register!(
+            registry,
+            :ablations,
+            ImplementationSpec(id, typed === nothing ? implementation : typed),
+        )
     end
 
     for task in (:wall, :tracking, :pong)

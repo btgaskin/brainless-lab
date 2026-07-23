@@ -1,12 +1,6 @@
 using BrainlessLab
 using Test
 
-module SweepOperation
-using BrainlessLab
-import BrainlessLab: execute, resolve, summary, tables, validate
-include(joinpath(@__DIR__, "..", "src", "operations", "Sweep.jl"))
-end
-
 function _small_sweep_target(; blocks=1, trials=2, horizon=3)
     reference = default_composition(DEFAULT_REGISTRY, :falandays, :tracking)
     composition = CompositionSpec(

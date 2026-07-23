@@ -1,12 +1,6 @@
 using BrainlessLab
 using Test
 
-module AblationOperation
-using BrainlessLab
-import BrainlessLab: execute, resolve, summary, tables, validate
-include(joinpath(@__DIR__, "..", "src", "operations", "Ablation.jl"))
-end
-
 function _ablation_registry()
     registry = RegistrySet()
     register!(registry, falandays_node_spec())

@@ -71,6 +71,10 @@ include("core/Catalog.jl")
 include("api/Composition.jl")
 include("operations/Plans.jl")
 include("operations/Evaluation.jl")
+include("operations/Profile.jl")
+include("operations/Sweep.jl")
+include("operations/Ablation.jl")
+include("operations/Evolution.jl")
 include("operations/Benchmark.jl")
 include("records/PlanIO.jl")
 include("analysis/ActivityLevels.jl")
@@ -705,6 +709,24 @@ export EvaluationTrial,
 
 export ResolvedBenchmarkPlan,
     BenchmarkResult
+
+export ResolvedProfilePlan,
+    ProfileAnalysisRow,
+    ProfileAnalysisSummary,
+    ProfileSummary,
+    ProfileResult,
+    ProfileAnalysisError,
+    ResolvedSweepCell,
+    ResolvedSweepPlan,
+    SweepResult,
+    ResolvedAblationCase,
+    ResolvedAblationPlan,
+    AblationResult,
+    ResolvedEvolutionPlan,
+    EvolutionCandidate,
+    EvolutionGeneration,
+    EvolutionEvaluation,
+    EvolutionResult
 
 export PLAN_FORMAT,
     PLAN_FORMAT_VERSION,

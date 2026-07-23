@@ -1,11 +1,6 @@
 using BrainlessLab
 using Test
 
-Base.include(
-    BrainlessLab,
-    joinpath(@__DIR__, "..", "src", "operations", "Profile.jl"),
-)
-
 function _profile_tracking_target(; blocks=1, trials=2, horizon=8)
     composition = CompositionSpec(
         :profile_tracking_smoke,
