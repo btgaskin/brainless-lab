@@ -12,7 +12,7 @@ Makie-free.
 """
 module BrainlessLab
 
-import Base: view
+import Base: summary, view
 
 include("core/Interfaces.jl")
 include("core/Traits.jl")
@@ -71,6 +71,7 @@ include("core/Catalog.jl")
 include("api/Composition.jl")
 include("operations/Plans.jl")
 include("operations/Evaluation.jl")
+include("operations/Benchmark.jl")
 include("analysis/ActivityLevels.jl")
 include("analysis/Branching.jl")
 include("analysis/Avalanches.jl")
@@ -700,6 +701,9 @@ export EvaluationTrial,
     realized_initial_state,
     trial_row,
     trial_table
+
+export ResolvedBenchmarkPlan,
+    BenchmarkResult
 
 export SimResult,
     simulate,
