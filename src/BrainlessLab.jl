@@ -69,6 +69,7 @@ include("api/paper_config.jl")
 include("api/Highlevel.jl")
 include("core/Catalog.jl")
 include("api/Composition.jl")
+include("operations/Plans.jl")
 include("analysis/ActivityLevels.jl")
 include("analysis/Branching.jl")
 include("analysis/Avalanches.jl")
@@ -673,6 +674,24 @@ export NodeBuildContext,
     default_composition,
     resolve_composition,
     falandays_node_spec
+
+export AbstractOperationPlan,
+    AbstractResolvedOperationPlan,
+    AbstractOperationResult,
+    EvaluationTarget,
+    ProfilePlan,
+    SweepAxis,
+    SweepPlan,
+    AblationSpec,
+    AblationPlan,
+    EvolutionPlan,
+    BenchmarkCasePlan,
+    BenchmarkPlan,
+    ExperimentSpec,
+    validate,
+    execute,
+    tables,
+    summary
 
 export SimResult,
     simulate,
