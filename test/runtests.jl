@@ -1,135 +1,15 @@
 using BrainlessLab
 using Test
-using Aqua
-
-@testset "Package quality" begin
-    Aqua.test_all(BrainlessLab)
-end
 
 include("testutils.jl")
-include("test_components.jl")
-include("test_public_vocabulary.jl")
-include("test_documentation_contract.jl")
-include("test_embodiment_config.jl")
-include("test_component_catalog.jl")
-include("test_core_platform.jl")
-include("test_development.jl")
-include("test_embodiment_runtime.jl")
-include("test_object_world.jl")
-include("test_object_world_arbitration.jl")
-include("test_shoal_forage.jl")
-include("test_paper_constants.jl")
-include("test_authors_parity.jl")
-include("test_falandays.jl")
-include("test_window.jl")
-include("test_interaction_cycle.jl")
-include("test_noisy_input.jl")
-include("test_dendritic.jl")
-include("test_sorn.jl")
-include("test_homeostatic_flow_v2.jl")
-include("test_spatial.jl")
-include("test_delays.jl")
-include("test_compartmental.jl")
-include("test_ablation.jl")
-include("test_interventions.jl")
-include("test_envs.jl")
-include("test_tracking_env_params.jl")
-include("test_core_task_controls.jl")
-include("test_core_calibration.jl")
-include("test_cartpole_variants.jl")
-include("test_plank_cartpole.jl")
-include("test_contract_kernel.jl")
-include("test_composition_spec.jl")
-include("test_operation_plans.jl")
-include("test_benchmark_plan.jl")
-include("test_plan_io.jl")
-include("test_profile_plan.jl")
-include("test_sweep_plan.jl")
-include("test_ablation_plan.jl")
-include("test_evolution_plan.jl")
-include("test_records.jl")
-include("test_plan_examples.jl")
-include("test_experiment_io.jl")
-include("test_morphology.jl")
-include("test_homeostasis.jl")
-include("test_sensor.jl")
-include("test_situated.jl")
-include("test_spectral_vision.jl")
-include("test_bilateral_sensing.jl")
-include("test_physical_components.jl")
-include("test_collective_single.jl")
-include("test_mixed_ensemble.jl")
-include("test_template_extension.jl")
-include("test_motor.jl")
-include("test_collective_dyad.jl")
-include("test_forage.jl")
-include("test_colour.jl")
-include("test_own_colour.jl")
-include("scoring_anchors.jl")
-include("scoring_calibration.jl")
-include("test_signalling.jl")
-include("test_api.jl")
-include("test_analysis.jl")
-include("test_viz.jl")
-include("test_replay.jl")
-include("test_examples.jl")
-include("test_sepcma.jl")
-include("test_composite.jl")
-include("test_evolve.jl")
-include("test_multiobjective.jl")
-include("test_qualitydiversity.jl")
-include("test_sweep.jl")
-include("test_run.jl")
+include("suites.jl")
 
-@testset "BrainlessLab scaffold" begin
-    @test BrainlessLab isa Module
+validate_test_suites()
 
-    @test NodeModel isa Type
-    @test Reservoir isa Type
-    @test AbstractBody isa Type
-    @test Environment isa Type
-    @test TaskWorld isa Type
-    @test Runner isa Type
-    @test Drive isa Type
-    @test Intervention isa Type
-    @test AbstractEvolutionStrategy isa Type
+suite = parse_test_suite(get(ENV, "BRAINLESSLAB_TEST_SUITE", "core"))
+files = test_files_for(suite)
+@info "Running BrainlessLab test suite" suite files=length(files)
 
-    struct _DummyNode <: NodeModel end
-    register_node!(:dummy, _DummyNode)
-    @test resolve_node(:dummy) === _DummyNode
-    @test_throws KeyError resolve_node(:missing_node)
-
-    rec = Recorder(enabled=[:state], every=2)
-    record!(rec, :state, 1)
-    tick!(rec)
-    record!(rec, :state, 2)
-    tick!(rec)
-    record!(rec, :state, 3)
-    tick!(rec)
-    record!(rec, :state, 4)
-    tick!(rec)
-    record!(rec, :disabled, 5)
-
-    @test getchannel(rec, :state) == Any[1, 3]
-    @test isempty(getchannel(rec, :disabled))
-    @test haskey(rec, :state)
-
-    reset!(rec)
-    @test isempty(getchannel(rec, :state))
-
-    @test isfinite(softplus(1000.0))
-    @test isfinite(softplus(-1000.0))
-    @test softplus(0.0) ≈ log(2.0)
-    @test 0.0 <= sigmoid(-1000.0) <= 1.0
-    @test 0.0 <= sigmoid(1000.0) <= 1.0
-    @test 0.0 < sigmoid(0.0) < 1.0
-    @test sigmoid(0.0) ≈ 0.5
-    @test mapped_tau(-1000.0) >= TAU_MIN
-    @test isfinite(mapped_tau(1000.0))
-
-    # :falandays_extended (base + sensory noise + Watts-Strogatz + Dale) builds and runs.
-    @test :falandays_extended in variants()
-    let ext = simulate(:wall; node=:falandays_extended, ticks=20, seed=0)
-        @test isfinite(ext.metrics.score)
-    end
+for file in files
+    include(file)
 end

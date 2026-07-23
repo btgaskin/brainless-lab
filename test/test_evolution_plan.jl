@@ -1,36 +1,20 @@
 using BrainlessLab
 using Test
-
-isdefined(BrainlessLab, :EvolutionResult) || Base.include(
-    BrainlessLab,
-    joinpath(pkgdir(BrainlessLab), "src", "operations", "Evolution.jl"),
-)
+using .BrainlessLabTestUtils: operation_registry, operation_target
 
 function _tiny_evolution_target(id, task; root_seed, blocks=1)
-    base = default_composition(DEFAULT_REGISTRY, :falandays, task)
-    composition = CompositionSpec(
-        Symbol(id, :_composition),
-        base.node,
-        base.task;
-        body=base.body,
-        n_agents=base.n_agents,
-        n_nodes=8,
-        parameters=base.parameters,
-        task_options=base.task_options,
-        body_options=base.body_options,
-        interaction_cycle=base.interaction_cycle,
-    )
-    evaluation = EvaluationSpec(
+    return operation_target(
+        id,
+        task;
         blocks=blocks,
-        trials_per_block=1,
         horizon=4,
         root_seed=root_seed,
         aggregate=:mean,
     )
-    return EvaluationTarget(id, composition, evaluation)
 end
 
 @testset "typed evolution plan" begin
+    registry = operation_registry()
     training = _tiny_evolution_target(:tracking_train, :tracking; root_seed=101, blocks=2)
     heldout = _tiny_evolution_target(:pong_heldout, :pong; root_seed=202)
     plan = EvolutionPlan(
@@ -43,17 +27,12 @@ end
         sigma0=0.1,
     )
 
-    @test validate(plan, DEFAULT_REGISTRY) === plan
-    resolved = resolve(plan, DEFAULT_REGISTRY)
+    @test validate(plan, registry) === plan
+    resolved = resolve(plan, registry)
     @test resolved isa BrainlessLab.ResolvedEvolutionPlan
     @test getfield.(resolved.parameters, :name) == (
-        :leak,
-        :lrate_wmat,
-        :lrate_targ,
-        :threshold_mult,
-        :targ_min,
-        :input_weight,
-        :weight_init_std,
+        :gain,
+        :bias,
     )
     @test resolved.optimizer_seed != training.evaluation.root_seed
 
@@ -74,8 +53,8 @@ end
     @test length(output_tables.convergence) == 1
     @test length(output_tables.candidates) == 2
     @test length(output_tables.candidate_trials) == 4
-    @test length(output_tables.champion_parameters) == 7
-    @test output_tables.champion_parameters[1].parameter === :leak
+    @test length(output_tables.champion_parameters) == 2
+    @test output_tables.champion_parameters[1].parameter === :gain
     @test length(output_tables.training_trials) == 2
     @test length(output_tables.heldout_trials) == 1
     @test output_tables.optimizer[1].optimizer_seed == result.optimizer_seed
@@ -86,17 +65,13 @@ end
     @test report.training_target === :tracking_train
     @test report.heldout[1].target === :pong_heldout
     @test propertynames(report.champion_parameters) == (
-        :input_weight,
-        :leak,
-        :lrate_targ,
-        :lrate_wmat,
-        :targ_min,
-        :threshold_mult,
-        :weight_init_std,
+        :bias,
+        :gain,
     )
 end
 
 @testset "evolution validation follows node metadata" begin
+    registry = operation_registry()
     training = _tiny_evolution_target(:tracking_train, :tracking; root_seed=303)
     missing_set = EvolutionPlan(
         :missing_set,
@@ -105,7 +80,7 @@ end
         generations=1,
         popsize=2,
     )
-    @test_throws KeyError validate(missing_set, DEFAULT_REGISTRY)
+    @test_throws KeyError validate(missing_set, registry)
 
     no_scalar = EvaluationTarget(
         :tracking_no_aggregate,
@@ -119,5 +94,5 @@ end
         generations=1,
         popsize=2,
     )
-    @test_throws ArgumentError validate(invalid, DEFAULT_REGISTRY)
+    @test_throws ArgumentError validate(invalid, registry)
 end

@@ -1,5 +1,6 @@
 using BrainlessLab
 using Test
+using .BrainlessLabTestUtils: operation_registry, operation_target
 
 function _profile_tracking_target(; blocks=1, trials=2, horizon=8)
     composition = CompositionSpec(
@@ -57,9 +58,15 @@ end
 end
 
 @testset "profile executes every trial and emits two tables" begin
-    registry = RegistrySet()
-    register_builtins!(registry)
-    target = _profile_tracking_target(blocks=2, trials=2)
+    registry = operation_registry()
+    target = operation_target(
+        :tracking,
+        :tracking;
+        blocks=2,
+        trials=2,
+        horizon=8,
+        root_seed=611,
+    )
     plan = ProfilePlan(
         :tracking_heading_profile,
         target;
@@ -91,8 +98,7 @@ end
 end
 
 @testset "profile analysis failures retain trial context" begin
-    registry = RegistrySet()
-    register_builtins!(registry)
+    registry = operation_registry()
     register!(
         registry,
         :analyses,
@@ -104,7 +110,12 @@ end
     )
     plan = ProfilePlan(
         :failing_profile,
-        _profile_tracking_target(trials=1);
+        operation_target(
+            :tracking,
+            :tracking;
+            horizon=8,
+            root_seed=611,
+        );
         analyses=(:profile_failure_fixture,),
     )
 

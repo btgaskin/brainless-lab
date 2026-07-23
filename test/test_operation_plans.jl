@@ -15,17 +15,9 @@ end
 @testset "evaluation blocks retain raw trials and named seeds" begin
     composition = CompositionSpec(
         :tracking_evaluation_smoke,
-        :falandays,
+        :null_random,
         :tracking;
         n_nodes=8,
-        parameters=Dict(
-            :input_weight => 0.75,
-            :lrate_wmat => 1.0,
-            :lrate_targ => 0.01,
-            :weight_init_mode => :excitatory,
-            :rectify => false,
-            :repair_masks => false,
-        ),
     )
     evaluation = EvaluationSpec(
         blocks=2,
@@ -56,7 +48,7 @@ end
 @testset "Plank evaluation records explicit starts under one fixed design" begin
     composition = CompositionSpec(
         :plank_easy_smoke,
-        :falandays,
+        :null_random,
         :cartpole_plank_easy;
         n_nodes=8,
     )

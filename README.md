@@ -61,8 +61,16 @@ Browse the [Handbook](https://brainless-lab.pages.dev/handbook/system-map/), the
 
 ## Development
 
+Run the small contract gate during ordinary development:
+
 ```bash
 julia --project=. -e 'using Pkg; Pkg.test()'
+```
+
+Then run the applicable runtime, operations, scientific-oracle, or visual
+gate described in [test/README.md](test/README.md). Build the site separately:
+
+```bash
 cd site
 bun install
 bun run build

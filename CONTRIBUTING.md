@@ -63,9 +63,16 @@ why and start a new evidence cycle.
 
 ## Tests
 
+Run the small contract gate first:
+
 ```bash
 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
+
+Then select the gates that match the change from [test/README.md](test/README.md).
+Runtime, operation, scientific-oracle, legacy-compatibility, and visual tests
+run independently. Do not use the monolithic `all` gate as the ordinary local
+workflow.
 
 Site:
 

@@ -6,6 +6,7 @@ deps/build.log
 /docs/build/
 /test/Project.toml
 /test/Manifest.toml
+/test/visual/Manifest.toml
 examples/output/
 /demo/output/
 /demo/Manifest.toml

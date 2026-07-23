@@ -1,30 +1,20 @@
 using BrainlessLab
 using Test
+using .BrainlessLabTestUtils: operation_registry, operation_target
 
 function _ablation_registry()
-    registry = RegistrySet()
-    register!(registry, falandays_node_spec())
-    register!(registry, task_spec(DEFAULT_REGISTRY, :tracking))
-    return registry
+    return operation_registry()
 end
 
 function _ablation_target()
-    reference = default_composition(DEFAULT_REGISTRY, :falandays, :tracking)
-    composition = CompositionSpec(
-        :tracking_ablation_smoke,
-        reference.node,
-        reference.task;
-        n_nodes=8,
-        parameters=reference.parameters,
-    )
-    evaluation = EvaluationSpec(
-        blocks=1,
-        trials_per_block=2,
+    return operation_target(
+        :tracking,
+        :tracking;
+        trials=2,
         horizon=3,
         root_seed=812,
         aggregate=:mean,
     )
-    return EvaluationTarget(:tracking, composition, evaluation)
 end
 
 function _with_ablation_parameter(
@@ -49,14 +39,14 @@ function _with_ablation_parameter(
     )
 end
 
-function _register_falandays_ablations!(registry)
+function _register_test_ablations!(registry)
     freeze = AblationSpec(
         :freeze_plasticity,
         source -> _with_ablation_parameter(
             source,
             :freeze_plasticity,
-            :learn_on,
-            false,
+            :gain,
+            0.5,
         );
         stage=:composition,
         required_capabilities=(:online_plasticity,),
@@ -66,8 +56,8 @@ function _register_falandays_ablations!(registry)
         source -> _with_ablation_parameter(
             source,
             :clamp_target,
-            :lrate_targ,
-            0.0,
+            :bias,
+            -0.25,
         );
         stage=:composition,
         required_capabilities=(:homeostatic_target,),
@@ -86,10 +76,10 @@ function _register_falandays_ablations!(registry)
 end
 
 @testset "ablation plan resolution is explicit" begin
-    registry = _register_falandays_ablations!(_ablation_registry())
+    registry = _register_test_ablations!(_ablation_registry())
     target = _ablation_target()
     plan = AblationPlan(
-        :falandays_ablations,
+        :test_ablations,
         target;
         ablations=(:freeze_plasticity, :clamp_target),
     )
@@ -98,12 +88,12 @@ end
     @test Tuple(case.id for case in resolved.cases) ==
           (:baseline, :freeze_plasticity, :clamp_target)
     @test resolved.cases[1].ablation === nothing
-    @test resolved.cases[2].target.composition.parameters[:learn_on] == false
-    @test resolved.cases[3].target.composition.parameters[:lrate_targ] == 0.0
+    @test resolved.cases[2].target.composition.parameters[:gain] == 0.5
+    @test resolved.cases[3].target.composition.parameters[:bias] == -0.25
 
     missing_capability = AblationSpec(
         :requires_dendrites,
-        source -> _with_ablation_parameter(source, :dendrites, :learn_on, false);
+        source -> _with_ablation_parameter(source, :dendrites, :gain, 0.25);
         required_capabilities=(:dendrites,),
     )
     register!(
@@ -156,7 +146,7 @@ end
 end
 
 @testset "ablation execution includes paired baseline" begin
-    registry = _register_falandays_ablations!(_ablation_registry())
+    registry = _register_test_ablations!(_ablation_registry())
     plan = AblationPlan(
         :paired_ablations,
         _ablation_target();

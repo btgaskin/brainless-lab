@@ -1,26 +1,21 @@
 using BrainlessLab
 using Test
+using .BrainlessLabTestUtils: operation_registry, operation_target
 
 function _small_sweep_target(; blocks=1, trials=2, horizon=3)
-    reference = default_composition(DEFAULT_REGISTRY, :falandays, :tracking)
-    composition = CompositionSpec(
-        :tracking_sweep_smoke,
-        reference.node,
-        reference.task;
-        n_nodes=8,
-        parameters=reference.parameters,
-    )
-    evaluation = EvaluationSpec(
+    return operation_target(
+        :tracking,
+        :tracking;
         blocks=blocks,
-        trials_per_block=trials,
+        trials=trials,
         horizon=horizon,
         root_seed=811,
         aggregate=:mean,
     )
-    return EvaluationTarget(:tracking, composition, evaluation)
 end
 
 @testset "sweep plan resolution" begin
+    registry = operation_registry()
     target = _small_sweep_target()
     default_plan = SweepPlan(
         :default_axes,
@@ -29,35 +24,35 @@ end
         mode=:factorial,
         max_rollouts=100,
     )
-    resolved_default = BrainlessLab.resolve(default_plan, DEFAULT_REGISTRY)
+    resolved_default = BrainlessLab.resolve(default_plan, registry)
     @test Tuple(axis.parameter for axis in resolved_default.axes) ==
-          (:leak, :lrate_wmat)
-    @test length(resolved_default.cells) == 16
-    @test resolved_default.rollouts == 32
+          (:gain, :bias)
+    @test length(resolved_default.cells) == 4
+    @test resolved_default.rollouts == 8
 
     axes = (
-        SweepAxis(:leak, (0.1, 0.5)),
-        SweepAxis(:lrate_wmat, (0.1, 1.0)),
+        SweepAxis(:gain, (0.5, 1.0)),
+        SweepAxis(:bias, (-0.25, 0.25)),
     )
     factorial = BrainlessLab.resolve(
         SweepPlan(:factorial, target; axes, max_rollouts=8),
-        DEFAULT_REGISTRY,
+        registry,
     )
     @test length(factorial.cells) == 4
     @test factorial.rollouts == 8
     @test factorial.cells[4].parameters ==
-          Dict{Symbol,Any}(:leak => 0.5, :lrate_wmat => 1.0)
+          Dict{Symbol,Any}(:gain => 1.0, :bias => 0.25)
 
     one_at_a_time = BrainlessLab.resolve(
         SweepPlan(:oaat, target; axes, mode=:one_at_a_time, max_rollouts=8),
-        DEFAULT_REGISTRY,
+        registry,
     )
     @test length(one_at_a_time.cells) == 4
     @test all(cell -> length(cell.parameters) == 1, one_at_a_time.cells)
 
     @test_throws ArgumentError BrainlessLab.resolve(
         SweepPlan(:too_large, target; axes, max_rollouts=7),
-        DEFAULT_REGISTRY,
+        registry,
     )
     @test_throws KeyError BrainlessLab.resolve(
         SweepPlan(
@@ -65,43 +60,41 @@ end
             target;
             axes=(SweepAxis(:missing, (1.0,)),),
         ),
-        DEFAULT_REGISTRY,
+        registry,
     )
     @test_throws ArgumentError BrainlessLab.resolve(
         SweepPlan(
             :invalid_value,
             target;
-            axes=(SweepAxis(:leak, (2.0,)),),
+            axes=(SweepAxis(:gain, (3.0,)),),
         ),
-        DEFAULT_REGISTRY,
+        registry,
     )
 end
 
 @testset "sweep execution preserves paired seeds" begin
+    registry = operation_registry()
     target = _small_sweep_target()
     plan = SweepPlan(
         :paired_sweep,
         target;
-        axes=(
-            SweepAxis(:leak, (0.1, 0.5)),
-            SweepAxis(:lrate_wmat, (0.1, 1.0)),
-        ),
+        axes=(SweepAxis(:gain, (0.5, 1.0)),),
         mode=:one_at_a_time,
-        max_rollouts=8,
+        max_rollouts=4,
     )
-    result = BrainlessLab.execute(BrainlessLab.resolve(plan, DEFAULT_REGISTRY))
+    result = BrainlessLab.execute(BrainlessLab.resolve(plan, registry))
     output = BrainlessLab.tables(result)
     compact = BrainlessLab.summary(result)
 
-    @test length(output.trials) == 8
-    @test length(output.cells) == 4
-    @test compact.n_cells == 4
-    @test compact.n_rollouts == 8
+    @test length(output.trials) == 4
+    @test length(output.cells) == 2
+    @test compact.n_cells == 2
+    @test compact.n_rollouts == 4
     @test all(row -> isfinite(row.raw_score), output.trials)
 
     for trial in 1:2
         paired = filter(row -> row.block == 1 && row.trial == trial, output.trials)
-        @test length(paired) == 4
+        @test length(paired) == 2
         @test length(unique(row.topology_seed for row in paired)) == 1
         @test length(unique(row.world_seed for row in paired)) == 1
         @test length(unique(row.task_seed for row in paired)) == 1
