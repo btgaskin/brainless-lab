@@ -72,6 +72,7 @@ include("api/Composition.jl")
 include("operations/Plans.jl")
 include("operations/Evaluation.jl")
 include("operations/Benchmark.jl")
+include("records/PlanIO.jl")
 include("analysis/ActivityLevels.jl")
 include("analysis/Branching.jl")
 include("analysis/Avalanches.jl")
@@ -704,6 +705,12 @@ export EvaluationTrial,
 
 export ResolvedBenchmarkPlan,
     BenchmarkResult
+
+export PLAN_FORMAT,
+    PLAN_FORMAT_VERSION,
+    plan_document,
+    read_plan,
+    write_plan
 
 export SimResult,
     simulate,
