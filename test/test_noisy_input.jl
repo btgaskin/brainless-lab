@@ -8,6 +8,7 @@ _wrapper_trait_probe(wrapper) = (
     temporal_window(wrapper),
     n_nodes(wrapper),
 )
+_wrapper_trait_probe_allocated(wrapper) = @allocated _wrapper_trait_probe(wrapper)
 
 @testset "NoisyInput transparent reservoir contract" begin
     inner = BrainlessLab._falandays_native(18, 3, 2; seed=4, substeps=3)
@@ -23,7 +24,8 @@ _wrapper_trait_probe(wrapper) = (
     @test traits[3] == 3
     @test traits[4] == 18
     _wrapper_trait_probe(wrapper)
-    @test @allocated(_wrapper_trait_probe(wrapper)) == 0
+    _wrapper_trait_probe_allocated(wrapper)
+    @test _wrapper_trait_probe_allocated(wrapper) == 0
 
     @test activations(wrapper) === activations(inner)
     @test weights(wrapper) === weights(inner)

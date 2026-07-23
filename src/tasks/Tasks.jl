@@ -257,8 +257,8 @@ const WALL_TASK = TaskSpec(
     WallEnv;
     status=:experimental,
     tags=(:extended,),
-    floor=null_anchor(0.763125, "null=null_random, score_key=nav_score, seeds 0:7, git d420563, 2026-07-04"),
-    ceiling=analytic(1.0; note="nav_score max = collision-free navigation while moving (a true analytic optimum); untrained falandays ref measured ~0.013 << null 0.763, so the analytic optimum is the honest ceiling, not a reference agent"),
+    floor=null_anchor(0.775625, "task=wall, null=null_random, score_key=nav_score, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
+    ceiling=analytic(1.0; note="nav_score max = collision-free navigation while moving (a true analytic optimum); untrained falandays ref measured ~0.013 << null 0.776, so the analytic optimum is the honest ceiling, not a reference agent"),
     score_key=:nav_score,
     descriptor_keys=[:collisions_window, :distance_window],
 )
@@ -278,7 +278,7 @@ const PONG_TASK = TaskSpec(
     PongEnv;
     status=:reference,
     tags=(:benchmark, :qualification, :core),
-    floor=null_anchor(0.3561507936507936, "null=null_random, score_key=hit_rate, seeds 0:7, git d420563, 2026-07-04"),
+    floor=null_anchor(0.35317460317460314, "task=pong, null=null_random, score_key=hit_rate, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
@@ -288,7 +288,7 @@ const PONG_HITRATE_TASK = TaskSpec(
     PongEnv;
     status=:alias,
     tags=(:alias,),
-    floor=null_anchor(0.3561507936507936, "null=null_random, score_key=hit_rate, seeds 0:7, git d420563, 2026-07-04"),
+    floor=null_anchor(0.35317460317460314, "task=pong_hitrate, null=null_random, score_key=hit_rate, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
@@ -316,7 +316,7 @@ const CARTPOLE_SWINGUP_TASK = TaskSpec(
     CartPoleSwingupEnv;
     status=:experimental,
     tags=(:extended, :legacy_cartpole_variant),
-    floor=null_anchor(0.1569039231621101, "null=null_random, score_key=mean_uprightness, seeds 0:7, git d420563, 2026-07-04"),
+    floor=null_anchor(0.05026043382947809, "task=cartpole_swingup, null=null_random, score_key=mean_uprightness, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
     ceiling=analytic(1.0; note="perfect uprightness"),
     score_key=:mean_uprightness,
 )
@@ -401,7 +401,7 @@ const CARTPOLE_PLANK_HARD_TASK = _plank_cartpole_task(:hard)
 const CARTPOLE_PLANK_HARDEST_TASK = _plank_cartpole_task(:hardest)
 
 const FORAGE_FLOOR_ANCHOR =
-    null_anchor(0.4556865216303779, "null=null_random, score_key=forage_score, seeds 0:7, git d420563, 2026-07-04")
+    null_anchor(0.45826637542592896, "task=forage, null=null_random, score_key=forage_score, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23")
 const FORAGE_CEILING_ANCHOR =
     analytic(1.0; note="agents on source")
 

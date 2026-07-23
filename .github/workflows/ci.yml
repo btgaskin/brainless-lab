@@ -44,7 +44,7 @@ jobs:
           version: '1.10.11'
       - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3
       - name: Resolve and test without the checked-in manifest
-        run: julia --project=. -e 'using Pkg; rm("Manifest.toml"; force=true); Pkg.resolve(); Pkg.instantiate(); Pkg.test()'
+        run: julia --project=. -e 'using Pkg; rm("Manifest.toml"; force=true); Pkg.instantiate(); Pkg.test()'
 
   tool-smoke:
     name: Tool and template smoke tests

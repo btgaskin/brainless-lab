@@ -26,6 +26,12 @@ end
 
 _mean_float64(values::Vector{Float64}) = sum(values) / length(values)
 
+function _calibration_provenance(task_obj, null, score_key, seed_values)
+    return "task=$(_calibration_task_symbol(task_obj)), null=$(null), " *
+           "score_key=$(score_key), rng=MersenneTwister, julia=$(VERSION), " *
+           "seeds $(_seed_summary(seed_values)), git $(_git_short_sha()), $(Dates.today())"
+end
+
 function _calibration_sim_kwargs(
     task_obj;
     node,
@@ -116,7 +122,7 @@ function _measure_null_anchor(
         used_key = key
         push!(raw, value)
     end
-    provenance = "null=$(null), score_key=$(used_key), seeds $(_seed_summary(seed_values)), git $(_git_short_sha()), $(Dates.today())"
+    provenance = _calibration_provenance(task_obj, null, used_key, seed_values)
     return null_anchor(_mean_float64(raw), provenance)
 end
 
