@@ -48,7 +48,9 @@ end
         @test info.status === :experimental
         @test info.tags == (:experimental, :plank_cartpole)
         @test info.interaction_cycle == FixedRateCycle(24)
-        @test info.protocol.evaluation_episodes == 1000
+        @test info.protocol.evaluation.trials_per_block == 1000
+        @test info.protocol.evaluation.horizon == 15_000
+        @test info.protocol.evaluation.construction_scope === :evaluation
         @test info.protocol.cross_task_aggregate === false
 
         setup = setup_task(resolve_task(task); seed=11)
@@ -103,38 +105,51 @@ end
     end
 end
 
-@testset "Plank evaluation freezes design and records the test set" begin
-    protocol = EvaluationProtocol(
-        trials=3,
+@testset "Plank evaluation uses the general evaluation contract" begin
+    protocol = EvaluationSpec(
+        blocks=1,
+        trials_per_block=3,
         horizon=5,
         reset=:full,
-        design_scope=:fixed,
-        aggregation=:mean,
+        construction_scope=:evaluation,
+        aggregate=:mean,
+        root_seed=71,
     )
-    states = plank_cartpole_initial_conditions(71, 3)
-    @test states == plank_cartpole_initial_conditions(71, 3)
-    @test states != plank_cartpole_initial_conditions(72, 3)
-
-    result = evaluate_plank_cartpole(
+    composition = CompositionSpec(
+        :plank_easy_null,
+        :null_random,
         :cartpole_plank_easy;
-        node=:null_random,
-        protocol=protocol,
-        build_seed=4,
-        trial_seed=71,
         n_nodes=8,
     )
-    @test result isa EvaluationResult
-    @test result.initial_conditions == states
-    @test length(result.trials) == 3
-    @test result.summary.n == 3
-    @test result.summary.target_fitness == 14_250.0
-    @test all(trial -> trial.steps <= 5, result.trials)
-    @test result.protocol.design_scope === :fixed
+    target = EvaluationTarget(:plank_easy, composition, protocol)
+    result = evaluate(target)
+    repeated = evaluate(target)
+    changed = evaluate(EvaluationTarget(
+        :plank_easy,
+        composition,
+        EvaluationSpec(
+            blocks=1,
+            trials_per_block=3,
+            horizon=5,
+            construction_scope=:evaluation,
+            root_seed=72,
+        ),
+    ))
 
-    @test_throws ArgumentError evaluate_plank_cartpole(
-        :tracking;
-        node=:null_random,
-        protocol=protocol,
-        n_nodes=8,
-    )
+    @test result isa EvaluationBatch
+    @test length(result.trials) == 3
+    @test getfield.(result.trials, :initial_state) ==
+        getfield.(repeated.trials, :initial_state)
+    @test getfield.(result.trials, :initial_state) !=
+        getfield.(changed.trials, :initial_state)
+    @test all(trial -> trial.simulation.metrics.steps_balanced <= 5, result.trials)
+    @test result.target.evaluation.construction_scope === :evaluation
+    @test length(unique(
+        first(trial.seeds).topology for trial in result.trials
+    )) == 1
+    @test_throws ArgumentError evaluate(EvaluationTarget(
+        :tracking,
+        CompositionSpec(:invalid_plank, :null_random, :tracking; n_nodes=8),
+        EvaluationSpec(horizon=5, reset=:none),
+    ))
 end

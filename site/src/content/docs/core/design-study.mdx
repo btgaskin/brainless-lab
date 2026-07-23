@@ -24,49 +24,26 @@ Exploration may change later choices. It cannot serve as untouched confirmation.
 
 ## A first exploratory contrast
 
-This example asks whether the canonical Falandays reservoir exceeds a random-action control
-on tracking. Each seed is one paired block. Both conditions receive the same task seed.
+The checked-in `plans/examples/benchmark_core.toml` asks whether the canonical Falandays
+composition differs from a random-effector control on Tracking and Pong. Conditions within
+each task share block and trial seeds. The benchmark reports the tasks separately.
+Raw and task-normalized outcomes receive parallel 95% Student-t intervals; within-task
+contrasts use paired differences. These exploratory intervals remain descriptive until the
+protocol and sample size are frozen.
 
-```julia
-using BrainlessLab
-using Statistics
-
-function paired_tracking(seeds)
-    rows = NamedTuple[]
-
-    for seed in seeds
-        scores = map((:falandays, :null_random)) do node
-            sim = simulate(
-                :tracking;
-                node=node,
-                ticks=1000,
-                seed=seed,
-            )
-            task_outcome(sim).normalized
-        end
-
-        push!(rows, (
-            seed=seed,
-            falandays=scores[1],
-            random_action=scores[2],
-            difference=scores[1] - scores[2],
-        ))
-    end
-
-    return rows
-end
-
-rows = paired_tracking(0:7)
-mean_difference = mean(getproperty.(rows, :difference))
+```bash
+julia --project=. bin/brainlesslab.jl check plans/examples/benchmark_core.toml
+julia -t auto --project=. bin/brainlesslab.jl run \
+  plans/examples/benchmark_core.toml --root records
 ```
 
-This is a development example. Eight blocks are not a prospective power calculation. The
-random-action control asks whether behavior exceeds random effector output. It does not
-show that tracking information is necessary. A blind or matched-sham input is needed for
-that question.
+This is a small development example, not a prospective power calculation. The random-action
+control asks whether behavior exceeds random effector output. It does not show that sensory
+information or a particular neural mechanism is necessary. A blind input or registered
+mechanism ablation is needed for those questions.
 
-For a retained study, save per-block rows, resolved settings, provenance, and failures. Use
-a batch tool or an experiment protocol instead of relying on the Julia session.
+The resulting record retains the per-block rows, resolved settings, named seeds,
+provenance, and checksums.
 
 ## Name the independent unit
 
@@ -145,6 +122,46 @@ study is underpowered. Do not call a capped development run confirmatory.
 
 For equivalence, define an equivalence margin and use an equivalence procedure.
 Nonsignificance does not establish equivalence.
+
+## Register the scientific protocol
+
+An operation answers one computational question. `ExperimentSpec` records why a set of
+operations exists and fixes their relationship:
+
+```julia
+experiment = ExperimentSpec(
+    :falandays_cross_task,
+    v"1.0.0";
+    title="Reciprocal parameter evolution across the core benchmark",
+    question="How does parameter evolution on one core task move performance on the other?",
+    conditions=(tracking_development, pong_evaluation,
+                pong_development, tracking_evaluation),
+    operations=(evolve_tracking, evolve_pong),
+    evidence_state=:planned,
+    limitations=("Parameter evolution only; node structure remains fixed.",),
+)
+
+register_experiment!(experiment)
+write_experiment("protocols/falandays_cross_task", experiment)
+```
+
+Every operation target must exactly match a named experiment condition. Registration
+rejects duplicate `(id, version)` keys, missing conditions, and changed condition details.
+The experiment registry is separate from the component registry: publishing a protocol
+does not turn a node or task into a benchmark standard.
+
+The intended first flagship is reciprocal. Evolve the Falandays parameter set on Tracking,
+then evaluate the selected champion on fresh Tracking seeds and held-out Pong; reverse the
+design for Pong. The same-task confirmation estimates improvement without reusing selection
+seeds, while the other task estimates transfer. Only after both selections are frozen should
+a benchmark compare their per-task performance. That design shows movement across a task
+set without pretending that task-normalized values form one universal competence score.
+
+Future node designs can use the same protocol. A node may expose a different parameter set,
+registered structural elements, or local mechanisms such as dendritic compartments. The
+benchmark then indicates which capacities improve, remain absent, or trade off. Performance
+is informative even when a design fails a task, provided the task opportunity and control
+are sound.
 
 ## Evidence states
 

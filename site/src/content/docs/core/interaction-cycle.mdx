@@ -67,9 +67,10 @@ cycle requirements before a rollout begins.
 
 ## Evaluation is a different layer
 
-`EvaluationProtocol` governs complete trials: count, horizon, warmup, reset rule, whether a
-constructed design is fixed, and aggregation. It does not alter the interaction cycle.
+`EvaluationSpec` governs complete trials: blocks, trials per block, horizon, warm-up, reset
+rule, construction scope, named random streams, and aggregation. It does not alter the
+interaction cycle.
 This distinction lets the same embodied agent run one diagnostic simulation, a held-out
 benchmark, a sweep, or evolution without changing its sensorimotor semantics.
 
-<p class="bl-source">Source: <code>src/world/Interaction.jl</code>, <code>src/world/Ensemble.jl</code>, <code>src/world/Embodiment.jl</code>, <code>src/run/Evaluation.jl</code>.</p>
+<p class="bl-source">Source: <code>src/world/Interaction.jl</code>, <code>src/world/Ensemble.jl</code>, <code>src/world/Embodiment.jl</code>, <code>src/operations/Evaluation.jl</code>.</p>

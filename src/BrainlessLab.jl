@@ -77,6 +77,8 @@ include("operations/Ablation.jl")
 include("operations/Evolution.jl")
 include("operations/Benchmark.jl")
 include("records/PlanIO.jl")
+include("records/ExperimentIO.jl")
+include("records/Records.jl")
 include("analysis/ActivityLevels.jl")
 include("analysis/Branching.jl")
 include("analysis/Avalanches.jl")
@@ -100,7 +102,6 @@ include("drivers/Fixed.jl")
 include("drivers/Plastic.jl")
 include("run/EmbodimentConfig.jl")
 include("run/ComponentCatalog.jl")
-include("run/Evaluation.jl")
 include("world/ObjectWorld.jl")
 include("tasks/ShoalForage.jl")
 include("analysis/ShoalForage.jl")
@@ -695,6 +696,12 @@ export AbstractOperationPlan,
     BenchmarkCasePlan,
     BenchmarkPlan,
     ExperimentSpec,
+    ExperimentRegistry,
+    DEFAULT_EXPERIMENTS,
+    operation_targets,
+    register_experiment!,
+    experiment_spec,
+    experiments,
     validate,
     execute,
     tables,
@@ -733,6 +740,19 @@ export PLAN_FORMAT,
     plan_document,
     read_plan,
     write_plan
+
+export EXPERIMENT_FORMAT,
+    EXPERIMENT_FORMAT_VERSION,
+    experiment_document,
+    read_experiment,
+    write_experiment
+
+export RECORD_FORMAT,
+    RECORD_FORMAT_VERSION,
+    operation_kind,
+    write_record,
+    run_operation,
+    run_experiment
 
 export SimResult,
     simulate,
@@ -800,11 +820,6 @@ export RunConfig,
     write_embodiment_config,
     materialize_embodiment,
     materialize_blueprint,
-    EvaluationProtocol,
-    EvaluationResult,
-    PLANK_CARTPOLE_EVALUATION,
-    plank_cartpole_initial_conditions,
-    evaluate_plank_cartpole,
     MountedFieldProbe,
     sample_field_probe!,
     BilateralContrastEncoder,
@@ -822,7 +837,6 @@ export RunConfig,
     write_config,
     resolve,
     save_recorder,
-    run_experiment,
     run_from_config,
     run_sweep,
     ablate,

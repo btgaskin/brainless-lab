@@ -70,10 +70,15 @@ jobs:
         run: julia --project=profile -e 'include("profile/Profile.jl"); using .NodeProfile; out = NodeProfile.node_profile(:falandays; tasks=(:tracking,), n_seeds=1, canonical_N=Dict(:tracking => 12), gifs=false, out_root=mktempdir()); @assert isfile(out.metrics)'
       - name: Sweep execution smoke
         run: julia --project=. -e 'using BrainlessLab; out = run_sweep("configs/ci_sweep.toml"; root=mktempdir()); @assert isfile(out.results)'
+      - name: Unified plan and record smoke
+        run: |
+          julia --project=. bin/brainlesslab.jl check plans/examples/benchmark_core.toml
+          julia --project=. bin/brainlesslab.jl run plans/examples/profile_tracking.toml --root "${{ runner.temp }}/brainlesslab-records"
       - name: Instantiate and execute project template
         run: |
           julia --project=examples/templates/new_project -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
           julia --project=examples/templates/new_project examples/templates/new_project/run.jl --ticks 20 --n-nodes 12 --out "${{ runner.temp }}/brainlesslab-template-smoke"
+          julia --project=examples/templates/new_project examples/templates/new_project/run_plan.jl examples/templates/new_project/config.toml "${{ runner.temp }}/brainlesslab-template-records"
 
   documentation:
     name: Locked documentation build

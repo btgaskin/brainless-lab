@@ -110,25 +110,37 @@ Use `GLMakie` for `explore(...)`. Use `CairoMakie` for headless files. A represe
 animation is explanatory material. It is not a substitute for the full result distribution.
 Declare how a representative run was selected.
 
-## In-memory result versus run artifact
+## In-memory result versus research record
 
 A plain `simulate` call returns an in-memory result. It does not by itself create a
 versioned evidence bundle.
 
-Batch tools write run directories. A useful development artifact normally contains:
+All five typed operations write the same version-one research record:
 
 ```text
-run-directory/
-├── manifest.toml
-├── config.resolved.toml
-├── summary or results table
-├── per-run or per-cell values
-├── figures and figure-data sidecars
-└── README.md
+record-id/
+├── record.toml
+├── request.toml
+├── resolved.toml
+├── seeds.csv
+├── data/
+├── summary/
+├── figures/
+├── report/index.html
+└── DONE
 ```
 
-Check the git SHA, dirty-worktree flag, Julia and package versions, seed ledger, resolved
-configuration, failures, and checks before interpreting the summary.
+`request.toml` preserves the submitted plan. `resolved.toml` contains the resolved node
+parameters, task and body options, interaction timing, evaluation policy, and
+operation-specific settings. `record.toml` records the package version, Julia version,
+repository SHA and state, every generated artifact, and its SHA-256 checksum. Shareable
+metadata omit hostnames and absolute local paths.
+
+`data/trials.csv` is the raw audit table. `data/task_metrics.csv` is the compact outcome
+surface. Other data tables depend on the operation: analyses, sweep cells, ablation cases,
+evolution history and champion parameters. `summary/statistics.csv` and
+`summary/contrasts.csv` are derived. The generated HTML report explains the method and
+node equations, but the CSV tables remain authoritative.
 
 A traceable run directory is not automatically confirmed evidence. Promotion also needs a
 frozen protocol, declared independent unit, untouched evaluation blocks, analysis version,
@@ -152,4 +164,4 @@ Next human decision:
 Use [Design a study](/core/design-study/) to define the comparison. Use
 [Tools and artifacts](/core/tools-artifacts/) for persistent batch outputs.
 
-<p class="bl-source">Source: <code>src/api/Highlevel.jl</code>, <code>src/core/Recorder.jl</code>, <code>src/run/</code>.</p>
+<p class="bl-source">Source: <code>src/api/Highlevel.jl</code>, <code>src/core/Recorder.jl</code>, <code>src/operations/</code>, <code>src/records/</code>.</p>

@@ -29,7 +29,8 @@ composed value or parameter preset when the contract has not changed.
 Import the function names that receive new methods:
 
 ```julia
-using BrainlessLab: Reservoir, register_node!, simulate
+using BrainlessLab: Reservoir, NodeSpec, ParameterSpec, CompositionSpec
+using BrainlessLab: NodeBuildContext, DEFAULT_REGISTRY, register!, simulate
 import BrainlessLab: step!, effectors, reset!
 import BrainlessLab: n_nodes, n_receptors, n_effectors
 ```
@@ -39,19 +40,39 @@ The framework will not dispatch to it.
 
 ## Add a node
 
-Use `examples/templates/new_project/my_node.jl` as the scaffold. Keep the constructor
-task-agnostic:
+Use `examples/templates/new_project/my_node.jl` as the scaffold. A registered builder
+receives the composition's node count, body ports, named seeds, and resolved values:
 
 ```julia
-MyReservoir(n_nodes, n_receptors, n_effectors; seed=0, kwargs...)
+function build_my_reservoir(context::NodeBuildContext, values)
+    MyReservoir(
+        context.n_nodes,
+        n_receptors(context.ports),
+        n_effectors(context.ports);
+        seed=Int(mod(context.seeds.topology, UInt64(typemax(Int)))),
+        params=values,
+    )
+end
 ```
 
-Register only after the contract works:
+Declare the parameter surface rather than inferring it from fields. Node count belongs to
+the composition; connectivity can declare `owner=:reservoir`:
 
 ```julia
-register_node!(:my_reservoir, MyReservoir; genome_type=MyParams)
-simulate(:tracking; node=:my_reservoir, seed=11)
-simulate(:pong; node=:my_reservoir, seed=11)
+spec = NodeSpec(
+    :my_reservoir,
+    build_my_reservoir;
+    genome_type=MyParams,
+    parameters=(
+        ParameterSpec(:leak, 0.25; sweep=(0.1, 0.25, 0.5), evolve=(lower=0.0, upper=0.95)),
+        ParameterSpec(:link_p, 0.1; owner=:reservoir, evolve=(lower=0.01, upper=0.8)),
+    ),
+    parameter_sets=Dict(:sweep => (:leak,), :evolve => (:leak,)),
+)
+register!(DEFAULT_REGISTRY, spec)
+
+simulate(CompositionSpec(:my_tracking, :my_reservoir, :tracking; n_nodes=200); seed=11)
+simulate(CompositionSpec(:my_pong, :my_reservoir, :pong; n_nodes=500); seed=11)
 ```
 
 Declare online plasticity only when `step!` performs online adaptation. Keep optimizer
@@ -110,7 +131,8 @@ contract.
 ## Add a task or world
 
 For a vector-valued task, implement the `TaskWorld` methods and wrap the world in a
-`TaskSpec`. Start from `examples/templates/new_project/my_task.jl`.
+`TaskSpec`, then register it with `register!(DEFAULT_REGISTRY, task_spec)`. Start from
+`examples/templates/new_project/my_task.jl`.
 
 For a physical composition, build bodies and an `ObjectWorld` in the setup callable. Start
 from `examples/embodiments/object_world_task.jl`.

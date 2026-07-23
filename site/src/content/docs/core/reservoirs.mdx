@@ -47,7 +47,7 @@ homeostatic dynamics.
 Query the current roster:
 
 ```julia
-variants()
+nodes(DEFAULT_REGISTRY)
 ```
 
 ## Keep model axes explicit
@@ -108,7 +108,8 @@ Include wrapper-owned RNG and lag state in replay snapshots.
 When you define methods on BrainlessLab generics, import the function names:
 
 ```julia
-using BrainlessLab: Reservoir, register_node!
+using BrainlessLab: Reservoir, NodeBuildContext, NodeSpec, ParameterSpec
+using BrainlessLab: DEFAULT_REGISTRY, register!
 import BrainlessLab: step!, effectors, reset!
 import BrainlessLab: n_nodes, n_receptors, n_effectors
 ```
@@ -116,7 +117,9 @@ import BrainlessLab: n_nodes, n_receptors, n_effectors
 `using BrainlessLab` is sufficient to call a generic. It is not sufficient to add a method
 to that generic.
 
-Start from `examples/templates/new_project/my_node.jl`. Before a sweep or benchmark:
+Start from `examples/templates/new_project/my_node.jl`. Register a `NodeSpec` whose builder
+accepts `NodeBuildContext` plus resolved parameters. Declare `ParameterSpec`s and named
+`:sweep`, `:evolve`, and optional connectivity sets. Before a sweep or benchmark:
 
 1. test constructor widths;
 2. test deterministic construction from a seed;

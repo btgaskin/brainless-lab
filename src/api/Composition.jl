@@ -16,26 +16,18 @@ function _composition_seed_ledger(
     construction_block::Integer=block,
     construction_trial::Integer=trial,
 )
-    return (
-        topology=derive_seed(
-            evaluation,
-            :topology,
-            construction_block,
-            construction_trial,
-            agent,
-        ),
-        node_state=derive_seed(
-            evaluation,
-            :node_state,
-            construction_block,
-            construction_trial,
-            agent,
-        ),
-        world=derive_seed(evaluation, :world, block, trial),
-        body=derive_seed(evaluation, :body, block, trial, agent),
-        task=derive_seed(evaluation, :task, block, trial),
-        mechanism=derive_seed(evaluation, :mechanism, block, trial, agent),
-    )
+    names = seed_stream_names(evaluation)
+    values = Tuple(begin
+        coordinates = if name in (:topology, :node_state)
+            (construction_block, construction_trial, agent)
+        elseif name in (:body, :mechanism)
+            (block, trial, agent)
+        else
+            (block, trial)
+        end
+        derive_seed(evaluation, name, coordinates...)
+    end for name in names)
+    return NamedTuple{names}(values)
 end
 
 function _build_composition(
@@ -48,6 +40,12 @@ function _build_composition(
     record=_DEFAULT_RECORD_CHANNELS,
     every::Integer=1,
 )
+    stream_names = seed_stream_names(evaluation)
+    for required in (:topology, :world)
+        required in stream_names || throw(ArgumentError(
+            "composition evaluation requires the :$(required) seed stream",
+        ))
+    end
     body = _composition_body(resolved)
     task_options = _composition_namedtuple(resolved.task_options)
     world_seed = _seed_to_int(derive_seed(evaluation, :world, block, trial))

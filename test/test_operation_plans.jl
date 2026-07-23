@@ -138,6 +138,36 @@ end
     )
     @test experiment.version == v"1.0.0"
     @test experiment.evidence_state === :exploratory
+    registry = ExperimentRegistry(:test_experiments)
+    @test register_experiment!(registry, experiment) === experiment
+    @test experiment_spec(
+        :falandays_cross_task,
+        v"1.0.0";
+        experiments=registry,
+    ) === experiment
+    @test experiments(registry) == [(:falandays_cross_task, v"1.0.0")]
+    @test_throws ArgumentError register_experiment!(registry, experiment)
+
+    copied_tracking = EvaluationTarget(
+        tracking.id,
+        CompositionSpec(
+            :changed_tracking,
+            tracking.composition.node,
+            tracking.composition.task;
+            n_nodes=tracking.composition.n_nodes + 1,
+            parameters=tracking.composition.parameters,
+        ),
+        tracking.evaluation,
+    )
+    inconsistent = ExperimentSpec(
+        :inconsistent,
+        v"1.0.0";
+        title="Inconsistent condition references",
+        question="Does validation reject copied condition objects?",
+        conditions=(tracking, pong),
+        operations=(ProfilePlan(:copied, copied_tracking),),
+    )
+    @test_throws ArgumentError validate(inconsistent, DEFAULT_REGISTRY)
     @test_throws ArgumentError ExperimentSpec(
         :bad,
         v"1.0.0";

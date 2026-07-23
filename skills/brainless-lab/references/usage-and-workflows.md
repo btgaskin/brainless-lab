@@ -32,21 +32,24 @@ environment bounds, network adjacency, ablation notes, and seed.
 
 ## Discover, don't hardcode
 
-The registry is the live source of truth. Node variants, tasks, and analyses are all
-registered at load time, and third-party code can add more — so **query the registry
+`DEFAULT_REGISTRY` is the canonical typed source of truth. Nodes, tasks, analyses, and
+ablations are registered at load time, and third-party code can add more — so **query it
 rather than pasting symbol lists** that will silently drift:
 
 ```julia
-variants()             # registered node symbols, e.g. :falandays, :sorn, :compartmental_dense
-tasks()                # registered task symbols, e.g. :wall, :tracking, :pong, :cartpole, :torus, :forage
-analyses()             # every registered analysis symbol
-task_analyses(:wall)   # analyses that declare themselves relevant to a given task
-ablations()            # registered intervention symbols
+nodes(DEFAULT_REGISTRY)
+tasks(DEFAULT_REGISTRY)
+tasks(DEFAULT_REGISTRY; tag=:benchmark)
+analyses(DEFAULT_REGISTRY)
+analyses(DEFAULT_REGISTRY; task=:wall)
+ablations(DEFAULT_REGISTRY)
+compositions(DEFAULT_REGISTRY)
 components()           # configured physical-component descriptors
 readiness()            # evidence-scoped component readiness rows
 ```
 
-Prefer these in scripts and generated code. A hardcoded `[:falandays, :sorn]` is a bug
+Prefer these typed queries in plans and generated code. The zero-argument discovery helpers
+refer to the older symbol-based simulation façade. A hardcoded `[:falandays, :sorn]` is a bug
 waiting to happen once someone registers a new node.
 
 ## `simulate` keyword arguments

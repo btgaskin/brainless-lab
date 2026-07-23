@@ -3,16 +3,19 @@ title: Architecture
 description: The core BrainlessLab abstractions, ownership boundaries, and synchronous closed-loop lifecycle.
 ---
 
-BrainlessLab uses one composition from a single agent to a mixed population:
+BrainlessLab separates the runtime that produces behavior from the research protocol that
+compares behavior:
 
 ```text
-NodeModel → Reservoir → AbstractBody → Agent → Ensemble{Environment}
-                                                    ↓
-                                                  Task
-                                                    ↓
-                                             Runner → Run
-                                                    ↘
-                                                   Recorder
+runtime
+NodeSpec + TaskSpec + body + InteractionCycle
+  → CompositionSpec → Reservoir + embodied agent(s) + Environment → SimResult
+
+research
+CompositionSpec + EvaluationSpec
+  → EvaluationTarget → operation plan → typed result → research record
+named EvaluationTargets + operation plans
+  → ExperimentSpec
 ```
 
 A reservoir contains nodes. An ensemble contains embodied agents. The same `step!` lifecycle
@@ -28,8 +31,18 @@ runs an ensemble of one and an ensemble of many.
 - **`Environment`** owns external state and relations.
 - **`Ensemble`** advances one or more agents synchronously.
 - **`TaskSpec`** supplies setup, rollout defaults, and optional score metadata.
+- **`NodeSpec`** registers one node builder, parameters, parameter sets, capabilities,
+  equations, and default analyses.
+- **`CompositionSpec`** selects one node, task, optional body, node count, parameters, and
+  interaction cycle.
+- **`EvaluationSpec`** owns blocks, trials, horizon, warm-up, construction scope, reset,
+  named random streams, and aggregation.
+- **`EvaluationTarget`** names one composition under one evaluation protocol.
 - **`Recorder`** samples declared channels off the simulation hot path.
 - **`SimResult`** carries a recorder, metrics, task, node, and resolved configuration.
+- **operation plans** define profile, sweep, ablation, evolution, or benchmark work.
+- **`ExperimentSpec`** is the versioned scientific envelope: question, named conditions,
+  operations, evidence state, limitations, and metadata.
 
 ## Ownership is explicit
 
@@ -118,15 +131,28 @@ Julia methods are the public extension mechanism. Registries add discoverable na
 configuration:
 
 ```julia
-variants()
-tasks()
+nodes(DEFAULT_REGISTRY)
+tasks(DEFAULT_REGISTRY)
 components()
-analyses()
-ablations()
+analyses(DEFAULT_REGISTRY)
+ablations(DEFAULT_REGISTRY)
+compositions(DEFAULT_REGISTRY)
 ```
 
-Use a registry when selection by name is useful. Use direct typed composition when a name
-does not add value. A registry does not replace the Julia contract.
+`DEFAULT_REGISTRY` is the canonical authority for plans and typed composition. Use a
+registry when selection by name is useful. Use direct typed composition when a name does
+not add value. A registry does not replace the Julia contract. The zero-argument discovery
+and `register_*!` helpers support the older symbol-based simulation façade only.
+
+Component registries and the experiment registry are deliberately separate. A
+`RegistrySet` resolves runtime components and composition presets. An `ExperimentRegistry`
+contains versioned `ExperimentSpec`s. Registering an experiment validates every operation
+against the component registry and rejects conditions that change under the same name.
+
+`ExperimentSpec` is not another runner. It groups the exact operation plans that implement
+a scientific question. Each operation still writes its own record, so selection,
+evaluation, and benchmarking remain visible rather than being hidden inside an experiment
+callback.
 
 ## No hidden controller
 
@@ -142,4 +168,4 @@ Falandays node has a narrower validated implementation boundary. Read
 [The Falandays node](/core/falandays/) and [Platform limits](/platform-limits/) before
 making a fidelity claim.
 
-<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>, <code>src/world/Embodiment.jl</code>, <code>src/world/Ensemble.jl</code>, <code>src/tasks/Tasks.jl</code>, <code>src/core/Recorder.jl</code>.</p>
+<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>, <code>src/core/Composition.jl</code>, <code>src/operations/</code>, <code>src/world/Ensemble.jl</code>, <code>src/core/Recorder.jl</code>.</p>

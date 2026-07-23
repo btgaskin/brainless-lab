@@ -9,7 +9,7 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
-BrainlessLab = "0.1.1"
+BrainlessLab = "0.2"
 CairoMakie = "0.12, 0.13, 0.14, 0.15"
 Dates = "1.10"
 JLD2 = "0.5"

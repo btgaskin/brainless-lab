@@ -165,17 +165,20 @@ end
 
 function trial_row(trial::EvaluationTrial)
     outcome = task_outcome(trial.simulation)
-    first_ledger = first(trial.seeds)
+    single_ledger = length(trial.seeds) == 1 ? first(trial.seeds) : nothing
+    seed(name) = single_ledger !== nothing && hasproperty(single_ledger, name) ?
+        getproperty(single_ledger, name) : missing
     return (
         condition=trial.condition,
         block=trial.block,
         trial=trial.trial,
-        topology_seed=first_ledger.topology,
-        node_state_seed=first_ledger.node_state,
-        world_seed=first_ledger.world,
-        body_seed=first_ledger.body,
-        task_seed=first_ledger.task,
-        mechanism_seed=first_ledger.mechanism,
+        seed_ledger_agents=length(trial.seeds),
+        topology_seed=seed(:topology),
+        node_state_seed=seed(:node_state),
+        world_seed=seed(:world),
+        body_seed=seed(:body),
+        task_seed=seed(:task),
+        mechanism_seed=seed(:mechanism),
         initial_state=trial.initial_state,
         score_key=outcome === nothing ? missing : outcome.key,
         raw_score=outcome === nothing ? missing : outcome.raw,
@@ -186,4 +189,3 @@ function trial_row(trial::EvaluationTrial)
 end
 
 trial_table(batch::EvaluationBatch) = [trial_row(trial) for trial in batch.trials]
-

@@ -107,17 +107,42 @@ compare a tracking score directly with a Pong hit rate.
 Query the registries instead of copying static lists:
 
 ```julia
-variants()
-tasks()
-analyses()
-ablations()
+nodes(DEFAULT_REGISTRY)
+tasks(DEFAULT_REGISTRY)
+analyses(DEFAULT_REGISTRY)
+ablations(DEFAULT_REGISTRY)
+compositions(DEFAULT_REGISTRY)
 components()
 readiness()
 ```
 
-The registries include project and extension entries loaded in the current environment.
+The typed registry includes project and extension entries loaded in the current environment.
 The [Experimental catalog](/experimental/) lists studies and components that are outside
 the canonical core path.
+
+## Create a portable profile record
+
+One simulation is useful for inspection. The next step is a typed operation whose complete
+method and output can be rerun:
+
+```bash
+julia --project=. bin/brainlesslab.jl check plans/examples/profile_tracking.toml
+julia -t auto --project=. bin/brainlesslab.jl run \
+  plans/examples/profile_tracking.toml --root records
+```
+
+Open the generated `report/index.html` for the readable report. Use these files when you
+need the exact evidence surface:
+
+- `request.toml`: what was requested;
+- `resolved.toml`: all registry defaults and operation settings actually used;
+- `seeds.csv`: the named random-stream ledger;
+- `data/trials.csv`: one row per raw trial;
+- `summary/statistics.csv`: derived descriptive statistics;
+- `record.toml`: versions, repository state, artifact inventory, and checksums.
+
+The same command runs a profile, sweep, ablation, evolution, or benchmark because the
+operation belongs to the plan, not to a separate runner.
 
 ## Optional figures
 
@@ -143,5 +168,6 @@ A successful run shows that the selected task, body, reservoir, and recorder com
 execute. It may reveal behavior worth studying. It does not establish a general capacity,
 biological fidelity, superiority, or statistical reliability.
 
-Next, read the [core task tour](/core/task-tour/). Then use
-[Design a study](/core/design-study/) to turn an observation into a controlled comparison.
+Next, read [Operations and records](/core/tools-artifacts/) and the [core task tour](/core/task-tour/).
+Then use [Design a study](/core/design-study/) to place an operation inside a controlled,
+versioned experiment.

@@ -1,0 +1,25 @@
+format = "brainlesslab-plan"
+format_version = 1
+operation = "ablate"
+id = "ablate_tracking_example"
+
+[[targets]]
+id = "tracking"
+
+[targets.composition]
+id = "falandays_tracking_ablation"
+preset = "falandays_tracking"
+
+[targets.evaluation]
+blocks = 1
+trials_per_block = 2
+horizon = 120
+warmup = 20
+construction_scope = "trial"
+reset = "full"
+root_seed = 1301
+aggregate = "mean"
+
+[ablate]
+target = "tracking"
+ablations = ["freeze_plasticity", "clamp_target"]

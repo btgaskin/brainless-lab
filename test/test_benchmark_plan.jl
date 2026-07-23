@@ -54,6 +54,9 @@ end
     @test length(result_tables.contrasts) == 1
     @test result_tables.contrasts[1].condition === :tracking_leak
     @test result_tables.contrasts[1].n == 2
+    @test hasproperty(result_tables.contrasts[1], :raw_ci_lower)
+    @test result_tables.contrasts[1].interval_method === :paired_student_t_95
+    @test all(row -> row.interval_method === :student_t_95, result_tables.statistics)
     @test summary(result).cases == (:tracking, :pong)
     @test !hasproperty(summary(result), :aggregate)
 
@@ -67,5 +70,35 @@ end
         ),),
     )
     @test_throws ArgumentError resolve(bad, DEFAULT_REGISTRY)
-end
 
+    cross_task = BenchmarkPlan(
+        :cross_task,
+        (BenchmarkCasePlan(
+            :invalid,
+            (tracking_base, pong_base);
+            baseline=:tracking_base,
+        ),),
+    )
+    @test_throws ArgumentError resolve(cross_task, DEFAULT_REGISTRY)
+
+    mismatched_protocol = EvaluationTarget(
+        :mismatched_protocol,
+        tracking_leak.composition,
+        EvaluationSpec(
+            blocks=1,
+            trials_per_block=2,
+            horizon=4,
+            root_seed=55,
+            aggregate=:none,
+        ),
+    )
+    bad_protocol = BenchmarkPlan(
+        :bad_protocol,
+        (BenchmarkCasePlan(
+            :tracking,
+            (tracking_base, mismatched_protocol);
+            baseline=:tracking_base,
+        ),),
+    )
+    @test_throws ArgumentError resolve(bad_protocol, DEFAULT_REGISTRY)
+end

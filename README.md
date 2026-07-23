@@ -13,7 +13,7 @@
   <a href="https://disi.org">Diverse Intelligences Summer Institute 2026</a>
 </p>
 
-BrainlessLab v0.1.1 is an **experimental research preview** for neural reservoirs in
+BrainlessLab v0.2.0 is an **experimental research preview** for neural reservoirs in
 closed sensorimotor loops. It provides tasks, generic embodiment, single-agent and
 population worlds, recording, analysis, batch tools, and evidence-aware experiment
 workflows. APIs and artifact layouts may change before 1.0.
@@ -52,16 +52,24 @@ Continue with:
 3. [Architecture](https://brainless-lab.pages.dev/core/architecture/)
 4. [Design a study](https://brainless-lab.pages.dev/core/design-study/)
 
+For a repeatable multi-run operation, validate a checked-in plan and write one portable
+record:
+
+```bash
+julia --project=. bin/brainlesslab.jl check plans/examples/profile_tracking.toml
+julia -t auto --project=. bin/brainlesslab.jl run plans/examples/profile_tracking.toml --root records
+```
+
+Every operation writes the same record shape: the request, fully resolved settings, seed
+ledger, raw CSV tables, summary statistics, checksums, and a generated HTML report.
+
 ## Core composition
 
 ```text
-NodeModel → Reservoir → AbstractBody → Agent → Ensemble{Environment}
-                                                    ↓
-                                                  Task
-                                                    ↓
-                                             Runner → Run
-                                                    ↘
-                                                   Recorder
+NodeSpec + TaskSpec + body + InteractionCycle → CompositionSpec → closed-loop runtime
+CompositionSpec + EvaluationSpec              → EvaluationTarget
+EvaluationTarget(s)                           → operation plan → record
+named conditions + operation plans            → ExperimentSpec
 ```
 
 `AbstractBody` is the public body boundary. `Embodiment` is the generic concrete
@@ -84,26 +92,37 @@ and Pong tasks are the first core task contracts.
 ```julia
 using BrainlessLab
 
-variants()
-tasks()
-analyses()
-ablations()
+nodes(DEFAULT_REGISTRY)
+tasks(DEFAULT_REGISTRY)
+tasks(DEFAULT_REGISTRY; tag=:benchmark)
+analyses(DEFAULT_REGISTRY)
+ablations(DEFAULT_REGISTRY)
+compositions(DEFAULT_REGISTRY)
 components()
 readiness()
 ```
 
-Use these registries instead of copying a static symbol list.
+`DEFAULT_REGISTRY` is the canonical composition and operation catalog. The zero-argument
+`variants()`, `tasks()`, and related registration helpers remain only for the established
+interactive `simulate(:task; node=:node)` façade and older research scripts; do not use
+them for new plans or extensions.
 
 ## Execution surfaces
 
 - `simulate` runs one closed loop and returns an in-memory `SimResult`.
-- `sweep/run.jl` runs bounded, resumable development sweeps.
-- `experiments/run.jl` runs declared multi-condition protocols.
-- `calibration/`, `profile/`, `bench/`, and evolution tools serve specialized questions.
+- `ProfilePlan` characterizes one registered node on one registered task.
+- `SweepPlan` maps declared node parameters under paired evaluation seeds.
+- `AblationPlan` disables registered functional elements against an implicit baseline.
+- `EvolutionPlan` selects parameters on one target and evaluates the champion on declared
+  held-out targets.
+- `BenchmarkPlan` reports paired within-task comparisons without forming a cross-task score.
+- `ExperimentSpec` registers a versioned scientific protocol above one or more operations.
 
-Start with the smallest tool that can answer the question. A selected sweep cell is a
-development result, not a confirmed optimum. Agents and ticks in one world do not increase
-the number of independent experimental units.
+All five operations use the same version-one TOML schema and record writer. The older
+specialized directories remain research code, but they are no longer the canonical public
+workflow. Start with the smallest operation that can answer the question. A selected sweep
+cell is a development result, not a confirmed optimum. Agents and ticks in one world do not
+increase the number of independent experimental units.
 
 See [Tools and artifacts](https://brainless-lab.pages.dev/core/tools-artifacts/) and
 [Runs, recording, and results](https://brainless-lab.pages.dev/core/runs-results/).

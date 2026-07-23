@@ -49,15 +49,20 @@ end
 function main(args)
     if isempty(args) || first(args) in ("--list", "-l", "list", "--help", "-h")
         println("Registered experiments  (experiments/run.jl <name> [key=val ...]):\n")
-        for name in experiments()
-            println("  ", rpad(string(name), 18), "  ", experiment_description(name))
+        for name in ExpRegistry.experiments()
+            println(
+                "  ",
+                rpad(string(name), 18),
+                "  ",
+                ExpRegistry.experiment_description(name),
+            )
         end
         return
     end
     name = Symbol(first(args))
     kw = _parse_kwargs(args[2:end])
     println("running :", name, "  ", isempty(kw) ? "(defaults)" : kw, "\n")
-    dir = resolve_experiment(name).run(; kw...)
+    dir = ExpRegistry.resolve_experiment(name).run(; kw...)
     println("\nwrote ", dir)
 end
 

@@ -4,7 +4,7 @@ A **node** is a neuron model that fills a reservoir. BrainlessLab is built so th
 node runs *any* task: the framework hands it dimensions and drives it through a fixed
 contract, and the node knows nothing about walls, paddles, or poles. Adding a node is not
 about wiring it to a task — it is about deciding *where adaptation lives* and then honoring
-the contract cleanly enough that `simulate`, `bench`, and `evolve` can size and drive it
+the contract cleanly enough that `simulate` and typed operation plans can size and drive it
 without a single `if node == :yours` branch anywhere in the framework.
 
 This file is design guidance. For the task side, see `designing-environments-and-tasks.md`;
@@ -33,7 +33,8 @@ generics, so you must **import the names you extend**:
 
 ```julia
 import BrainlessLab: step!, effectors, reset!, n_nodes, n_receptors, n_effectors
-import BrainlessLab: NodeModel, Reservoir, register_node!
+import BrainlessLab: NodeModel, Reservoir
+import BrainlessLab: NodeBuildContext, NodeSpec, ParameterSpec, register!
 ```
 
 `using BrainlessLab` brings the names into scope for *calling* but not for *extending* —
@@ -45,13 +46,23 @@ and never sees yours. If your node "doesn't run" with no error, this is almost a
 
 ## A node is task-agnostic
 
-The framework constructs every node the same way and matches it to the task's shape:
+The framework calls a registered `NodeSpec` builder with a `NodeBuildContext` and the
+fully resolved parameter dictionary:
 
 ```julia
-MyNode(n_nodes, n_receptors, n_effectors; seed=0, kwargs...)
+function build_my_node(context::NodeBuildContext, values)
+    MyNode(
+        context.n_nodes,
+        n_receptors(context.ports),
+        n_effectors(context.ports);
+        seed=Int(mod(context.seeds.topology, UInt64(typemax(Int)))),
+        params=values,
+    )
+end
 ```
 
-`n_nodes` is your population size; `n_receptors`/`n_effectors` are dictated by the task, not
+`context.n_nodes` is the composition's population size; receptor and effector widths come
+from the resolved body ports, not
 chosen by you. Honor them exactly: `step!` receives an `R`-vector of length `n_receptors(r)`
 and `effectors` must return an `E`-vector of length `n_effectors(r)`. A node that assumes a
 particular task — hard-codes 2 effectors, expects a Pong-shaped input — has broken the
@@ -63,18 +74,18 @@ Implement `n_nodes(r)` from stable reservoir state, for example `length(r.spikes
 generic ensemble uses it to emit a correctly sized zero vector when a dead or inactive body
 keeps its stable slot without advancing neural state.
 
-The smoke test for "am I task-agnostic" is that `simulate(:wall; node=:mynode)` and
-`simulate(:cartpole; node=:mynode)` both build and run without you touching the node.
+The smoke test for "am I task-agnostic" is that explicit `CompositionSpec`s using the node
+resolve and run on two port-compatible tasks without touching the node.
 
-If the constructor accepts a body-specific vector of receptor connection probabilities,
-declare the keyword as a capability:
+If the node accepts a body-specific vector of receptor connection probabilities, read
+`context.receptor_profile` and declare that capability:
 
 ```julia
-register_node!(
+NodeSpec(
     :mynode,
-    MyNode;
+    build_my_node;
     genome_type=MyNodeParams,
-    receptor_profile_keyword=:input_link_p,
+    capabilities=(:receptor_profile,),
 )
 ```
 
@@ -147,25 +158,39 @@ RNG or lag state in the snapshot and test next-step continuation after loading i
 
 Do not hide evolvable numbers in `snapshot_state`, and do not let `pack_params` leak dynamic
 state — an optimizer that mutates a "parameter" that is really an activation will corrupt the
-rollout. Then register with the genome type so `bench`/`evolve` can size it from the public
-contract instead of branching on your symbol:
+rollout. Register the parameter surface explicitly so sweep and evolution never infer it
+from struct fields:
 
 ```julia
-register_node!(:my_node, MyNode; genome_type=MyNodeParams)
+spec = NodeSpec(
+    :my_node,
+    build_my_node;
+    genome_type=MyNodeParams,
+    parameters=(
+        ParameterSpec(:leak, 0.25; sweep=(0.1, 0.25, 0.5), evolve=(lower=0.0, upper=0.95)),
+        ParameterSpec(:link_p, 0.1; owner=:reservoir, evolve=(lower=0.01, upper=0.8)),
+    ),
+    parameter_sets=Dict(
+        :sweep => (:leak,),
+        :evolve => (:leak,),
+        :connectivity => (:link_p,),
+    ),
+)
+register!(DEFAULT_REGISTRY, spec)
 ```
 
-A non-evolvable node (a null control like `NullRandomReservoir`) registers with no
-`genome_type`; `bench` will only run it untrained.
+A non-evolvable node declares no `:evolve` parameter set.
 
 ## Register and smoke-test before you benchmark
 
 ```julia
-register_node!(:my_node, MyNode; genome_type=MyNodeParams)
-simulate(:wall; node=:my_node)      # does it build and run for a real task?
+register!(DEFAULT_REGISTRY, spec)
+composition = CompositionSpec(:my_tracking, :my_node, :tracking; n_nodes=200)
+simulate(composition; ticks=300, seed=11)
 ```
 
-Get a clean `simulate` on at least two tasks before touching `bench`/`evolve` — a
-benchmark that dies on tick 1 wastes a sweep. The copy-to-start scaffold lives at
+Get a clean `simulate` on at least two tasks before a sweep, evolution, or benchmark. The
+copy-to-start scaffold lives at
 `examples/templates/new_project/my_node.jl` (a self-contained homeostatic reservoir with all
 methods, the genome/state split, and registration) plus its `README.md`.
 

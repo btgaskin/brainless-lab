@@ -174,8 +174,11 @@ const MY_TASK = TaskSpec(
     ceiling=analytic(1.0; note="optimal"),
 )
 
-register_task!(:my_task, MY_TASK)
+register!(DEFAULT_REGISTRY, MY_TASK)
 ```
+
+Import `register!` and `DEFAULT_REGISTRY` from BrainlessLab. Typed registration rejects a
+duplicate task name rather than silently changing the active experiment surface.
 
 For a generic setup callable, accept `seed`, `rng`, `body`, `n_nodes`, and `kwargs...` so
 the high-level runner can supply deterministic construction context without task-specific

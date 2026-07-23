@@ -9,6 +9,24 @@ _plan_toml_value(value::AbstractVector) = [_plan_toml_value(item) for item in va
 _plan_toml_value(value::UInt64) = value <= UInt64(typemax(Int64)) ? Int64(value) : string(value)
 _plan_toml_value(value) = value
 
+function _interaction_cycle_document(cycle::FixedRateCycle)
+    return Dict{String,Any}(
+        "kind" => "fixed_rate",
+        "neural_frames" => neural_frames(cycle),
+    )
+end
+
+function _parse_interaction_cycle(document)
+    _require_document_keys(document, ("kind", "neural_frames"), "interaction_cycle")
+    get(document, "kind", nothing) == "fixed_rate" || throw(ArgumentError(
+        "interaction_cycle kind must be fixed_rate",
+    ))
+    haskey(document, "neural_frames") || throw(ArgumentError(
+        "fixed_rate interaction_cycle requires neural_frames",
+    ))
+    return FixedRateCycle(document["neural_frames"])
+end
+
 function _string_dict(values)
     return Dict{String,Any}(string(key) => _plan_toml_value(value) for (key, value) in pairs(values))
 end
@@ -36,6 +54,10 @@ function _composition_document(composition::CompositionSpec)
         (document["task_options"] = _string_dict(composition.task_options))
     isempty(composition.body_options) ||
         (document["body_options"] = _string_dict(composition.body_options))
+    composition.interaction_cycle === nothing ||
+        (document["interaction_cycle"] = _interaction_cycle_document(
+            composition.interaction_cycle,
+        ))
     return document
 end
 
@@ -155,7 +177,7 @@ end
 function _parse_composition(document, registry::RegistrySet)
     _require_document_keys(
         document,
-        ("id", "preset", "node", "task", "body", "n_agents", "n_nodes", "parameters", "task_options", "body_options"),
+        ("id", "preset", "node", "task", "body", "n_agents", "n_nodes", "parameters", "task_options", "body_options", "interaction_cycle"),
         "composition",
     )
     parameters = Dict{Symbol,Any}(
@@ -198,7 +220,9 @@ function _parse_composition(document, registry::RegistrySet)
             parameters=merge(copy(base.parameters), parameters),
             task_options=merge(copy(base.task_options), task_options),
             body_options=merge(copy(base.body_options), body_options),
-            interaction_cycle=base.interaction_cycle,
+            interaction_cycle=haskey(document, "interaction_cycle") ?
+                _parse_interaction_cycle(document["interaction_cycle"]) :
+                base.interaction_cycle,
         )
     end
     for key in ("id", "node", "task", "n_nodes")
@@ -214,6 +238,8 @@ function _parse_composition(document, registry::RegistrySet)
         parameters=parameters,
         task_options=task_options,
         body_options=body_options,
+        interaction_cycle=haskey(document, "interaction_cycle") ?
+            _parse_interaction_cycle(document["interaction_cycle"]) : nothing,
     )
 end
 

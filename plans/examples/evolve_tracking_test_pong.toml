@@ -1,0 +1,65 @@
+format = "brainlesslab-plan"
+format_version = 1
+operation = "evolve"
+id = "evolve_tracking_test_pong_example"
+
+[[targets]]
+id = "tracking_development"
+
+[targets.composition]
+id = "falandays_tracking_evolution"
+preset = "falandays_tracking"
+
+[targets.evaluation]
+blocks = 1
+trials_per_block = 2
+horizon = 240
+warmup = 40
+construction_scope = "trial"
+reset = "full"
+root_seed = 1401
+aggregate = "mean"
+
+[[targets]]
+id = "tracking_confirmation"
+
+[targets.composition]
+id = "falandays_tracking_confirmation"
+preset = "falandays_tracking"
+
+[targets.evaluation]
+blocks = 1
+trials_per_block = 2
+horizon = 240
+warmup = 40
+construction_scope = "trial"
+reset = "full"
+root_seed = 3401
+aggregate = "mean"
+
+[[targets]]
+id = "pong_heldout"
+
+[targets.composition]
+id = "falandays_pong_heldout"
+preset = "falandays_pong"
+
+[targets.evaluation]
+blocks = 1
+trials_per_block = 2
+horizon = 400
+warmup = 40
+construction_scope = "trial"
+reset = "full"
+root_seed = 2401
+aggregate = "mean"
+
+[evolve]
+training = "tracking_development"
+heldout = ["tracking_confirmation", "pong_heldout"]
+optimizer = "sepcma"
+parameter_set = "evolve"
+objective = "normalized_score"
+generations = 2
+popsize = 6
+sigma0 = 0.5

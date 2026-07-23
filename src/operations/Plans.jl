@@ -241,6 +241,7 @@ function BenchmarkPlan(id::Union{Symbol,AbstractString}, cases)
 end
 
 const EXPERIMENT_EVIDENCE_STATES = (
+    :planned,
     :exploratory,
     :tuned,
     :frozen,
@@ -286,6 +287,10 @@ function ExperimentSpec(
     all(operation -> operation isa AbstractOperationPlan, operations_) || throw(ArgumentError(
         "experiment operations must all be operation plans",
     ))
+    operation_ids = Tuple(operation.id for operation in operations_)
+    length(unique(operation_ids)) == length(operation_ids) || throw(ArgumentError(
+        "experiment operation ids must be unique",
+    ))
     condition_ids = Tuple(condition.id for condition in conditions_)
     length(unique(condition_ids)) == length(condition_ids) || throw(ArgumentError(
         "experiment condition ids must be unique",
@@ -311,8 +316,110 @@ function ExperimentSpec(
     )
 end
 
+operation_targets(plan::ProfilePlan) = (plan.target,)
+operation_targets(plan::SweepPlan) = (plan.target,)
+operation_targets(plan::AblationPlan) = (plan.target,)
+operation_targets(plan::EvolutionPlan) = (plan.training, plan.heldout_targets...)
+function operation_targets(plan::BenchmarkPlan)
+    targets = EvaluationTarget[]
+    seen = Set{Symbol}()
+    for case in plan.cases, target in case.conditions
+        target.id in seen && continue
+        push!(targets, target)
+        push!(seen, target.id)
+    end
+    return Tuple(targets)
+end
+
+const ExperimentRegistry = Registry{Tuple{Symbol,VersionNumber},ExperimentSpec}
+const DEFAULT_EXPERIMENTS = ExperimentRegistry(:experiments)
+
+function _experiment_target_signature(target::EvaluationTarget)
+    composition = target.composition
+    evaluation = target.evaluation
+    cycle = composition.interaction_cycle
+    return (
+        id=target.id,
+        composition=(
+            id=composition.id,
+            node=composition.node,
+            task=composition.task,
+            body=composition.body,
+            n_agents=composition.n_agents,
+            n_nodes=composition.n_nodes,
+            parameters=composition.parameters,
+            task_options=composition.task_options,
+            body_options=composition.body_options,
+            interaction_cycle=cycle === nothing ? nothing :
+                (kind=Symbol(nameof(typeof(cycle))), neural_frames=neural_frames(cycle)),
+        ),
+        evaluation=(
+            blocks=evaluation.blocks,
+            trials_per_block=evaluation.trials_per_block,
+            horizon=evaluation.horizon,
+            warmup=evaluation.warmup,
+            construction_scope=evaluation.construction_scope,
+            reset=evaluation.reset,
+            root_seed=evaluation.root_seed,
+            streams=seed_stream_names(evaluation),
+            aggregate=evaluation.aggregate,
+        ),
+    )
+end
+
+function validate(experiment::ExperimentSpec, registry::RegistrySet)
+    conditions = Dict(condition.id => condition for condition in experiment.conditions)
+    used = Set{Symbol}()
+    for operation in experiment.operations
+        for target in operation_targets(operation)
+            haskey(conditions, target.id) || throw(ArgumentError(
+                "experiment :$(experiment.id) operation :$(operation.id) references " *
+                "undeclared condition :$(target.id)",
+            ))
+            _experiment_target_signature(target) ==
+                _experiment_target_signature(conditions[target.id]) || throw(ArgumentError(
+                "experiment :$(experiment.id) operation :$(operation.id) target " *
+                ":$(target.id) does not match its declared condition",
+            ))
+            push!(used, target.id)
+        end
+        validate(operation, registry)
+    end
+    unused = sort!(collect(setdiff(Set(keys(conditions)), used)); by=string)
+    isempty(unused) || throw(ArgumentError(
+        "experiment :$(experiment.id) declares unused conditions $(Tuple(unused))",
+    ))
+    return experiment
+end
+
+function register_experiment!(
+    experiments::ExperimentRegistry,
+    experiment::ExperimentSpec;
+    registry::RegistrySet=DEFAULT_REGISTRY,
+)
+    validate(experiment, registry)
+    return register!(experiments, (experiment.id, experiment.version), experiment)
+end
+
+register_experiment!(
+    experiment::ExperimentSpec;
+    experiments::ExperimentRegistry=DEFAULT_EXPERIMENTS,
+    registry::RegistrySet=DEFAULT_REGISTRY,
+) = register_experiment!(experiments, experiment; registry=registry)
+
+experiment_spec(
+    id::Union{Symbol,AbstractString},
+    version::VersionNumber;
+    experiments::ExperimentRegistry=DEFAULT_EXPERIMENTS,
+) = resolve(experiments, (Symbol(id), version))
+
+function experiments(experiments::ExperimentRegistry=DEFAULT_EXPERIMENTS)
+    return sort!(collect(keys(experiments)); by=key -> (string(first(key)), last(key)))
+end
+
 """Validate a cold operation plan against one explicit registry set."""
-validate(plan::AbstractOperationPlan, registry::RegistrySet) = plan
+validate(plan::AbstractOperationPlan, registry::RegistrySet) =
+    throw(MethodError(validate, (plan, registry)))
 
 """Resolve registry names and defaults without executing simulations."""
 resolve(plan::AbstractOperationPlan, registry::RegistrySet) = throw(MethodError(resolve, (plan, registry)))

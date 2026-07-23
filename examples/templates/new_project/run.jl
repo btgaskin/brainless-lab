@@ -60,11 +60,14 @@ function main(args)
     mkpath(opts[:out])
 
     sim = simulate(
-        :my_task;
-        node=:my_node,
+        CompositionSpec(
+            :my_project,
+            :my_node,
+            :my_task;
+            n_nodes=opts[:n_nodes],
+        );
         ticks=opts[:ticks],
         seed=opts[:seed],
-        n_nodes=opts[:n_nodes],
         record=RECORD,
         metrics=[:final_error_abs],
     )

@@ -26,17 +26,32 @@ An analysis is a function `f(sim::SimResult; kwargs...)` returning a `Number` or
 NamedTuple of summary fields. Register it so tooling can discover it:
 
 ```julia
-register_analysis!(:susceptibility, susceptibility;
-                   label="susceptibility χ (experimental)")     # global
-register_analysis!(:distance_to_source, distance_to_source;
-                   task=:forage, label="mean distance to forage source")  # task-scoped
+register!(
+    DEFAULT_REGISTRY,
+    :analyses,
+    ImplementationSpec(
+        :susceptibility,
+        susceptibility;
+        label="susceptibility χ (experimental)",
+        metadata=(task=nothing,),
+    ),
+)
+register!(
+    DEFAULT_REGISTRY,
+    :analyses,
+    ImplementationSpec(
+        :distance_to_source,
+        distance_to_source;
+        label="mean distance to forage source",
+        metadata=(task=:forage,),
+    ),
+)
 ```
 
-`register_analysis!(sym, f; task=nothing, label=string(sym))` stores `(f, task, label)`.
-Discover with `analyses()` / `analyses(task=:forage)` (global measures plus that task's
-own) and `task_analyses(:forage)` (only that task's). `analysis_meta(sym)` returns
-`(task, label)`; `resolve_analysis(sym)` returns the bare function. Most measures are also
-callable directly on `sim`: `branching_ratio(sim)`, `branching_ratio_mr(sim; level=:node)`,
+Typed registration rejects duplicate keys. Discover with `analyses(DEFAULT_REGISTRY)` or
+`analyses(DEFAULT_REGISTRY; task=:forage)`; the latter includes global measures and that
+task's own. Most built-in measures are also callable directly on `sim`:
+`branching_ratio(sim)`, `branching_ratio_mr(sim; level=:node)`,
 `susceptibility(sim)`, `spectral_radius(sim)`, `participation_ratio(sim)`,
 `correlation_length(sim)`, `crossshift_null(sim, measure_fn; n_shifts, rng)`,
 `transfer_entropy(...)`.

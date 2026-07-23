@@ -69,6 +69,7 @@ struct EvolutionResult{
     optimizer_result::O
     optimizer_seed::UInt64
     candidates::Vector{EvolutionCandidate}
+    candidate_batches::Vector{EvaluationBatch}
     convergence::Vector{EvolutionGeneration}
     champion_coordinates::Vector{Float64}
     champion_parameters::Dict{Symbol,Any}
@@ -344,8 +345,10 @@ function _instantiate_evolution_optimizer(plan::ResolvedEvolutionPlan)
 end
 
 function execute(plan::ResolvedEvolutionPlan)
+    init_parallelism!()
     optimizer = _instantiate_evolution_optimizer(plan)
     candidate_history = EvolutionCandidate[]
+    candidate_batches = EvaluationBatch[]
     convergence = EvolutionGeneration[]
     champion_coordinates = copy(plan.x0)
     champion_parameters = _decode_evolution_parameters(plan.parameters, plan.x0)
@@ -360,7 +363,7 @@ function execute(plan::ResolvedEvolutionPlan)
         losses = Vector{Float64}(undef, length(proposed))
         fitnesses = Vector{Float64}(undef, length(proposed))
 
-        for individual in eachindex(proposed)
+        evaluated = parallel_map(eachindex(proposed)) do individual
             coordinates = Vector{Float64}(Float64.(proposed[individual]))
             parameters = _decode_evolution_parameters(plan.parameters, coordinates)
             target = _evolution_target(
@@ -374,11 +377,8 @@ function execute(plan::ResolvedEvolutionPlan)
                 plan.registry,
             )
             fitness = evaluation.aggregate
-            fitnesses[individual] = fitness
-            losses[individual] = -fitness
-            push!(
-                candidate_history,
-                EvolutionCandidate(
+            return (
+                candidate=EvolutionCandidate(
                     generation,
                     individual,
                     coordinates,
@@ -386,11 +386,22 @@ function execute(plan::ResolvedEvolutionPlan)
                     copy(evaluation.objective_values),
                     fitness,
                 ),
+                fitness=fitness,
+                batch=evaluation.batch,
             )
+        end
+
+        for (individual, outcome) in enumerate(evaluated)
+            candidate = outcome.candidate
+            fitness = outcome.fitness
+            fitnesses[individual] = fitness
+            losses[individual] = -fitness
+            push!(candidate_history, candidate)
+            push!(candidate_batches, outcome.batch)
             if fitness > champion_fitness
                 champion_fitness = fitness
-                champion_coordinates = copy(coordinates)
-                champion_parameters = copy(parameters)
+                champion_coordinates = copy(candidate.coordinates)
+                champion_parameters = copy(candidate.parameters)
             end
         end
 
@@ -433,6 +444,7 @@ function execute(plan::ResolvedEvolutionPlan)
         optimizer_summary,
         plan.optimizer_seed,
         candidate_history,
+        candidate_batches,
         convergence,
         champion_coordinates,
         champion_parameters,
@@ -493,6 +505,19 @@ function tables(result::EvolutionResult)
         )
         for row in result.candidates
     ]
+    candidate_trials = NamedTuple[]
+    for (candidate, batch) in zip(result.candidates, result.candidate_batches)
+        for row in trial_table(batch)
+            push!(candidate_trials, merge(
+                (
+                    generation=candidate.generation,
+                    individual=candidate.individual,
+                    candidate_fitness=candidate.fitness,
+                ),
+                row,
+            ))
+        end
+    end
     champion_parameters = [
         _evolution_metadata_row(
             parameter,
@@ -507,6 +532,7 @@ function tables(result::EvolutionResult)
     return (
         convergence=convergence,
         candidates=candidates,
+        candidate_trials=candidate_trials,
         champion_parameters=champion_parameters,
         training_trials=trial_table(result.training.batch),
         heldout_trials=heldout_trials,

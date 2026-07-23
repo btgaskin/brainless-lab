@@ -27,6 +27,9 @@ using Test
     @test task_spec(DEFAULT_REGISTRY, :wall).status === :experimental
     @test task_spec(DEFAULT_REGISTRY, :tracking).status === :reference
     @test task_spec(DEFAULT_REGISTRY, :pong).status === :reference
+    @test Set(tasks(DEFAULT_REGISTRY; tag=:benchmark)) == Set((:tracking, :pong))
+    @test :branching_ratio_mr in analyses(DEFAULT_REGISTRY; task=:tracking)
+    @test :freeze_plasticity in ablations(DEFAULT_REGISTRY)
     @test :pong_hitrate ∉ tasks(DEFAULT_REGISTRY)
     @test all(task -> task in tasks(DEFAULT_REGISTRY), (
         :cartpole_plank_easy,
@@ -66,6 +69,15 @@ using Test
     @test resolved.parameters[:leak] == FalandaysParams().leak
     @test resolved.parameters[:lrate_wmat] == 1.0
     @test resolved.interaction_cycle === nothing
+
+    atomic = RegistrySet()
+    register!(atomic, falandays_node_spec())
+    register!(atomic, task_spec(DEFAULT_REGISTRY, :tracking))
+    first_default = CompositionSpec(:first_default, :falandays, :tracking; n_nodes=8)
+    second_default = CompositionSpec(:second_default, :falandays, :tracking; n_nodes=8)
+    register_default!(atomic, first_default)
+    @test_throws ArgumentError register_default!(atomic, second_default)
+    @test :second_default ∉ compositions(atomic)
 end
 
 @testset "CompositionSpec executes through named seed streams" begin
@@ -98,5 +110,24 @@ end
         :mechanism,
     )
     @test task_outcome(first_run).key === :track_score
-end
 
+    custom_target = EvaluationTarget(
+        :custom_stream,
+        composition,
+        EvaluationSpec(
+            horizon=2,
+            root_seed=19,
+            streams=(:topology, :world, :node_custom),
+        ),
+    )
+    custom_batch = evaluate(custom_target)
+    @test propertynames(only(only(custom_batch.trials).seeds)) ==
+        (:topology, :world, :node_custom)
+
+    missing_required = EvaluationTarget(
+        :missing_topology,
+        composition,
+        EvaluationSpec(horizon=2, streams=(:world,)),
+    )
+    @test_throws ArgumentError evaluate(missing_required)
+end

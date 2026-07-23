@@ -10,7 +10,7 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 
 [compat]
 Base64 = "1.10"
-BrainlessLab = "0.1.1"
+BrainlessLab = "0.2"
 CairoMakie = "0.12, 0.13, 0.14, 0.15"
 Dates = "1.10"
 Printf = "1.10"

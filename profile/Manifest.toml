@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "c1e3b888cad7645bcf6748dd96b92f1d32d24207"
+project_hash = "31d72d653078fa731c056153b18b53b785561d8f"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -111,10 +111,10 @@ uuid = "18cc8868-cbac-4acf-b575-c8ff214dc66f"
 version = "1.4.0"
 
 [[deps.BrainlessLab]]
-deps = ["Dates", "JLD2", "LinearAlgebra", "Random", "StaticArrays", "Statistics", "TOML"]
+deps = ["Dates", "JLD2", "LinearAlgebra", "Random", "SHA", "StaticArrays", "Statistics", "TOML"]
 path = ".."
 uuid = "d12add44-1e3e-4161-9a99-c2121a2f0f38"
-version = "0.1.1"
+version = "0.2.0"
 weakdeps = ["Makie"]
 
     [deps.BrainlessLab.extensions]

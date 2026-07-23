@@ -58,6 +58,26 @@ end
     end
 end
 
+@testset "plan IO preserves the interaction cycle" begin
+    base = default_composition(DEFAULT_REGISTRY, :falandays, :tracking)
+    composition = CompositionSpec(
+        :timed_tracking,
+        base.node,
+        base.task;
+        n_nodes=base.n_nodes,
+        parameters=base.parameters,
+        interaction_cycle=FixedRateCycle(7),
+    )
+    plan = ProfilePlan(
+        :timed_profile,
+        EvaluationTarget(:tracking, composition, EvaluationSpec(horizon=12)),
+    )
+    path = tempname() * ".toml"
+    write_plan(path, plan)
+    parsed = read_plan(path)
+    @test parsed.target.composition.interaction_cycle == FixedRateCycle(7)
+end
+
 @testset "plan parser rejects unknown schema" begin
     path = tempname() * ".toml"
     open(path, "w") do io
@@ -75,4 +95,3 @@ target = "missing"
     end
     @test_throws ArgumentError read_plan(path)
 end
-

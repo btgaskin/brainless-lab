@@ -215,8 +215,6 @@ mutable struct RegistrySet
     optimizers::Registry{Symbol,ImplementationSpec}
     ablations::Registry{Symbol,ImplementationSpec}
     compositions::Registry{Symbol,CompositionSpec}
-    benchmarks::Registry{Symbol,Any}
-    experiments::Registry{Tuple{Symbol,VersionNumber},Any}
     composition_defaults::Dict{Tuple{Symbol,Symbol},Symbol}
 end
 
@@ -234,8 +232,6 @@ function RegistrySet()
         Registry{Symbol,ImplementationSpec}(:optimizers),
         Registry{Symbol,ImplementationSpec}(:ablations),
         Registry{Symbol,CompositionSpec}(:compositions),
-        Registry{Symbol,Any}(:benchmarks),
-        Registry{Tuple{Symbol,VersionNumber},Any}(:experiments),
         Dict{Tuple{Symbol,Symbol},Symbol}(),
     )
 end
@@ -252,11 +248,11 @@ function register!(registry::RegistrySet, kind::Symbol, spec::ImplementationSpec
 end
 
 function register_default!(registry::RegistrySet, composition::CompositionSpec)
-    register!(registry, composition)
     key = (composition.node, composition.task)
     haskey(registry.composition_defaults, key) && throw(ArgumentError(
         "default composition for node :$(composition.node) and task :$(composition.task) is already registered",
     ))
+    register!(registry, composition)
     registry.composition_defaults[key] = composition.id
     return composition
 end
@@ -269,7 +265,30 @@ composition_spec(registry::RegistrySet, id::Union{Symbol,AbstractString}) =
     resolve(registry.compositions, Symbol(id))
 
 nodes(registry::RegistrySet) = sort!(collect(keys(registry.nodes)); by=string)
-tasks(registry::RegistrySet) = sort!(collect(keys(registry.tasks)); by=string)
+function tasks(registry::RegistrySet; tag=nothing, status=nothing)
+    tag_ = tag === nothing ? nothing : Symbol(tag)
+    status_ = status === nothing ? nothing : Symbol(status)
+    found = Symbol[]
+    for (name, task) in registry.tasks
+        tag_ === nothing || tag_ in task.tags || continue
+        status_ === nothing || task.status === status_ || continue
+        push!(found, name)
+    end
+    return sort!(found; by=string)
+end
+
+function analyses(registry::RegistrySet; task=nothing)
+    task_ = task === nothing ? nothing : Symbol(task)
+    found = Symbol[]
+    for (name, analysis) in registry.analyses
+        scope = hasproperty(analysis.metadata, :task) ? analysis.metadata.task : nothing
+        task_ === nothing || scope === nothing || scope === task_ || continue
+        push!(found, name)
+    end
+    return sort!(found; by=string)
+end
+
+ablations(registry::RegistrySet) = sort!(collect(keys(registry.ablations)); by=string)
 compositions(registry::RegistrySet) = sort!(collect(keys(registry.compositions)); by=string)
 
 function default_composition(
@@ -318,4 +337,3 @@ function resolve_composition(spec::CompositionSpec, registry::RegistrySet)
         spec.interaction_cycle === nothing ? task.interaction_cycle : spec.interaction_cycle,
     )
 end
-

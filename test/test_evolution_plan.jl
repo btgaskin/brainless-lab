@@ -60,6 +60,7 @@ end
     result = execute(resolved)
     @test result isa BrainlessLab.EvolutionResult
     @test length(result.candidates) == 2
+    @test length(result.candidate_batches) == 2
     @test length(result.convergence) == 1
     @test all(candidate -> length(candidate.objective_values) == 2, result.candidates)
     @test result.training.target === :tracking_train
@@ -72,6 +73,7 @@ end
     output_tables = tables(result)
     @test length(output_tables.convergence) == 1
     @test length(output_tables.candidates) == 2
+    @test length(output_tables.candidate_trials) == 4
     @test length(output_tables.champion_parameters) == 7
     @test output_tables.champion_parameters[1].parameter === :leak
     @test length(output_tables.training_trials) == 2
