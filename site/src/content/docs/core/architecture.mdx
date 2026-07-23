@@ -24,7 +24,7 @@ runs an ensemble of one and an ensemble of many.
 - **`Reservoir`** stores a population of nodes, wiring, and dynamic state.
 - **`AbstractBody`** is the dispatch boundary between a reservoir and a world.
 - **`Embodiment`** is the generic concrete body composition.
-- **`Agent`** pairs one reservoir with one body.
+- **`Agent`** pairs one reservoir with one body and one interaction cycle.
 - **`Environment`** owns external state and relations.
 - **`Ensemble`** advances one or more agents synchronously.
 - **`TaskSpec`** supplies setup, rollout defaults, and optional score metadata.
@@ -39,6 +39,7 @@ runs an ensemble of one and an ensemble of many.
 | physical footprint | geometry component |
 | raw physical sample | sensor plus world sampling method |
 | raw sample to receptor channels | encoder |
+| neural-frame outputs to one effector signal | readout |
 | effector values to bounded command | actuator |
 | command to motion | dynamics |
 | optional internal regulation, feedback, effects, and viability | physiology |
@@ -55,9 +56,11 @@ the effect came from food.
 ```text
 prepare world
   → sample every body from the same pre-action state
-  → sample sensors and encode receptor ports
-  → append any physiology feedback receptors
-  → step each reservoir and read its effectors
+  → sample sensors once
+  → encode one or more native neural frames
+  → append any physiology feedback receptors to each frame
+  → step each reservoir for each neural frame
+  → reduce neural-frame outputs through the body's readout
   → decode typed commands
   → apply the full command frame
   → collect world effects
@@ -67,6 +70,15 @@ prepare world
 
 No agent sees another agent's already-applied action from the same tick. This invariant
 matters for causal timing and replay.
+
+`FixedRateCycle(K)` makes the world-to-neural clock explicit. The world is sampled once,
+an encoder may distribute that observation over `K` neural frames, and the body emits one
+command after its readout finishes. A reservoir may still own internal integration below
+one neural frame. These are separate clocks; neither belongs in the task-specific world.
+
+The default `MeanReadout` preserves the prior held-input behavior. `InstantReadout` selects
+the final neural frame. `VotingReadout` makes categorical frame voting explicit, including
+its deterministic first-index tie rule. See [Interaction cycles](/core/interaction-cycle/).
 
 ## Ports join the body and reservoir
 
