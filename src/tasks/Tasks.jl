@@ -365,7 +365,7 @@ function _plank_cartpole_task(level_name::Symbol)
         default_window=PLANK_CARTPOLE_MISSION_STEPS,
         interaction_cycle=FixedRateCycle(PLANK_CARTPOLE_NEURAL_FRAMES),
         status=:experimental,
-        tags=(:challenge, :experimental, :extended, :plank_cartpole),
+        tags=(:experimental, :plank_cartpole),
         protocol=(;
             PLANK_CARTPOLE_PROTOCOL...,
             level=level.name,

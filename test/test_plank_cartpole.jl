@@ -29,14 +29,14 @@ end
     @test count(>(0), @view totals[5:8]) <= 2
 end
 
-@testset "four Plank CartPole levels are challenge-tagged profiles" begin
+@testset "four Plank CartPole levels are experimental task profiles" begin
     expected = Set((
         :cartpole_plank_easy,
         :cartpole_plank_medium,
         :cartpole_plank_hard,
         :cartpole_plank_hardest,
     ))
-    @test Set(tasks(tag=:challenge)) == expected
+    @test Set(tasks(tag=:plank_cartpole)) == expected
     @test Set(tasks(tag=:qualification)) == Set((:tracking, :pong))
     @test Set(tasks(tag=:benchmark)) == Set((:tracking, :pong))
     @test :pong_hitrate in tasks(tag=:alias)
@@ -46,6 +46,7 @@ end
     for task in expected
         info = task_info(task)
         @test info.status === :experimental
+        @test info.tags == (:experimental, :plank_cartpole)
         @test info.interaction_cycle == FixedRateCycle(24)
         @test info.protocol.evaluation_episodes == 1000
         @test info.protocol.cross_task_aggregate === false
@@ -87,7 +88,7 @@ end
 end
 
 @testset "Plank profiles execute through the standard simulation path" begin
-    for task in tasks(tag=:challenge)
+    for task in tasks(tag=:plank_cartpole)
         result = simulate(
             task;
             node=:falandays,

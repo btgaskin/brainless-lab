@@ -156,7 +156,7 @@ end
 Evaluate one fixed node construction across an explicit held set of CartPole
 initial conditions. Each trial fully resets reservoir dynamics, plastic state,
 and embodiment state while retaining the same constructed topology. Raw trials
-and initial conditions are returned; the four challenge levels are never
+and initial conditions are returned; the four Plank levels are never
 collapsed into a cross-task aggregate.
 """
 function evaluate_plank_cartpole(

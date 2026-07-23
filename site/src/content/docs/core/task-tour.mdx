@@ -86,7 +86,7 @@ number of independent runs before treating the mean as reliable.
 These tasks use direct vector adapters. Their worlds already produce the reservoir receptor
 vector and consume a task-specific effector vector.
 
-## Experimental CartPole challenge ladder
+## Experimental Plank CartPole levels
 
 Four additional task profiles reproduce the interface ladder proposed by Plank and
 colleagues for neuromorphic systems:
@@ -99,9 +99,9 @@ colleagues for neuromorphic systems:
 | `:cartpole_plank_hardest` | cart position and pole angle | left, right | Argyle-4 | 6,000 |
 
 All four run a 15,000-step mission with 24 native neural frames per world step and a
-frame-voting readout. They are tagged `:challenge` and `:experimental`; they are deliberately
-outside the Tracking/Pong core aggregate. The useful first result may simply be a clear
-failure boundary for an otherwise capable design.
+frame-voting readout. They are tagged `:experimental` and `:plank_cartpole`; they are deliberately
+outside the Tracking/Pong core benchmark. The useful first result may simply be a clear
+performance boundary for an otherwise capable design.
 
 For a quick integration check, use `simulate`. For the declared repeated-start contract,
 use `evaluate_plank_cartpole`, which retains the complete initial-condition set and every raw

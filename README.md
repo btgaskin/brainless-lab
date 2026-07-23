@@ -68,8 +68,8 @@ synchronous lifecycle.
 `FixedRateCycle` explicitly separates a world step from native neural frames. This supports
 held inputs, temporal spike encoders, mean or instant reduction, and categorical voting
 without putting task-specific timing branches into the simulation loop. Four experimental
-Plank CartPole challenge profiles use this seam; Tracking and Pong remain the initial core
-benchmark tasks.
+Plank CartPole task profiles use this seam as an experimental proving ground;
+Tracking and Pong remain the initial core benchmark tasks.
 
 `ObjectWorld` demonstrates composition of physical components, objects, fields, spectral
 appearance, and typed effects. It is not a calibrated benchmark. The established tracking

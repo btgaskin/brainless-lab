@@ -2,7 +2,7 @@ const PLANK_CARTPOLE_MISSION_STEPS = 15_000
 const PLANK_CARTPOLE_NEURAL_FRAMES = 24
 const PLANK_CARTPOLE_EVAL_EPISODES = 1_000
 
-"""Frozen task-interface definition for one Plank CartPole challenge level."""
+"""Frozen task-interface definition for one experimental Plank CartPole level."""
 struct PlankCartPoleLevel
     name::Symbol
     observation_indices::Tuple{Vararg{Int}}
@@ -332,7 +332,7 @@ function step!(environment::PlankCartPoleEnv, effectors)
         total_mass=environment.total_mass,
         # The source protocol executes Gym/Gymnasium CartPole's default
         # explicit-Euler path. Keep this distinct from the legacy BrainlessLab
-        # variants, which predate these challenge profiles.
+        # variants, which predate these task profiles.
         integrator=:euler,
     )
     environment.step_count += 1
@@ -415,7 +415,7 @@ function (setup::PlankCartPoleSetup)(;
     kwargs...,
 )
     body === nothing || throw(ArgumentError(
-        "Plank CartPole benchmark profiles freeze their embodiment; register a separate " *
+        "Plank CartPole task profiles freeze their embodiment; register a separate " *
         "experimental task to change sensors, encoding, readout, or actuators",
     ))
     rng_ = rng === nothing ? MersenneTwister(Int(seed)) : rng
@@ -432,7 +432,7 @@ function (setup::PlankCartPoleSetup)(;
         readouts=(VotingReadout(),),
         actuators=(DirectRelayActuator(setup.level.actions),),
         traits=(
-            benchmark=:plank_cartpole,
+            family=:plank_cartpole,
             level=setup.level.name,
             interface_frozen=true,
         ),
