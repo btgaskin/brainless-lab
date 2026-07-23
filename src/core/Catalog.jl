@@ -314,6 +314,18 @@ function register_builtins!(registry::RegistrySet)
     for (id, implementation) in sort!(collect(METRICS); by=pair -> string(first(pair)))
         register!(registry, :metrics, ImplementationSpec(id, implementation))
     end
+    for (id, entry) in sort!(collect(ANALYSES); by=pair -> string(first(pair)))
+        register!(
+            registry,
+            :analyses,
+            ImplementationSpec(
+                id,
+                entry.f;
+                label=entry.label,
+                metadata=(task=entry.task,),
+            ),
+        )
+    end
     for (id, implementation) in sort!(collect(VIEWS); by=pair -> string(first(pair)))
         register!(registry, :views, ImplementationSpec(id, implementation))
     end
@@ -331,4 +343,3 @@ function register_builtins!(registry::RegistrySet)
 end
 
 const DEFAULT_REGISTRY = RegistrySet()
-
