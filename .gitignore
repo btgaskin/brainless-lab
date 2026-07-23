@@ -14,7 +14,6 @@ examples/output/
 /experiments/runs/
 /experiments/results/homeostatic_needs_v2/
 /bench/genomes/
-/bench/Manifest.toml
 /bench/output/
 /examples/templates/new_project/output/
 /examples/templates/new_project/Manifest.toml

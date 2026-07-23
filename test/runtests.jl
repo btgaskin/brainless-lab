@@ -1,5 +1,10 @@
 using BrainlessLab
 using Test
+using Aqua
+
+@testset "Package quality" begin
+    Aqua.test_all(BrainlessLab)
+end
 
 include("testutils.jl")
 include("test_components.jl")

@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "e5f54b75d015108e62f7964a038c6db733ff2e1f"
+project_hash = "1936d7250a908cf710d7a57233db3835c77344fd"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -20,7 +20,7 @@ version = "1.11.0"
 deps = ["Dates", "JLD2", "LinearAlgebra", "Random", "StaticArrays", "Statistics", "TOML"]
 path = "."
 uuid = "d12add44-1e3e-4161-9a99-c2121a2f0f38"
-version = "0.0.1"
+version = "0.1.1"
 
     [deps.BrainlessLab.extensions]
     BrainlessLabMakieExt = "Makie"

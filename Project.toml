@@ -1,7 +1,7 @@
 name = "BrainlessLab"
 uuid = "d12add44-1e3e-4161-9a99-c2121a2f0f38"
 authors = ["btgaskin <bengaskin@outlook.com>"]
-version = "0.0.1"
+version = "0.1.1"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -19,18 +19,26 @@ Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 BrainlessLabMakieExt = "Makie"
 
 [compat]
+Aqua = "0.8"
 CairoMakie = "0.12, 0.13, 0.14, 0.15"
+Dates = "1.10"
 JLD2 = "0.5"
+LinearAlgebra = "1.10"
 Makie = "0.21, 0.22, 0.23, 0.24"
 NPZ = "0.4"
+Random = "1.10"
 StaticArrays = "1"
+Statistics = "1.10"
+TOML = "1"
+Test = "1.10"
 julia = "1.10"
 
 [extras]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 NPZ = "15e1cf62-19b3-5cfa-8e77-841668bca605"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["CairoMakie", "Makie", "NPZ", "Test"]
+test = ["Aqua", "CairoMakie", "Makie", "NPZ", "Test"]

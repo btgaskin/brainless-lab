@@ -1,5 +1,7 @@
 # BrainlessLab.jl
 
+[![CI](https://github.com/btgaskin/brainless-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/btgaskin/brainless-lab/actions/workflows/ci.yml)
+
 <p align="center"><img src="brainless-lab.png" alt="BrainlessLab" width="760"></p>
 
 <p align="center">
@@ -11,9 +13,10 @@
   <a href="https://disi.org">Diverse Intelligences Summer Institute 2026</a>
 </p>
 
-BrainlessLab is an extensible Julia lab for neural reservoirs in closed sensorimotor
-loops. It provides tasks, generic embodiment, single-agent and population worlds,
-recording, analysis, batch tools, and evidence-aware experiment workflows.
+BrainlessLab v0.1.1 is an **experimental research preview** for neural reservoirs in
+closed sensorimotor loops. It provides tasks, generic embodiment, single-agent and
+population worlds, recording, analysis, batch tools, and evidence-aware experiment
+workflows. APIs and artifact layouts may change before 1.0.
 
 The canonical baseline is `node=:falandays`: an authors-faithful implementation of the
 tested Falandays homeostatic spiking reservoir. It adapts neural activity online and has no
@@ -22,7 +25,8 @@ studies are experimental unless their documentation states a narrower validated 
 
 ## Quickstart
 
-Install Julia, clone the repository, and use the pinned project:
+BrainlessLab is not yet registered in Julia General. Install Julia 1.10 or newer,
+clone the repository, and use its pinned project:
 
 ```bash
 git clone https://github.com/btgaskin/brainless-lab.git

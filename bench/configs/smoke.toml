@@ -1,12 +1,12 @@
-neurons = ["falandays", "falandays_ablated", "compartmental_structured"]
-tasks = ["wall", "tracking"]
+neurons = ["falandays"]
+tasks = ["tracking"]
 
-n_trials = 5
-n_nodes = 60
-ticks = 150
+n_trials = 1
+n_nodes = 12
+ticks = 20
 seed_base = 1000
 baseline = "falandays"
 alpha = 0.05
-gifs = true
+gifs = false
 
 [prep]

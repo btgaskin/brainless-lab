@@ -8,6 +8,9 @@ BrainlessLab studies neural reservoirs in closed sensorimotor loops. The canonic
 Start with the tracking task. Tracking has a clear observation, a clear action, and a
 continuous error signal.
 
+The current release is an experimental research preview. BrainlessLab is not yet
+registered in Julia General, and its APIs and artifact layouts may change before 1.0.
+
 You can use the browser model for orientation. Use the Julia package for reproducible
 runs and recorded evidence.
 
@@ -31,7 +34,8 @@ limitations. You do not need to name source files or Julia types.
 ### Run it locally
 
 Install Julia with the
-[official Julia installer](https://julialang.org/install/). Then run:
+[official Julia installer](https://julialang.org/install/). BrainlessLab requires Julia
+1.10 or newer. Clone the repository and instantiate its pinned environment:
 
 ```bash
 git clone https://github.com/btgaskin/brainless-lab.git
