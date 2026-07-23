@@ -43,7 +43,7 @@ end
                 (tracking_base, tracking_leak);
                 baseline=:tracking_base,
             ),
-            BenchmarkCasePlan(:pong, (pong_base,); baseline=:pong_base),
+            BenchmarkCasePlan(:pong, (pong_base,)),
         ),
     )
     result = execute(plan)
@@ -52,6 +52,7 @@ end
     @test length(result_tables.trials) == 6
     @test Set(row.case for row in result_tables.statistics) == Set((:tracking, :pong))
     @test length(result_tables.contrasts) == 1
+    @test result.plan.cases[2].baseline === nothing
     @test result_tables.contrasts[1].condition === :tracking_leak
     @test result_tables.contrasts[1].n == 2
     @test hasproperty(result_tables.contrasts[1], :raw_ci_lower)
@@ -59,6 +60,10 @@ end
     @test all(row -> row.interval_method === :student_t_95, result_tables.statistics)
     @test summary(result).cases == (:tracking, :pong)
     @test !hasproperty(summary(result), :aggregate)
+    @test_throws ArgumentError BenchmarkCasePlan(
+        :missing_baseline,
+        (tracking_base, tracking_leak),
+    )
 
     unpaired = _benchmark_target(:unpaired, :tracking; root_seed=56)
     bad = BenchmarkPlan(

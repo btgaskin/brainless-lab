@@ -196,13 +196,13 @@ end
 struct BenchmarkCasePlan{C<:Tuple}
     id::Symbol
     conditions::C
-    baseline::Symbol
+    baseline::Union{Nothing,Symbol}
 end
 
 function BenchmarkCasePlan(
     id::Union{Symbol,AbstractString},
     conditions;
-    baseline::Union{Symbol,AbstractString},
+    baseline::Union{Nothing,Symbol,AbstractString}=nothing,
 )
     id_ = _nonempty_symbol(id, "benchmark case id")
     conditions_ = Tuple(conditions)
@@ -214,10 +214,16 @@ function BenchmarkCasePlan(
     length(unique(names)) == length(names) || throw(ArgumentError(
         "benchmark condition ids must be unique within a case",
     ))
-    baseline_ = Symbol(baseline)
-    baseline_ in names || throw(ArgumentError(
-        "benchmark baseline :$(baseline_) is not a condition in case :$(id_)",
-    ))
+    baseline_ = baseline === nothing ? nothing : Symbol(baseline)
+    if baseline_ === nothing
+        length(conditions_) == 1 || throw(ArgumentError(
+            "benchmark case :$(id_) requires a baseline when it has multiple conditions",
+        ))
+    else
+        baseline_ in names || throw(ArgumentError(
+            "benchmark baseline :$(baseline_) is not a condition in case :$(id_)",
+        ))
+    end
     return BenchmarkCasePlan(id_, conditions_, baseline_)
 end
 

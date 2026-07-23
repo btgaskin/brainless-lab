@@ -387,7 +387,7 @@ function _operation_method(kind::Symbol)
     kind === :sweep && return "Evaluates declared parameter cells under paired block and trial seeds. Cells are development results, not confirmed optima."
     kind === :ablation && return "Compares an implicit baseline with declared capability-checked interventions under paired evaluation seeds."
     kind === :evolution && return "Selects parameters on the training target, records convergence, then evaluates the selected parameters on held-out targets without tuning on them."
-    kind === :benchmark && return "Reports each task separately and computes paired within-task contrasts with 95% Student-t intervals against its declared baseline. No cross-task aggregate is formed."
+    kind === :benchmark && return "Reports each task separately with 95% Student-t intervals. Cases with a declared baseline also report paired within-task contrasts. No cross-task aggregate is formed."
     return "Executes the declared BrainlessLab operation."
 end
 
@@ -555,11 +555,18 @@ end
 
 function _resolution_details(result::BenchmarkResult)
     return Dict{String,Any}(
-        "cases" => [Dict{String,Any}(
-            "id" => String(case.id),
-            "baseline" => String(case.baseline),
-            "conditions" => [String(condition.target.id) for condition in case.conditions],
-        ) for case in result.plan.cases],
+        "cases" => [
+            begin
+                case_document = Dict{String,Any}(
+                    "id" => String(case.id),
+                    "conditions" => [String(condition.target.id) for condition in case.conditions],
+                )
+                case.baseline === nothing ||
+                    (case_document["baseline"] = String(case.baseline))
+                case_document
+            end
+            for case in result.plan.cases
+        ],
     )
 end
 

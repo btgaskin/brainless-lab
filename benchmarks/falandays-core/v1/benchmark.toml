@@ -1,0 +1,48 @@
+format = "brainlesslab-plan"
+format_version = 1
+operation = "benchmark"
+id = "falandays_core_v1"
+
+[[targets]]
+id = "tracking_falandays"
+
+[targets.composition]
+id = "tracking_falandays"
+preset = "falandays_tracking"
+
+[targets.evaluation]
+blocks = 20
+trials_per_block = 1
+horizon = 1000
+warmup = 800
+construction_scope = "trial"
+reset = "full"
+root_seed = 51001
+aggregate = "mean"
+
+[[targets]]
+id = "pong_falandays"
+
+[targets.composition]
+id = "pong_falandays"
+preset = "falandays_pong"
+
+[targets.evaluation]
+blocks = 20
+trials_per_block = 1
+horizon = 2000
+warmup = 1000
+construction_scope = "trial"
+reset = "full"
+root_seed = 52001
+aggregate = "mean"
+
+[benchmark]
+
+[[benchmark.cases]]
+id = "tracking"
+conditions = ["tracking_falandays"]
+
+[[benchmark.cases]]
+id = "pong"
+conditions = ["pong_falandays"]

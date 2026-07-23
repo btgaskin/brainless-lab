@@ -156,11 +156,15 @@ function plan_document(plan::BenchmarkPlan)
     document = _base_plan_document(plan, :benchmark, Tuple(targets))
     document["benchmark"] = Dict{String,Any}(
         "cases" => [
-            Dict{String,Any}(
-                "id" => String(case.id),
-                "conditions" => String[String(target.id) for target in case.conditions],
-                "baseline" => String(case.baseline),
-            )
+            begin
+                case_document = Dict{String,Any}(
+                    "id" => String(case.id),
+                    "conditions" => String[String(target.id) for target in case.conditions],
+                )
+                case.baseline === nothing ||
+                    (case_document["baseline"] = String(case.baseline))
+                case_document
+            end
             for case in plan.cases
         ],
     )
@@ -361,10 +365,11 @@ function read_plan(path::AbstractString; registry::RegistrySet=DEFAULT_REGISTRY)
         _require_document_keys(section, ("cases",), "benchmark")
         cases = Tuple(begin
             _require_document_keys(case, ("id", "conditions", "baseline"), "benchmark case")
+            baseline = get(case, "baseline", nothing)
             BenchmarkCasePlan(
                 Symbol(case["id"]),
                 Tuple(_target(targets, name) for name in case["conditions"]);
-                baseline=Symbol(case["baseline"]),
+                baseline=baseline === nothing ? nothing : Symbol(baseline),
             )
         end for case in section["cases"])
         return BenchmarkPlan(id, cases)

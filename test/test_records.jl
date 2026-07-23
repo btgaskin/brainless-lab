@@ -60,6 +60,32 @@ function _record_evolution_plan()
     )
 end
 
+function _record_anchor_benchmark_plan()
+    base = default_composition(DEFAULT_REGISTRY, :falandays, :tracking)
+    composition = CompositionSpec(
+        :record_anchor_tracking,
+        base.node,
+        base.task;
+        n_nodes=8,
+        parameters=base.parameters,
+    )
+    target = EvaluationTarget(
+        :tracking_falandays,
+        composition,
+        EvaluationSpec(
+            blocks=2,
+            trials_per_block=1,
+            horizon=2,
+            root_seed=606,
+            aggregate=:mean,
+        ),
+    )
+    return BenchmarkPlan(
+        :record_anchor_benchmark,
+        (BenchmarkCasePlan(:tracking, (target,)),),
+    )
+end
+
 @testset "version-one records are complete and portable" begin
     plan = _record_sweep_plan()
     result = execute(resolve(plan, DEFAULT_REGISTRY))
@@ -150,6 +176,23 @@ end
     csv = read(path, String)
     @test first(split(csv, '\n')) == "phase,value,target"
     @test occursin("heldout,2,pong", csv)
+end
+
+@testset "anchor-only benchmark records omit a baseline" begin
+    plan = _record_anchor_benchmark_plan()
+    result = execute(resolve(plan, DEFAULT_REGISTRY))
+    directory = write_record(plan, result; root=mktempdir(), id="anchor-record")
+
+    request = TOML.parsefile(joinpath(directory, "request.toml"))
+    resolved = TOML.parsefile(joinpath(directory, "resolved.toml"))
+    contrasts = read(joinpath(directory, "summary", "contrasts.csv"), String)
+    report = read(joinpath(directory, "report", "index.html"), String)
+
+    @test !haskey(only(request["benchmark"]["cases"]), "baseline")
+    @test !haskey(only(resolved["operation_settings"]["cases"]), "baseline")
+    @test count(==('\n'), contrasts) == 1
+    @test occursin("Cases with a declared baseline", report)
+    @test isfile(joinpath(directory, "DONE"))
 end
 
 @testset "seed ledger preserves every agent and stream" begin

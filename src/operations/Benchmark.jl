@@ -1,7 +1,7 @@
 struct ResolvedBenchmarkCase{C<:Tuple}
     id::Symbol
     conditions::C
-    baseline::Symbol
+    baseline::Union{Nothing,Symbol}
 end
 
 struct ResolvedBenchmarkPlan{P<:BenchmarkPlan,C<:Tuple} <: AbstractResolvedOperationPlan
@@ -31,15 +31,17 @@ function _benchmark_evaluation_signature(evaluation::EvaluationSpec)
 end
 
 function _validate_benchmark_case(case::BenchmarkCasePlan, registry::RegistrySet)
-    baseline = only(condition for condition in case.conditions if condition.id === case.baseline)
-    reference_task = baseline.composition.task
-    reference = _benchmark_evaluation_signature(baseline.evaluation)
+    reference_condition = case.baseline === nothing ?
+        only(case.conditions) :
+        only(condition for condition in case.conditions if condition.id === case.baseline)
+    reference_task = reference_condition.composition.task
+    reference = _benchmark_evaluation_signature(reference_condition.evaluation)
     for condition in case.conditions
         resolve_composition(condition.composition, registry)
         condition.composition.task === reference_task || throw(ArgumentError(
             "benchmark case :$(case.id) must compare conditions on one task; " *
-            ":$(condition.id) uses :$(condition.composition.task), while the baseline " *
-            "uses :$(reference_task)",
+            ":$(condition.id) uses :$(condition.composition.task), while the reference " *
+            "condition uses :$(reference_task)",
         ))
         _benchmark_evaluation_signature(condition.evaluation) == reference ||
             throw(ArgumentError(
@@ -174,6 +176,7 @@ end
 function _benchmark_contrasts(result::BenchmarkResult)
     output = NamedTuple[]
     for case in result.batches
+        case.baseline === nothing && continue
         condition_rows = Dict(
             condition.id => Dict(
                 (row.block, row.trial) => row

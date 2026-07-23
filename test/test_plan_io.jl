@@ -39,7 +39,7 @@ end
         BenchmarkPlan(
             :benchmark,
             (
-                BenchmarkCasePlan(:tracking, (target,); baseline=:tracking),
+                BenchmarkCasePlan(:tracking, (target,)),
                 BenchmarkCasePlan(
                     :pong,
                     (_io_target(:pong, :pong),);
@@ -56,6 +56,21 @@ end
         @test parsed.id === plan.id
         @test plan_document(parsed)["format_version"] == 1
     end
+end
+
+@testset "anchor-only benchmark TOML omits a baseline" begin
+    target = _io_target(:tracking, :tracking)
+    plan = BenchmarkPlan(
+        :anchor_only,
+        (BenchmarkCasePlan(:tracking, (target,)),),
+    )
+    document = plan_document(plan)
+    @test !haskey(only(document["benchmark"]["cases"]), "baseline")
+
+    path = tempname() * ".toml"
+    write_plan(path, plan)
+    parsed = read_plan(path)
+    @test only(parsed.cases).baseline === nothing
 end
 
 @testset "plan IO preserves the interaction cycle" begin
