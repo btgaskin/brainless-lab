@@ -70,6 +70,7 @@ include("api/Highlevel.jl")
 include("core/Catalog.jl")
 include("api/Composition.jl")
 include("operations/Plans.jl")
+include("operations/Evaluation.jl")
 include("analysis/ActivityLevels.jl")
 include("analysis/Branching.jl")
 include("analysis/Avalanches.jl")
@@ -692,6 +693,13 @@ export AbstractOperationPlan,
     execute,
     tables,
     summary
+
+export EvaluationTrial,
+    EvaluationBatch,
+    evaluate,
+    realized_initial_state,
+    trial_row,
+    trial_table
 
 export SimResult,
     simulate,

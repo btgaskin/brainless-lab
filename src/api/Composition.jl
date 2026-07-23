@@ -13,10 +13,24 @@ function _composition_seed_ledger(
     block::Integer,
     trial::Integer,
     agent::Integer,
+    construction_block::Integer=block,
+    construction_trial::Integer=trial,
 )
     return (
-        topology=derive_seed(evaluation, :topology, block, trial, agent),
-        node_state=derive_seed(evaluation, :node_state, block, trial, agent),
+        topology=derive_seed(
+            evaluation,
+            :topology,
+            construction_block,
+            construction_trial,
+            agent,
+        ),
+        node_state=derive_seed(
+            evaluation,
+            :node_state,
+            construction_block,
+            construction_trial,
+            agent,
+        ),
         world=derive_seed(evaluation, :world, block, trial),
         body=derive_seed(evaluation, :body, block, trial, agent),
         task=derive_seed(evaluation, :task, block, trial),
@@ -29,6 +43,8 @@ function _build_composition(
     evaluation::EvaluationSpec;
     block::Integer=1,
     trial::Integer=1,
+    construction_block::Integer=block,
+    construction_trial::Integer=trial,
     record=_DEFAULT_RECORD_CHANNELS,
     every::Integer=1,
 )
@@ -50,7 +66,14 @@ function _build_composition(
         layout = portspec(body_at_slot)
         default_link_p = Float64(get(resolved.parameters, :link_p, 0.1))
         profile = receptor_link_profile(body_at_slot, default_link_p)
-        seeds = _composition_seed_ledger(evaluation, block, trial, slot)
+        seeds = _composition_seed_ledger(
+            evaluation,
+            block,
+            trial,
+            slot,
+            construction_block,
+            construction_trial,
+        )
         context = NodeBuildContext(
             resolved.n_nodes,
             layout,
@@ -146,4 +169,3 @@ simulate(
     registry::RegistrySet;
     kwargs...,
 ) = simulate(composition_spec(registry, composition); registry=registry, kwargs...)
-
