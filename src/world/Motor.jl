@@ -93,7 +93,7 @@ _motor_unmap(x, lo, hi) = _sensor_unmap(x, lo, hi)
 """
     paramspace(motor)
 
-Labeled `(label, lo, hi)` bounds for each evolvable scalar of a `KinematicMotor`.
+Labeled `(label, lo, hi)` bounds for each variable scalar of a `KinematicMotor`.
 Categorical choices (`scheme`, `readout`, `allow_reverse`, `brake`) and `dt` are
 not genes. A degenerate range `(lo, lo)` drops that scalar from the genome.
 """

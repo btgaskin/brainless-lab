@@ -51,10 +51,13 @@ const TEST_SUITES = (
         "test_profile_plan.jl",
         "test_sweep_plan.jl",
         "test_ablation_plan.jl",
+        "test_search_strategies.jl",
+        "test_evolution_artifacts.jl",
         "test_evolution_plan.jl",
         "test_records.jl",
         "test_plan_examples.jl",
         "test_experiment_io.jl",
+        "test_research_contributions.jl",
     ),
     oracle=(
         "test_fixture_integrity.jl",
@@ -66,7 +69,6 @@ const TEST_SUITES = (
         "test_ablation.jl",
         "test_compartmental.jl",
         "test_collective_single.jl",
-        "test_sepcma.jl",
         "test_paper_constants.jl",
         "test_delays.jl",
         "test_core_task_controls.jl",
@@ -76,13 +78,7 @@ const TEST_SUITES = (
     ),
     legacy=(
         "test_collective_dyad.jl",
-        "test_composite.jl",
-        "test_evolve.jl",
-        "test_multiobjective.jl",
-        "test_qualitydiversity.jl",
         "test_replay.jl",
-        "test_run.jl",
-        "test_sweep.jl",
     ),
 )
 

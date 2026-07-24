@@ -44,6 +44,7 @@ function _evaluate_trial(
     resolved::ResolvedComposition,
     block::Integer,
     trial::Integer;
+    model=nothing,
     record=(),
     record_every::Integer=1,
     metrics=nothing,
@@ -61,6 +62,7 @@ function _evaluate_trial(
         trial=trial,
         construction_block=construction_block,
         construction_trial=construction_trial,
+        model=model,
         record=record,
         every=record_every,
     )
@@ -133,6 +135,7 @@ rejected until the composed task declares the corresponding reset hooks.
 function evaluate(
     target::EvaluationTarget;
     registry::RegistrySet=DEFAULT_REGISTRY,
+    model=nothing,
     record=(),
     record_every::Integer=1,
     metrics=nothing,
@@ -143,6 +146,28 @@ function evaluate(
         "must be exposed through a declared reset hook before using :$(evaluation.reset)",
     ))
     resolved = resolve_composition(target.composition, registry)
+    requested_model = model === nothing ? target.model : model
+    resolved_model = if requested_model isa Evolution.ModelReference
+        resolved.node.design === nothing && throw(ArgumentError(
+            "node :$(resolved.node.id) does not declare a searchable design",
+        ))
+        Evolution.read_model(requested_model, resolved.node.id, resolved.node.design)
+    else
+        requested_model
+    end
+    if resolved.node.design !== nothing
+        resolved_model === nothing && throw(ArgumentError(
+            "node :$(resolved.node.id) requires an explicit node model",
+        ))
+        resolved_model isa resolved.node.design.model_type || throw(ArgumentError(
+            "node :$(resolved.node.id) requires model type " *
+            "$(resolved.node.design.model_type), got $(typeof(resolved_model))",
+        ))
+    elseif resolved_model !== nothing
+        throw(ArgumentError(
+            "node :$(resolved.node.id) does not accept an explicit node model",
+        ))
+    end
     count = evaluation.blocks * evaluation.trials_per_block
     trial_results = Vector{EvaluationTrial}(undef, count)
     index = 1
@@ -153,6 +178,7 @@ function evaluate(
                 resolved,
                 block,
                 trial;
+                model=resolved_model,
                 record=record,
                 record_every=record_every,
                 metrics=metrics,

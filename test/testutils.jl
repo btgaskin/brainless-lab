@@ -43,12 +43,6 @@ function operation_registry()
                 1.0;
                 validator=value -> 0.0 <= value <= 2.0,
                 sweep=(0.5, 1.0),
-                evolve=(
-                    lower=0.0,
-                    upper=2.0,
-                    scale=:linear,
-                    mutation_scale=0.1,
-                ),
                 description="test-only gain coordinate",
             ),
             ParameterSpec(
@@ -56,18 +50,11 @@ function operation_registry()
                 0.0;
                 validator=value -> -1.0 <= value <= 1.0,
                 sweep=(-0.25, 0.25),
-                evolve=(
-                    lower=-1.0,
-                    upper=1.0,
-                    scale=:linear,
-                    mutation_scale=0.1,
-                ),
                 description="test-only bias coordinate",
             ),
         ),
         parameter_sets=Dict(
             :sweep => (:gain, :bias),
-            :evolve => (:gain, :bias),
         ),
         equations=(
             EquationSpec(
@@ -85,11 +72,6 @@ function operation_registry()
     for task in (:tracking, :pong)
         register!(registry, task_spec(DEFAULT_REGISTRY, task))
     end
-    register!(
-        registry,
-        :optimizers,
-        resolve(DEFAULT_REGISTRY.optimizers, :sepcma),
-    )
     register!(
         registry,
         :analyses,

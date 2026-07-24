@@ -1,12 +1,12 @@
 """
     NodeModel
 
-Abstract supertype for evolvable node parameter bundles.
+Abstract supertype for fixed node-model descriptions.
 
-A `NodeModel` represents the genotype-side description of one node family. Its
-evolvable values are exposed through `pack_params`, `unpack_params`, and
-`paramdim`; dynamic runtime values belong to reservoir state and are exposed
-through `snapshot_state` and `load_state!`.
+A `NodeModel` represents the mechanism-side description of one node family.
+Supported experimental designs expose coordinates through a reviewed
+`Evolution.NodeDesignSpec`. Dynamic runtime values belong to reservoir state
+and are exposed through `snapshot_state` and `load_state!`.
 """
 abstract type NodeModel end
 
@@ -15,8 +15,8 @@ abstract type NodeModel end
 
 Abstract supertype for a population of nodes plus its dynamic state.
 
-Reservoir parameters and reservoir state are intentionally separate. Parameters
-are evolvable genotype data handled by `pack_params`, `unpack_params`, and
+Reservoir parameters and reservoir state are intentionally separate. Fixed
+model coordinates can be handled by `pack_params`, `unpack_params`, and
 `paramdim`. State is transient simulation data handled by `snapshot_state` and
 `load_state!`.
 """
@@ -71,14 +71,6 @@ system.
 abstract type Intervention end
 
 """
-    AbstractEvolutionStrategy
-
-Abstract supertype for optimizers or evolution strategies that propose and
-consume candidate parameter vectors.
-"""
-abstract type AbstractEvolutionStrategy end
-
-"""
     step!(object, args...)
 
 Advance an object by one simulation step.
@@ -95,7 +87,7 @@ function effectors end
 """
     reset!(object, args...)
 
-Reset dynamic runtime state without changing evolvable parameters.
+Reset dynamic runtime state without changing model parameters.
 """
 function reset! end
 
@@ -140,7 +132,7 @@ function receptor_link_profile end
 """
     pack_params(object, args...)
 
-Pack evolvable parameters into a flat genotype representation.
+Pack model or component parameters into a flat coordinate representation.
 
 Parameter packing is separate from state snapshotting: use `snapshot_state` for
 dynamic runtime state.
@@ -150,7 +142,7 @@ function pack_params end
 """
     unpack_params(object, params, args...)
 
-Load evolvable parameters from a genotype representation.
+Load model or component parameters from a flat coordinate representation.
 
 Parameter unpacking is separate from state loading: use `load_state!` for
 dynamic runtime state.
@@ -160,16 +152,16 @@ function unpack_params end
 """
     paramdim(object, args...)
 
-Return the number of evolvable scalar parameters represented by `object`.
+Return the number of scalar coordinates represented by `object`.
 """
 function paramdim end
 
 """
     genome_type(node)
 
-Return the `NodeModel` type that represents a registered node's evolvable
-parameters. Evolution code uses this type with `pack_params`, `paramdim`, and
-`unpack_params` instead of branching on built-in node symbols.
+Return the `NodeModel` type registered for a node. A reviewed
+`Evolution.NodeDesignSpec` decides whether this model type participates in
+experimental search.
 """
 function genome_type end
 
@@ -178,8 +170,7 @@ function genome_type end
 
 Return a representation of dynamic runtime state.
 
-State snapshots are not evolvable genotype data. Use `pack_params` for
-parameters.
+State snapshots are not model coordinates. Use `pack_params` for parameters.
 """
 function snapshot_state end
 
@@ -189,7 +180,7 @@ function snapshot_state end
 Restore dynamic runtime state from a state snapshot.
 
 State loading is separate from parameter unpacking: use `unpack_params` for
-evolvable genotype data.
+model coordinates.
 """
 function load_state! end
 
@@ -200,7 +191,7 @@ Return an optional, visualization-oriented description of a reservoir's network.
 Reservoirs without an exposed network return `nothing`.
 
 This is a read-only inspection hook. Dynamic runtime state belongs to
-`snapshot_state`; evolvable parameters belong to `pack_params`.
+`snapshot_state`; model coordinates belong to `pack_params`.
 """
 network_snapshot(::Reservoir) = nothing
 

@@ -9,6 +9,7 @@ The archive contains:
 - study pages and their public media;
 - compatibility pages from the earlier site structure;
 - the bespoke experiment runner, protocols, results, and figure scripts;
+- the superseded sweep configuration files and standalone profile runner;
 - the previous site writing assessment.
 
 These files describe older research and documentation paths. They are not part of the

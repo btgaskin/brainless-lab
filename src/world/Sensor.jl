@@ -260,7 +260,7 @@ _tuning_evolvable(s::BearingSensor) = s.tuning_range_deg[1] != s.tuning_range_de
 """
     paramspace(spec)
 
-Labeled `(label, lo, hi)` bounds for each evolvable scalar of an `AbstractSensor`. For
+Labeled `(label, lo, hi)` bounds for each variable scalar of an `AbstractSensor`. For
 `BearingSensor`: one `angle_<i>` per active ray (bounded by `angle_range_deg`),
 plus a trailing `tuning` entry iff `tuning_range_deg` is non-degenerate.
 """

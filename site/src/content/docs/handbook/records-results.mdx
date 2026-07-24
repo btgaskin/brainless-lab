@@ -38,6 +38,18 @@ HTML report presents the same typed result for a reader.
 `record.toml` stores the package and Julia versions, Git revision and state, artifact
 inventory, and SHA-256 checksums. A failed write contains `FAILED` instead of `DONE`.
 
+## Public contribution records
+
+Merge the experiment protocol and software before submitting public run records. Generate those
+records from a clean Git commit that is reachable from `main`.
+
+A maintainer replay and a contributor submission are linked roles in one contribution. They do
+not provide two independent samples. Human review decides whether the contribution enters the
+[accepted-run catalogue](/research/catalogue/).
+
+Accepted records are public and immutable. A text-only contribution should be at most 1 MiB and
+must not exceed 5 MiB.
+
 ## Interpretation boundary
 
 A complete record proves that generation finished and preserves the result. It does not

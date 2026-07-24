@@ -19,27 +19,101 @@ function _record_sweep_plan()
     )
 end
 
-function _record_evolution_plan()
-    training = operation_target(
-        :tracking_development,
+function _record_evolution_plan(; iterations=1)
+    composition = CompositionSpec(
+        :record_structured_ctrnn,
+        :compartmental_structured,
         :tracking;
-        horizon=2,
-        root_seed=404,
+        n_nodes=2,
     )
-    confirmation = operation_target(
+    training = EvaluationTarget(
+        :tracking_development,
+        composition,
+        EvaluationSpec(
+            horizon=1,
+            root_seed=404,
+            aggregate=:mean,
+        ),
+    )
+    confirmation = EvaluationTarget(
         :tracking_confirmation,
-        :tracking;
-        horizon=2,
-        root_seed=505,
+        composition,
+        EvaluationSpec(
+            horizon=1,
+            root_seed=505,
+            aggregate=:mean,
+        ),
+    )
+    run = Evolution.RunConfig(
+        strategy=:sepcma,
+        iterations=iterations,
+        search_seed=606,
+        initialisation=Evolution.NormalInitialisation(
+            centre=:zero,
+            scale=0.1,
+        ),
+        options=(population=2, reducer=:mean,),
     )
     return EvolutionPlan(
         :record_evolution_smoke,
-        training;
+        (training,);
+        run,
         heldout_targets=(confirmation,),
-        generations=1,
-        popsize=2,
-        sigma0=0.1,
     )
+end
+
+@testset "evolution resumes from the last complete generation" begin
+    plan = _record_evolution_plan(iterations=2)
+    resolved = resolve(plan, DEFAULT_REGISTRY)
+    directory = joinpath(mktempdir(), "resume-record")
+    mkpath(directory)
+    write_plan(joinpath(directory, "request.toml"), plan)
+    open(joinpath(directory, "resolved.toml"), "w") do io
+        TOML.print(
+            io,
+            BrainlessLab._resolved_document(plan, resolved);
+            sorted=true,
+        )
+    end
+    BrainlessLab._mark_incomplete(directory)
+    git = BrainlessLab._record_git()
+    digests = BrainlessLab._evolution_operation_digests(
+        plan,
+        resolved,
+        git,
+    )
+    write_checkpoint = BrainlessLab._evolution_checkpoint_callback(
+        directory,
+        digests,
+        :sepcma,
+        plan,
+        git,
+    )
+    @test_throws ErrorException execute(
+        resolved;
+        checkpoint=(iteration, state, candidates) -> begin
+            write_checkpoint(iteration, state, candidates)
+            iteration == 1 && error("simulated interruption")
+        end,
+    )
+    @test TOML.parsefile(joinpath(directory, "record.toml"))[
+        "completion_marker"
+    ] == "INCOMPLETE"
+    @test isfile(joinpath(directory, "resolved.toml"))
+    @test occursin(
+        "development",
+        read(joinpath(directory, "seeds.csv"), String),
+    )
+    resumed = Evolution.resume(directory)
+    @test resumed.directory == directory
+    @test length(resumed.result.candidates) == 4
+    @test sort(readdir(joinpath(directory, "checkpoints"))) == [
+        "generation-00000001",
+        "generation-00000002",
+    ]
+    @test isfile(joinpath(directory, "DONE"))
+    @test !isfile(joinpath(directory, "INCOMPLETE"))
+    @test !isfile(joinpath(directory, "FAILED"))
 end
 
 function _record_anchor_benchmark_plan()
@@ -228,20 +302,26 @@ end
 
 
 @testset "evolution records retain candidate trials and seeds" begin
-    registry = operation_registry()
     plan = _record_evolution_plan()
-    result = execute(resolve(plan, registry))
-    directory = write_record(
-        plan,
-        result;
-        registry,
+    run = run_operation(
+        plan;
         root=mktempdir(),
         id="evolution-record",
     )
+    result = run.result
+    directory = run.directory
     @test isfile(joinpath(directory, "data", "candidate_trials.csv"))
     @test count(==('\n'), read(joinpath(directory, "data", "candidate_trials.csv"), String)) == 3
+    @test isfile(joinpath(directory, "models", "schema.toml"))
+    @test isfile(joinpath(
+        directory,
+        "checkpoints",
+        "generation-00000001",
+        "DONE",
+    ))
+    @test isempty(filter(name -> name in ("INCOMPLETE", "FAILED"), readdir(directory)))
+    @test only(result.model_references).model_id == "selected"
     seeds = read(joinpath(directory, "seeds.csv"), String)
     @test occursin("development", seeds)
-    @test occursin("training", seeds)
     @test occursin("heldout", seeds)
 end

@@ -18,6 +18,8 @@ include("core/Interfaces.jl")
 include("core/Traits.jl")
 include("core/Params.jl")
 include("core/Specifications.jl")
+include("evolution/Evolution.jl")
+include("evolution/Artifacts.jl")
 include("core/Registry.jl")
 include("core/Components.jl")
 include("core/Recorder.jl")
@@ -79,6 +81,7 @@ include("operations/Benchmark.jl")
 include("records/PlanIO.jl")
 include("records/ExperimentIO.jl")
 include("records/Records.jl")
+include("records/Contributions.jl")
 include("analysis/ActivityLevels.jl")
 include("analysis/Branching.jl")
 include("analysis/Avalanches.jl")
@@ -91,37 +94,24 @@ include("analysis/TaskSignals.jl")
 include("analysis/TransferEntropy.jl")
 include("analysis/ForageTransfer.jl")
 include("analysis/OwnColour.jl")
-include("drivers/Driver.jl")
 include("tasks/Calibration.jl")
-include("drivers/Parallel.jl")
-include("drivers/Composite.jl")
-include("drivers/Evolve.jl")
-include("drivers/MultiObjective.jl")
-include("drivers/QualityDiversity.jl")
-include("drivers/Fixed.jl")
-include("drivers/Plastic.jl")
 include("run/EmbodimentConfig.jl")
 include("run/ComponentCatalog.jl")
 include("world/ObjectWorld.jl")
 include("tasks/ShoalForage.jl")
 include("analysis/ShoalForage.jl")
 include("run/Development.jl")
-include("run/Config.jl")
-include("run/Profiles.jl")
-include("run/Manifest.jl")
 include("run/Replay.jl")
-include("run/Artifacts.jl")
-include("run/Sweep.jl")
 
-export NodeModel,
+export Evolution,
+    NodeModel,
     Reservoir,
     AbstractBody,
     Environment,
     AbstractTask,
     Runner,
     Drive,
-    Intervention,
-    AbstractEvolutionStrategy
+    Intervention
 
 export step!,
     rollout!,
@@ -166,9 +156,6 @@ export step!,
     apply_drive!,
     apply!,
     supports_intervention,
-    ask,
-    tell!,
-    result,
     develop,
     mutate,
     recombine,
@@ -625,8 +612,6 @@ export register_node!,
     task_analyses,
     register_view!,
     resolve_view,
-    register_optimizer!,
-    resolve_optimizer,
     register_ablation!,
     resolve_ablation,
     ablations
@@ -657,7 +642,6 @@ export Registry,
     ParameterSpec,
     validate_parameter,
     sweepable,
-    evolvable,
     SeedStreamSpec,
     EvaluationSpec,
     seed_stream_names,
@@ -702,6 +686,7 @@ export AbstractOperationPlan,
     register_experiment!,
     experiment_spec,
     experiments,
+    resolve,
     validate,
     execute,
     tables,
@@ -754,6 +739,17 @@ export RECORD_FORMAT,
     run_operation,
     run_experiment
 
+export CONTRIBUTION_FORMAT,
+    CONTRIBUTION_FORMAT_VERSION,
+    RESEARCH_CATALOGUE_FORMAT,
+    RESEARCH_CATALOGUE_FORMAT_VERSION,
+    CONTRIBUTION_TARGET_BYTES,
+    CONTRIBUTION_MAX_BYTES,
+    validate_contribution,
+    compare_contribution,
+    research_catalogue,
+    write_research_catalogue
+
 export SimResult,
     simulate,
     variants,
@@ -789,27 +785,7 @@ export SimResult,
     object_in_view,
     ball_paddle_distance
 
-export SepCMA,
-    EvolveRunner,
-    GenomeBlock,
-    CompositeGenome,
-    FixedRunner,
-    PlasticRunner,
-    rollout,
-    evolve,
-    node_block,
-    motor_block,
-    sensor_block,
-    compose_genome,
-    swarm_rollout,
-    swarm_evaluate,
-    find_alive_centroid,
-    nsga2,
-    cma_me,
-    MEArchive
-
-export RunConfig,
-    ComponentConfig,
+export ComponentConfig,
     EmbodimentConfig,
     ComponentBlueprint,
     EmbodimentBlueprint,
@@ -832,18 +808,8 @@ export RunConfig,
     DevelopedEmbodimentBlueprint,
     development_seed,
     validate_development_structure,
-    composite_genome,
-    read_config,
-    write_config,
-    resolve,
     save_recorder,
-    run_from_config,
-    run_sweep,
-    ablate,
-    SweepAxisInfo,
-    sweep_env_axes,
-    sweepable_axes,
-    capture_manifest
+    replay
 
 export rasterplot,
     rateplot,
@@ -917,11 +883,6 @@ register_node!(:falandays_delayed, _falandays_delayed_native; genome_type=Faland
 register_node!(:sorn, _sorn_native; genome_type=SORNParams)
 register_node!(:compartmental_dense, _compartmental_dense_native; genome_type=DenseCompartmental)
 register_node!(:compartmental_structured, _compartmental_structured_native; genome_type=StructuredCompartmental)
-# Bench roster aliases for compartmental_structured genomes found by the NSGA-II /
-# CMA-ME multi-task drivers (identical dynamics/genome_type; only the trained
-# genome bench loads differs) -- see bench/train_moo.jl / bench/train_qd.jl.
-register_node!(:compartmental_structured_nsga, _compartmental_structured_native; genome_type=StructuredCompartmental)
-register_node!(:compartmental_structured_cmame, _compartmental_structured_native; genome_type=StructuredCompartmental)
 register_node!(:null_random, NullRandomReservoir)
 register_node!(:homeostatic_flow, HomeostaticFlowReservoir; genome_type=HomeostaticFlowParams)
 register_node!(:homeostatic_flow_v2, HomeostaticFlowV2Reservoir; genome_type=HomeostaticFlowV2Params)
@@ -1010,8 +971,6 @@ register_ablation!(:freeze_plasticity, FreezePlasticity)
 register_ablation!(:zero_recurrent, ZeroRecurrent)
 register_ablation!(:clamp_target, ClampTarget)
 register_ablation!(:disable_vision, DisableVision)
-
-register_optimizer!(:sepcma, SepCMA)
 
 register_builtins!(DEFAULT_REGISTRY)
 

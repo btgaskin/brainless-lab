@@ -1,0 +1,77 @@
+name: Reproduce merged research protocol
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full clean Git SHA, reachable from main, that contains the merged protocol
+        required: true
+        type: string
+      experiment_path:
+        description: Repository-relative path to the merged ExperimentSpec directory
+        required: true
+        type: string
+      replay_id:
+        description: Stable label for the replay artifact
+        required: false
+        default: maintainer-replay
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    name: Replay merged experiment
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      BRAINLESSLAB_AUTOTHREADS: '0'
+      SOURCE_SHA: ${{ inputs.source_sha }}
+      EXPERIMENT_PATH: ${{ inputs.experiment_path }}
+      REPLAY_ID: ${{ inputs.replay_id }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the trusted source and merged experiment
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$REPLAY_ID" =~ ^[A-Za-z0-9._-]+$ ]]
+          [[ "$EXPERIMENT_PATH" != /* ]]
+          [[ "$EXPERIMENT_PATH" != *".."* ]]
+          [[ "$EXPERIMENT_PATH" == experiments/* ]]
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git merge-base --is-ancestor "$SOURCE_SHA" origin/main
+          test -d "$EXPERIMENT_PATH"
+          test -z "$(git status --porcelain)"
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3
+        with:
+          version: '1.10.11'
+      - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3
+        with:
+          delete-old-caches: false
+      - name: Instantiate the pinned environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+          test -z "$(git status --porcelain)"
+      - name: Check the merged experiment
+        run: julia --project=. bin/brainlesslab.jl check-experiment "$EXPERIMENT_PATH"
+      - name: Replay the merged experiment
+        run: >-
+          julia --project=. bin/brainlesslab.jl run-experiment
+          "$EXPERIMENT_PATH" --root "$RUNNER_TEMP/brainlesslab-replay"
+      - name: Upload replay artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: brainlesslab-${{ inputs.replay_id }}
+          path: ${{ runner.temp }}/brainlesslab-replay
+          if-no-files-found: error
+          retention-days: 30

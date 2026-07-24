@@ -1,0 +1,9 @@
+[[record]]
+id = "falandays-core-v1"
+experiment_id = "falandays-core"
+experiment_version = "1.0.0"
+title = "Falandays core benchmark, version 1"
+evidence_state = "exploratory"
+protocol_path = "benchmarks/falandays-core/v1/benchmark.toml"
+record_path = "benchmarks/falandays-core/v1/record"
+note = "Compatibility entry for a complete record published before the contribution and maintainer-replay pipeline."

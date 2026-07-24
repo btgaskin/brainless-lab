@@ -157,8 +157,9 @@ sim = run_object_world_task(ticks=25, seed=11)
 task_outcome(sim)
 ```
 
-Use a `DevelopmentSpec` to evolve declared scalar component parameters while keeping the
-component graph fixed. Runtime state never belongs to the development genome.
+Use a `DevelopmentSpec` to materialise declared scalar component parameters while keeping
+the component graph fixed. It is separate from experimental neuron-model search. Runtime
+state never belongs to the development genotype.
 
 ## Plot without changing the compute package
 

@@ -8,6 +8,9 @@ function usage(io=stdout)
     println(io, "  julia --project=. bin/brainlesslab.jl run PLAN.toml [--root DIR]")
     println(io, "  julia --project=. bin/brainlesslab.jl check-experiment PROTOCOL_DIR")
     println(io, "  julia --project=. bin/brainlesslab.jl run-experiment PROTOCOL_DIR [--root DIR]")
+    println(io, "  julia --project=. bin/brainlesslab.jl check-contribution DIR [--repository DIR] [--main-ref REF] [--base REF]")
+    println(io, "  julia --project=. bin/brainlesslab.jl compare-contribution DIR [--write]")
+    println(io, "  julia --project=. bin/brainlesslab.jl index-research [--root DIR] [--output FILE] [--repository DIR] [--main-ref REF]")
 end
 
 function parse_run_options(args)
@@ -24,17 +27,83 @@ function parse_run_options(args)
     return root
 end
 
+function parse_named_options(args, allowed)
+    options = Dict{String,String}()
+    index = 1
+    while index <= length(args)
+        option = args[index]
+        option in allowed || throw(ArgumentError("unknown option $(repr(option))"))
+        index < length(args) || throw(ArgumentError("$(option) requires a value"))
+        options[option] = args[index + 1]
+        index += 2
+    end
+    return options
+end
+
 function main(args=ARGS)
-    length(args) >= 2 || begin
+    !isempty(args) || begin
         usage(stderr)
         return 2
     end
     command = args[1]
-    command in ("check", "run", "check-experiment", "run-experiment") || begin
+    command in (
+        "check", "run", "check-experiment", "run-experiment",
+        "check-contribution", "compare-contribution", "index-research",
+    ) || begin
+        usage(stderr)
+        return 2
+    end
+    if command == "index-research"
+        options = parse_named_options(
+            args[2:end],
+            ("--root", "--output", "--repository", "--main-ref"),
+        )
+        root = get(options, "--root", joinpath(pwd(), "research"))
+        output = get(options, "--output", joinpath(root, "catalogue.json"))
+        repository = get(options, "--repository", pwd())
+        main_ref = get(options, "--main-ref", "origin/main")
+        write_research_catalogue(output; root, repository, main_ref)
+        println("research catalogue: ", output)
+        return 0
+    end
+    length(args) >= 2 || begin
         usage(stderr)
         return 2
     end
     source_path = args[2]
+
+    if command == "check-contribution"
+        options = parse_named_options(
+            args[3:end],
+            ("--repository", "--main-ref", "--base"),
+        )
+        result = validate_contribution(
+            source_path;
+            repository=get(options, "--repository", pwd()),
+            main_ref=get(options, "--main-ref", "origin/main"),
+            base_ref=get(options, "--base", nothing),
+        )
+        println("valid contribution: ", result.manifest["id"])
+        println("experiment: ", result.manifest["experiment_id"])
+        println("version: ", result.manifest["experiment_version"])
+        result.target_exceeded && println(
+            "size note: the complete contribution exceeds the 1 MiB target",
+        )
+        return 0
+    elseif command == "compare-contribution"
+        write = false
+        for option in args[3:end]
+            option == "--write" || throw(ArgumentError(
+                "unknown compare option $(repr(option))",
+            ))
+            write = true
+        end
+        comparison = compare_contribution(source_path; write)
+        write && println("comparison: ", joinpath(source_path, "comparison.json"))
+        println("configuration equal: ", comparison["configuration_equal"])
+        println("seeds equal: ", comparison["seeds_equal"])
+        return 0
+    end
 
     if command in ("check-experiment", "run-experiment")
         isdir(source_path) || throw(ArgumentError(

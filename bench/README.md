@@ -2,8 +2,8 @@
 
 This is the cross-node comparison tool for BrainlessLab. `bench` runs a roster
 of registered neuron variants across a task grid, ranks them by normalized
-score, and reports baseline-relative statistics. Use `profile/` when you want
-to characterize one node in depth rather than compare nodes.
+score, and reports baseline-relative statistics. Use a typed `ProfilePlan` when
+you want to characterize one node in depth rather than compare nodes.
 
 Setup from `brainless-lab/bench`:
 
@@ -21,37 +21,11 @@ Benchmark rollouts run on Julia threads. `run.jl` self-launches with `-t auto`
 when Julia starts single-threaded and no thread count was pinned; set
 `BRAINLESSLAB_AUTOTHREADS=0` or `JULIA_NUM_THREADS=1` to opt out.
 
-Train a stored genome for one cell:
-
-    julia --project=. train.jl compartmental_structured wall --generations 30 --popsize 16 --seed 1 --N 120 --ticks 300
-
-Stored genomes are written to:
-
-    bench/genomes/<neuron>__<task>/genome.jld2
-    bench/genomes/<neuron>__<task>/train_manifest.toml
-
-Train one generalist genome across all core tasks at once with NSGA-II
-(multi-objective -- each task is a separate maximized objective, never
-scalarized into a single fitness number):
-
-    julia --project=. train_moo.jl
-
-The Pareto-front member with the highest mean objective is saved identically
-under every task cell:
-
-    bench/genomes/compartmental_structured_nsga__<task>/genome.jld2
-    bench/genomes/compartmental_structured_nsga__<task>/train_manifest.toml
-
-Train one generalist genome with CMA-ME (quality-diversity -- a MAP-Elites
-archive keyed by discretized per-task scores, filled by sep-CMA-ES
-"improvement emitters"):
-
-    julia --project=. train_qd.jl
-
-The highest-quality archive elite is saved identically under every task cell:
-
-    bench/genomes/compartmental_structured_cmame__<task>/genome.jld2
-    bench/genomes/compartmental_structured_cmame__<task>/train_manifest.toml
+Neuron-model search is not part of this benchmark tool. Use an experimental
+`EvolutionPlan` in the main package, then refer to its portable model artifact
+from a later `BenchmarkPlan`. See the CTRNN evolution, resume, and benchmark
+tutorials in the documentation. SepCMA emits `selected`; NSGA-II and CMA-ME
+emit explicit Pareto and archive model sets without choosing an implicit best.
 
 Run outputs are written to:
 

@@ -12,15 +12,7 @@ using Test
     @test falandays.stability === :reference
     @test falandays.genome_type === FalandaysParams
     @test node_parameter_set(falandays, :sweep) == (:leak, :lrate_wmat)
-    @test node_parameter_set(falandays, :evolve) == (
-        :leak,
-        :lrate_wmat,
-        :lrate_targ,
-        :threshold_mult,
-        :targ_min,
-        :input_weight,
-        :weight_init_std,
-    )
+    @test_throws KeyError node_parameter_set(falandays, :evolve)
     @test node_parameter(falandays, :link_p).owner === :reservoir
     @test_throws KeyError node_parameter(falandays, :n_nodes)
 

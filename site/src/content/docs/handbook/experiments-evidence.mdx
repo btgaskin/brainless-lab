@@ -43,4 +43,18 @@ the evidence supports as separate statements.
 The [Experiments catalogue](/experiments/) lists versioned protocols. The
 [Benchmarks catalogue](/benchmarks/) lists task-specific benchmark records.
 
+## Accept a public run
+
+Review and merge the protocol and software before anyone submits a public run. The run-only
+contribution must come from a clean source SHA that is reachable from `main`.
+
+The contributor submission and maintainer replay remain two roles within one contribution. A
+replay is a portability and execution check, not a second independent experiment.
+
+Automated checks validate records and compare roles. A human maintainer accepts or rejects the
+contribution after reviewing the protocol, provenance, comparison, and interpretation boundary.
+Acceptance does not change the experiment evidence state automatically.
+
+Read [Research records](/research/) for the complete contribution path and publication limits.
+
 <p class="bl-source">Source: <code>src/experiments/Experiment.jl</code>, <code>src/records/ExperimentIO.jl</code>.</p>

@@ -2,6 +2,7 @@ import JLD2
 import TOML
 
 const _RECORDER_REPLAY_FILE = "recorder.jld2"
+const _LEGACY_RESOLVED_CONFIG_FILE = "config.resolved.toml"
 
 function _replay_file(dir::AbstractString)
     path = String(dir)
@@ -67,7 +68,7 @@ end
 
 function _run_provenance(dir::AbstractString)
     return (
-        config=_maybe_parse_toml(joinpath(dir, resolved_config_filename())),
+        config=_maybe_parse_toml(joinpath(dir, _LEGACY_RESOLVED_CONFIG_FILE)),
         manifest=_maybe_parse_toml(joinpath(dir, "manifest.toml")),
     )
 end

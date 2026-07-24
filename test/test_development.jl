@@ -281,57 +281,6 @@ end
     )
 end
 
-@testset "development composes through the unchanged CompositeGenome API" begin
-    config = _development_test_config("differential_robot.toml")
-    spec = DevelopmentSpec(config, (
-        DevelopmentBlock(:shape, :chassis, :radius => (0.2, 0.6)),
-        DevelopmentBlock(:drive, :wheels, :max_speed => (0.2, 3.0)),
-    ))
-    genome = composite_genome(spec)
-
-    @test genome isa CompositeGenome
-    @test paramdim(genome) == paramdim(spec)
-    @test pack_params(genome) == pack_params(spec)
-    @test genome.slices == [1:1, 2:2]
-    @test [entry.label for entry in BrainlessLab.paramspace(genome)] == [
-        :shape__radius,
-        :drive__max_speed,
-    ]
-    parts = unpack_params(genome, [0.4, 1.5])
-    @test propertynames(parts) == (:shape, :drive)
-    @test parts.shape == (
-        component_id=:chassis,
-        paths=((:radius,),),
-        values=(0.4,),
-    )
-    @test parts.drive.component_id === :wheels
-
-    # Existing evolution remains a fixed-width caller; development itself stays
-    # an explicit validation/materialization step in the evaluation function.
-    target = pack_params(spec)
-    result = evolve(
-        genome=genome,
-        evaluate=(raw, seed) -> begin
-            blueprint = develop(
-                spec,
-                raw,
-                DevelopmentContext(seed=seed, entity_id=1, generation=0),
-            )
-            @assert blueprint.components[1].value isa DiscGeometry
-            return -sum(abs2, raw .- target)
-        end,
-        generations=1,
-        popsize=4,
-        k_trials=1,
-        sigma0=0.01,
-        seed=3,
-        threaded=false,
-    )
-    @test result.optimizer.n_dim == paramdim(spec)
-    @test length(result.best_raw) == paramdim(spec)
-    @test isfinite(result.best_fitness)
-end
-
 @testset "development structure validation rejects unsafe compositions" begin
     robot = _development_test_config("differential_robot.toml")
     insect = _development_test_config("bilateral_insect.toml")

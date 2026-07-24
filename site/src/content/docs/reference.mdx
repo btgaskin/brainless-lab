@@ -8,8 +8,8 @@ instead of copying a static list of built-in names.
 
 ## Discover registered items
 
-`DEFAULT_REGISTRY` contains nodes, tasks, bodies, analyses, optimisers, ablations, and named
-composition presets.
+`DEFAULT_REGISTRY` contains nodes, tasks, bodies, analyses, search strategies, ablations,
+and named composition presets.
 
 ```julia
 using BrainlessLab
@@ -20,6 +20,7 @@ tasks(DEFAULT_REGISTRY; tag=:benchmark)
 analyses(DEFAULT_REGISTRY; task=:tracking)
 ablations(DEFAULT_REGISTRY)
 compositions(DEFAULT_REGISTRY)
+Evolution.search_strategies(DEFAULT_REGISTRY)
 ```
 
 Resolve one descriptor:
@@ -34,7 +35,7 @@ Other typed registries are available as fields of `DEFAULT_REGISTRY`:
 
 ```julia
 sort!(collect(keys(DEFAULT_REGISTRY.bodies)); by=string)
-sort!(collect(keys(DEFAULT_REGISTRY.optimizers)); by=string)
+Evolution.search_strategy(DEFAULT_REGISTRY, :sepcma)
 ```
 
 The configured embodiment component catalogue is separate:
@@ -116,12 +117,14 @@ All plan files use:
 
 ```toml
 format = "brainlesslab-plan"
-format_version = 1
+format_version = 2
 operation = "profile"
 id = "my_plan"
 ```
 
 They then contain one or more `[[targets]]` tables and one operation section.
+Version 1 remains readable for non-evolution plans. The current writer emits version 2,
+and the public evolution schema requires version 2.
 
 | Operation | Type | Section |
 | --- | --- | --- |
@@ -148,6 +151,77 @@ julia -t auto --project=. bin/brainlesslab.jl run path/to/plan.toml --root recor
 ```
 
 See [Operations](/handbook/operations/) for the complete workflow.
+
+## Evolution search
+
+`EvolutionPlan` embeds one `BrainlessLab.Evolution.RunConfig`. The run configuration
+declares the complete search contract:
+
+```julia
+run = Evolution.RunConfig(;
+    strategy=:sepcma,
+    iterations=2,
+    search_seed=0x2a,
+    measure=:normalized_score,
+    direction=:maximise,
+    initialisation=Evolution.NormalInitialisation(
+        centre=:zero,
+        scale=0.25,
+    ),
+    options=(population=4, reducer=:minimum,),
+)
+
+plan = EvolutionPlan(
+    :structured_ctrnn_search,
+    (training_target,);
+    run=run,
+    heldout_targets=(heldout_target,),
+)
+```
+
+| Field | Meaning |
+| --- | --- |
+| `strategy` | registered typed search strategy |
+| `iterations` | complete generation budget |
+| `search_seed` | random seed for initialisation and search decisions |
+| `measure` | score measure read from each declared training target |
+| `direction` | optimisation direction declared by the strategy contract |
+| `initialisation` | explicit distribution for initial search coordinates |
+| `options` | strategy-specific typed options |
+
+The public strategy keys are `:sepcma`, `:nsga2`, and `:cmame`. One
+`search_strategies` registry resolves all three. SepCMA records the model role `selected`.
+NSGA-II records ordered Pareto model IDs, and CMA-ME records ordered archive-cell IDs.
+Neither multi-objective strategy chooses an implicit champion.
+
+The integrated fixed node designs are `StructuredCompartmental` and
+`DenseCompartmental`, registered as `:compartmental_structured` and
+`:compartmental_dense`. Search changes model coordinates only. It does not evolve topology,
+node count, body structure, or ports.
+
+An interrupted run can continue from its last complete generation:
+
+```julia
+continued = Evolution.resume(record_directory; registry=DEFAULT_REGISTRY)
+```
+
+Resume validates and updates the same record directory. It continues to the original
+`run.iterations` and returns the same `(result=result, directory=directory)` shape as
+`run_operation`.
+
+Load one recorded model by stable role:
+
+```julia
+model = Evolution.model_reference(record_directory, "selected")
+target = EvaluationTarget(:saved_model, composition, evaluation; model=model)
+```
+
+Use the target in a later `BenchmarkPlan`. The model reference remains attached to the
+recorded model instead of copying coordinates into another protocol.
+
+See [Evolve a structured CTRNN](/tutorials/evolve-ctrnn/) for the complete path. Evolution
+is experimental software. A completed search and selected model do not establish a
+scientific claim.
 
 ## ExperimentSpec
 
@@ -235,6 +309,6 @@ and resolved plans, provenance, checksums, and a generated HTML report.
 
 `network_snapshot(reservoir)` returns read-only network metadata when a node supports it.
 `component_state(body)` returns state keyed by stable component IDs. These hooks support
-recording and visualisation; they are not parameter genomes or replay snapshots.
+recording and visualisation; they are not model coordinates or replay snapshots.
 
 <p class="bl-source">Source: <code>src/core/Composition.jl</code>, <code>src/core/Specifications.jl</code>, <code>src/operations/Plans.jl</code>, <code>src/records/PlanIO.jl</code>, <code>src/records/ExperimentIO.jl</code>.</p>

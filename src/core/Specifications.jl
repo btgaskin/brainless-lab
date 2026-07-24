@@ -2,7 +2,6 @@ const IMPLEMENTATION_STABILITIES = (:reference, :stable, :experimental, :control
 const CONSTRUCTION_SCOPES = (:evaluation, :block, :trial)
 const RESET_POLICIES = (:full, :body_environment, :none)
 const AGGREGATE_POLICIES = (:none, :mean, :median, :sum, :minimum, :maximum)
-const EVOLUTION_SCALES = (:linear, :log, :integer)
 
 function _nonempty_symbol(value, label::AbstractString)
     symbol = Symbol(value)
@@ -228,101 +227,22 @@ function _parameter_sweep(sweep, validator, name::Symbol)
     return values
 end
 
-function _categorical_evolution(evolve::NamedTuple, validator, name::Symbol)
-    propertynames(evolve) == (:values,) || throw(ArgumentError(
-        "categorical evolution metadata for parameter :$(name) must contain only :values",
-    ))
-    values = _parameter_sweep(evolve.values, validator, name)
-    values === nothing && throw(ArgumentError(
-        "categorical evolution metadata for parameter :$(name) requires candidate values",
-    ))
-    return (values=values,)
-end
-
-function _bounded_evolution(evolve::NamedTuple, validator, name::Symbol, default)
-    allowed = (:lower, :upper, :scale, :mutation_scale)
-    unknown = setdiff(propertynames(evolve), allowed)
-    isempty(unknown) || throw(ArgumentError(
-        "unknown evolution metadata for parameter :$(name): " *
-        join(":" .* string.(unknown), ", "),
-    ))
-    hasproperty(evolve, :lower) && hasproperty(evolve, :upper) || throw(ArgumentError(
-        "bounded evolution metadata for parameter :$(name) requires :lower and :upper",
-    ))
-    lower = evolve.lower
-    upper = evolve.upper
-    lower isa Real && upper isa Real && default isa Real || throw(ArgumentError(
-        "bounded evolution metadata for parameter :$(name) requires numeric bounds and default",
-    ))
-    isfinite(lower) && isfinite(upper) || throw(ArgumentError(
-        "evolution bounds for parameter :$(name) must be finite",
-    ))
-    lower <= upper || throw(ArgumentError(
-        "evolution lower bound for parameter :$(name) exceeds its upper bound",
-    ))
-    lower <= default <= upper || throw(ArgumentError(
-        "default for parameter :$(name) lies outside its evolution bounds",
-    ))
-    _parameter_value_valid(validator, lower, name)
-    _parameter_value_valid(validator, upper, name)
-
-    scale = hasproperty(evolve, :scale) ? Symbol(evolve.scale) : :linear
-    scale in EVOLUTION_SCALES || throw(ArgumentError(
-        "evolution scale for parameter :$(name) must be one of " *
-        join(":" .* string.(EVOLUTION_SCALES), ", "),
-    ))
-    if scale === :log
-        lower > zero(lower) || throw(ArgumentError(
-            "log-scaled evolution for parameter :$(name) requires a positive lower bound",
-        ))
-    elseif scale === :integer
-        all(value -> value isa Integer, (lower, default, upper)) || throw(ArgumentError(
-            "integer-scaled evolution for parameter :$(name) requires integer bounds and default",
-        ))
-    end
-
-    mutation_scale = hasproperty(evolve, :mutation_scale) ? evolve.mutation_scale : nothing
-    if mutation_scale !== nothing
-        mutation_scale isa Real && isfinite(mutation_scale) && mutation_scale > 0 ||
-            throw(ArgumentError(
-                "evolution mutation_scale for parameter :$(name) must be finite and positive",
-            ))
-    end
-    return (
-        lower=lower,
-        upper=upper,
-        scale=scale,
-        mutation_scale=mutation_scale,
-    )
-end
-
-function _parameter_evolution(evolve, validator, name::Symbol, default)
-    evolve === nothing && return nothing
-    evolve isa NamedTuple || throw(ArgumentError(
-        "evolution metadata for parameter :$(name) must be a NamedTuple",
-    ))
-    hasproperty(evolve, :values) &&
-        return _categorical_evolution(evolve, validator, name)
-    return _bounded_evolution(evolve, validator, name, default)
-end
-
 """
     ParameterSpec(name, default; kwargs...)
 
 One configurable parameter and its cold-path research metadata. `owner`
 identifies the component level that interprets the value; node count therefore
-need not be owned by a node model. `sweep` is a finite candidate set. `evolve`
-is either `(values=(...),)` or bounded metadata with `lower`, `upper`, and
-optional `scale`/`mutation_scale`.
+need not be owned by a node model. `sweep` is a finite candidate set. Node
+models use a separate experimental `Evolution.NodeDesignSpec`; parameter
+metadata does not define a second design surface.
 """
-struct ParameterSpec{T,V,S,E}
+struct ParameterSpec{T,V,S}
     name::Symbol
     owner::Symbol
     datatype::Type
     default::T
     validator::V
     sweep::S
-    evolve::E
     description::String
     units::Union{Nothing,String}
 end
@@ -334,7 +254,6 @@ function ParameterSpec(
     datatype::Type=typeof(default),
     validator=nothing,
     sweep=nothing,
-    evolve=nothing,
     description::AbstractString="",
     units::Union{Nothing,AbstractString}=nothing,
 )
@@ -348,12 +267,10 @@ function ParameterSpec(
         throw(ArgumentError("parameter units must not be empty"))
     _parameter_value_valid(validator, default, name_)
     sweep_ = _parameter_sweep(sweep, validator, name_)
-    evolve_ = _parameter_evolution(evolve, validator, name_, default)
     return ParameterSpec{
         typeof(default),
         typeof(validator),
         typeof(sweep_),
-        typeof(evolve_),
     }(
         name_,
         owner_,
@@ -361,7 +278,6 @@ function ParameterSpec(
         default,
         validator,
         sweep_,
-        evolve_,
         String(description),
         units_,
     )
@@ -376,7 +292,6 @@ function validate_parameter(spec::ParameterSpec, value)
 end
 
 sweepable(spec::ParameterSpec) = spec.sweep !== nothing
-evolvable(spec::ParameterSpec) = spec.evolve !== nothing
 
 """
     SeedStreamSpec(name; description="")

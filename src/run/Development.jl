@@ -369,7 +369,7 @@ DevelopmentSpec(config::EmbodimentConfig, block::DevelopmentBlock, blocks::Devel
 paramdim(spec::DevelopmentSpec) = spec.dim
 
 function paramspace(spec::DevelopmentSpec)
-    entries = _PARAMSPACE_ENTRY[]
+    entries = _DEVELOPMENT_PARAMSPACE_ENTRY[]
     for block in spec.blocks, (path, bounds) in zip(block.paths, block.bounds)
         push!(entries, (
             label=Symbol(block.id, :__, join(string.(path), "__")),
@@ -414,30 +414,6 @@ paramdim(genotype::DevelopmentGenotype) = paramdim(genotype.spec)
 paramspace(genotype::DevelopmentGenotype) = paramspace(genotype.spec)
 pack_params(genotype::DevelopmentGenotype) = collect(genotype.values)
 unpack_params(spec::DevelopmentSpec, raw::AbstractVector{<:Real}) = DevelopmentGenotype(spec, raw)
-
-function _development_patch(block::DevelopmentBlock, values)
-    return (component_id=block.component_id, paths=block.paths, values=Tuple(Float64.(values)))
-end
-
-function composite_genome(spec::DevelopmentSpec)
-    initial = pack_params(spec)
-    blocks = GenomeBlock[]
-    for (block, slice) in zip(spec.blocks, spec.slices)
-        space = _PARAMSPACE_ENTRY[
-            (label=Symbol(join(string.(path), "__")), lo=bounds[1], hi=bounds[2])
-            for (path, bounds) in zip(block.paths, block.bounds)
-        ]
-        template = copy(initial[slice])
-        push!(blocks, GenomeBlock(
-            block.id,
-            block.id,
-            space,
-            () -> copy(template),
-            raw -> _development_patch(block, raw),
-        ))
-    end
-    return CompositeGenome(blocks)
-end
 
 function _developed_config(genotype::DevelopmentGenotype)
     spec = genotype.spec
@@ -579,3 +555,5 @@ function recombine(
     ]
     return DevelopmentGenotype(left.spec, raw)
 end
+const _DEVELOPMENT_PARAMSPACE_ENTRY =
+    NamedTuple{(:label, :lo, :hi),Tuple{Symbol,Float64,Float64}}

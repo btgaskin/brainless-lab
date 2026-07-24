@@ -258,6 +258,10 @@ function _genome_kwargs(neuron::Symbol, genome)
     return Dict{Symbol,Any}(:raw => genome)
 end
 
+function _node_kwargs_for_model(neuron::Symbol, model)
+    return (; (key => value for (key, value) in _genome_kwargs(neuron, model))...)
+end
+
 function _cell_meta(cfg::BenchConfig, neuron::Symbol, task::Symbol)
     requested = get(cfg.prep, neuron, default_prep(neuron))
     if requested == :trained
@@ -275,19 +279,27 @@ end
 function _run_cell(cfg::BenchConfig, meta::CellMeta)
     _is_swarm_bench_task(meta.task) && return _run_swarm_cell(cfg, meta)
 
-    task_spec = BrainlessLab.resolve_task(meta.task)
     model = meta.prep == :trained ? meta.genome : _default_model(meta.neuron, meta.task)
+    node_kwargs = _node_kwargs_for_model(meta.neuron, model)
 
     rows = BrainlessLab.parallel_map(1:cfg.n_trials) do trial
         seed = cfg.seed_base + trial
-        out = BrainlessLab.rollout(
-            task_spec,
-            model,
-            seed;
-            model_sym=meta.neuron,
-            N=cfg.n_nodes,
+        sim = BrainlessLab.simulate(
+            meta.task;
+            node=meta.neuron,
+            n_nodes=cfg.n_nodes,
             ticks=cfg.ticks,
+            seed,
+            node_kwargs,
+            record=(),
         )
+        outcome = BrainlessLab.task_outcome(sim)
+        raw = outcome === nothing ? NaN : Float64(outcome.raw)
+        normalised = outcome === nothing ? NaN : Float64(outcome.normalized)
+        alive = hasproperty(sim.metrics, :alive) ?
+            Bool(sim.metrics.alive) : true
+        rate_mean = hasproperty(sim.metrics, :rate_mean) ?
+            Float64(sim.metrics.rate_mean) : NaN
         return TrialRow(
             meta.neuron,
             meta.task,
@@ -295,10 +307,10 @@ function _run_cell(cfg::BenchConfig, meta::CellMeta)
             seed,
             meta.prep,
             meta.flagged,
-            Float64(out.score),
-            Float64(out.norm_score),
-            Bool(out.alive),
-            Float64(out.rate_mean),
+            raw,
+            normalised,
+            alive,
+            rate_mean,
         )
     end
 
@@ -323,7 +335,7 @@ end
 # the node identically to every other task -- no per-neuron special-casing here.
 function _run_swarm_cell(cfg::BenchConfig, meta::CellMeta)
     model = meta.prep == :trained ? meta.genome : _default_model(meta.neuron, meta.task)
-    node_kwargs = BrainlessLab._node_kwargs_for_model(meta.neuron, model)
+    node_kwargs = _node_kwargs_for_model(meta.neuron, model)
 
     rows = BrainlessLab.parallel_map(1:cfg.n_trials) do trial
         seed = cfg.seed_base + trial
@@ -881,48 +893,6 @@ function _tool_package_versions(project_dir::AbstractString)
     return out
 end
 
-function _manifest_run_config(cfg::BenchConfig)
-    # RunConfig/resolve (the shared run/ manifest schema) only represents
-    # single-agent TaskSpec tasks, so a swarm task like :forage can't appear in
-    # its task.train/.suite. That's fine: the true task list (forage included)
-    # is already recorded verbatim in manifest["bench"]["tasks"] via
-    # _config_dict below -- this RunConfig snapshot is just the shared-schema
-    # provenance section, not the source of truth for what was benchmarked.
-    single_agent_tasks = [task for task in cfg.tasks if !_is_swarm_bench_task(task)]
-    manifest_tasks = isempty(single_agent_tasks) ? [:wall] : single_agent_tasks
-
-    return BrainlessLab.resolve(BrainlessLab.RunConfig(
-        run=BrainlessLab.RunSection(
-            name="bench_grid",
-            runner=:fixed,
-            seed_base=cfg.seed_base,
-            suite_seed_base=cfg.seed_base + 100_000,
-            profile=:none,
-        ),
-        model=BrainlessLab.ModelSection(
-            family=_model_family(cfg.baseline),
-            node=cfg.baseline,
-        ),
-        task=BrainlessLab.TaskSection(
-            train=Tuple(manifest_tasks),
-            suite=Tuple(manifest_tasks),
-            aggregator=:mean,
-            N=cfg.n_nodes,
-            ticks=cfg.ticks,
-            window=cfg.ticks,
-        ),
-        evolve=BrainlessLab.EvolveSection(
-            generations=1,
-            popsize=2,
-            k_trials=max(1, cfg.n_trials),
-            suite_every=0,
-            k_suite=0,
-            cma_seed=cfg.seed_base,
-            threaded=false,
-        ),
-    ))
-end
-
 function _seed_manifest(cfg::BenchConfig)
     return Dict{String,Any}(
         "seed_base" => cfg.seed_base,
@@ -949,19 +919,25 @@ function _make_run_dir(cfg::BenchConfig, out_root::AbstractString)
 end
 
 function _manifest_dict(cfg::BenchConfig, run_info)
-    manifest = BrainlessLab.capture_manifest(_manifest_run_config(cfg); seeds=_seed_manifest(cfg), tool=:bench)
-    manifest["timestamp_utc"] = run_info.timestamp_utc
-    manifest["run_id"] = run_info.run_id
-    manifest["short_git"] = run_info.short_git
-    manifest["bench"] = merge(
-        _config_dict(cfg),
-        Dict{String,Any}(
-            "job" => "cross-node comparison",
-            "output_shape" => "manifest.toml + config.resolved.toml + summary.csv + results_raw.csv + stats.json + figures/*.png + cells/*/{scores.csv,figure.png,*.gif} + README.md",
+    return Dict{String,Any}(
+        "format" => "brainlesslab-benchmark-tool",
+        "format_version" => 1,
+        "timestamp_utc" => run_info.timestamp_utc,
+        "git_sha" => run_info.git_sha,
+        "short_git" => run_info.short_git,
+        "run_id" => run_info.run_id,
+        "julia_version" => string(VERSION),
+        "package_version" => string(Base.pkgversion(BrainlessLab)),
+        "seeds" => _seed_manifest(cfg),
+        "bench" => merge(
+            _config_dict(cfg),
+            Dict{String,Any}(
+                "job" => "cross-node comparison",
+                "output_shape" => "manifest.toml + config.resolved.toml + summary.csv + results_raw.csv + stats.json + figures/*.png + cells/*/{scores.csv,figure.png,*.gif} + README.md",
+            ),
         ),
+        "tool_packages" => _tool_package_versions(Store.bench_dir()),
     )
-    manifest["tool_packages"] = _tool_package_versions(Store.bench_dir())
-    return manifest
 end
 
 function _overall_ranking(summaries, neurons, tasks_)
@@ -1056,7 +1032,7 @@ function run_benchmark(cfg::BenchConfig; out_root::AbstractString=joinpath(Store
     run_info = _make_run_dir(cfg, out_root)
     run_dir = run_info.dir
 
-    Store.write_toml(joinpath(run_dir, BrainlessLab.resolved_config_filename()), _config_dict(cfg))
+    Store.write_toml(joinpath(run_dir, "config.resolved.toml"), _config_dict(cfg))
     Store.write_toml(joinpath(run_dir, "manifest.toml"), _manifest_dict(cfg, run_info))
 
     metas = Dict{Tuple{Symbol,Symbol},CellMeta}()

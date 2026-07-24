@@ -124,14 +124,8 @@ _primary_trials(result::SweepResult) = result.trial_rows
 _primary_trials(result::AblationResult) = result.trial_rows
 _primary_trials(result::BenchmarkResult) = tables(result).trials
 function _primary_trials(result::EvolutionResult)
-    rows = NamedTuple[]
-    for row in trial_table(result.training.batch)
-        push!(rows, merge((phase=:training,), row))
-    end
-    for evaluation in result.heldout, row in trial_table(evaluation.batch)
-        push!(rows, merge((phase=:heldout, heldout_target=evaluation.target), row))
-    end
-    return rows
+    output = tables(result)
+    return vcat(output.candidate_trials, output.heldout_trials)
 end
 
 function _record_statistics(result::AbstractOperationResult)
@@ -153,8 +147,11 @@ function _record_statistics(result::AbstractOperationResult)
     end
     if result isa EvolutionResult
         return [(
-            training_target=result.training.target,
-            training_score=result.training.aggregate,
+            strategy=result.plan.strategy.key,
+            iterations=result.plan.run.iterations,
+            candidates=length(result.candidates),
+            valid_candidates=count(candidate -> candidate.valid, result.candidates),
+            models=Tuple(model.model_id for model in result.models),
             heldout_targets=Tuple(evaluation.target for evaluation in result.heldout),
             heldout_scores=Tuple(evaluation.aggregate for evaluation in result.heldout),
         )]
@@ -237,29 +234,57 @@ function _record_seed_rows(result::AblationResult)
     return rows
 end
 
-function _record_seed_rows(result::EvolutionResult)
+function _evolution_seed_rows(candidates, heldout=EvolutionEvaluation[])
     rows = NamedTuple[]
-    for (candidate, batch) in zip(result.candidates, result.candidate_batches)
-        _append_seed_rows!(
-            rows,
-            batch;
-            context=(
+    for candidate in candidates, evaluation in candidate.evaluations
+        for row in evaluation.seed_rows
+            values = (
                 phase=:development,
-                generation=candidate.generation,
-                individual=candidate.individual,
-            ),
-        )
+                case=missing,
+                cell=missing,
+                ablation=missing,
+                heldout_target=missing,
+                generation=candidate.iteration,
+                individual=candidate.id,
+                condition=row.condition,
+                block=row.block,
+                trial=row.trial,
+                agent=row.agent,
+                stream=row.stream,
+                seed=row.seed,
+            )
+            push!(rows, NamedTuple{_SEED_ROW_NAMES}(
+                Tuple(values[name] for name in _SEED_ROW_NAMES),
+            ))
+        end
     end
-    _append_seed_rows!(rows, result.training.batch; context=(phase=:training,))
-    for evaluation in result.heldout
-        _append_seed_rows!(
-            rows,
-            evaluation.batch;
-            context=(phase=:heldout, heldout_target=evaluation.target),
-        )
+    for evaluation in heldout
+        for row in evaluation.seed_rows
+            values = (
+                phase=:heldout,
+                case=missing,
+                cell=missing,
+                ablation=missing,
+                heldout_target=evaluation.target,
+                generation=missing,
+                individual=missing,
+                condition=row.condition,
+                block=row.block,
+                trial=row.trial,
+                agent=row.agent,
+                stream=row.stream,
+                seed=row.seed,
+            )
+            push!(rows, NamedTuple{_SEED_ROW_NAMES}(
+                Tuple(values[name] for name in _SEED_ROW_NAMES),
+            ))
+        end
     end
     return rows
 end
+
+_record_seed_rows(result::EvolutionResult) =
+    _evolution_seed_rows(result.candidates, result.heldout)
 
 function _record_seed_rows(result::BenchmarkResult)
     rows = NamedTuple[]
@@ -307,29 +332,32 @@ end
 function _empty_table_columns(name::Symbol)
     name === :analyses && return (:condition, :block, :trial, :analysis, :statistic, :value)
     name === :convergence && return (
-        :generation, :best_individual, :fitness_best, :fitness_median,
-        :fitness_mean, :fitness_worst,
+        :iteration, :target, :candidates, :valid_candidates,
+        :score_best, :score_mean, :score_worst,
     )
     name === :candidates && return (
-        :generation, :individual, :coordinates, :parameters, :objective_values, :fitness,
+        :iteration, :candidate, :valid, :coordinates, :scores,
     )
     name === :candidate_trials && return (
-        :generation, :individual, :candidate_fitness, :condition, :block, :trial,
+        :phase, :iteration, :candidate, :condition, :block, :trial,
         :seed_ledger_agents, :topology_seed, :node_state_seed, :world_seed,
         :body_seed, :task_seed, :mechanism_seed, :initial_state, :score_key,
         :raw_score, :normalized_score, :viable, :liveness,
     )
-    name === :champion_parameters && return (
-        :parameter, :owner, :value, :default, :scale, :lower, :upper,
-        :mutation_scale, :values,
+    name === :candidate_scores && return (
+        :iteration, :candidate, :target, :measure, :valid, :score,
     )
-    name in (:training_trials, :heldout_trials) && return (
+    name === :models && return (
+        :model_id, :role, :coordinates, :scores, :metadata,
+    )
+    name === :heldout && return (:target, :measure, :score, :trials)
+    name === :heldout_trials && return (
+        :phase, :heldout_target,
         :condition, :block, :trial, :seed_ledger_agents, :topology_seed,
         :node_state_seed, :world_seed, :body_seed, :task_seed, :mechanism_seed,
         :initial_state, :score_key,
         :raw_score, :normalized_score, :viable, :liveness,
     )
-    name === :optimizer && return (:optimizer, :optimizer_seed, :generations, :popsize)
     name === :contrasts && return (
         :case, :condition, :baseline, :n, :raw_difference, :raw_ci_lower,
         :raw_ci_upper, :normalized_difference, :normalized_ci_lower,
@@ -386,7 +414,7 @@ function _operation_method(kind::Symbol)
     kind === :profile && return "Runs the declared analyses over every raw evaluation trial. Analysis tables are descriptive and do not change the task outcome contract."
     kind === :sweep && return "Evaluates declared parameter cells under paired block and trial seeds. Cells are development results, not confirmed optima."
     kind === :ablation && return "Compares an implicit baseline with declared capability-checked interventions under paired evaluation seeds."
-    kind === :evolution && return "Selects parameters on the training target, records convergence, then evaluates the selected parameters on held-out targets without tuning on them."
+    kind === :evolution && return "Searches a fixed experimental node design, records every candidate and seed, and emits selected, Pareto, or archive model artifacts. Scalar SepCMA models may then be evaluated on held-out targets."
     kind === :benchmark && return "Reports each task separately with 95% Student-t intervals. Cases with a declared baseline also report paired within-task contrasts. No cross-task aggregate is formed."
     return "Executes the declared BrainlessLab operation."
 end
@@ -396,7 +424,10 @@ function _plan_targets(plan::ProfilePlan)
 end
 _plan_targets(plan::SweepPlan) = (plan.target,)
 _plan_targets(plan::AblationPlan) = (plan.target,)
-_plan_targets(plan::EvolutionPlan) = (plan.training, plan.heldout_targets...)
+_plan_targets(plan::EvolutionPlan) = (
+    plan.training_targets...,
+    plan.heldout_targets...,
+)
 function _plan_targets(plan::BenchmarkPlan)
     output = EvaluationTarget[]
     seen = Set{Symbol}()
@@ -436,7 +467,7 @@ function _render_report(
         push!(sections, _html_table(replace(String(name), '_' => ' '), getproperty(output, name)))
     end
     chart = hasproperty(output, :convergence) ?
-        _svg_series(output.convergence, :generation, :fitness_best; title="Convergence") : ""
+        _svg_series(output.convergence, :iteration, :score_best; title="Convergence") : ""
     html = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>$(_html_escape(plan.id)) · BrainlessLab</title>
@@ -469,10 +500,21 @@ end
 _record_batches(result::ProfileResult) = (result.batch,)
 _record_batches(result::SweepResult) = result.batches
 _record_batches(result::AblationResult) = result.batches
-_record_batches(result::EvolutionResult) = (
-    result.training.batch,
-    (evaluation.batch for evaluation in result.heldout)...,
-)
+function _record_batches(result::EvolutionResult)
+    batches = EvaluationBatch[]
+    seen = Set{Symbol}()
+    for candidate in result.candidates, evaluation in candidate.evaluations
+        evaluation.batch isa EvaluationBatch || continue
+        evaluation.target in seen && continue
+        push!(batches, evaluation.batch)
+        push!(seen, evaluation.target)
+    end
+    for evaluation in result.heldout
+        evaluation.batch isa EvaluationBatch || continue
+        push!(batches, evaluation.batch)
+    end
+    return Tuple(batches)
+end
 function _record_batches(result::BenchmarkResult)
     batches = EvaluationBatch[]
     for case in result.batches, condition in case.conditions
@@ -489,6 +531,28 @@ end
 function _resolved_target_document(batch::EvaluationBatch)
     resolved = batch.resolved
     target = batch.target
+    document = Dict{String,Any}(
+        "id" => String(target.id),
+        "composition_id" => String(resolved.id),
+        "node" => String(resolved.node.id),
+        "task" => String(resolved.task.name),
+        "n_nodes" => resolved.n_nodes,
+        "parameters" => _string_dict(resolved.parameters),
+        "task_options" => _string_dict(resolved.task_options),
+        "body_options" => _string_dict(resolved.body_options),
+        "interaction_cycle" => _resolved_cycle_document(resolved.interaction_cycle),
+        "evaluation" => _evaluation_document(target.evaluation),
+    )
+    resolved.body === nothing || (document["body"] = String(resolved.body.key))
+    resolved.n_agents === nothing || (document["n_agents"] = resolved.n_agents)
+    return document
+end
+
+function _resolved_target_document(
+    target::EvaluationTarget,
+    registry::RegistrySet,
+)
+    resolved = resolve_composition(target.composition, registry)
     document = Dict{String,Any}(
         "id" => String(target.id),
         "composition_id" => String(resolved.id),
@@ -539,19 +603,27 @@ function _resolution_details(result::AblationResult)
     )
 end
 
-function _resolution_details(result::EvolutionResult)
+function _evolution_resolution_details(plan::ResolvedEvolutionPlan)
     return Dict{String,Any}(
-        "optimizer" => String(result.plan.optimizer.key),
-        "optimizer_seed" => _plan_toml_value(result.optimizer_seed),
-        "parameter_set" => String(result.plan.plan.parameter_set),
-        "parameters" => collect(String.(getfield.(result.plan.parameters, :name))),
-        "x0" => result.plan.x0,
-        "generations" => result.plan.plan.generations,
-        "popsize" => result.plan.plan.popsize,
-        "sigma0" => result.plan.plan.sigma0,
-        "objective" => String(result.plan.plan.objective),
+        "strategy" => String(plan.strategy.key),
+        "run" => Evolution.run_config_document(plan.run),
+        "node" => String(plan.node.id),
+        "model_type" => string(plan.design.model_type),
+        "dimension" => plan.design.dimension,
+        "blocks" => [
+            Dict{String,Any}(
+                "name" => String(block.name),
+                "shape" => collect(block.shape),
+                "first" => first(block.range),
+                "last" => last(block.range),
+            )
+            for block in plan.design.blocks
+        ],
     )
 end
+
+_resolution_details(result::EvolutionResult) =
+    _evolution_resolution_details(result.plan)
 
 function _resolution_details(result::BenchmarkResult)
     return Dict{String,Any}(
@@ -579,6 +651,42 @@ function _resolved_document(plan::AbstractOperationPlan, result::AbstractOperati
         "result_type" => string(nameof(typeof(result))),
         "targets" => [_resolved_target_document(batch) for batch in _record_batches(result)],
         "operation_settings" => _resolution_details(result),
+    )
+end
+
+function _resolved_document(
+    plan::EvolutionPlan,
+    result::EvolutionResult,
+)
+    return Dict{String,Any}(
+        "format" => "brainlesslab-resolution",
+        "format_version" => 1,
+        "operation" => "evolve",
+        "id" => String(plan.id),
+        "result_type" => string(nameof(typeof(result))),
+        "targets" => [
+            _resolved_target_document(target, result.plan.registry)
+            for target in operation_targets(plan)
+        ],
+        "operation_settings" => _resolution_details(result),
+    )
+end
+
+function _resolved_document(
+    plan::EvolutionPlan,
+    resolved::ResolvedEvolutionPlan,
+)
+    return Dict{String,Any}(
+        "format" => "brainlesslab-resolution",
+        "format_version" => 1,
+        "operation" => "evolve",
+        "id" => String(plan.id),
+        "result_type" => "pending",
+        "targets" => [
+            _resolved_target_document(target, resolved.registry)
+            for target in operation_targets(plan)
+        ],
+        "operation_settings" => _evolution_resolution_details(resolved),
     )
 end
 
@@ -630,6 +738,31 @@ function _write_record_contents(
         write(io, '\n')
     end
     _render_report(joinpath(directory, "report", "index.html"), plan, result, registry)
+
+    if result isa EvolutionResult
+        references = if isdir(joinpath(directory, "models"))
+            [
+                Evolution.model_reference(directory, model.model_id)
+                for model in result.models
+            ]
+        else
+            Evolution.write_models(
+                directory,
+                result.plan.node.id,
+                result.plan.design,
+                [
+                    (
+                        model_id=model.model_id,
+                        role=model.role,
+                        model=model.model,
+                    )
+                    for model in result.models
+                ],
+            )
+        end
+        empty!(result.model_references)
+        append!(result.model_references, references)
+    end
 
     artifacts = String[]
     checksums = Dict{String,String}()
@@ -710,6 +843,343 @@ function run_operation(
     result = execute(resolved)
     directory = write_record(plan, result; root=root, id=id, registry=registry)
     return (result=result, directory=directory)
+end
+
+function _evolution_digest(value)
+    return bytes2hex(SHA.sha256(codeunits(_json(value))))
+end
+
+function _evolution_operation_digests(
+    plan::EvolutionPlan,
+    resolved::ResolvedEvolutionPlan,
+    git,
+)
+    run_digest = _evolution_digest(Evolution.run_config_document(resolved.run))
+    resolution_digest = _evolution_digest((
+        id=plan.id,
+        node=resolved.node.id,
+        model_type=string(resolved.design.model_type),
+        dimension=resolved.design.dimension,
+        blocks=Tuple(
+            (
+                name=block.name,
+                shape=block.shape,
+                first=first(block.range),
+                last=last(block.range),
+            )
+            for block in resolved.design.blocks
+        ),
+        training_targets=Tuple(target.id for target in plan.training_targets),
+        heldout_targets=Tuple(target.id for target in plan.heldout_targets),
+    ))
+    provenance_digest = _evolution_digest((
+        git_sha=git.sha,
+        julia_version=string(VERSION),
+        package_version=string(Base.pkgversion(@__MODULE__)),
+    ))
+    return (
+        run=run_digest,
+        resolution=resolution_digest,
+        provenance=provenance_digest,
+    )
+end
+
+function _operation_record_directory(
+    plan::AbstractOperationPlan,
+    root::AbstractString,
+    id::Union{Nothing,AbstractString},
+)
+    record_id = id === nothing ? _record_id(plan) : String(id)
+    isempty(record_id) && throw(ArgumentError("record id must not be empty"))
+    record_id in (".", "..") &&
+        throw(ArgumentError("record id must not be . or .."))
+    (occursin('/', record_id) || occursin('\\', record_id)) &&
+        throw(ArgumentError("record id must be one path component"))
+    directory = joinpath(root, record_id)
+    ispath(directory) && throw(ArgumentError(
+        "record directory already exists: $(directory)",
+    ))
+    return directory
+end
+
+function _mark_incomplete(directory::AbstractString)
+    open(joinpath(directory, "INCOMPLETE"), "w") do io
+        write(io, "resume with Evolution.resume(\"", directory, "\")\n")
+    end
+    return directory
+end
+
+function _clear_evolution_markers(directory::AbstractString)
+    for name in ("INCOMPLETE", "FAILED")
+        path = joinpath(directory, name)
+        isfile(path) && rm(path)
+    end
+    return directory
+end
+
+function _partial_candidate_trials(candidates)
+    rows = NamedTuple[]
+    for candidate in candidates, evaluation in candidate.evaluations
+        for row in evaluation.trial_rows
+            push!(rows, merge(
+                (
+                    phase=:development,
+                    iteration=candidate.iteration,
+                    candidate=candidate.id,
+                ),
+                row,
+            ))
+        end
+    end
+    return rows
+end
+
+function _partial_candidate_scores(candidates)
+    rows = NamedTuple[]
+    for candidate in candidates, evaluation in candidate.evaluations
+        push!(rows, (
+            iteration=candidate.iteration,
+            candidate=candidate.id,
+            target=evaluation.target,
+            measure=evaluation.measure,
+            valid=candidate.valid && !ismissing(evaluation.aggregate),
+            score=evaluation.aggregate,
+        ))
+    end
+    return rows
+end
+
+function _write_incomplete_record_manifest(
+    directory::AbstractString,
+    plan::EvolutionPlan,
+    git,
+)
+    artifacts = String[]
+    checksums = Dict{String,String}()
+    for (root, _, files) in walkdir(directory), file in sort(files)
+        relative = replace(relpath(joinpath(root, file), directory), '\\' => '/')
+        relative in ("record.toml", "DONE", "FAILED", "INCOMPLETE") &&
+            continue
+        push!(artifacts, relative)
+        checksums[relative] = open(joinpath(root, file), "r") do io
+            bytes2hex(SHA.sha256(io))
+        end
+    end
+    sort!(artifacts)
+    created = if isfile(joinpath(directory, "record.toml"))
+        get(
+            TOML.parsefile(joinpath(directory, "record.toml")),
+            "created_utc",
+            string(now(UTC)),
+        )
+    else
+        string(now(UTC))
+    end
+    open(joinpath(directory, "record.toml"), "w") do io
+        TOML.print(io, Dict{String,Any}(
+            "format" => RECORD_FORMAT,
+            "format_version" => RECORD_FORMAT_VERSION,
+            "kind" => "evolve",
+            "id" => basename(directory),
+            "plan_id" => String(plan.id),
+            "created_utc" => created,
+            "package_version" => string(Base.pkgversion(@__MODULE__)),
+            "julia_version" => string(VERSION),
+            "threads" => Threads.nthreads(),
+            "git_sha" => git.sha,
+            "git_state" => git.state,
+            "artifacts" => artifacts,
+            "artifact_sha256" => checksums,
+            "completion_marker" => "INCOMPLETE",
+        ); sorted=true)
+    end
+    return directory
+end
+
+function _write_partial_evolution_state(
+    directory::AbstractString,
+    plan::EvolutionPlan,
+    candidates,
+    git,
+)
+    mkpath(joinpath(directory, "data"))
+    _write_csv(
+        joinpath(directory, "data", "candidate_trials.csv"),
+        _partial_candidate_trials(candidates);
+        columns=isempty(candidates) ?
+            _empty_table_columns(:candidate_trials) : nothing,
+    )
+    _write_csv(
+        joinpath(directory, "data", "candidate_scores.csv"),
+        _partial_candidate_scores(candidates);
+        columns=isempty(candidates) ?
+            _empty_table_columns(:candidate_scores) : nothing,
+    )
+    _write_csv(
+        joinpath(directory, "seeds.csv"),
+        _evolution_seed_rows(candidates),
+        columns=_SEED_ROW_NAMES,
+    )
+    _write_incomplete_record_manifest(directory, plan, git)
+    return directory
+end
+
+function _evolution_checkpoint_callback(
+    directory::AbstractString,
+    digests,
+    strategy::Symbol,
+    plan::EvolutionPlan,
+    git,
+)
+    return function (iteration, state, candidates)
+        Evolution.write_checkpoint(
+            directory;
+            completed_iteration=iteration,
+            run_digest=digests.run,
+            resolution_digest=digests.resolution,
+            provenance_digest=digests.provenance,
+            strategy_key=strategy,
+            runner_document=Dict{String,Any}(
+                "strategy" => Evolution.snapshot(state),
+                "candidates" => _candidate_document.(candidates),
+            ),
+            committed_candidate_count=length(candidates),
+        )
+        _write_partial_evolution_state(
+            directory,
+            plan,
+            candidates,
+            git,
+        )
+    end
+end
+
+function run_operation(
+    plan::EvolutionPlan;
+    registry::RegistrySet=DEFAULT_REGISTRY,
+    root::AbstractString="records",
+    id::Union{Nothing,AbstractString}=nothing,
+)
+    resolved = resolve(plan, registry)
+    git = _record_git()
+    directory = _operation_record_directory(plan, root, id)
+    mkpath(directory)
+    write_plan(joinpath(directory, "request.toml"), plan)
+    open(joinpath(directory, "resolved.toml"), "w") do io
+        TOML.print(io, _resolved_document(plan, resolved); sorted=true)
+    end
+    _mark_incomplete(directory)
+    digests = _evolution_operation_digests(plan, resolved, git)
+    checkpoint = _evolution_checkpoint_callback(
+        directory,
+        digests,
+        resolved.strategy.key,
+        plan,
+        git,
+    )
+    try
+        result = execute(resolved; checkpoint)
+        _clear_evolution_markers(directory)
+        _write_record_contents(
+            directory,
+            plan,
+            result;
+            registry,
+            git,
+        )
+        return (result=result, directory=String(directory))
+    catch error
+        open(joinpath(directory, "FAILED"), "w") do io
+            write(io, string(nameof(typeof(error))), "\n")
+            write(io, "The calling process contains the detailed error.\n")
+        end
+        rethrow()
+    end
+end
+
+isdefined(Evolution, :resume) ||
+    Core.eval(Evolution, :(function resume end))
+
+function Evolution.resume(
+    record_directory::AbstractString;
+    registry::RegistrySet=DEFAULT_REGISTRY,
+)
+    directory = String(record_directory)
+    isdir(directory) || throw(ArgumentError(
+        "evolution record directory does not exist: $(directory)",
+    ))
+    isfile(joinpath(directory, "DONE")) && throw(ArgumentError(
+        "evolution record is already complete",
+    ))
+    request = joinpath(directory, "request.toml")
+    isfile(request) || throw(ArgumentError(
+        "evolution record is missing request.toml",
+    ))
+    plan = read_plan(request; registry)
+    plan isa EvolutionPlan || throw(ArgumentError(
+        "record request is not an EvolutionPlan",
+    ))
+    resolved = resolve(plan, registry)
+    git = _record_git()
+    digests = _evolution_operation_digests(plan, resolved, git)
+    checkpoint = Evolution.latest_checkpoint(
+        directory;
+        run_digest=digests.run,
+        resolution_digest=digests.resolution,
+        provenance_digest=digests.provenance,
+        strategy_key=resolved.strategy.key,
+    )
+    checkpoint === nothing && throw(ArgumentError(
+        "evolution record has no complete generation checkpoint",
+    ))
+    state = Evolution.restore(
+        resolved.strategy,
+        checkpoint.strategy_snapshot,
+    )
+    candidates = EvolutionCandidate[
+        _restored_candidate(document)
+        for document in get(
+            checkpoint.runner_document,
+            "candidates",
+            Any[],
+        )
+    ]
+    length(candidates) == checkpoint.committed_candidate_count ||
+        throw(ArgumentError(
+            "checkpoint candidate count does not match its runner document",
+        ))
+    _clear_evolution_markers(directory)
+    _mark_incomplete(directory)
+    callback = _evolution_checkpoint_callback(
+        directory,
+        digests,
+        resolved.strategy.key,
+        plan,
+        git,
+    )
+    try
+        result = execute(
+            resolved;
+            state,
+            candidates,
+            checkpoint=callback,
+        )
+        _clear_evolution_markers(directory)
+        _write_record_contents(
+            directory,
+            plan,
+            result;
+            registry,
+            git,
+        )
+        return (result=result, directory=directory)
+    catch error
+        open(joinpath(directory, "FAILED"), "w") do io
+            write(io, string(nameof(typeof(error))), "\n")
+            write(io, "The calling process contains the detailed error.\n")
+        end
+        rethrow()
+    end
 end
 
 function _experiment_run_id(experiment::ExperimentSpec)

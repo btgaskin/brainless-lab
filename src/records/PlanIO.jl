@@ -1,11 +1,20 @@
 using TOML
 
 const PLAN_FORMAT = "brainlesslab-plan"
-const PLAN_FORMAT_VERSION = 1
+const PLAN_FORMAT_VERSION = 2
+const _READABLE_PLAN_FORMAT_VERSIONS = (1, PLAN_FORMAT_VERSION)
 
 _plan_toml_value(value::Symbol) = String(value)
 _plan_toml_value(value::Tuple) = [_plan_toml_value(item) for item in value]
 _plan_toml_value(value::AbstractVector) = [_plan_toml_value(item) for item in value]
+_plan_toml_value(value::NamedTuple) = Dict(
+    String(name) => _plan_toml_value(getproperty(value, name))
+    for name in propertynames(value)
+)
+_plan_toml_value(value::AbstractDict) = Dict(
+    String(key) => _plan_toml_value(item)
+    for (key, item) in pairs(value)
+)
 _plan_toml_value(value::UInt64) = value <= UInt64(typemax(Int64)) ? Int64(value) : string(value)
 _plan_toml_value(value) = value
 
@@ -76,11 +85,14 @@ function _evaluation_document(evaluation::EvaluationSpec)
 end
 
 function _target_document(target::EvaluationTarget)
-    return Dict{String,Any}(
+    document = Dict{String,Any}(
         "id" => String(target.id),
         "composition" => _composition_document(target.composition),
         "evaluation" => _evaluation_document(target.evaluation),
     )
+    target.model === nothing ||
+        (document["model"] = Evolution.model_reference_document(target.model))
+    return document
 end
 
 function _base_plan_document(plan, operation::Symbol, targets)
@@ -130,17 +142,12 @@ function plan_document(plan::AblationPlan)
 end
 
 function plan_document(plan::EvolutionPlan)
-    targets = (plan.training, plan.heldout_targets...)
+    targets = (plan.training_targets..., plan.heldout_targets...)
     document = _base_plan_document(plan, :evolve, targets)
     document["evolve"] = Dict{String,Any}(
-        "training" => String(plan.training.id),
+        "training" => String[String(target.id) for target in plan.training_targets],
         "heldout" => String[String(target.id) for target in plan.heldout_targets],
-        "optimizer" => String(plan.optimizer),
-        "parameter_set" => String(plan.parameter_set),
-        "objective" => String(plan.objective),
-        "generations" => plan.generations,
-        "popsize" => plan.popsize,
-        "sigma0" => plan.sigma0,
+        "run" => Evolution.run_config_document(plan.run),
     )
     return document
 end
@@ -272,7 +279,7 @@ end
 function _parse_targets(document, registry::RegistrySet)
     targets = Dict{Symbol,EvaluationTarget}()
     for entry in document
-        _require_document_keys(entry, ("id", "composition", "evaluation"), "target")
+        _require_document_keys(entry, ("id", "composition", "evaluation", "model"), "target")
         for key in ("id", "composition", "evaluation")
             haskey(entry, key) || throw(ArgumentError("target requires $(key)"))
         end
@@ -282,6 +289,8 @@ function _parse_targets(document, registry::RegistrySet)
             id,
             _parse_composition(entry["composition"], registry),
             _parse_evaluation(entry["evaluation"]),
+            model=haskey(entry, "model") ?
+                Evolution.parse_model_reference(entry["model"]) : nothing,
         )
     end
     isempty(targets) && throw(ArgumentError("plan requires at least one target"))
@@ -299,8 +308,10 @@ function read_plan(path::AbstractString; registry::RegistrySet=DEFAULT_REGISTRY)
     get(document, "format", nothing) == PLAN_FORMAT || throw(ArgumentError(
         "plan format must be $(repr(PLAN_FORMAT))",
     ))
-    get(document, "format_version", nothing) == PLAN_FORMAT_VERSION || throw(ArgumentError(
-        "plan format_version must be $(PLAN_FORMAT_VERSION)",
+    format_version = get(document, "format_version", nothing)
+    format_version in _READABLE_PLAN_FORMAT_VERSIONS || throw(ArgumentError(
+        "plan format_version must be one of " *
+        join(_READABLE_PLAN_FORMAT_VERSIONS, ", "),
     ))
     haskey(document, "operation") || throw(ArgumentError("plan requires operation"))
     haskey(document, "id") || throw(ArgumentError("plan requires id"))
@@ -345,21 +356,24 @@ function read_plan(path::AbstractString; registry::RegistrySet=DEFAULT_REGISTRY)
             ablations=Symbol.(section["ablations"]),
         )
     elseif operation === :evolve
+        format_version == PLAN_FORMAT_VERSION || throw(ArgumentError(
+            "legacy evolution plans are not supported; rewrite the plan with " *
+            "Evolution.RunConfig and format_version=$(PLAN_FORMAT_VERSION)",
+        ))
         _require_document_keys(
             section,
-            ("training", "heldout", "optimizer", "parameter_set", "objective", "generations", "popsize", "sigma0"),
+            ("training", "heldout", "run"),
             "evolve",
         )
+        haskey(section, "training") ||
+            throw(ArgumentError("evolve requires training target ids"))
+        haskey(section, "run") ||
+            throw(ArgumentError("evolve requires [evolve.run]"))
         return EvolutionPlan(
             id,
-            _target(targets, section["training"]);
+            Tuple(_target(targets, name) for name in section["training"]);
+            run=Evolution.parse_run_config(section["run"]),
             heldout_targets=Tuple(_target(targets, name) for name in get(section, "heldout", String[])),
-            optimizer=Symbol(get(section, "optimizer", "sepcma")),
-            parameter_set=Symbol(get(section, "parameter_set", "evolve")),
-            objective=Symbol(get(section, "objective", "normalized_score")),
-            generations=get(section, "generations", 50),
-            popsize=get(section, "popsize", 64),
-            sigma0=get(section, "sigma0", 0.5),
         )
     elseif operation === :benchmark
         _require_document_keys(section, ("cases",), "benchmark")

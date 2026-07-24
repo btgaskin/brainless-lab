@@ -8,6 +8,7 @@ using Test
         joinpath(root, "site", "src", "content"),
         joinpath(root, "examples"),
         joinpath(root, "experiments", "README.md"),
+        joinpath(root, "research"),
         joinpath(root, "skills", "brainless-lab"),
     )
     forbidden = (

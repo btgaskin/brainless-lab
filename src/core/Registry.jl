@@ -7,7 +7,6 @@ const SENSORS = Dict{Symbol,Any}()
 const METRICS = Dict{Symbol,Any}()
 const ANALYSES = Dict{Symbol,Any}()
 const VIEWS = Dict{Symbol,Any}()
-const OPTIMIZERS = Dict{Symbol,Any}()
 const ABLATIONS = Dict{Symbol,Any}()
 const NODE_GENOME_TYPES = Dict{Symbol,Any}()
 const NODE_RECEPTOR_PROFILE_KEYWORDS = Dict{Symbol,Symbol}()
@@ -101,7 +100,7 @@ function genome_type(node::Union{Symbol,AbstractString})
 end
 
 function genome_type(node)
-    throw(ArgumentError("no evolvable genome_type is registered for node constructor $(node)"))
+    throw(ArgumentError("no node-design genome type is registered for constructor $(node)"))
 end
 
 """
@@ -255,20 +254,6 @@ register_view!(sym::Symbol, T) = _register!(VIEWS, "view", sym, T)
 Resolve a registered view symbol to its constructor, function, or concrete type.
 """
 resolve_view(sym::Symbol)::Any = _resolve(VIEWS, "view", sym)
-
-"""
-    register_optimizer!(sym, T)
-
-Register an optimizer constructor or concrete type under `sym`.
-"""
-register_optimizer!(sym::Symbol, T) = _register!(OPTIMIZERS, "optimizer", sym, T)
-
-"""
-    resolve_optimizer(sym)
-
-Resolve a registered optimizer symbol to its constructor or concrete type.
-"""
-resolve_optimizer(sym::Symbol)::Any = _resolve(OPTIMIZERS, "optimizer", sym)
 
 """
     register_ablation!(sym, T)

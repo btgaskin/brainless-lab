@@ -7,10 +7,25 @@ function _context_seed(context::NodeBuildContext, name::Symbol)
     return _seed_to_int(getproperty(context.seeds, name))
 end
 
-function _generic_node_builder(id::Symbol, constructor)
+function _generic_node_builder(
+    id::Symbol,
+    constructor;
+    model_keyword::Union{Nothing,Symbol}=nothing,
+    require_model::Bool=false,
+)
     profile_keyword = node_receptor_profile_keyword(id)
     return function (context::NodeBuildContext, values)
         options = Dict{Symbol,Any}(values)
+        if context.model === nothing
+            require_model && throw(ArgumentError(
+                "node :$(id) requires an explicit node model",
+            ))
+        else
+            model_keyword === nothing && throw(ArgumentError(
+                "node :$(id) does not declare how to receive a node model",
+            ))
+            options[model_keyword] = context.model
+        end
         if context.receptor_profile !== nothing
             profile_keyword === nothing && throw(ArgumentError(
                 "body requires a receptor profile but node :$(id) does not declare that capability",
@@ -32,6 +47,8 @@ function _generic_node_builder(id::Symbol, constructor)
     end
 end
 
+_node_design_spec(::Any) = nothing
+
 function _falandays_parameters()
     defaults = FalandaysParams()
     nonnegative = value -> value isa Float64 && isfinite(value) && value >= 0.0
@@ -42,7 +59,6 @@ function _falandays_parameters()
             defaults.leak;
             validator=value -> value isa Float64 && isfinite(value) && 0.0 <= value <= 1.0,
             sweep=(0.1, 0.25, 0.5, 0.75),
-            evolve=(lower=0.0, upper=1.0, scale=:linear, mutation_scale=0.05),
             description="activation retained between updates",
         ),
         ParameterSpec(
@@ -50,7 +66,6 @@ function _falandays_parameters()
             defaults.lrate_wmat;
             validator=nonnegative,
             sweep=(0.05, 0.1, 0.35, 1.0),
-            evolve=(lower=1.0e-4, upper=2.0, scale=:log, mutation_scale=0.2),
             description="local recurrent-weight homeostasis rate",
         ),
         ParameterSpec(
@@ -58,7 +73,6 @@ function _falandays_parameters()
             defaults.lrate_targ;
             validator=nonnegative,
             sweep=(0.001, 0.01, 0.1),
-            evolve=(lower=1.0e-4, upper=0.5, scale=:log, mutation_scale=0.2),
             description="target-activity adaptation rate",
         ),
         ParameterSpec(
@@ -66,7 +80,6 @@ function _falandays_parameters()
             defaults.threshold_mult;
             validator=positive,
             sweep=(1.5, 2.0, 2.5),
-            evolve=(lower=0.100001, upper=8.0, scale=:log, mutation_scale=0.15),
             description="target-to-spike-threshold multiplier",
         ),
         ParameterSpec(
@@ -74,7 +87,6 @@ function _falandays_parameters()
             defaults.targ_min;
             validator=positive,
             sweep=(0.5, 1.0, 1.5),
-            evolve=(lower=0.100001, upper=5.0, scale=:log, mutation_scale=0.15),
             description="minimum homeostatic target activity",
         ),
         ParameterSpec(
@@ -82,7 +94,6 @@ function _falandays_parameters()
             defaults.input_weight;
             validator=nonnegative,
             sweep=(0.75, 1.875, 2.75, 4.0),
-            evolve=(lower=1.0e-4, upper=12.5, scale=:log, mutation_scale=0.2),
             description="sensory input amplitude",
         ),
         ParameterSpec(
@@ -90,7 +101,6 @@ function _falandays_parameters()
             defaults.weight_init_std;
             validator=nonnegative,
             sweep=(0.25, 0.5, 1.0, 2.0),
-            evolve=(lower=1.0e-4, upper=4.0, scale=:log, mutation_scale=0.2),
             description="initial recurrent-weight scale",
         ),
         ParameterSpec(
@@ -224,15 +234,6 @@ function falandays_node_spec()
         parameters=_falandays_parameters(),
         parameter_sets=Dict(
             :sweep => (:leak, :lrate_wmat),
-            :evolve => (
-                :leak,
-                :lrate_wmat,
-                :lrate_targ,
-                :threshold_mult,
-                :targ_min,
-                :input_weight,
-                :weight_init_std,
-            ),
             :connectivity => (:link_p,),
         ),
         equations=_falandays_equations(),
@@ -253,13 +254,20 @@ function _generic_registered_node_spec(id::Symbol, constructor)
     catch
         nothing
     end
+    design = genome === nothing ? nothing : _node_design_spec(genome)
     capabilities = Symbol[]
-    genome === nothing || push!(capabilities, :evolvable)
+    design === nothing || push!(capabilities, :model_design)
     node_receptor_profile_keyword(id) === nothing || push!(capabilities, :receptor_profile)
     return NodeSpec(
         id,
-        _generic_node_builder(id, constructor);
+        _generic_node_builder(
+            id,
+            constructor;
+            model_keyword=design === nothing ? nothing : :genome,
+            require_model=design !== nothing,
+        );
         genome_type=genome,
+        design=design,
         stability=id === :null_random ? :control : :experimental,
         tags=id === :null_random ? (:control,) : (:experimental,),
         capabilities=Tuple(capabilities),
@@ -375,8 +383,8 @@ function register_builtins!(registry::RegistrySet)
     for (id, implementation) in sort!(collect(VIEWS); by=pair -> string(first(pair)))
         register!(registry, :views, ImplementationSpec(id, implementation))
     end
-    for (id, implementation) in sort!(collect(OPTIMIZERS); by=pair -> string(first(pair)))
-        register!(registry, :optimizers, ImplementationSpec(id, implementation))
+    for spec in Evolution.builtin_strategy_specs()
+        register!(registry, spec)
     end
     for (id, implementation) in sort!(collect(ABLATIONS); by=pair -> string(first(pair)))
         typed = _typed_builtin_ablation(id)
@@ -394,3 +402,9 @@ function register_builtins!(registry::RegistrySet)
 end
 
 const DEFAULT_REGISTRY = RegistrySet()
+
+Evolution.search_strategy(id::Union{Symbol,AbstractString}) =
+    Evolution.search_strategy(DEFAULT_REGISTRY, id)
+
+Evolution.search_strategies() =
+    Evolution.search_strategies(DEFAULT_REGISTRY)

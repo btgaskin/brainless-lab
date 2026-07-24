@@ -92,6 +92,13 @@ Use an `ExperimentSpec` when a study needs a stable question, version, named con
 limitations, and one or more operations. Keep these bundles under `experiments/`. Do not
 revive the archived bespoke experiment runner or add another operation-specific schema.
 
+For accepted public runs, query `research/catalogue.json` first. Follow its paths to the
+submitted plan, resolved configuration, seeds, trial tables, summary, and report. Filter
+only within matching experiment, version, operation, task, node, and protocol settings.
+Treat a maintainer replay as a linked reproduction check, not another independent result.
+Agents may help inspect and compare records, but only a human maintainer accepts them.
+Never modify an accepted contribution directory.
+
 ## Verification
 
 For Julia changes:

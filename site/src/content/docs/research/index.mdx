@@ -1,10 +1,10 @@
 ---
 title: Research records
-description: How BrainlessLab retains exact run configurations now, and how a searchable record catalogue can grow next.
+description: How BrainlessLab retains exact run configurations and accepts public run contributions.
 ---
 
 The research area is a small index over standard BrainlessLab records. It does not add a
-database or a new execution path.
+database or a separate research runner.
 
 ## Current contract
 
@@ -31,39 +31,39 @@ An `ExperimentSpec` groups operation plans under one question and version. Each 
 still writes its own standard record. A benchmark is one operation type, not the parent of
 all research.
 
-## Current public indexes
+## Public indexes
 
+- [Accepted runs](/research/catalogue/) reads the committed contribution catalogue.
 - [Benchmarks](/benchmarks/) lists versioned benchmark protocols and records.
 - [Experiments](/experiments/) lists versioned questions and their evidence states.
 - [Experimental](/experimental/) lists software capabilities, not research results.
 
-This phase includes one real benchmark record and one planned experiment. The pages prove
-the catalogue structure without pretending that a complete research archive exists.
+The accepted-run catalogue lists accepted contributions and explicit pre-pipeline compatibility
+records. It does not aggregate outcomes, rank results, or plot parameter-performance relations.
 
-## Next catalogue phase
+## Two-stage contribution path
 
-A later build can discover completed records and derive catalogue rows directly from their
-files. Each row should expose:
+First, merge the protocol and any required software through ordinary review. This stage fixes the
+scientific question, operation plans, evidence state, and code that will execute.
 
-- stable research ID and protocol version;
-- operation type and completion state;
-- evidence state and seed stage;
-- node, task, body, condition, and user-defined tags;
-- creation time, Git revision, package version, and Julia version;
-- request, resolved configuration, summary, report, and record paths.
+Second, generate the public records from a clean Git commit that is reachable from `main`. The
+second pull request contains records only.
 
-The interface can then search free text, filter tags and evidence state, and sort by time,
-operation, task, node, or version.
+A contributor submission and its maintainer replay are linked roles within one contribution.
+They are not independent evidence or additional replicates. Replay checks execution and
+portability within the declared environment.
 
-Keep records immutable after publication. Add annotations or a superseding protocol rather
-than rewriting old output. Derive measured values from the machine-readable summary instead
-of copying them into page frontmatter.
+Only a human maintainer accepts a contribution. Automated checks can validate the bundle,
+compare linked roles, and generate the catalogue. They cannot promote evidence.
 
-## What remains open
+## Publication limits
 
-The next phase must decide which record roots are indexed, how large data files are
-archived, and how private or sealed records are excluded. It must also define stable
-user-supplied tags without turning registry membership into an acceptance gate.
+Public contribution records must not contain private or sealed material. Aim for at most 1 MiB
+of text-only files in the complete contribution. The hard limit is 5 MiB. This Git-native
+pipeline does not accept larger files, and large datasets remain out of scope.
 
-Until then, use a deliberate records root and retain the full standard bundle for every
-repeated run.
+Accepted records are immutable. Add an annotation or superseding protocol when an interpretation
+changes. Do not rewrite the accepted bundle.
+
+The committed Falandays benchmark predates this process. Its `pre-pipeline` entry preserves
+compatibility and does not imply retrospective acceptance.

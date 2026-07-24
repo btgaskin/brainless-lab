@@ -113,6 +113,7 @@ export default defineConfig({
           label: 'Research',
           items: [
             { label: 'Record structure', slug: 'research' },
+            { label: 'Accepted runs', slug: 'research/catalogue' },
             { label: 'Benchmarks', slug: 'benchmarks' },
             { label: 'Experiments', slug: 'experiments' },
             { label: 'Experimental capabilities', slug: 'experimental' },

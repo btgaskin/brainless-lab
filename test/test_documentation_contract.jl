@@ -11,6 +11,7 @@ using Test
     @test isfile(joinpath(docs, "benchmarks", "index.mdx"))
     @test isfile(joinpath(docs, "experiments", "index.mdx"))
     @test isfile(joinpath(docs, "experimental", "index.mdx"))
+    @test isfile(joinpath(docs, "research", "catalogue.mdx"))
     @test !isdir(joinpath(docs, "notes"))
     @test !any(isfile, (
         joinpath(docs, "core", "operations-records.mdx"),
@@ -43,6 +44,7 @@ using Test
         joinpath(repository, "site", "src"),
         joinpath(repository, "examples"),
         joinpath(repository, "experiments", "README.md"),
+        joinpath(repository, "research"),
         joinpath(repository, "skills", "brainless-lab"),
     )
     retired_links = (

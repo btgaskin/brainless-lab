@@ -1,23 +1,34 @@
 """Cold-path context supplied to a registered node builder."""
-struct NodeBuildContext{P,S,R}
+struct NodeBuildContext{P,S,R,M}
     n_nodes::Int
     ports::P
     seeds::S
     receptor_profile::R
+    model::M
 
     function NodeBuildContext(
         n_nodes::Integer,
         ports,
         seeds;
         receptor_profile=nothing,
+        model=nothing,
     )
         count = Int(n_nodes)
         count > 0 || throw(ArgumentError("node build context requires a positive n_nodes"))
-        return new{typeof(ports),typeof(seeds),typeof(receptor_profile)}(
+        model === nothing || model isa NodeModel || throw(ArgumentError(
+            "node build context model must be a NodeModel or nothing",
+        ))
+        return new{
+            typeof(ports),
+            typeof(seeds),
+            typeof(receptor_profile),
+            typeof(model),
+        }(
             count,
             ports,
             seeds,
             receptor_profile,
+            model,
         )
     end
 end
@@ -29,10 +40,11 @@ Discoverable contract for one neural substrate. Node count and the task/body
 ports are supplied by `NodeBuildContext`; the node owns only its mechanism and
 declared parameter surface.
 """
-struct NodeSpec{B,G,P,E,M}
+struct NodeSpec{B,G,D,P,E,M}
     id::Symbol
     build::B
     genome_type::G
+    design::D
     stability::Symbol
     tags::Tuple{Vararg{Symbol}}
     capabilities::Tuple{Vararg{Symbol}}
@@ -47,6 +59,7 @@ function NodeSpec(
     id::Union{Symbol,AbstractString},
     build;
     genome_type=nothing,
+    design=nothing,
     stability::Symbol=:experimental,
     tags=(),
     capabilities=(),
@@ -63,6 +76,15 @@ function NodeSpec(
     genome_type === nothing ||
         (genome_type isa Type && genome_type <: NodeModel) ||
         throw(ArgumentError("node :$(id_) genome_type must be a NodeModel type or nothing"))
+    design === nothing || design isa Evolution.NodeDesignSpec || throw(ArgumentError(
+        "node :$(id_) design must be an Evolution.NodeDesignSpec or nothing",
+    ))
+    if design !== nothing && genome_type !== nothing
+        design.model_type === genome_type || throw(ArgumentError(
+            "node :$(id_) design model type $(design.model_type) does not match " *
+            "genome_type $(genome_type)",
+        ))
+    end
     tags_ = _symbol_tuple(tags, "node tags")
     capabilities_ = _symbol_tuple(capabilities, "node capabilities")
     parameters_ = Tuple(parameters)
@@ -91,6 +113,7 @@ function NodeSpec(
     return NodeSpec{
         typeof(build),
         typeof(genome_type),
+        typeof(design),
         typeof(parameters_),
         typeof(equations_),
         typeof(metadata),
@@ -98,6 +121,7 @@ function NodeSpec(
         id_,
         build,
         genome_type,
+        design,
         stability,
         tags_,
         capabilities_,
@@ -212,7 +236,7 @@ mutable struct RegistrySet
     metrics::Registry{Symbol,ImplementationSpec}
     analyses::Registry{Symbol,ImplementationSpec}
     views::Registry{Symbol,ImplementationSpec}
-    optimizers::Registry{Symbol,ImplementationSpec}
+    search_strategies::Registry{Symbol,Evolution.SearchStrategySpec}
     ablations::Registry{Symbol,ImplementationSpec}
     compositions::Registry{Symbol,CompositionSpec}
     composition_defaults::Dict{Tuple{Symbol,Symbol},Symbol}
@@ -229,7 +253,7 @@ function RegistrySet()
         Registry{Symbol,ImplementationSpec}(:metrics),
         Registry{Symbol,ImplementationSpec}(:analyses),
         Registry{Symbol,ImplementationSpec}(:views),
-        Registry{Symbol,ImplementationSpec}(:optimizers),
+        Registry{Symbol,Evolution.SearchStrategySpec}(:search_strategies),
         Registry{Symbol,ImplementationSpec}(:ablations),
         Registry{Symbol,CompositionSpec}(:compositions),
         Dict{Tuple{Symbol,Symbol},Symbol}(),
@@ -240,9 +264,11 @@ register!(registry::RegistrySet, spec::NodeSpec) = register!(registry.nodes, spe
 register!(registry::RegistrySet, spec::TaskSpec) = register!(registry.tasks, spec.name, spec)
 register!(registry::RegistrySet, spec::CompositionSpec) =
     register!(registry.compositions, spec.id, spec)
+register!(registry::RegistrySet, spec::Evolution.SearchStrategySpec) =
+    register!(registry.search_strategies, spec.key, spec)
 
 function register!(registry::RegistrySet, kind::Symbol, spec::ImplementationSpec)
-    kind in (:bodies, :drives, :motors, :sensors, :metrics, :analyses, :views, :optimizers, :ablations) ||
+    kind in (:bodies, :drives, :motors, :sensors, :metrics, :analyses, :views, :ablations) ||
         throw(ArgumentError("unknown implementation registry :$(kind)"))
     return register!(getfield(registry, kind), spec.key, spec)
 end
@@ -290,6 +316,14 @@ end
 
 ablations(registry::RegistrySet) = sort!(collect(keys(registry.ablations)); by=string)
 compositions(registry::RegistrySet) = sort!(collect(keys(registry.compositions)); by=string)
+
+Evolution.search_strategy(
+    registry::RegistrySet,
+    id::Union{Symbol,AbstractString},
+) = resolve(registry.search_strategies, Symbol(id))
+
+Evolution.search_strategies(registry::RegistrySet) =
+    sort!(collect(keys(registry.search_strategies)); by=string)
 
 function default_composition(
     registry::RegistrySet,

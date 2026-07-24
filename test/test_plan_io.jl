@@ -17,8 +17,28 @@ function _io_target(id, task)
     )
 end
 
-@testset "version-one TOML plan round trips" begin
+@testset "version-two TOML plan round trips" begin
     target = _io_target(:tracking, :tracking)
+    evolution_target = EvaluationTarget(
+        :ctrnn_tracking,
+        CompositionSpec(
+            :ctrnn_tracking,
+            :compartmental_structured,
+            :tracking;
+            n_nodes=2,
+        ),
+        EvaluationSpec(horizon=1, aggregate=:mean),
+    )
+    evolution_run = Evolution.RunConfig(
+        strategy=:sepcma,
+        iterations=2,
+        search_seed=44,
+        initialisation=Evolution.NormalInitialisation(
+            centre=:zero,
+            scale=0.1,
+        ),
+        options=(population=4, reducer=:mean,),
+    )
     plans = (
         ProfilePlan(:profile, target; analyses=(:branching_ratio_mr,), record_every=2),
         SweepPlan(
@@ -31,10 +51,8 @@ end
         AblationPlan(:ablate, target; ablations=(:freeze_plasticity,)),
         EvolutionPlan(
             :evolve,
-            target;
-            heldout_targets=(_io_target(:pong, :pong),),
-            generations=2,
-            popsize=4,
+            (evolution_target,);
+            run=evolution_run,
         ),
         BenchmarkPlan(
             :benchmark,
@@ -54,7 +72,7 @@ end
         parsed = read_plan(path)
         @test typeof(parsed).name.wrapper === typeof(plan).name.wrapper
         @test parsed.id === plan.id
-        @test plan_document(parsed)["format_version"] == 1
+        @test plan_document(parsed)["format_version"] == 2
     end
 end
 

@@ -92,16 +92,45 @@ end
     )
     @test ablation.ablations == (:freeze_plasticity, :clamp_target)
 
+    ctrnn_composition = CompositionSpec(
+        :structured_ctrnn_tracking,
+        :compartmental_structured,
+        :tracking;
+        n_nodes=2,
+    )
+    ctrnn_training = EvaluationTarget(
+        :ctrnn_tracking,
+        ctrnn_composition,
+        EvaluationSpec(horizon=1, aggregate=:mean),
+    )
+    ctrnn_heldout = EvaluationTarget(
+        :ctrnn_tracking_heldout,
+        ctrnn_composition,
+        EvaluationSpec(horizon=1, root_seed=18, aggregate=:mean),
+    )
+    run = Evolution.RunConfig(
+        strategy=:sepcma,
+        iterations=5,
+        search_seed=17,
+        initialisation=Evolution.NormalInitialisation(
+            centre=:zero,
+            scale=0.1,
+        ),
+        options=(population=4, reducer=:mean,),
+    )
     evolution = EvolutionPlan(
         :evolve_tracking,
-        tracking;
-        heldout_targets=(pong,),
-        generations=5,
-        popsize=24,
+        (ctrnn_training,);
+        run,
+        heldout_targets=(ctrnn_heldout,),
     )
-    @test evolution.parameter_set === :evolve
-    @test evolution.heldout_targets == (pong,)
-    @test_throws ArgumentError EvolutionPlan(:bad, tracking; popsize=1)
+    @test evolution.run.strategy === :sepcma
+    @test evolution.heldout_targets == (ctrnn_heldout,)
+    @test_throws ArgumentError EvolutionPlan(
+        :bad,
+        ();
+        run,
+    )
 
     tracking_case = BenchmarkCasePlan(
         :tracking,
@@ -123,7 +152,7 @@ end
         v"1.0.0";
         title="Evolve one task, evaluate the other",
         question="How does task-specific parameter evolution move performance across the core benchmark?",
-        conditions=(tracking, pong),
+        conditions=(ctrnn_training, ctrnn_heldout, tracking, pong),
         operations=(evolution, benchmark),
         evidence_state=:exploratory,
         limitations=("Parameter evolution only; node structure is fixed.",),

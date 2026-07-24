@@ -7,7 +7,6 @@ using BrainlessLab:
     Registry,
     SeedStreamSpec,
     derive_seed,
-    evolvable,
     register!,
     resolve,
     seed_stream_names,
@@ -84,15 +83,12 @@ end
         owner=:node,
         validator=value -> 0.0 <= value <= 1.0,
         sweep=(0.1, 0.25, 0.5),
-        evolve=(lower=0.0, upper=1.0, scale=:linear, mutation_scale=0.05),
         description="activation retained between ticks",
     )
     @test leak.default == 0.25
     @test leak.datatype === Float64
     @test leak.sweep == (0.1, 0.25, 0.5)
-    @test leak.evolve.scale === :linear
     @test sweepable(leak)
-    @test evolvable(leak)
     @test validate_parameter(leak, 0.75) == 0.75
     @test_throws ArgumentError validate_parameter(leak, 1.1)
     @test_throws ArgumentError validate_parameter(leak, 1)
@@ -102,10 +98,8 @@ end
         :sparse;
         owner=:reservoir,
         validator=value -> value in (:sparse, :dense),
-        evolve=(values=(:sparse, :dense),),
     )
     @test connectivity.owner === :reservoir
-    @test connectivity.evolve.values == (:sparse, :dense)
 
     @test_throws ArgumentError ParameterSpec(
         :bad_default,
@@ -116,21 +110,6 @@ end
         :bad_sweep,
         0.5;
         sweep=(0.2, 0.2),
-    )
-    @test_throws ArgumentError ParameterSpec(
-        :bad_bounds,
-        0.5;
-        evolve=(lower=0.6, upper=1.0),
-    )
-    @test_throws ArgumentError ParameterSpec(
-        :bad_log,
-        0.5;
-        evolve=(lower=0.0, upper=1.0, scale=:log),
-    )
-    @test_throws ArgumentError ParameterSpec(
-        :bad_categories,
-        :a;
-        evolve=(values=nothing,),
     )
     @test_throws ArgumentError ParameterSpec(
         :bad_validator,

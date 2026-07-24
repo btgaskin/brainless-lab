@@ -33,9 +33,10 @@ Register the implementation with `NodeSpec`. Its builder receives a `NodeBuildCo
 the resolved parameter dictionary. The context supplies node count, resolved ports, named
 seeds, and any receptor connection profile.
 
-`ParameterSpec` defines each configurable value. It can declare an owner, validator, sweep
-values, and evolution bounds. Named parameter sets such as `:sweep` and `:evolve` select
-the values available to an operation. Runtime state must not enter these parameter sets.
+`ParameterSpec` defines each configurable value. It can declare an owner, validator, and
+sweep values. Named parameter sets such as `:sweep` select values for parameter operations.
+Experimental neuron design uses a separate `Evolution.NodeDesignSpec`; runtime state must
+not enter either surface.
 
 ## Task
 

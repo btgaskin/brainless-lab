@@ -37,6 +37,7 @@ function _build_composition(
     trial::Integer=1,
     construction_block::Integer=block,
     construction_trial::Integer=trial,
+    model=nothing,
     record=_DEFAULT_RECORD_CHANNELS,
     every::Integer=1,
 )
@@ -77,6 +78,7 @@ function _build_composition(
             layout,
             seeds;
             receptor_profile=profile,
+            model=model,
         )
         reservoir = resolved.node.build(context, resolved.parameters)
         reservoir isa Reservoir || throw(ArgumentError(
@@ -108,6 +110,7 @@ runs one trial and accepts a temporary `ticks` override for interactive use.
 function simulate(
     composition::CompositionSpec;
     registry::RegistrySet=DEFAULT_REGISTRY,
+    model=nothing,
     ticks=nothing,
     seed::Integer=0,
     record=_DEFAULT_RECORD_CHANNELS,
@@ -128,6 +131,7 @@ function simulate(
         evaluation;
         block=1,
         trial=1,
+        model=model,
         record=record,
         every=every,
     )

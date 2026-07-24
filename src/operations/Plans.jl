@@ -3,18 +3,24 @@ abstract type AbstractResolvedOperationPlan end
 abstract type AbstractOperationResult end
 
 """One named composition plus its complete outer evaluation protocol."""
-struct EvaluationTarget{C<:CompositionSpec,E<:EvaluationSpec}
+struct EvaluationTarget{C<:CompositionSpec,E<:EvaluationSpec,M}
     id::Symbol
     composition::C
     evaluation::E
+    model::M
 
     function EvaluationTarget(
         id::Union{Symbol,AbstractString},
         composition::C,
         evaluation::E,
+        ;
+        model=nothing,
     ) where {C<:CompositionSpec,E<:EvaluationSpec}
         id_ = _nonempty_symbol(id, "evaluation target id")
-        return new{C,E}(id_, composition, evaluation)
+        model === nothing || model isa Evolution.ModelReference || throw(ArgumentError(
+            "evaluation target model must be an Evolution.ModelReference or nothing",
+        ))
+        return new{C,E,typeof(model)}(id_, composition, evaluation, model)
     end
 end
 
@@ -144,53 +150,43 @@ function AblationPlan(
     return AblationPlan(id_, target, ablations_)
 end
 
-struct EvolutionPlan{T<:EvaluationTarget,H<:Tuple} <: AbstractOperationPlan
+struct EvolutionPlan{T<:Tuple,H<:Tuple,R<:Evolution.RunConfig} <: AbstractOperationPlan
     id::Symbol
-    training::T
+    training_targets::T
     heldout_targets::H
-    optimizer::Symbol
-    parameter_set::Symbol
-    objective::Symbol
-    generations::Int
-    popsize::Int
-    sigma0::Float64
+    run::R
 end
 
 function EvolutionPlan(
     id::Union{Symbol,AbstractString},
-    training::EvaluationTarget;
+    training;
+    run::Evolution.RunConfig,
     heldout_targets=(),
-    optimizer::Union{Symbol,AbstractString}=:sepcma,
-    parameter_set::Union{Symbol,AbstractString}=:evolve,
-    objective::Union{Symbol,AbstractString}=:normalized_score,
-    generations::Integer=50,
-    popsize::Integer=64,
-    sigma0::Real=0.5,
 )
     id_ = _nonempty_symbol(id, "evolution plan id")
+    training_ = training isa EvaluationTarget ? (training,) : Tuple(training)
+    isempty(training_) && throw(ArgumentError(
+        "evolution plan requires at least one training target",
+    ))
+    all(target -> target isa EvaluationTarget, training_) || throw(ArgumentError(
+        "training targets must all be EvaluationTarget values",
+    ))
+    training_ids = Tuple(target.id for target in training_)
+    length(unique(training_ids)) == length(training_ids) || throw(ArgumentError(
+        "evolution training target ids must be unique",
+    ))
     heldout = Tuple(heldout_targets)
     all(target -> target isa EvaluationTarget, heldout) || throw(ArgumentError(
         "heldout_targets must all be EvaluationTarget values",
     ))
-    generations_ = Int(generations)
-    popsize_ = Int(popsize)
-    sigma = Float64(sigma0)
-    generations_ > 0 || throw(ArgumentError("evolution generations must be positive"))
-    popsize_ >= 2 || throw(ArgumentError("evolution popsize must be at least 2"))
-    isfinite(sigma) && sigma > 0 || throw(ArgumentError(
-        "evolution sigma0 must be finite and positive",
+    heldout_ids = Tuple(target.id for target in heldout)
+    length(unique(heldout_ids)) == length(heldout_ids) || throw(ArgumentError(
+        "evolution held-out target ids must be unique",
     ))
-    return EvolutionPlan(
-        id_,
-        training,
-        heldout,
-        _nonempty_symbol(optimizer, "evolution optimizer"),
-        _nonempty_symbol(parameter_set, "evolution parameter set"),
-        _nonempty_symbol(objective, "evolution objective"),
-        generations_,
-        popsize_,
-        sigma,
-    )
+    isempty(intersect(Set(training_ids), Set(heldout_ids))) || throw(ArgumentError(
+        "evolution training and held-out target ids must be disjoint",
+    ))
+    return EvolutionPlan(id_, training_, heldout, run)
 end
 
 struct BenchmarkCasePlan{C<:Tuple}
@@ -325,7 +321,7 @@ end
 operation_targets(plan::ProfilePlan) = (plan.target,)
 operation_targets(plan::SweepPlan) = (plan.target,)
 operation_targets(plan::AblationPlan) = (plan.target,)
-operation_targets(plan::EvolutionPlan) = (plan.training, plan.heldout_targets...)
+operation_targets(plan::EvolutionPlan) = (plan.training_targets..., plan.heldout_targets...)
 function operation_targets(plan::BenchmarkPlan)
     targets = EvaluationTarget[]
     seen = Set{Symbol}()
@@ -346,6 +342,13 @@ function _experiment_target_signature(target::EvaluationTarget)
     cycle = composition.interaction_cycle
     return (
         id=target.id,
+        model=target.model === nothing ? nothing : (
+            path=target.model.path,
+            model_id=target.model.model_id,
+            node=target.model.node,
+            schema_sha256=target.model.schema_sha256,
+            coordinates_sha256=target.model.coordinates_sha256,
+        ),
         composition=(
             id=composition.id,
             node=composition.node,

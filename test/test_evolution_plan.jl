@@ -1,98 +1,123 @@
 using BrainlessLab
 using Test
-using .BrainlessLabTestUtils: operation_registry, operation_target
 
-function _tiny_evolution_target(id, task; root_seed, blocks=1)
-    return operation_target(
+function _tiny_ctrnn_target(id; root_seed, aggregate=:mean)
+    return EvaluationTarget(
         id,
-        task;
-        blocks=blocks,
-        horizon=4,
-        root_seed=root_seed,
-        aggregate=:mean,
+        CompositionSpec(
+            Symbol(id, :_composition),
+            :compartmental_structured,
+            :tracking;
+            n_nodes=2,
+        ),
+        EvaluationSpec(
+            blocks=1,
+            trials_per_block=1,
+            horizon=1,
+            root_seed=root_seed,
+            aggregate=aggregate,
+        ),
     )
 end
 
-@testset "typed evolution plan" begin
-    registry = operation_registry()
-    training = _tiny_evolution_target(:tracking_train, :tracking; root_seed=101, blocks=2)
-    heldout = _tiny_evolution_target(:pong_heldout, :pong; root_seed=202)
+function _tiny_run(;
+    strategy=:sepcma,
+    iterations=1,
+    options=(population=2, reducer=:mean,),
+)
+    return Evolution.RunConfig(
+        strategy,
+        iterations,
+        101,
+        :normalized_score,
+        :maximise,
+        Evolution.NormalInitialisation(centre=:zero, scale=0.1),
+        options,
+    )
+end
+
+@testset "typed node-design evolution plan" begin
+    training = _tiny_ctrnn_target(:tracking_train; root_seed=101)
+    heldout = _tiny_ctrnn_target(:tracking_heldout; root_seed=202)
     plan = EvolutionPlan(
-        :tiny_cross_task,
-        training;
+        :tiny_ctrnn,
+        (training,);
+        run=_tiny_run(),
         heldout_targets=(heldout,),
-        parameter_set=:evolve,
-        generations=1,
-        popsize=2,
-        sigma0=0.1,
     )
 
-    @test validate(plan, registry) === plan
-    resolved = resolve(plan, registry)
-    @test resolved isa BrainlessLab.ResolvedEvolutionPlan
-    @test getfield.(resolved.parameters, :name) == (
-        :gain,
-        :bias,
-    )
-    @test resolved.optimizer_seed != training.evaluation.root_seed
+    @test validate(plan, DEFAULT_REGISTRY) === plan
+    resolved = resolve(plan, DEFAULT_REGISTRY)
+    @test resolved isa ResolvedEvolutionPlan
+    @test resolved.node.id === :compartmental_structured
+    @test resolved.design.dimension == 220
+    @test resolved.strategy.key === :sepcma
 
     result = execute(resolved)
-    @test result isa BrainlessLab.EvolutionResult
+    @test result isa EvolutionResult
     @test length(result.candidates) == 2
-    @test length(result.candidate_batches) == 2
     @test length(result.convergence) == 1
-    @test all(candidate -> length(candidate.objective_values) == 2, result.candidates)
-    @test result.training.target === :tracking_train
-    @test length(result.training.objective_values) == 2
-    @test length(result.heldout) == 1
-    @test result.heldout[1].target === :pong_heldout
-    @test isfinite(result.training.aggregate)
-    @test isfinite(result.heldout[1].aggregate)
+    @test all(candidate -> length(candidate.evaluations) == 1, result.candidates)
+    @test only(result.models).model_id == "selected"
+    @test only(result.models).model isa StructuredCompartmental
+    @test only(result.heldout).target === :tracking_heldout
+    @test !ismissing(only(result.heldout).aggregate)
 
-    output_tables = tables(result)
-    @test length(output_tables.convergence) == 1
-    @test length(output_tables.candidates) == 2
-    @test length(output_tables.candidate_trials) == 4
-    @test length(output_tables.champion_parameters) == 2
-    @test output_tables.champion_parameters[1].parameter === :gain
-    @test length(output_tables.training_trials) == 2
-    @test length(output_tables.heldout_trials) == 1
-    @test output_tables.optimizer[1].optimizer_seed == result.optimizer_seed
-    @test !hasproperty(output_tables.training_trials[1], :optimizer_seed)
+    output = tables(result)
+    @test length(output.convergence) == 1
+    @test length(output.candidates) == 2
+    @test length(output.candidate_scores) == 2
+    @test length(output.candidate_trials) == 2
+    @test length(output.models) == 1
+    @test length(output.heldout_trials) == 1
 
-    report = BrainlessLab.summary(result)
-    @test report.plan === :tiny_cross_task
-    @test report.training_target === :tracking_train
-    @test report.heldout[1].target === :pong_heldout
-    @test propertynames(report.champion_parameters) == (
-        :bias,
-        :gain,
-    )
+    report = summary(result)
+    @test report.plan === :tiny_ctrnn
+    @test report.strategy === :sepcma
+    @test report.models == ("selected",)
+    @test only(report.heldout).target === :tracking_heldout
 end
 
-@testset "evolution validation follows node metadata" begin
-    registry = operation_registry()
-    training = _tiny_evolution_target(:tracking_train, :tracking; root_seed=303)
-    missing_set = EvolutionPlan(
-        :missing_set,
-        training;
-        parameter_set=:not_registered,
-        generations=1,
-        popsize=2,
+@testset "evolution validation keeps the experimental boundary explicit" begin
+    training = _tiny_ctrnn_target(:tracking_train; root_seed=303)
+    no_scalar = _tiny_ctrnn_target(
+        :tracking_no_aggregate;
+        root_seed=303,
+        aggregate=:none,
     )
-    @test_throws KeyError validate(missing_set, registry)
+    @test_throws ArgumentError validate(
+        EvolutionPlan(:no_scalar, (no_scalar,); run=_tiny_run()),
+        DEFAULT_REGISTRY,
+    )
 
-    no_scalar = EvaluationTarget(
-        :tracking_no_aggregate,
-        training.composition,
-        EvaluationSpec(horizon=4, root_seed=303, aggregate=:none),
+    falandays = EvaluationTarget(
+        :legacy_parameter_search,
+        default_composition(DEFAULT_REGISTRY, :falandays, :tracking),
+        EvaluationSpec(horizon=1, aggregate=:mean),
     )
-    invalid = EvolutionPlan(
-        :no_scalar,
-        no_scalar;
-        parameter_set=:evolve,
-        generations=1,
-        popsize=2,
+    @test_throws ArgumentError validate(
+        EvolutionPlan(:unsupported_node, (falandays,); run=_tiny_run()),
+        DEFAULT_REGISTRY,
     )
-    @test_throws ArgumentError validate(invalid, registry)
+
+    nsga = _tiny_run(
+        strategy=:nsga2,
+        options=(population=4,),
+    )
+    @test_throws ArgumentError validate(
+        EvolutionPlan(:one_objective, (training,); run=nsga),
+        DEFAULT_REGISTRY,
+    )
+    second = _tiny_ctrnn_target(:tracking_second; root_seed=404)
+    @test_throws ArgumentError validate(
+        EvolutionPlan(
+            :pareto_with_heldout,
+            (training, second);
+            run=nsga,
+            heldout_targets=(
+                _tiny_ctrnn_target(:heldout; root_seed=505),
+            ),
+        ),
+        DEFAULT_REGISTRY,
+    )
 end

@@ -226,3 +226,30 @@ function pack_params(g::StructuredCompartmental)
     end
     return out
 end
+
+function _compartmental_design_blocks(::Type{T}) where {T<:AbstractCompartmental}
+    blocks = Evolution.DesignBlock[]
+    offset = 1
+    for (name, shape) in _compartmental_schema(T)
+        count = prod(shape)
+        push!(
+            blocks,
+            Evolution.DesignBlock(name, shape, offset:(offset + count - 1)),
+        )
+        offset += count
+    end
+    offset - 1 == paramdim(T) || throw(ArgumentError(
+        "compartmental design schema for $(T) does not match paramdim",
+    ))
+    return Tuple(blocks)
+end
+
+function _node_design_spec(::Type{T}) where {T<:AbstractCompartmental}
+    return Evolution.NodeDesignSpec(
+        T,
+        _compartmental_design_blocks(T),
+        pack_params,
+        coordinates -> unpack_params(T, coordinates);
+        stability=:experimental,
+    )
+end

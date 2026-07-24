@@ -4,7 +4,7 @@ You do not need to know Julia before contributing. You can begin by running an e
 simulation, improving a task description, checking an example, or working with a coding
 agent. The repository contains guidance for both humans and agents.
 
-Start with the online [Getting started](https://brainless-lab.pages.dev/core/getting-started/)
+Start with the online [first simulation](https://brainless-lab.pages.dev/tutorials/first-simulation/)
 guide. If you are using an agent, point it at `AGENTS.md`; that file tells it which
 repository skills and safeguards to follow.
 
@@ -23,9 +23,9 @@ repository skills and safeguards to follow.
   valid null, failure behaviour, and scientific limitations.
 - **Add an experiment:** compose named conditions and typed operations in an
   `ExperimentSpec`, then follow the evidence ladder in
-  [Design a study](https://brainless-lab.pages.dev/core/design-study/).
+  [Experiments and evidence](https://brainless-lab.pages.dev/handbook/experiments-evidence/).
 
-[Extend the lab](https://brainless-lab.pages.dev/core/extend/) maps each public interface to
+[Extend BrainlessLab](https://brainless-lab.pages.dev/handbook/extending/) maps each public interface to
 its example and required tests.
 
 ## Local setup
@@ -60,6 +60,50 @@ The first run compiles the package and can be slower than later runs.
 Do not modify fidelity fixtures, committed evidence, or a sealed protocol merely to make a
 new implementation agree with an expectation. If a scientific expectation changes, explain
 why and start a new evidence cycle.
+
+## Contribute a public research run
+
+Research contributions use two stages. Merge the protocol and any software changes first.
+Then run the merged protocol from a clean Git commit that is reachable from `main`.
+
+The second pull request contains records only. A contributor submission and its maintainer
+replay have linked roles in one contribution. They are not independent evidence or additional
+replicates.
+
+The contributor:
+
+1. Include only records that can be public.
+2. Keep each record complete, including its request, resolved configuration, seeds, data,
+   summary, report, checksums, and `DONE`.
+3. Aim to keep the text-only contribution at or below 1 MiB. The hard limit is 5 MiB.
+4. Open a draft, run-only pull request containing the submission bundle. The final
+   contribution check cannot pass until a maintainer has added the replay and review data.
+
+Files above 5 MiB are not accepted by this Git-native pipeline. Large datasets remain out
+of scope for this contribution path.
+
+A maintainer replays the already-merged experiment at the submitted source SHA. The maintainer
+then adds the replay record, compares the linked roles, and reviews the scientific boundary.
+If the maintainer decides to accept the contribution, they complete its review fields and run
+the final gates:
+
+```bash
+git fetch origin main
+julia --project=. bin/brainlesslab.jl compare-contribution DIR --write
+julia --project=. bin/brainlesslab.jl check-contribution DIR \
+  --repository . --main-ref origin/main --base origin/main
+julia --project=. bin/brainlesslab.jl index-research \
+  --root research --output research/catalogue.json
+```
+
+Only a human maintainer accepts a contribution. Workflow success, replay agreement, and catalogue
+generation do not accept evidence automatically.
+
+Accepted records are immutable. Correct an interpretation with an annotation or superseding
+protocol. Do not rewrite a published record.
+
+The committed Falandays benchmark predates this pipeline. The catalogue marks it as
+`pre-pipeline` compatibility material, not as a retrospectively accepted contribution.
 
 ## Tests
 

@@ -60,27 +60,26 @@ end
     @test isfile(joinpath(run.directory, only(run.records), "DONE"))
 end
 
-@testset "checked reciprocal evolution experiment is planned and valid" begin
+@testset "checked fixed-design evolution experiment is planned and valid" begin
     directory = normpath(joinpath(
         @__DIR__,
         "..",
         "experiments",
         "examples",
-        "falandays-cross-task-smoke",
+        "structured-ctrnn-smoke",
     ))
     experiment = read_experiment(directory)
-    @test experiment.id === :falandays_cross_task_smoke
+    @test experiment.id === :structured_ctrnn_smoke
     @test experiment.evidence_state === :planned
-    @test length(experiment.operations) == 2
+    @test length(experiment.operations) == 1
     @test all(operation -> operation isa EvolutionPlan, experiment.operations)
     @test Set(condition.id for condition in experiment.conditions) == Set((
         :tracking_development,
-        :tracking_confirmation,
-        :pong_heldout,
-        :pong_development,
-        :pong_confirmation,
         :tracking_heldout,
     ))
-    @test all(operation -> length(operation.heldout_targets) == 2, experiment.operations)
+    operation = only(experiment.operations)
+    @test only(operation.training_targets).composition.node === :compartmental_structured
+    @test length(operation.heldout_targets) == 1
+    @test operation.run.strategy === :sepcma
     @test validate(experiment, DEFAULT_REGISTRY) === experiment
 end

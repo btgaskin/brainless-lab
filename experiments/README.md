@@ -18,17 +18,16 @@ standalone plan.
 ```text
 experiments/
 └── examples/
-    └── falandays-cross-task-smoke/
+    └── structured-ctrnn-smoke/
         ├── experiment.toml
         └── plans/
-            ├── 01-evolve_tracking_test_pong_example.toml
-            └── 02-evolve_pong_test_tracking_example.toml
+            └── 01-structured_ctrnn_search_smoke.toml
 ```
 
-The reciprocal Falandays example is a small planned smoke protocol. It demonstrates how to
-evolve parameters on Tracking and evaluate the selected champion on Pong, then reverse the
-direction. Its small budgets are for validation only and do not support a performance
-claim.
+The structured CTRNN example is a small planned smoke protocol. It demonstrates how to
+search one fixed node design on a development target and evaluate the selected model on a
+held-out target. Its one-generation budget validates the protocol only. It does not support
+a performance or generality claim.
 
 ## Validate and run
 
@@ -36,14 +35,14 @@ Validate the whole bundle without simulation:
 
 ```bash
 julia --project=. bin/brainlesslab.jl check-experiment \
-  experiments/examples/falandays-cross-task-smoke
+  experiments/examples/structured-ctrnn-smoke
 ```
 
 Run each contained operation and write standard records:
 
 ```bash
 julia -t auto --project=. bin/brainlesslab.jl run-experiment \
-  experiments/examples/falandays-cross-task-smoke --root experiment-records
+  experiments/examples/structured-ctrnn-smoke --root experiment-records
 ```
 
 Use `write_experiment(directory, spec)` when publishing a new bundle. It validates the

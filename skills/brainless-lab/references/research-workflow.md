@@ -127,6 +127,27 @@ Software readiness is independent of experiment evidence. An integrated componen
 construct validity. A confirmed experiment may use a small stable implementation. Report
 both states.
 
+## Public contribution and replay
+
+Public contributions separate protocol review from record review. The protocol and required
+software must reach `main` before a run-only contribution begins. Generate the submitted record
+from a clean source SHA that is reachable from `main`.
+
+A contributor submission and a maintainer replay are linked roles within one contribution.
+Replay can reveal execution or portability problems, but it does not add an independent
+experimental unit. Human maintainers decide whether to accept the contribution after reviewing
+the protocol, records, comparison, provenance, and claim boundary.
+
+Keep accepted records public and immutable. Aim for no more than 1 MiB of text-only files in one
+contribution. Reject a contribution above the 5 MiB hard limit. This Git-native pipeline does
+not accept larger files, and large datasets remain out of scope.
+
+A study that needs an external large-data archive can still satisfy the broader promotion
+requirements, but the current Git-native intake does not accept that contribution.
+
+The Falandays benchmark committed before this process remains explicitly `pre-pipeline`. Its
+compatibility entry must not imply retrospective acceptance.
+
 The public guide is `site/src/content/docs/handbook/experiments-evidence.mdx`. Current protocol bundles
 live under `experiments/`; generated operation records live under the selected records
 root.

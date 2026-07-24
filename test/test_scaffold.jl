@@ -9,7 +9,9 @@
     @test Runner isa Type
     @test Drive isa Type
     @test Intervention isa Type
-    @test AbstractEvolutionStrategy isa Type
+    @test Evolution isa Module
+    @test Evolution.RunConfig isa Type
+    @test Evolution.search_strategies() == [:cmame, :nsga2, :sepcma]
 
     struct _DummyNode <: NodeModel end
     register_node!(:dummy, _DummyNode)

@@ -1,0 +1,31 @@
+---
+title: Structured CTRNN search smoke experiment
+description: A planned, small-budget protocol for the fixed StructuredCompartmental design.
+research:
+  kind: experiment
+  id: structured-ctrnn-smoke
+  version: v1
+  evidence_state: planned
+  tasks: [Tracking]
+  nodes: [StructuredCompartmental]
+  tags: [evolution, smoke, ctrnn]
+  protocol_path: experiments/examples/structured-ctrnn-smoke/experiment.toml
+---
+
+This checked example searches one fixed structured CTRNN on a development target. It then
+evaluates the selected model on a held-out target with a separate root seed.
+
+Its purpose is to validate the current `ExperimentSpec`, `EvolutionPlan`, checkpoint, and
+record path. The one-generation budget does not support a claim about performance, search
+reliability, or task generality.
+
+Validate the bundle with:
+
+```bash
+julia --project=. bin/brainlesslab.jl check-experiment \
+  experiments/examples/structured-ctrnn-smoke
+```
+
+The evidence state remains `planned`. No result is attached to this catalogue entry.
+
+Read the [protocol bundle](https://github.com/btgaskin/brainless-lab/tree/main/experiments/examples/structured-ctrnn-smoke).

@@ -1,20 +1,83 @@
 ---
-title: Bounded development and evolutionary drivers
-description: Fixed-structure genotype-to-phenotype development plus experimental optimisation drivers for compatible reservoirs and bodies.
+title: Fixed development and experimental node-model search
+description: Search fixed compartmental node designs, retain portable models, and resume work from complete generation boundaries.
 experimental:
   family: evolution
   readiness: integrated
   tags: [development, evolution, genomes, optimization]
   core_page: /handbook/extending/
-  source_paths: [src/run/Development.jl, src/drivers/Evolve.jl, src/drivers/Composite.jl]
-  example_paths: [configs/evolve_falandays_wall.toml]
-  test_paths: [test/test_development.jl, test/test_evolve.jl, test/test_composite.jl]
+  source_paths: [src/evolution/Evolution.jl, src/evolution/Artifacts.jl, src/operations/Evolution.jl]
+  example_paths: [site/src/content/docs/tutorials/evolve-ctrnn.mdx]
+  test_paths: [test/test_evolution_plan.jl, test/test_evolution_artifacts.jl]
 ---
 
-Development maps bounded scalar genotype values onto a fresh fixed component graph.
-Evolutionary drivers evaluate compatible reservoir or composite genomes through declared
-task and preparation contracts.
+The public evolution interface searches coordinates for one fixed neural design. Use
+`BrainlessLab.Evolution.RunConfig` inside an `EvolutionPlan` to declare the search strategy,
+budget, random seed, measure, direction, initialisation, and strategy options.
 
-The component graph remains fixed, and one optimiser run does not characterise search
-variance. A selected genome is development output until an untouched, appropriately powered
-comparison confirms a scientific claim.
+The integrated designs are `StructuredCompartmental` and `DenseCompartmental`. Their
+compartment structure and parameter schemas remain fixed during a search. Evolution does
+not add nodes, alter topology, change body components, or change receptor and effector
+ports.
+
+## Search strategies
+
+One typed search-strategy registry provides:
+
+- `:sepcma` for one scalar objective and one selected model;
+- `:nsga2` for an ordered Pareto set;
+- `:cmame` for an ordered quality-diversity archive.
+
+Every run uses explicit seeded normal initialisation. For example:
+
+```julia
+run = Evolution.RunConfig(;
+    strategy=:sepcma,
+    iterations=2,
+    search_seed=0x2a,
+    measure=:normalized_score,
+    direction=:maximise,
+    initialisation=Evolution.NormalInitialisation(
+        centre=:zero,
+        scale=0.25,
+    ),
+    options=(population=4, reducer=:minimum,),
+)
+```
+
+`search_seed` controls search randomness. Evaluation targets retain their own declared root
+seeds. These streams answer different questions and must remain separate.
+
+SepCMA writes the stable model role `selected`. NSGA-II and CMA-ME do not choose an implicit
+champion. They write ordered model IDs such as `pareto-0001` and `cell-0001`. A later
+operation must name the model that it evaluates.
+
+## Records and continuation
+
+An evolution operation writes the standard full record, including the submitted and
+resolved plans, realised seeds, authoritative tables, model artifacts, provenance, and
+checksums. It also records a continuation point at each completed generation.
+
+If execution stops, `Evolution.resume` validates the record and continues the same
+directory from the last complete generation. It reruns incomplete generation work. A
+successful record contains `DONE` and contains neither `INCOMPLETE` nor `FAILED`.
+
+`Evolution.model_reference(record_directory, model_id)` returns a portable reference to one
+recorded model. Attach that reference to a new `EvaluationTarget`, then use a
+`BenchmarkPlan` for frozen evaluation.
+
+Follow these purpose-led paths:
+
+- [Evolve a structured CTRNN](/tutorials/evolve-ctrnn/) creates a small SepCMA plan.
+- [Inspect and resume evolution](/tutorials/resume-evolution/) reads and continues its record.
+- [Benchmark an evolved CTRNN](/tutorials/benchmark-evolved-ctrnn/) evaluates the saved model.
+
+## Evidence boundary
+
+The feature is integrated experimental software. This readiness statement is not scientific
+evidence.
+
+One search run does not measure search variance or establish optimality. A selected model
+remains development output until a later, frozen protocol evaluates it with suitable
+comparisons and independent randomised blocks. Task performance does not establish
+cognition, biological fidelity, or general capability.
