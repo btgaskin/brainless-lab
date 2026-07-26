@@ -2,7 +2,7 @@ using BrainlessLab
 using Test
 # Extending a user node means adding METHODS to the package generics, so import them:
 import BrainlessLab: step!, effectors, reset!, n_nodes, n_receptors, n_effectors, snapshot_state, load_state!
-import BrainlessLab: pack_params, unpack_params, paramdim, sense!, decode!, apply_drive!
+import BrainlessLab: pack_params, unpack_params, paramdim, sense!, decode!, apply_drive!, network_snapshot
 
 struct MyNodeParams <: NodeModel
     gain::Float64
@@ -19,16 +19,29 @@ unpack_params(::Type{MyNodeParams}, raw::AbstractVector{<:Real}) = MyNodeParams(
 mutable struct MyNode <: Reservoir
     n_receptors_::Int
     n_effectors_::Int
+    gain::Float64
     spikes::Vector{Float64}
 end
 
-function MyNode(n_nodes::Integer, n_receptors_::Integer, n_effectors_::Integer; seed=0, kwargs...)
-    return MyNode(Int(n_receptors_), Int(n_effectors_), zeros(Float64, Int(n_nodes)))
+function MyNode(
+    n_nodes::Integer,
+    n_receptors_::Integer,
+    n_effectors_::Integer;
+    seed=0,
+    params::MyNodeParams=MyNodeParams(),
+    kwargs...,
+)
+    return MyNode(
+        Int(n_receptors_),
+        Int(n_effectors_),
+        params.gain,
+        zeros(Float64, Int(n_nodes)),
+    )
 end
 
 function step!(r::MyNode, receptor_currents)
     inputs = Float64.(vec(collect(receptor_currents)))
-    gate = isempty(inputs) ? 0.0 : maximum(inputs)
+    gate = isempty(inputs) ? 0.0 : r.gain * maximum(inputs)
     @inbounds for i in eachindex(r.spikes)
         r.spikes[i] = gate > 0.5 ? 1.0 : 0.0
     end
@@ -52,6 +65,7 @@ function reset!(r::MyNode)
 end
 
 snapshot_state(r::MyNode) = (spikes=copy(r.spikes),)
+network_snapshot(r::MyNode) = (kind=:mynode, gain=r.gain)
 
 function load_state!(r::MyNode, state)
     copyto!(r.spikes, Float64.(state.spikes))
@@ -168,7 +182,18 @@ end
     @test hasproperty(metric_sim.metrics, :score)
     @test hasproperty(metric_sim.metrics, :custom_metric)
 
-    stamped = rollout(:wall, pack_params(MyNodeParams()), 2; model_sym=:mynode, N=8, ticks=12)
-    @test stamped.model_sym == :mynode
-    @test isfinite(stamped.norm_score)
+    packed = pack_params(MyNodeParams(1.25))
+    params = unpack_params(genome_type(:mynode), packed)
+    stamped = simulate(
+        :wall;
+        node=:mynode,
+        seed=2,
+        N=8,
+        ticks=12,
+        node_kwargs=(; params),
+    )
+    outcome = task_outcome(stamped)
+    @test stamped.node == :mynode
+    @test stamped.config.networks[1].gain == params.gain
+    @test isfinite(outcome.normalized)
 end
