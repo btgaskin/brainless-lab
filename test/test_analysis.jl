@@ -78,11 +78,17 @@ using Test
         :branching_ratio_mr,
         :branching_ratio_mr_windowed,
         :avalanches,
-        :spectral_radius,
         :crossshift_null,
-        :node_target_error,
     )
         @test endswith(analysis_meta(analysis).label, "(experimental)")
+    end
+    for analysis in (
+        :fano_factor,
+        :spectral_radius,
+        :participation_ratio,
+        :node_target_error,
+    )
+        @test !endswith(analysis_meta(analysis).label, "(experimental)")
     end
 end
 
@@ -560,6 +566,32 @@ end
 end
 
 @testset "Node target error analysis" begin
+    synthetic_rec = Recorder(enabled=(:acts, :targets))
+    synthetic_acts = ([0.0, 0.5, 1.0], [0.75, 0.25, 0.5])
+    synthetic_targets = ([0.25, 0.5, 0.75], [0.5, 0.0, 1.0])
+    for (acts, targets) in zip(synthetic_acts, synthetic_targets)
+        record!(synthetic_rec, :acts, acts)
+        record!(synthetic_rec, :targets, targets)
+        tick!(synthetic_rec)
+    end
+    synthetic = SimResult(synthetic_rec, (;), :synthetic, :synthetic, (;))
+    synthetic_error = node_target_error(synthetic)
+    @test synthetic_error.per_node_error == [
+        0.25 0.25
+        0.0 0.25
+        0.25 0.5
+    ]
+    @test synthetic_error.mean_over_nodes == [1 / 6, 1 / 3]
+    @test synthetic_error.final_distribution == [0.25, 0.25, 0.5]
+
+    equal_rec = Recorder(enabled=(:acts, :targets))
+    equal_values = [0.0, 0.25, 0.5, 0.75, 1.0]
+    record!(equal_rec, :acts, equal_values)
+    record!(equal_rec, :targets, equal_values)
+    tick!(equal_rec)
+    equal_sim = SimResult(equal_rec, (;), :synthetic, :synthetic, (;))
+    @test all(iszero, node_target_error(equal_sim).per_node_error)
+
     sim = simulate(:wall; node=:falandays_base, ticks=12, seed=1, n_nodes=16, record=(:acts, :targets))
     target_error = node_target_error(sim)
     raw = getchannel(sim.recorder, :acts)
@@ -574,12 +606,13 @@ end
     @test_throws ArgumentError node_target_error(missing_targets)
 
     @test resolve_analysis(:node_target_error) === node_target_error
-    @test analysis_meta(:node_target_error).label == "per-node distance to target |act−T| (experimental)"
+    @test analysis_meta(:node_target_error).label == "per-node distance to target |act−T|"
 end
 
 @testset "Spectral radius analysis" begin
     @test BrainlessLab._spectral_radius([0.0 0.0; 0.0 0.0]) == 0.0
     @test BrainlessLab._spectral_radius([2.0 0.0; 0.0 -3.0]) ≈ 3.0
+    @test BrainlessLab._spectral_radius([0.0 2.0; 2.0 0.0]) ≈ 2.0
 
     sim = simulate(:wall; node=:falandays_base, ticks=120, seed=1, record=(:spectral_radius,), every=10)
     sr = spectral_radius(sim)
@@ -602,7 +635,86 @@ end
     @test_throws ArgumentError spectral_radius(sim2)
 
     @test :spectral_radius in analyses()
-    @test analysis_meta(:spectral_radius).label == "spectral radius ρ(W) (experimental)"
+    @test analysis_meta(:spectral_radius).label == "spectral radius ρ(W)"
+end
+
+@testset "Rate/activity summary ground truth" begin
+    function synthetic_node_activity(activity)
+        rec = Recorder(enabled=(:spikes,))
+        for tick in axes(activity, 1)
+            record!(rec, :spikes, collect(@view activity[tick, :]))
+            tick!(rec)
+        end
+        config = (;
+            ticks=size(activity, 1),
+            every=1,
+            n_agents=1,
+            n_nodes=size(activity, 2),
+        )
+        return SimResult(rec, (;), :synthetic, :synthetic, config)
+    end
+
+    rng = MersenneTwister(2026)
+    n_ticks = 8_000
+    n_nodes = 32
+    p = 0.02
+    bernoulli = Float64.(rand(rng, n_ticks, n_nodes) .< p)
+    iid = fano_factor(synthetic_node_activity(bernoulli))
+    @test iid.rate_mean ≈ p atol=0.002
+    @test iid.rate_variance ≈ p * (1 - p) / n_nodes rtol=0.12
+    @test iid.fano_factor ≈ 1 - p atol=0.05
+
+    regular = zeros(Float64, 400, 20)
+    for tick in axes(regular, 1)
+        regular[tick, mod1(tick, size(regular, 2))] = 1.0
+    end
+    regular_result = fano_factor(synthetic_node_activity(regular))
+    @test regular_result.rate_mean == 0.05
+    @test regular_result.rate_variance == 0.0
+    @test regular_result.fano_factor == 0.0
+
+    bursty = zeros(Float64, 400, 20)
+    bursty[1:20:end, :] .= 1.0
+    bursty_result = fano_factor(synthetic_node_activity(bursty))
+    @test bursty_result.rate_mean == 0.05
+    @test bursty_result.rate_variance ≈ 0.0475
+    @test bursty_result.fano_factor ≈ 19.0
+
+    silent = fano_factor(synthetic_node_activity(zeros(Float64, 100, 20)))
+    @test silent.rate_mean == 0.0
+    @test silent.rate_variance == 0.0
+    @test silent.fano_factor == 0.0
+end
+
+@testset "Participation-ratio ground truth" begin
+    rng = MersenneTwister(2027)
+    n_ticks = 6_000
+    n_units = 8
+
+    independent = randn(rng, n_ticks, n_units)
+    independent_pr = BrainlessLab._participation_ratio_from_activity(independent)
+    @test independent_pr ≈ n_units rtol=0.05
+
+    common_mode = randn(rng, n_ticks)
+    common = repeat(common_mode, 1, n_units) .+
+             1e-3 .* randn(rng, n_ticks, n_units)
+    common_pr = BrainlessLab._participation_ratio_from_activity(common)
+    @test common_pr ≈ 1.0 atol=0.01
+
+    k = 3
+    block_ticks = 600
+    times = collect(0:(block_ticks - 1))
+    modes = hcat([
+        sin.(2pi * frequency .* times ./ block_ticks)
+        for frequency in 1:k
+    ]...)
+    blocks = hcat(modes[:, 1], modes[:, 1], modes[:, 2], modes[:, 2], modes[:, 3], modes[:, 3])
+    block_pr = BrainlessLab._participation_ratio_from_activity(blocks)
+    @test block_pr ≈ k atol=1e-10
+
+    @test_throws ArgumentError BrainlessLab._participation_ratio_from_activity(
+        zeros(Float64, 4, 8),
+    )
 end
 
 @testset "Second-order level-aware signatures" begin
@@ -631,6 +743,10 @@ end
     @test length(node_fano.distribution) == 4
     @test isfinite(node_fano.fano_factor)
     @test isfinite(agent_fano.fano_factor)
+    @test isfinite(node_fano.rate_mean)
+    @test isfinite(node_fano.rate_variance)
+    @test isfinite(agent_fano.rate_mean)
+    @test isfinite(agent_fano.rate_variance)
     @test agent_fano.turn_threshold == BrainlessLab.DEFAULT_TURN_THRESHOLD
 
     node_pr = participation_ratio(sim; level=:node)
@@ -646,8 +762,8 @@ end
     @test resolve_analysis(:fano_factor) === fano_factor
     @test resolve_analysis(:participation_ratio) === participation_ratio
     @test analysis_meta(:susceptibility).label == "susceptibility χ (experimental)"
-    @test analysis_meta(:fano_factor).label == "Fano factor (experimental)"
-    @test analysis_meta(:participation_ratio).label == "participation ratio (experimental)"
+    @test analysis_meta(:fano_factor).label == "activity-rate summary (mean, variance, Fano)"
+    @test analysis_meta(:participation_ratio).label == "participation ratio"
 end
 
 @testset "Swarm regime and correlation length" begin

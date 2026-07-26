@@ -42,6 +42,13 @@ is near its target. It does not prove biological homeostasis or useful behaviour
 
 <p class="bl-source">Source: <code>src/analysis/TargetError.jl</code>.</p>
 
+`fano_factor` also returns the mean and variance of the recorded node activity rate. Its
+Fano field is the variance-to-mean ratio of the corresponding spike-count series. Read
+branching and other dynamics measures beside this rate summary. Silent activity returns
+zero for all three values.
+
+<p class="bl-source">Source: <code>src/analysis/SecondOrder.jl</code>.</p>
+
 ## Branching estimates
 
 For population activity $A(t)$, a one-step branching estimate asks how strongly activity
@@ -109,8 +116,10 @@ describe collective order such as polarisation. Similar equations do not make th
 levels numerically commensurate. Compare their locations across a declared control sweep,
 not their raw magnitudes.
 
-Participation ratio and correlation measures need enough simultaneously observed units.
-Longer time series do not replace missing population size.
+Participation ratio needs enough recorded ticks as well as enough simultaneously observed
+units. The implementation rejects a series with fewer recorded ticks than units because
+its rank ceiling would dominate the result. Susceptibility remains experimental; the rate
+summary and participation ratio are core descriptive diagnostics.
 
 <p class="bl-source">Source: <code>src/analysis/ActivityLevels.jl</code>, <code>src/analysis/SecondOrder.jl</code>.</p>
 

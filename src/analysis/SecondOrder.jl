@@ -1,9 +1,9 @@
-# EXPERIMENTAL second-order activity signatures.
+# Lightweight second-order activity signatures.
 #
 # These are intentionally lightweight finite-window estimators for comparing
-# node-within-reservoir and agent-within-ensemble regimes. They do not include
-# finite-size scaling, stationarity checks, or uncertainty estimates beyond the
-# per-agent summaries returned at node level.
+# node-within-reservoir and agent-within-ensemble regimes. Susceptibility remains
+# experimental. Rate summaries and participation ratio are descriptive core
+# diagnostics without stationarity tests or across-run uncertainty estimates.
 
 function _second_order_level(level::Symbol, name::Symbol)
     level = _analysis_level(level, name)
@@ -41,9 +41,23 @@ function _fano_from_counts(counts::AbstractVector{<:Real})
     return var == 0.0 ? 0.0 : NaN
 end
 
+function _rate_summary_from_counts(counts::AbstractVector{<:Real}, n_units::Integer)
+    n = Int(n_units)
+    n > 0 || throw(ArgumentError("rate summary needs at least one unit"))
+    return (;
+        rate_mean=_series_mean(counts) / n,
+        rate_variance=_series_variance(counts) / Float64(n)^2,
+        fano_factor=_fano_from_counts(counts),
+    )
+end
+
 function _participation_ratio_from_activity(activity::AbstractMatrix{<:Real})
     n_ticks, n_units = size(activity)
     n_units == 0 && return NaN
+    n_ticks < n_units && throw(ArgumentError(
+        "participation_ratio needs at least as many recorded ticks as units; " *
+        "got $(n_ticks) ticks and $(n_units) units. Record more often or run longer.",
+    ))
     n_ticks < 2 && return 0.0
 
     mat = Matrix{Float64}(activity)
@@ -201,20 +215,33 @@ function susceptibility_windowed(sim::SimResult; level::Symbol=:node, window::In
 end
 
 function _fano_node(sim::SimResult)
-    counts = _analysis_node_count_matrix(sim, :fano_factor)
-    values = [_fano_from_counts(@view(counts[:, i])) for i in axes(counts, 2)]
+    counts, widths = _analysis_node_count_matrix_and_widths(sim, :fano_factor)
+    summaries = [
+        _rate_summary_from_counts(@view(counts[:, i]), widths[i])
+        for i in axes(counts, 2)
+    ]
+    rate_means = [summary.rate_mean for summary in summaries]
+    rate_variances = [summary.rate_variance for summary in summaries]
+    values = [summary.fano_factor for summary in summaries]
     return (;
         level=:node,
+        rate_mean=_analysis_finite_mean(rate_means),
+        rate_variance=_analysis_finite_mean(rate_variances),
         fano_factor=_analysis_finite_mean(values),
         fano=_analysis_finite_mean(values),
+        rate_mean_distribution=Float64.(rate_means),
+        rate_variance_distribution=Float64.(rate_variances),
         fano_factor_std=_analysis_finite_std(values),
         distribution=Float64.(values),
         per_agent=Float64.(values),
         activity=counts,
         n_agents=size(counts, 2),
+        n_units=widths,
         summary=(
             mean=_analysis_finite_mean(values),
             std=_analysis_finite_std(values),
+            rate_mean=_analysis_finite_mean(rate_means),
+            rate_variance=_analysis_finite_mean(rate_variances),
         ),
     )
 end
@@ -229,11 +256,13 @@ function _fano_agent(sim::SimResult; turn_threshold=DEFAULT_TURN_THRESHOLD, obse
         neighbor_radius=neighbor_radius,
     )
     counts = _analysis_row_sums(activity.events)
-    value = _fano_from_counts(counts)
+    summary = _rate_summary_from_counts(counts, size(activity.events, 2))
     return (;
         level=:agent,
-        fano_factor=value,
-        fano=value,
+        rate_mean=summary.rate_mean,
+        rate_variance=summary.rate_variance,
+        fano_factor=summary.fano_factor,
+        fano=summary.fano_factor,
         activity=counts,
         agent_events=activity.events,
         agent_magnitudes=activity.magnitudes,
@@ -248,14 +277,17 @@ end
 """
     fano_factor(sim; level=:node, turn_threshold=DEFAULT_TURN_THRESHOLD)
 
-Compute an EXPERIMENTAL finite-window Fano factor, `var(activity count) /
-mean(activity count)`.
+Return a finite-window activity-rate summary with `rate_mean`,
+`rate_variance`, and the count Fano factor, `var(activity count) /
+mean(activity count)`. An all-silent series returns zero for all three fields.
 
 At `level=:node`, activity count is each agent's node spike count per tick. At
 `level=:agent`, activity count is the number of agents whose absolute recorded
 heading change exceeds `turn_threshold` (default `pi/12` radians) at each tick.
 When only rates are recorded for node-level fallbacks, the configured `n_nodes`
-is treated as a homogeneous per-agent node count.
+is treated as a homogeneous per-agent node count. These values describe the
+recorded window; they do not establish stationarity or independence across
+ticks.
 """
 function fano_factor(sim::SimResult; level::Symbol=:node, turn_threshold=DEFAULT_TURN_THRESHOLD, observable=nothing, event_kind::Symbol=:turn, neighbor_radius=nothing)
     level = _second_order_level(level, :fano_factor)
@@ -300,13 +332,15 @@ end
 """
     participation_ratio(sim; level=:node)
 
-Compute an EXPERIMENTAL covariance participation ratio,
+Compute a covariance participation ratio,
 `(sum(lambda))^2 / sum(lambda^2)`, where `lambda` are eigenvalues of the
 activity covariance matrix.
 
 At `level=:node`, the covariance is over nodes within each agent and the return
 value summarizes the per-agent distribution. At `level=:agent`, the covariance
-is over per-agent population-rate activity.
+is over per-agent population-rate activity. The estimator throws when the
+number of recorded ticks is smaller than the number of observed units because
+its rank ceiling would otherwise dominate the result silently.
 """
 function participation_ratio(sim::SimResult; level::Symbol=:node)
     level = _second_order_level(level, :participation_ratio)
