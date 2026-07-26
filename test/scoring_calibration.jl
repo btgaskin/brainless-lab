@@ -52,9 +52,9 @@ end
     @test getchannel(a.recorder, :effectors) == getchannel(b.recorder, :effectors)
     @test a.metrics.alive == false
 
+    # A descriptor-only task declares no scalar objective, so it has no outcome.
+    # This is the public contract; the former `_sim_score` wrapper that turned it
+    # into a NaN CSV row was removed with the legacy sweep layer.
     torus = simulate(:torus; node=:null_random, seed=2, ticks=20, n_agents=4, record=Symbol[])
-    score, raw, key = @test_logs (:warn, r"descriptors") BrainlessLab._sim_score(torus)
-    @test isnan(score)
-    @test isnan(raw)
-    @test key == "none"
+    @test task_outcome(torus) === nothing
 end

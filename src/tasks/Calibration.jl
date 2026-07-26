@@ -2,7 +2,10 @@ using Dates
 
 function _git_short_sha()
     try
-        sha = strip(readchomp(`git rev-parse --short HEAD`))
+        # Resolve against the package repository rather than whatever directory
+        # the process happens to be launched from.
+        repo = abspath(joinpath(@__DIR__, "..", ".."))
+        sha = strip(readchomp(`git -C $repo rev-parse --short HEAD`))
         return isempty(sha) ? "unknown" : sha
     catch
         return "unknown"
@@ -78,6 +81,8 @@ function _calibration_score_key(metrics_nt, preferred::Symbol)
     preferred == :score && :forage_score in propertynames(metrics_nt) && return :forage_score
     throw(KeyError("metric :$(preferred) is absent from calibration metrics"))
 end
+
+_metric_value(metrics_nt::NamedTuple, key::Symbol) = Float64(getproperty(metrics_nt, key))
 
 function _calibration_raw_score(sim::SimResult, preferred::Symbol)
     key = _calibration_score_key(sim.metrics, preferred)
