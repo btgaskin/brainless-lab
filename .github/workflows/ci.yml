@@ -26,25 +26,25 @@ jobs:
         include:
           - suite: core
             os: ubuntu-22.04
-            julia-version: '1.10.11'
+            julia-version: '1.11'
           - suite: core
             os: ubuntu-22.04
             julia-version: '1'
           - suite: core
             os: macos-14
-            julia-version: '1.10.11'
+            julia-version: '1.11'
           - suite: core
             os: windows-2022
-            julia-version: '1.10.11'
+            julia-version: '1.11'
           - suite: runtime
             os: ubuntu-22.04
-            julia-version: '1.10.11'
+            julia-version: '1.11'
           - suite: operations
             os: ubuntu-22.04
-            julia-version: '1.10.11'
+            julia-version: '1.11'
           - suite: oracle
             os: ubuntu-22.04
-            julia-version: '1.10.11'
+            julia-version: '1.11'
     env:
       BRAINLESSLAB_TEST_SUITE: ${{ matrix.suite }}
     steps:
@@ -86,7 +86,7 @@ jobs:
         run: julia -e 'mkpath(".ci-proof"); write(joinpath(".ci-proof", "passed"), "passed\n")'
 
   legacy:
-    name: Legacy / Julia 1.10.11 / Ubuntu
+    name: Legacy / Julia 1.11 / Ubuntu
     if: >-
       github.event_name == 'push' || github.event_name == 'pull_request' ||
       github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -98,7 +98,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3
         with:
-          version: '1.10.11'
+          version: '1.11'
       - name: Read the resolved Julia version
         id: julia
         run: >-
@@ -133,14 +133,14 @@ jobs:
         run: julia -e 'mkpath(".ci-proof"); write(joinpath(".ci-proof", "passed"), "passed\n")'
 
   visual:
-    name: Visual / Julia 1.10.11 / Ubuntu
+    name: Visual / Julia 1.11 / Ubuntu
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3
         with:
-          version: '1.10.11'
+          version: '1.11'
       - name: Read the resolved Julia version
         id: julia
         run: >-
@@ -183,7 +183,7 @@ jobs:
         run: julia -e 'mkpath(".ci-proof"); write(joinpath(".ci-proof", "passed"), "passed\n")'
 
   manifest-free-core:
-    name: Manifest-free core / Julia 1.10.11 / Ubuntu
+    name: Manifest-free core / Julia 1.11 / Ubuntu
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     env:
@@ -192,7 +192,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3
         with:
-          version: '1.10.11'
+          version: '1.11'
       - name: Read the resolved Julia version
         id: julia
         run: >-
@@ -237,7 +237,7 @@ jobs:
         run: julia -e 'mkpath(".ci-proof"); write(joinpath(".ci-proof", "passed"), "passed\n")'
 
   tool-smoke:
-    name: CLI and template smoke / Julia 1.10.11 / Ubuntu
+    name: CLI and template smoke / Julia 1.11 / Ubuntu
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     env:
@@ -248,7 +248,7 @@ jobs:
           fetch-depth: 0
       - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3
         with:
-          version: '1.10.11'
+          version: '1.11'
       - name: Read the resolved Julia version
         id: julia
         run: >-
