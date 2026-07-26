@@ -18,7 +18,7 @@ _wrapper_trait_probe_allocated(wrapper) = @allocated _wrapper_trait_probe(wrappe
     @test_throws ArgumentError BrainlessLab.NoisyInput(inner; sensory_noise=NaN)
     @test_throws ArgumentError BrainlessLab.NoisyInput(inner; sensory_noise=Inf)
 
-    traits = @inferred _wrapper_trait_probe(wrapper)
+    traits = _wrapper_trait_probe(wrapper)
     @test traits[1] isa OnlinePlasticity
     @test traits[2] isa SteppedWindow
     @test traits[3] == 3
@@ -37,6 +37,8 @@ _wrapper_trait_probe_allocated(wrapper) = @allocated _wrapper_trait_probe(wrappe
     @test !supports_intervention(ResetDendrites(), wrapper)
     apply!(FreezePlasticity(), wrapper)
     @test !wrapper.params.learn_on
+    @test plasticity(wrapper) isa NoPlasticity
+    @test !unpack_params(wrapper.params, pack_params(wrapper.params)).learn_on
     @test temporal_window(wrapper) == 3
     @test_throws MethodError apply!(ResetDendrites(), wrapper)
 end

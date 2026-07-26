@@ -187,7 +187,7 @@ export sigmoid,
 export NoDrive,
     OosawaDrive
 
-export Unsigned,
+export UnsignedAxis,
     Dale,
     recurrent_input,
     learn!,
@@ -918,15 +918,15 @@ register_metric!(:input_stability, input_stability)
 register_metric!(:swarm_metrics, swarm_metrics)
 register_metric!(:forage_metrics, forage_metrics)
 
-register_analysis!(:branching_ratio, branching_ratio)
-register_analysis!(:branching_ratio_mr, branching_ratio_mr; label="branching ratio m (MR estimator, subsampling-robust)")
-register_analysis!(:branching_ratio_mr_windowed, branching_ratio_mr_windowed; label="windowed branching ratio m (MR estimator)")
+register_analysis!(:branching_ratio, branching_ratio; label="branching ratio (experimental)")
+register_analysis!(:branching_ratio_mr, branching_ratio_mr; label="branching ratio m (MR estimator, subsampling-robust) (experimental)")
+register_analysis!(:branching_ratio_mr_windowed, branching_ratio_mr_windowed; label="windowed branching ratio m (MR estimator) (experimental)")
 register_analysis!(:branching_ratio_mr_conditioned, branching_ratio_mr_conditioned; label="branching ratio m split by object-in-view vs drift (experimental)")
-register_analysis!(:avalanches, avalanches; label="neuronal avalanche size/duration exponents")
+register_analysis!(:avalanches, avalanches; label="neuronal avalanche size/duration exponents (experimental)")
 register_analysis!(:node_transfer_entropy, node_transfer_entropy; label="node-level transfer entropy (experimental)")
 register_analysis!(:agent_transfer_entropy, agent_transfer_entropy; label="agent-level transfer entropy (experimental)")
-register_analysis!(:node_target_error, node_target_error; label="per-node distance to target |act−T|")
-register_analysis!(:spectral_radius, spectral_radius; label="spectral radius ρ(W)")
+register_analysis!(:node_target_error, node_target_error; label="per-node distance to target |act−T| (experimental)")
+register_analysis!(:spectral_radius, spectral_radius; label="spectral radius ρ(W) (experimental)")
 register_analysis!(:susceptibility, susceptibility; label="susceptibility χ (experimental)")
 register_analysis!(:susceptibility_windowed, susceptibility_windowed; label="windowed susceptibility χ (experimental)")
 register_analysis!(:fano_factor, fano_factor; label="Fano factor (experimental)")
@@ -936,7 +936,7 @@ register_analysis!(:correlation_length, correlation_length; label="swarm velocit
 register_analysis!(:correlation_length_windowed, correlation_length_windowed; label="windowed swarm velocity correlation length (experimental)")
 register_analysis!(:contact_graph_clusters, contact_graph_clusters; label="contact-graph connected-component clusters (experimental)")
 register_analysis!(:contact_graph_clusters_windowed, contact_graph_clusters_windowed; label="windowed contact-graph connected-component clusters (experimental)")
-register_analysis!(:crossshift_null, crossshift_null; label="per-agent circular-shift null test")
+register_analysis!(:crossshift_null, crossshift_null; label="per-agent circular-shift null test (experimental)")
 register_analysis!(:temporal_null, temporal_null; label="within-network condition-shuffle null test")
 register_analysis!(:distance_to_source, distance_to_source; task=:forage, label="mean distance to forage source")
 register_analysis!(:forage_alignment, forage_alignment; task=:forage, label="follower source-alignment (Vanni C, experimental)")

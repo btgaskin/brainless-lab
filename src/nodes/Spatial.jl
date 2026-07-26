@@ -457,7 +457,7 @@ function _falandays_spatial_native(
     effector_wiring::Union{Symbol,AbstractString}=:bernoulli,
     params=FalandaysParams(),
     drive=NoDrive(),
-    sign=Unsigned(),
+    sign=UnsignedAxis(),
     rectify=true,
     noise_source=nothing,
     kwargs...,

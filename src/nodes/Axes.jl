@@ -1,6 +1,6 @@
 using Random
 
-struct Unsigned end
+struct UnsignedAxis end
 
 struct Dale
     sign::Vector{Int}
@@ -13,7 +13,7 @@ struct Dale
     end
 end
 
-function recurrent_input(::Unsigned, wmat::AbstractMatrix{<:Real}, prev_spikes::AbstractVector{<:Real})
+function recurrent_input(::UnsignedAxis, wmat::AbstractMatrix{<:Real}, prev_spikes::AbstractVector{<:Real})
     return vec(transpose(prev_spikes) * wmat)
 end
 
@@ -54,7 +54,7 @@ function _update_targets!(targets::Vector{Float64}, errors::AbstractVector{<:Rea
 end
 
 function learn!(
-    ::Unsigned,
+    ::UnsignedAxis,
     wmat::Matrix{Float64},
     targets::Vector{Float64},
     errors::Vector{Float64},

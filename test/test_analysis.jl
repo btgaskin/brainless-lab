@@ -72,7 +72,18 @@ using Test
     @test :branching_ratio in analyses()
     @test resolve_analysis(:branching_ratio_mr) === branching_ratio_mr
     @test resolve_analysis(:branching_ratio_mr_windowed) === branching_ratio_mr_windowed
-    @test analysis_meta(:branching_ratio_mr).label == "branching ratio m (MR estimator, subsampling-robust)"
+    @test analysis_meta(:branching_ratio_mr).label == "branching ratio m (MR estimator, subsampling-robust) (experimental)"
+    for analysis in (
+        :branching_ratio,
+        :branching_ratio_mr,
+        :branching_ratio_mr_windowed,
+        :avalanches,
+        :spectral_radius,
+        :crossshift_null,
+        :node_target_error,
+    )
+        @test endswith(analysis_meta(analysis).label, "(experimental)")
+    end
 end
 
 @testset "MR branching estimator" begin
@@ -473,7 +484,7 @@ end
     @test agent_av.turn_threshold == BrainlessLab.DEFAULT_TURN_THRESHOLD
 
     @test resolve_analysis(:avalanches) === avalanches
-    @test analysis_meta(:avalanches).label == "neuronal avalanche size/duration exponents"
+    @test analysis_meta(:avalanches).label == "neuronal avalanche size/duration exponents (experimental)"
 end
 
 @testset "Transfer entropy analysis" begin
@@ -543,7 +554,7 @@ end
     @test_throws ArgumentError node_target_error(missing_targets)
 
     @test resolve_analysis(:node_target_error) === node_target_error
-    @test analysis_meta(:node_target_error).label == "per-node distance to target |act−T|"
+    @test analysis_meta(:node_target_error).label == "per-node distance to target |act−T| (experimental)"
 end
 
 @testset "Spectral radius analysis" begin
@@ -571,7 +582,7 @@ end
     @test_throws ArgumentError spectral_radius(sim2)
 
     @test :spectral_radius in analyses()
-    @test analysis_meta(:spectral_radius).label == "spectral radius ρ(W)"
+    @test analysis_meta(:spectral_radius).label == "spectral radius ρ(W) (experimental)"
 end
 
 @testset "Second-order level-aware signatures" begin

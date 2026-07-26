@@ -46,7 +46,7 @@ end
 
 function _case_axis(name, data)
     sign = vec(Int.(data["sign"]))
-    return name == "dale" ? Dale(sign) : BrainlessLab.Unsigned()
+    return name == "dale" ? Dale(sign) : BrainlessLab.UnsignedAxis()
 end
 
 function _case_drive(name, data)
@@ -103,7 +103,9 @@ function _assert_replay(name)
             error("$name tick $t certified spikes differ")
     end
 
-    @test near_margin >= 0
+    near_fraction = near_margin / length(margin_T)
+    @info "Falandays replay margin coverage" name near_margin comparisons=length(margin_T) near_fraction
+    @test near_fraction < 0.05
 end
 
 @testset "Legacy v0.2 Falandays fixture parity" begin

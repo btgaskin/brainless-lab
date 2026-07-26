@@ -130,7 +130,7 @@ function _tiny_delayed_reservoir(delay::Integer)
     params = FalandaysParams(leak=1.0, threshold_mult=1.0, learn_on=false)
 
     return ReservoirInstance(
-        FalandaysModel(params, NoDrive(), BrainlessLab.Unsigned(), true),
+        FalandaysModel(params, NoDrive(), BrainlessLab.UnsignedAxis(), true),
         connectome,
         FalandaysConnState(copy(wmat0), SpikeHistory(n_nodes, delay)),
         FalandaysNodeState(
@@ -143,6 +143,54 @@ function _tiny_delayed_reservoir(delay::Integer)
         ),
         PortSpec(1, 1),
     )
+end
+
+@testset "Heterogeneous delayed Dale learning preserves the recurrent mask" begin
+    n_nodes = 4
+    recurrent_mask = falses(n_nodes, n_nodes)
+    recurrent_mask[1, 2] = true
+    recurrent_mask[3, 4] = true
+    embedding = _delay_embedding(n_nodes)
+    delays = ones(Int, n_nodes, n_nodes)
+    delays[1, 2] = 2
+    delays[3, 4] = 2
+    connectome = DelayedConnectome{2}(
+        recurrent_mask,
+        zeros(Float64, 1, n_nodes),
+        zeros(Float64, n_nodes, 1),
+        zeros(Float64, n_nodes, n_nodes),
+        embedding,
+        ones(Int, n_nodes),
+        delays,
+        2,
+        false,
+    )
+    history = SpikeHistory(n_nodes, 2)
+    BrainlessLab.push_spikes!(history, [1.0, 0.0, 1.0, 0.0])
+    BrainlessLab.push_spikes!(history, zeros(Float64, n_nodes))
+    weights = fill(0.5, n_nodes, n_nodes)
+    conn = FalandaysConnState(weights, history)
+    state = FalandaysNodeState(
+        zeros(Float64, n_nodes),
+        ones(Float64, n_nodes),
+        zeros(Float64, n_nodes),
+        [0.2, -0.1, 0.3, -0.2],
+        zeros(Float64, n_nodes),
+        RecordedNoise(zeros(Float64, 1, n_nodes)),
+    )
+    params = FalandaysParams(lrate_wmat=0.1, lrate_targ=0.0)
+
+    BrainlessLab.learn_connectome!(
+        connectome,
+        Dale([1, -1, 1, -1]),
+        conn,
+        state,
+        params,
+    )
+
+    @test all(iszero, conn.wmat[.!recurrent_mask])
+    @test conn.wmat[1, 2] != 0.5
+    @test conn.wmat[3, 4] != 0.5
 end
 
 @testset "Heterogeneous delay forward self-consistency" begin

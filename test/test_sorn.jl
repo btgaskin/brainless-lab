@@ -40,6 +40,7 @@ end
     @test step!(replay_copy, [0.9, 0.1]) == step!(replay_source, [0.9, 0.1])
 
     frozen = SORNReservoir(30, 2, 2; seed=4, learn_on=false)
+    @test plasticity(frozen) isa NoPlasticity
     weights_before = copy(frozen.W_EE)
     thresholds_before = copy(frozen.T_E)
     step!(frozen, [0.75, 0.25])

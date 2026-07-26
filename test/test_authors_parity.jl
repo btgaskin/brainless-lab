@@ -49,7 +49,7 @@ function _authors_reservoir(data)
     return FalandaysReservoir(
         params=_authors_params(data),
         drive=NoDrive(),
-        sign=BrainlessLab.Unsigned(),
+        sign=BrainlessLab.UnsignedAxis(),
         recurrent_mask=_authors_bitmatrix(data, "recurrent_mask"),
         input_wmat=_authors_matrix(data, "input_wmat"),
         output_mask=_authors_matrix(data, "output_mask"),

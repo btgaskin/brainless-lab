@@ -58,7 +58,7 @@ function _single_reservoir(data)
     return FalandaysReservoir(
         params=_single_params(data),
         drive=NoDrive(),
-        sign=BrainlessLab.Unsigned(),
+        sign=BrainlessLab.UnsignedAxis(),
         recurrent_mask=_single_bitmatrix(data, "recurrent_mask"),
         input_wmat=_single_matrix(data, "input_wmat"),
         output_mask=_single_matrix(data, "output_mask"),

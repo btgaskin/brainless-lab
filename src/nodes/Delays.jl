@@ -79,7 +79,7 @@ end
 
 function recurrent_input(
     c::DelayedConnectome,
-    sign::Unsigned,
+    sign::UnsignedAxis,
     cs::FalandaysConnState,
     prev_spikes::AbstractVector{<:Real},
 )
@@ -152,7 +152,7 @@ end
 
 function learn_connectome!(
     c::DelayedConnectome,
-    sign::Unsigned,
+    sign::UnsignedAxis,
     cs::FalandaysConnState,
     ns::FalandaysNodeState,
     params,
@@ -209,11 +209,11 @@ function learn_connectome!(
                     end
                 end
             end
+        end
 
-            @inbounds for j in 1:size(cs.wmat, 2), i in 1:size(cs.wmat, 1)
-                if !c.recurrent_mask[i, j]
-                    cs.wmat[i, j] = 0.0
-                end
+        @inbounds for j in 1:size(cs.wmat, 2), i in 1:size(cs.wmat, 1)
+            if !c.recurrent_mask[i, j]
+                cs.wmat[i, j] = 0.0
             end
         end
     end
@@ -281,7 +281,7 @@ function _falandays_delayed_native(
     dt::Real=1.0,
     params=FalandaysParams(),
     drive=NoDrive(),
-    sign=Unsigned(),
+    sign=UnsignedAxis(),
     rectify=true,
     noise_source=nothing,
     kwargs...,

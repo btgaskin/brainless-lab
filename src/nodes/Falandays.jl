@@ -32,7 +32,19 @@ function _inverse_softplus(y)
     return log(expm1(y))
 end
 
-function unpack_params(::Type{FalandaysParams}, raw::AbstractVector{<:Real})::FalandaysParams
+"""
+    unpack_params(FalandaysParams, raw; learn_on)
+    unpack_params(params::FalandaysParams, raw)
+
+Reconstruct the seven evolvable Falandays coordinates. `learn_on` is not a
+genome coordinate: type-based reconstruction must state it explicitly, while
+instance-based reconstruction preserves the source parameter set's value.
+"""
+function unpack_params(
+    ::Type{FalandaysParams},
+    raw::AbstractVector{<:Real};
+    learn_on::Bool,
+)::FalandaysParams
     length(raw) == FALANDAYS_PARAM_DIM ||
         throw(ArgumentError("expected raw vector of length $(FALANDAYS_PARAM_DIM), got $(length(raw))"))
 
@@ -44,9 +56,12 @@ function unpack_params(::Type{FalandaysParams}, raw::AbstractVector{<:Real})::Fa
         targ_min=0.1 + softplus(Float64(raw[5])),
         input_weight=softplus(Float64(raw[6])),
         weight_init_std=softplus(Float64(raw[7])),
-        learn_on=true,
+        learn_on=learn_on,
     )
 end
+
+unpack_params(p::FalandaysParams, raw::AbstractVector{<:Real}) =
+    unpack_params(FalandaysParams, raw; learn_on=p.learn_on)
 
 function pack_params(p::FalandaysParams)
     return Float64[
@@ -238,9 +253,9 @@ end
 
 const FalandaysReservoir = ReservoirInstance{<:FalandaysModel, <:FalandaysConnectome, <:FalandaysConnState}
 
-# The Falandays family learns online (homeostatic weight + target updates each
-# tick), so it declares OnlinePlasticity — the base default is NoPlasticity.
-plasticity(::FalandaysReservoir) = OnlinePlasticity()
+# The instance's learn_on switch controls both homeostatic learning loops.
+plasticity(r::FalandaysReservoir) =
+    r.params.learn_on ? OnlinePlasticity() : NoPlasticity()
 
 # Falandays stays a single-tick map (SteppedWindow, the default); the framework
 # runs `step!` `substeps` times per env step and mean-reduces. `substeps=1`
@@ -277,7 +292,8 @@ function Base.getproperty(r::FalandaysReservoir, s::Symbol)
 end
 
 _as_falandays_params(p::FalandaysParams) = p
-_as_falandays_params(raw::AbstractVector{<:Real}) = unpack_params(FalandaysParams, raw)
+_as_falandays_params(raw::AbstractVector{<:Real}) =
+    unpack_params(FalandaysParams, raw; learn_on=true)
 
 function _float_matrix(x, name::AbstractString)
     ndims(x) == 2 || throw(ArgumentError("$name must be a matrix"))
@@ -300,7 +316,7 @@ function _bitmatrix(x, name::AbstractString)
     return mask
 end
 
-function _normalize_axis(axis::Unsigned, n::Integer)
+function _normalize_axis(axis::UnsignedAxis, n::Integer)
     return axis
 end
 
@@ -318,12 +334,12 @@ function _normalize_axis(sign::AbstractVector{<:Real}, n::Integer)
 
     s = Int.(sign)
     if all(==(1), s)
-        return Unsigned()
+        return UnsignedAxis()
     end
     return Dale(s)
 end
 
-function _native_axis(axis::Unsigned, n::Integer, rng::AbstractRNG, inhibitory_frac::Real)
+function _native_axis(axis::UnsignedAxis, n::Integer, rng::AbstractRNG, inhibitory_frac::Real)
     return axis
 end
 
@@ -337,7 +353,7 @@ end
 
 function _native_axis(sign::Symbol, n::Integer, rng::AbstractRNG, inhibitory_frac::Real)
     if sign == :unsigned
-        return Unsigned()
+        return UnsignedAxis()
     elseif sign == :dale
         return Dale(dale_signs(n, inhibitory_frac, rng))
     end
@@ -358,7 +374,7 @@ end
 function FalandaysReservoir(;
     params=FalandaysParams(),
     drive=NoDrive(),
-    sign=Unsigned(),
+    sign=UnsignedAxis(),
     recurrent_mask,
     input_wmat,
     output_mask,
@@ -382,7 +398,7 @@ function FalandaysReservoir(;
     wmat = copy(wmat0)
     wmat0_copy = copy(wmat0)
     acts = zeros(Float64, n_nodes)
-    targets = ones(Float64, n_nodes)
+    targets = fill(params.targ_min, n_nodes)
     spikes = zeros(Float64, n_nodes)
     errors = zeros(Float64, n_nodes)
     prev_spikes = zeros(Float64, n_nodes)
@@ -505,7 +521,7 @@ function FalandaysReservoir(
     link_p::Real=0.1,
     input_link_p=nothing,
     drive=NoDrive(),
-    sign=Unsigned(),
+    sign=UnsignedAxis(),
     rectify=nothing,
     noise_source=nothing,
     topology=nothing,
@@ -665,7 +681,7 @@ function reset!(r::FalandaysReservoir)
     cs.wmat .= c.wmat0
     cs.history === nothing || reset_history!(cs.history)
     fill!(ns.acts, 0.0)
-    fill!(ns.targets, 1.0)
+    fill!(ns.targets, r.params.targ_min)
     fill!(ns.spikes, 0.0)
     fill!(ns.errors, 0.0)
     fill!(ns.prev_spikes, 0.0)

@@ -117,7 +117,7 @@ _draw_noise!(source::RngNoise, buf::AbstractArray) = (randn!(source.rng, buf); b
 
 function DendriticReservoir(;
     params=FalandaysParams(),
-    sign=Unsigned(),
+    sign=UnsignedAxis(),
     recurrent_mask,
     input_wmat,
     output_mask,
@@ -246,7 +246,7 @@ function DendriticReservoir(
 
     return DendriticReservoir(
         params=params,
-        sign=Unsigned(),
+        sign=UnsignedAxis(),
         recurrent_mask=recurrent_mask,
         input_wmat=input_wmat,
         output_mask=output_wmat,

@@ -16,6 +16,15 @@
     struct _DummyNode <: NodeModel end
     register_node!(:dummy, _DummyNode)
     @test resolve_node(:dummy) === _DummyNode
+    duplicate_error = try
+        register_node!(:dummy, _ -> nothing)
+        nothing
+    catch error
+        error
+    end
+    @test duplicate_error isa ArgumentError
+    @test occursin("node registry key :dummy is already registered", sprint(showerror, duplicate_error))
+    @test resolve_node(:dummy) === _DummyNode
     @test_throws KeyError resolve_node(:missing_node)
 
     rec = Recorder(enabled=[:state], every=2)

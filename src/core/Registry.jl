@@ -12,6 +12,9 @@ const NODE_GENOME_TYPES = Dict{Symbol,Any}()
 const NODE_RECEPTOR_PROFILE_KEYWORDS = Dict{Symbol,Symbol}()
 
 function _register!(registry::Dict{Symbol,Any}, kind::AbstractString, sym::Symbol, T)
+    haskey(registry, sym) && throw(ArgumentError(
+        "$(kind) registry key $(repr(sym)) is already registered",
+    ))
     registry[sym] = T
     return T
 end

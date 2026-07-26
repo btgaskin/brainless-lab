@@ -4,6 +4,11 @@ using Test
 @testset "Falandays paper config table" begin
     @test paramdim(FalandaysParams) == 7
     @test length(pack_params(FalandaysParams())) == 7
+    frozen_params = FalandaysParams(learn_on=false)
+    frozen_raw = pack_params(frozen_params)
+    @test !unpack_params(frozen_params, frozen_raw).learn_on
+    @test !unpack_params(FalandaysParams, frozen_raw; learn_on=false).learn_on
+    @test_throws UndefKeywordError unpack_params(FalandaysParams, frozen_raw)
 
     wall = falandays_paper_config(:wall)
     @test wall.nnodes == 200
