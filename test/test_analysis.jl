@@ -456,6 +456,10 @@ end
     @test all(x -> x > 0.0, av.sizes)
     @test all(x -> x > 0, av.durations)
     @test isfinite(av.threshold)
+    @test !hasproperty(av, :tau)
+    @test !hasproperty(av, :alpha)
+    @test !hasproperty(av, :gamma_fit)
+    @test !hasproperty(av, :gamma_pred)
 
     rec = Recorder(enabled=(:spikes,))
     for sample in ([0, 0, 0, 0], [1, 1, 1, 0], [1, 1, 1, 1], [0, 0, 0, 0])
@@ -466,8 +470,22 @@ end
     got = avalanches(synthetic; threshold=0.5)
     @test got.sizes == [7.0]
     @test got.durations == [2]
+    @test isempty(got.inter_event_intervals)
+    @test isnan(got.mean_inter_event_interval)
     @test got.n_avalanches == 1
-    @test isnan(got.tau)
+    @test got.threshold == 0.5
+
+    interval_rec = Recorder(enabled=(:spikes,))
+    for sample in ([1], [1], [0], [1], [0], [0], [1])
+        record!(interval_rec, :spikes, sample)
+        tick!(interval_rec)
+    end
+    interval_sim = SimResult(interval_rec, (;), :synthetic, :synthetic, (;))
+    interval_result = avalanches(interval_sim; threshold=0.5)
+    @test interval_result.sizes == [2.0, 1.0, 1.0]
+    @test interval_result.durations == [2, 1, 1]
+    @test interval_result.inter_event_intervals == [3, 3]
+    @test interval_result.mean_inter_event_interval == 3.0
 
     swarm = simulate(:torus; node=:falandays_base, ticks=80, seed=15, n_agents=4, n_nodes=12, record=(:spikes, :rate, :poses))
     node_av = avalanches(swarm; level=:node)
@@ -475,6 +493,8 @@ end
     @test node_av.n_agents == 4
     @test length(node_av.per_agent) == 4
     @test length(node_av.sizes) == 4
+    @test length(node_av.inter_event_intervals) == 4
+    @test length(node_av.mean_inter_event_interval_distribution) == 4
     @test length(node_av.n_avalanches_distribution) == 4
 
     agent_av = avalanches(swarm; level=:agent)
@@ -484,7 +504,7 @@ end
     @test agent_av.turn_threshold == BrainlessLab.DEFAULT_TURN_THRESHOLD
 
     @test resolve_analysis(:avalanches) === avalanches
-    @test analysis_meta(:avalanches).label == "neuronal avalanche size/duration exponents (experimental)"
+    @test analysis_meta(:avalanches).label == "thresholded avalanche sizes, durations, and intervals (experimental)"
 end
 
 @testset "Transfer entropy analysis" begin

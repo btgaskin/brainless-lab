@@ -68,26 +68,13 @@ before assigning a critical interpretation.
 
 ## Avalanches
 
-The avalanche analysis thresholds population activity into contiguous events. Each event
-has a size $S$ and duration $D$. Candidate power-law relations are:
+The avalanche analysis thresholds population activity into contiguous events. It reports
+each event's size and duration, onset-to-onset intervals, their mean, the event count, and
+the threshold used. The default threshold adapts to the recorded activity.
 
-$$
-P(S)\sim S^{-\tau},
-\qquad
-P(D)\sim D^{-\alpha},
-\qquad
-\langle S\rangle(D)\sim D^\gamma.
-$$
-
-The crackling relation compares the exponents:
-
-$$
-\frac{\alpha-1}{\tau-1} = \gamma.
-$$
-
-Agreement does not establish criticality. Report the event count, threshold and bin
-sensitivity, fitted range, competing distributions, finite-size checks, and uncertainty.
-Do not interpret a fit based on a small number of events.
+This analysis is descriptive only. Current runs provide too few events for supported
+distributional fits and show large seed-to-seed count changes at a fixed condition. Do not
+use this output to compare conditions or infer criticality.
 
 <p class="bl-source">Source: <code>src/analysis/Avalanches.jl</code>.</p>
 
