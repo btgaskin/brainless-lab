@@ -174,11 +174,12 @@ fig = visualize(sim; panels=[:raster, :rate, :trajectory])
 save("tracking.png", fig)
 ```
 
-Use `CairoMakie` for saved images and headless work. Use `GLMakie` for `explore`:
+Use `CairoMakie` for saved images and headless work. The GLMakie live explorer
+is an experimental interactive path for collective simulations:
 
 ```julia
 using BrainlessLab, GLMakie
-explore(:torus; node=:falandays, n_agents=6)
+BrainlessLab.explore(:torus; node=:falandays, n_agents=6)
 ```
 
 Available recipes include `rasterplot`, `rateplot`, `trajectoryplot`, `swarmplot`,

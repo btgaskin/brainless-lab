@@ -32,6 +32,7 @@ function _hfr2_port_health(node_kwargs; n_nodes=120, n_receptors=3, n_effectors=
 end
 
 @testset "HomeostaticFlowV2 reservoir" begin
+    @test :homeostatic_flow ∉ variants()
     @test :homeostatic_flow_v2 in variants()
     @test BrainlessLab.genome_type(:homeostatic_flow_v2) === BrainlessLab.HomeostaticFlowV2Params
     @test paramdim(BrainlessLab.HomeostaticFlowV2Params) == length(pack_params(BrainlessLab.HomeostaticFlowV2Params()))

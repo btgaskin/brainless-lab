@@ -58,7 +58,8 @@ function visualize end
 """
     explore(args...; kwargs...)
 
-Generic interactive exploration hook.
+Experimental GLMakie interactive explorer for collective simulations. This
+interface is not part of the core Tracking and Pong workflow.
 """
 function explore end
 

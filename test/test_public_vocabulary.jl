@@ -45,7 +45,6 @@ end
         :visualize,
         :animate,
         :replay,
-        :explore,
         :task_outcome,
         :SimResult,
         :Recorder,
@@ -168,8 +167,9 @@ end
     )
 
     @test actual_exports == expected_exports
-    @test length(public_only) == 524
+    @test length(public_only) == 523
     @test all(name -> name in public_only, (
+        :explore,
         :Evolution,
         :SORNReservoir,
         :CompartmentalReservoir,
@@ -185,4 +185,6 @@ end
     ))
     @test !Base.isexported(BrainlessLab, :Unsigned)
     @test !Base.ispublic(BrainlessLab, :Unsigned)
+    @test !isdefined(BrainlessLab, :HomeostaticFlowParams)
+    @test !isdefined(BrainlessLab, :HomeostaticFlowReservoir)
 end
