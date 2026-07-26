@@ -1,4 +1,12 @@
-"""Cold-path context supplied to a registered node builder."""
+"""
+    NodeBuildContext
+
+Cold-path context supplied to `NodeSpec.build`. A node builder is called as
+`build(context::NodeBuildContext, values::Dict{Symbol,Any})`, where `values`
+contains the resolved declared parameters. The context supplies node count,
+body ports, named construction seeds, an optional receptor profile, and an
+optional fixed node model.
+"""
 struct NodeBuildContext{P,S,R,M}
     n_nodes::Int
     ports::P
@@ -38,7 +46,9 @@ end
 
 Discoverable contract for one neural substrate. Node count and the task/body
 ports are supplied by `NodeBuildContext`; the node owns only its mechanism and
-declared parameter surface.
+declared parameter surface. The `build` callable receives
+`(context::NodeBuildContext, values::Dict{Symbol,Any})` and must return a
+`Reservoir`.
 """
 struct NodeSpec{B,G,D,P,E,M}
     id::Symbol

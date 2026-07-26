@@ -1,12 +1,17 @@
 using Test
 using BrainlessLab:
+    AblationPlan,
+    CompositionSpec,
     EquationSpec,
     EvaluationSpec,
+    EvaluationTarget,
     ImplementationSpec,
     ParameterSpec,
     Registry,
+    DEFAULT_REGISTRY,
     SeedStreamSpec,
     derive_seed,
+    node_spec,
     register!,
     resolve,
     seed_stream_names,
@@ -24,6 +29,137 @@ using BrainlessLab:
     @test_throws KeyError resolve(registry, :missing)
     @test_throws MethodError register!(registry, "b", 2)
     @test_throws MethodError register!(registry, :b, 2.0)
+end
+
+@testset "built-in node capabilities describe their mechanisms" begin
+    expected = Dict(
+        :falandays_noisy => (
+            :spiking,
+            :online_plasticity,
+            :recurrent_weights,
+            :homeostatic_target,
+            :sensory_noise,
+            :receptor_profile,
+        ),
+        :falandays_extended => (
+            :spiking,
+            :online_plasticity,
+            :recurrent_weights,
+            :homeostatic_target,
+            :sensory_noise,
+            :small_world_topology,
+            :signed_weights,
+            :receptor_profile,
+        ),
+        :falandays_hemispheric => (
+            :spiking,
+            :online_plasticity,
+            :recurrent_weights,
+            :homeostatic_target,
+            :hemispheric_topology,
+        ),
+        :falandays_oosawa => (
+            :spiking,
+            :online_plasticity,
+            :recurrent_weights,
+            :homeostatic_target,
+            :endogenous_drive,
+            :receptor_profile,
+        ),
+        :falandays_dendritic => (
+            :spiking,
+            :online_plasticity,
+            :recurrent_weights,
+            :homeostatic_target,
+            :dendritic_eligibility,
+        ),
+        :falandays_spatial => (
+            :spiking,
+            :online_plasticity,
+            :recurrent_weights,
+            :homeostatic_target,
+            :spatial_topology,
+        ),
+        :falandays_delayed => (
+            :spiking,
+            :online_plasticity,
+            :recurrent_weights,
+            :homeostatic_target,
+            :spatial_topology,
+            :conduction_delays,
+        ),
+        :sorn => (
+            :spiking,
+            :online_plasticity,
+            :recurrent_weights,
+            :intrinsic_plasticity,
+        ),
+        :compartmental_dense => (
+            :spiking,
+            :recurrent_weights,
+            :compartmental_dynamics,
+            :model_design,
+        ),
+        :compartmental_structured => (
+            :spiking,
+            :recurrent_weights,
+            :compartmental_dynamics,
+            :model_design,
+        ),
+        :null_random => (:spiking, :input_independent_control),
+        :homeostatic_flow_v2 => (
+            :continuous_state,
+            :online_plasticity,
+            :recurrent_weights,
+            :intrinsic_homeostasis,
+            :flow_control,
+        ),
+    )
+
+    for (id, capabilities) in expected
+        @test node_spec(DEFAULT_REGISTRY, id).capabilities == capabilities
+    end
+end
+
+@testset "canonical ablations resolve for declared node capabilities" begin
+    evaluation = EvaluationSpec(horizon=2)
+    cases = (
+        (
+            node=:sorn,
+            ablation=:freeze_plasticity,
+            parameter=:learn_on,
+            expected=false,
+        ),
+        (
+            node=:homeostatic_flow_v2,
+            ablation=:freeze_plasticity,
+            parameter=:learn_on,
+            expected=false,
+        ),
+        (
+            node=:falandays_spatial,
+            ablation=:clamp_target,
+            parameter=:lrate_targ,
+            expected=0.0,
+        ),
+    )
+    for case in cases
+        composition = CompositionSpec(
+            Symbol(:capability_, case.node),
+            case.node,
+            :tracking;
+            n_nodes=20,
+        )
+        target = EvaluationTarget(case.node, composition, evaluation)
+        plan = AblationPlan(
+            Symbol(:ablate_, case.node),
+            target;
+            ablations=(case.ablation,),
+        )
+        resolved = resolve(plan, DEFAULT_REGISTRY)
+        @test resolved.cases[2].target.composition.parameters[case.parameter] ==
+              case.expected
+    end
 end
 
 @testset "implementation and equation metadata" begin

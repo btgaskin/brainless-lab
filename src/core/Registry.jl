@@ -34,6 +34,11 @@ end
 
 Register a node constructor or concrete type under `sym`.
 
+The constructor must accept
+`(n_nodes, n_receptors, n_effectors; seed, kwargs...)` and return a
+`Reservoir`. Use a `NodeSpec` builder for the typed registry; that builder
+accepts `(context::NodeBuildContext, values::Dict{Symbol,Any})`.
+
 If the node can be evolved, pass `genome_type=<:NodeModel` so drivers can
 derive parameter dimension and unpacking from the public node contract.
 
@@ -109,7 +114,11 @@ end
 """
     register_task!(sym, T)
 
-Register a task constructor or concrete type under `sym`.
+Register a `TaskSpec` or task constructor under `sym`.
+
+A `TaskSpec` setup returns `TaskSetup`. A `TaskWorld` used through the
+compatibility setup must implement `sense`, `step!`, `metrics`, `reset!`,
+`n_receptors`, `n_effectors`, `default_ticks`, and `default_window`.
 """
 register_task!(sym::Symbol, T) = _register!(TASKS, "task", sym, T)
 

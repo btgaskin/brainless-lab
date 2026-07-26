@@ -66,6 +66,8 @@ end
         :register_motor!,
         :register_sensor!,
         :register_metric!,
+        :register_analysis!,
+        :register_ablation!,
         :resolve_node,
         :resolve_task,
         :resolve_drive,
@@ -167,7 +169,7 @@ end
     )
 
     @test actual_exports == expected_exports
-    @test length(public_only) == 523
+    @test length(public_only) == 521
     @test all(name -> name in public_only, (
         :explore,
         :Evolution,

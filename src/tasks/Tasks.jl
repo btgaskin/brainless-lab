@@ -80,6 +80,13 @@ end
 Task composition plus rollout/scoring metadata. `setup` is any concrete callable
 returning `TaskSetup`; no builder hierarchy is required. Static receptor/effector
 counts are optional default metadata only; resolved body ports size reservoirs.
+
+For the `TaskWorld` compatibility path, implement `sense(environment)`,
+`step!(environment, effectors)`, `metrics(environment, window)`,
+`reset!(environment)`, `n_receptors(::Type{Environment})`,
+`n_effectors(::Type{Environment})`, `default_ticks(::Type{Environment})`, and
+`default_window(::Type{Environment})`. Register the resulting `TaskSpec` with
+`register_task!`.
 """
 struct TaskSpec{S,E} <: AbstractTask
     name::Symbol

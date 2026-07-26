@@ -264,7 +264,7 @@ function _ablation_notes(sym::Symbol, node::Symbol, task::Symbol, is_swarm::Bool
     sym === :none && return String[]
     notes = String[]
     if sym === :freeze_plasticity
-        if _is_falandays_node(node) || node === :sorn
+        if _is_falandays_node(node) || node in (:sorn, :homeostatic_flow_v2)
             push!(notes, "freeze_plasticity applied: learn_on=false")
         elseif _is_compartmental_node(node)
             push!(notes, "freeze_plasticity no-op: compartmental nodes have no online plasticity")
@@ -296,20 +296,37 @@ function _ablation_notes(sym::Symbol, node::Symbol, task::Symbol, is_swarm::Bool
             push!(notes, "$(sym) no-op: compartmental-specific ablation")
         end
     else
-        push!(notes, "ablation :$(sym) passed through registered intervention hooks")
+        throw(ArgumentError(
+            "registered ablation :$(sym) has no high-level simulate handler; " *
+            "use an AblationSpec with AblationPlan or add an explicit execution handler",
+        ))
     end
     return notes
 end
+
+const _HIGHLEVEL_ABLATIONS = (
+    :freeze_plasticity,
+    :clamp_target,
+    :disable_vision,
+    :zero_recurrent,
+    :reset_dendrites,
+    :no_soma_back,
+    :no_hillock_back,
+)
 
 function _prepare_ablation_options!(node::Symbol, task::Symbol, is_swarm::Bool, node_options::Dict{Symbol,Any}, swarm_options::Dict{Symbol,Any}, ablation)
     sym = _ablation_symbol(ablation)
     sym === :none && return sym
     resolve_ablation(sym)
+    sym in _HIGHLEVEL_ABLATIONS || throw(ArgumentError(
+        "registered ablation :$(sym) has no high-level simulate handler; " *
+        "use an AblationSpec with AblationPlan or add an explicit execution handler",
+    ))
 
     if sym === :freeze_plasticity
         if _is_falandays_node(node)
             node_options[:learn_on] = false
-        elseif node === :sorn
+        elseif node in (:sorn, :homeostatic_flow_v2)
             node_options[:learn_on] = false
         end
     elseif sym === :clamp_target
@@ -327,6 +344,9 @@ end
 
 function _apply_postbuild_ablation!(reservoir::Reservoir, sym::Symbol)
     sym === :none && return reservoir
+    sym in _HIGHLEVEL_ABLATIONS || throw(ArgumentError(
+        "registered ablation :$(sym) has no high-level simulate handler",
+    ))
     intervention =
         sym === :zero_recurrent ? ZeroRecurrent() :
         sym === :freeze_plasticity ? FreezePlasticity() :

@@ -16,6 +16,7 @@ function _generic_node_builder(
     profile_keyword = node_receptor_profile_keyword(id)
     return function (context::NodeBuildContext, values)
         options = Dict{Symbol,Any}(values)
+        _normalize_node_options!(id, options)
         if context.model === nothing
             require_model && throw(ArgumentError(
                 "node :$(id) requires an explicit node model",
@@ -48,6 +49,90 @@ function _generic_node_builder(
 end
 
 _node_design_spec(::Any) = nothing
+
+function _generic_registered_node_parameters(id::Symbol, genome)
+    if genome === FalandaysParams
+        defaults = FalandaysParams()
+        return (
+            ParameterSpec(
+                :lrate_targ,
+                defaults.lrate_targ;
+                validator=value -> value isa Float64 && isfinite(value) && value >= 0.0,
+                description="target-activity adaptation rate",
+            ),
+            ParameterSpec(
+                :learn_on,
+                defaults.learn_on;
+                validator=value -> value isa Bool,
+                description="enable online plasticity",
+            ),
+        )
+    elseif id in (:sorn, :homeostatic_flow_v2)
+        return (
+            ParameterSpec(
+                :learn_on,
+                true;
+                validator=value -> value isa Bool,
+                description="enable online plasticity",
+            ),
+        )
+    end
+    return ()
+end
+
+function _generic_registered_node_capabilities(id::Symbol, genome, design)
+    capabilities = Symbol[]
+    if genome === FalandaysParams
+        append!(
+            capabilities,
+            (:spiking, :online_plasticity, :recurrent_weights, :homeostatic_target),
+        )
+        variant = if id === :falandays_noisy
+            (:sensory_noise,)
+        elseif id === :falandays_extended
+            (:sensory_noise, :small_world_topology, :signed_weights)
+        elseif id === :falandays_ablated
+            (:clamped_homeostatic_target,)
+        elseif id === :falandays_hemispheric
+            (:hemispheric_topology,)
+        elseif id === :falandays_oosawa
+            (:endogenous_drive,)
+        elseif id === :falandays_dendritic
+            (:dendritic_eligibility,)
+        elseif id === :falandays_spatial
+            (:spatial_topology,)
+        elseif id === :falandays_delayed
+            (:spatial_topology, :conduction_delays)
+        else
+            ()
+        end
+        append!(capabilities, variant)
+    elseif id === :sorn
+        append!(
+            capabilities,
+            (:spiking, :online_plasticity, :recurrent_weights, :intrinsic_plasticity),
+        )
+    elseif id in (:compartmental_dense, :compartmental_structured)
+        append!(capabilities, (:spiking, :recurrent_weights, :compartmental_dynamics))
+    elseif id === :null_random
+        append!(capabilities, (:spiking, :input_independent_control))
+    elseif id === :homeostatic_flow_v2
+        append!(
+            capabilities,
+            (
+                :continuous_state,
+                :online_plasticity,
+                :recurrent_weights,
+                :intrinsic_homeostasis,
+                :flow_control,
+            ),
+        )
+    end
+    design === nothing || push!(capabilities, :model_design)
+    node_receptor_profile_keyword(id) === nothing ||
+        push!(capabilities, :receptor_profile)
+    return Tuple(capabilities)
+end
 
 function _falandays_parameters()
     defaults = FalandaysParams()
@@ -258,9 +343,7 @@ function _generic_registered_node_spec(id::Symbol, constructor)
         nothing
     end
     design = genome === nothing ? nothing : _node_design_spec(genome)
-    capabilities = Symbol[]
-    design === nothing || push!(capabilities, :model_design)
-    node_receptor_profile_keyword(id) === nothing || push!(capabilities, :receptor_profile)
+    capabilities = _generic_registered_node_capabilities(id, genome, design)
     return NodeSpec(
         id,
         _generic_node_builder(
@@ -273,7 +356,8 @@ function _generic_registered_node_spec(id::Symbol, constructor)
         design=design,
         stability=id === :null_random ? :control : :experimental,
         tags=id === :null_random ? (:control,) : (:experimental,),
-        capabilities=Tuple(capabilities),
+        capabilities=capabilities,
+        parameters=_generic_registered_node_parameters(id, genome),
         metadata=(adapter=:registered_constructor,),
     )
 end
