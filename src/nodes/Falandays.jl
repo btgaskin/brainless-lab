@@ -43,8 +43,21 @@ end
 
 _falandays_range(raw::Real, range) =
     range[1] + (range[2] - range[1]) * _sigmoid_clipped(raw)
-_falandays_invrange(value::Real, range) =
-    _inverse_sigmoid((Float64(value) - range[1]) / (range[2] - range[1]))
+
+# Reject out-of-range values rather than packing them. `_inverse_sigmoid`
+# clamps its argument, so without this guard a parameter above the declared
+# ceiling would pack to a large finite coordinate and decode back as the
+# ceiling itself -- silent corruption in exactly the machinery that exists to
+# prevent it.
+function _falandays_invrange(value::Real, range, name::Symbol=:parameter)
+    v = Float64(value)
+    lo, hi = range
+    lo <= v <= hi || throw(ArgumentError(
+        "Falandays $(name) = $(v) is outside its genome range [$(lo), $(hi)]; " *
+        "packing would silently clamp it to the nearest bound",
+    ))
+    return _inverse_sigmoid((v - lo) / (hi - lo))
+end
 
 """
     unpack_params(FalandaysParams, raw; learn_on)
@@ -96,21 +109,24 @@ unpack_params(p::FalandaysParams, raw::AbstractVector{<:Real}) =
 
 function pack_params(p::FalandaysParams)
     return Float64[
-        _falandays_invrange(p.leak, FALANDAYS_PARAM_RANGES.leak),
-        _falandays_invrange(p.lrate_wmat, FALANDAYS_PARAM_RANGES.lrate_wmat),
-        _falandays_invrange(p.lrate_targ, FALANDAYS_PARAM_RANGES.lrate_targ),
+        _falandays_invrange(p.leak, FALANDAYS_PARAM_RANGES.leak, :leak),
+        _falandays_invrange(p.lrate_wmat, FALANDAYS_PARAM_RANGES.lrate_wmat, :lrate_wmat),
+        _falandays_invrange(p.lrate_targ, FALANDAYS_PARAM_RANGES.lrate_targ, :lrate_targ),
         _falandays_invrange(
             p.threshold_mult,
             FALANDAYS_PARAM_RANGES.threshold_mult,
+            :threshold_mult,
         ),
-        _falandays_invrange(p.targ_min, FALANDAYS_PARAM_RANGES.targ_min),
+        _falandays_invrange(p.targ_min, FALANDAYS_PARAM_RANGES.targ_min, :targ_min),
         _falandays_invrange(
             p.input_weight,
             FALANDAYS_PARAM_RANGES.input_weight,
+            :input_weight,
         ),
         _falandays_invrange(
             p.weight_init_std,
             FALANDAYS_PARAM_RANGES.weight_init_std,
+            :weight_init_std,
         ),
     ]
 end

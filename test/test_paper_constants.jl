@@ -32,6 +32,16 @@ using Test
     @test restored.weight_init_std ≈ in_range.weight_init_std
     @test !restored.learn_on
 
+    # Packing a value outside its declared range must fail loudly. The inverse
+    # sigmoid clamps, so without the guard this would pack to a large finite
+    # coordinate and decode back as the ceiling.
+    @test_throws ArgumentError pack_params(FalandaysParams(input_weight=20.0))
+    @test_throws ArgumentError pack_params(FalandaysParams(lrate_wmat=2.0))
+    @test_throws ArgumentError pack_params(FalandaysParams(targ_min=0.0))
+    # Values exactly on a bound remain packable.
+    @test length(pack_params(FalandaysParams(input_weight=16.0))) == 7
+    @test length(pack_params(FalandaysParams(leak=0.0))) == 7
+
     high_coordinate = pack_params(FalandaysParams())
     high_coordinate[2] = 8.0
     bounded = unpack_params(FalandaysParams, high_coordinate; learn_on=true)
