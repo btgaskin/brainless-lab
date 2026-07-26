@@ -65,6 +65,26 @@ records explicitly.
 Browse software that remains outside the core learning path in the
 [Experimental catalogue](https://brainless-lab.pages.dev/experimental/).
 
+## Citation and attribution
+
+The canonical `:falandays` node implements the model published in:
+
+> Falandays, J. Benjamin; Yoshimi, Jeffrey; Warren, William H.; Spivey, Michael J.
+> "A potential mechanism for Gibsonian resonance: behavioral entrainment emerges from
+> local homeostasis in an unsupervised reservoir network."
+> *Cognitive Neurodynamics* **18**(4), 1811–1834 (2024).
+> [doi:10.1007/s11571-023-09988-2](https://doi.org/10.1007/s11571-023-09988-2)
+
+**If you use this software, cite that work as well as BrainlessLab.**
+
+BrainlessLab's implementation is an independent reimplementation of the published model.
+The authors' own Julia source is public at
+[bfalandays/ReservoirModel_followups](https://github.com/bfalandays/ReservoirModel_followups)
+and is cited, not vendored: no upstream source, data, or figures are redistributed here.
+Task-specific constants are recorded with per-file provenance in
+[`src/api/paper_config.jl`](src/api/paper_config.jl), and the reference fixtures are
+described in [`test/fixtures/README.md`](test/fixtures/README.md).
+
 ## Development
 
 Run the small contract gate during ordinary development:

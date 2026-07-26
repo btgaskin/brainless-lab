@@ -1,3 +1,24 @@
+# The canonical BrainlessLab node. Implements the homeostatic spiking reservoir
+# published in:
+#
+#   Falandays, J. Benjamin; Yoshimi, Jeffrey; Warren, William H.; Spivey,
+#   Michael J. "A potential mechanism for Gibsonian resonance: behavioral
+#   entrainment emerges from local homeostasis in an unsupervised reservoir
+#   network." Cognitive Neurodynamics 18(4), 1811-1834 (2024).
+#   https://doi.org/10.1007/s11571-023-09988-2
+#
+# This is an independent reimplementation from the published model and the
+# authors' public Julia source
+# (https://github.com/bfalandays/ReservoirModel_followups). No upstream code is
+# vendored or redistributed; that repository carries no licence file. Per-task
+# constants and their line-level provenance are recorded in
+# `src/api/paper_config.jl`, and the reference fixtures are described in
+# `test/FIXTURES.md`.
+#
+# Each unit integrates sensory and recurrent input, spikes above a local target,
+# and adapts that target and its active incoming weights during behaviour. There
+# is no task-loss backpropagation and no fitted readout.
+
 using Random
 
 const FALANDAYS_PARAM_DIM = 7

@@ -51,3 +51,14 @@ references:
     start: 1811
     end: 1834
     doi: 10.1007/s11571-023-09988-2
+  - type: software
+    title: ReservoirModel_followups
+    notes: >-
+      The authors' own Julia source for the model implemented by the :falandays
+      node. Read and cited for constant provenance; not vendored or
+      redistributed by BrainlessLab, which is an independent reimplementation.
+      The upstream repository carries no licence file.
+    authors:
+      - given-names: J. Benjamin
+        family-names: Falandays
+    repository-code: "https://github.com/bfalandays/ReservoirModel_followups"

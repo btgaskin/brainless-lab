@@ -41,7 +41,11 @@ Manifest paths are forward-slash relative paths from `test/fixtures/`. They
 must not be absolute, contain `.` or `..` components, use backslashes, or
 name the manifest itself. The oracle suite rejects missing files, unlisted
 files, symlinks, duplicate paths, invalid digests, and changed contents.
-Tests must not regenerate a missing or changed fixture.
+Tests must not regenerate a missing or changed fixture. Because the manifest
+seals every file in that directory, its documentation lives outside it, in
+[FIXTURES.md](FIXTURES.md) — which records where each fixture came from, what
+each one does and does not establish, and why no third-party material is
+redistributed there.
 
 CI stores a success marker only for an exact checked-in input set and hosted
 runner image. The key includes the runner image version and architecture,

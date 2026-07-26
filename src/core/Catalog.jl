@@ -244,7 +244,10 @@ function falandays_node_spec()
             :fano_factor,
             :participation_ratio,
         ),
-        metadata=(source="Falandays et al. authors-derived Julia implementation",),
+        metadata=(
+            source="Independent Julia reimplementation of Falandays et al. 2024, " *
+                   "Cognitive Neurodynamics 18(4) 1811-1834, doi:10.1007/s11571-023-09988-2",
+        ),
     )
 end
 
