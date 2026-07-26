@@ -10,6 +10,49 @@ using Test
     @test !unpack_params(FalandaysParams, frozen_raw; learn_on=false).learn_on
     @test_throws UndefKeywordError unpack_params(FalandaysParams, frozen_raw)
 
+    in_range = FalandaysParams(
+        leak=0.4,
+        lrate_wmat=1.25,
+        lrate_targ=0.2,
+        threshold_mult=3.0,
+        targ_min=4.0,
+        input_weight=12.5,
+        weight_init_std=2.5,
+        learn_on=false,
+    )
+    raw = pack_params(in_range)
+    restored = unpack_params(in_range, raw)
+    @test pack_params(restored) ≈ raw
+    @test restored.leak ≈ in_range.leak
+    @test restored.lrate_wmat ≈ in_range.lrate_wmat
+    @test restored.lrate_targ ≈ in_range.lrate_targ
+    @test restored.threshold_mult ≈ in_range.threshold_mult
+    @test restored.targ_min ≈ in_range.targ_min
+    @test restored.input_weight ≈ in_range.input_weight
+    @test restored.weight_init_std ≈ in_range.weight_init_std
+    @test !restored.learn_on
+
+    high_coordinate = pack_params(FalandaysParams())
+    high_coordinate[2] = 8.0
+    bounded = unpack_params(FalandaysParams, high_coordinate; learn_on=true)
+    @test 0.0 < bounded.lrate_wmat < 1.5
+    reservoir = FalandaysReservoir(
+        24,
+        2,
+        2;
+        params=bounded,
+        seed=19,
+        link_p=0.2,
+        weight_init_mode=:legacy_normal,
+        rectify=true,
+    )
+    for _ in 1:2_500
+        step!(reservoir, [0.5, 0.25])
+    end
+    @test all(isfinite, reservoir.acts)
+    @test all(isfinite, reservoir.targets)
+    @test all(isfinite, reservoir.wmat)
+
     wall = falandays_paper_config(:wall)
     @test wall.nnodes == 200
     @test wall.input_amp == 4.0
@@ -42,6 +85,12 @@ using Test
     @test collective.lrate_wmat == 0.10
     @test collective.lrate_targ == 0.01
     @test collective.weight_init_mode === :collective_dale_smallworld
+end
+
+@testset "Falandays rejects non-finite runtime state" begin
+    reservoir = FalandaysReservoir(8, 2, 2; seed=9, link_p=0.5)
+    reservoir.wmat[1, 1] = NaN
+    @test_throws DomainError step!(reservoir, zeros(2))
 end
 
 @testset "Falandays canonical name and compatibility alias" begin

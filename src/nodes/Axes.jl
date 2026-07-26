@@ -53,6 +53,15 @@ function _update_targets!(targets::Vector{Float64}, errors::AbstractVector{<:Rea
     return targets
 end
 
+@inline function _checked_falandays_weight(weight::Float64, delta::Float64)
+    updated = weight - delta
+    isfinite(updated) || throw(DomainError(
+        updated,
+        "Falandays recurrent weight diverged to a non-finite value",
+    ))
+    return updated
+end
+
 function learn!(
     ::UnsignedAxis,
     wmat::Matrix{Float64},
@@ -70,7 +79,7 @@ function learn!(
                 delta = errors[j] / counts[j] * p.lrate_wmat
                 for i in 1:size(wmat, 1)
                     if mask[i, j] && prev_spikes[i] != 0.0
-                        wmat[i, j] -= delta
+                        wmat[i, j] = _checked_falandays_weight(wmat[i, j], delta)
                     end
                 end
             end
@@ -99,7 +108,10 @@ function learn!(
                 for i in 1:size(wmat, 1)
                     if mask[i, j] && prev_spikes[i] != 0.0
                         signed_delta = axis.sign[i] == -1 ? -delta : delta
-                        wmat[i, j] -= signed_delta
+                        wmat[i, j] = _checked_falandays_weight(
+                            wmat[i, j],
+                            signed_delta,
+                        )
                         if wmat[i, j] < 0.0
                             wmat[i, j] = 0.0
                         end

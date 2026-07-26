@@ -2,9 +2,9 @@ using TOML
 import SHA
 
 const _EVOLUTION_MODEL_FORMAT = "brainlesslab-model-artifact"
-const _EVOLUTION_MODEL_FORMAT_VERSION = 1
+const _EVOLUTION_MODEL_FORMAT_VERSION = 2
 const _EVOLUTION_CHECKPOINT_FORMAT = "brainlesslab-evolution-checkpoint"
-const _EVOLUTION_CHECKPOINT_FORMAT_VERSION = 1
+const _EVOLUTION_CHECKPOINT_FORMAT_VERSION = 2
 
 for name in (
     :write_models,

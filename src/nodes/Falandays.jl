@@ -2,6 +2,15 @@ using Random
 
 const FALANDAYS_PARAM_DIM = 7
 const _DEFAULT_SHARED_INPUT_WEIGHT = 1.875
+const FALANDAYS_PARAM_RANGES = (
+    leak=(0.0, 1.0),
+    lrate_wmat=(0.0, 1.5),
+    lrate_targ=(0.0, 0.25),
+    threshold_mult=(0.25, 4.0),
+    targ_min=(0.05, 5.0),
+    input_weight=(0.0, 16.0),
+    weight_init_std=(0.0, 4.0),
+)
 
 Base.@kwdef struct FalandaysParams <: NodeModel
     leak::Float64 = 0.25
@@ -32,6 +41,11 @@ function _inverse_softplus(y)
     return log(expm1(y))
 end
 
+_falandays_range(raw::Real, range) =
+    range[1] + (range[2] - range[1]) * _sigmoid_clipped(raw)
+_falandays_invrange(value::Real, range) =
+    _inverse_sigmoid((Float64(value) - range[1]) / (range[2] - range[1]))
+
 """
     unpack_params(FalandaysParams, raw; learn_on)
     unpack_params(params::FalandaysParams, raw)
@@ -39,6 +53,14 @@ end
 Reconstruct the seven evolvable Falandays coordinates. `learn_on` is not a
 genome coordinate: type-based reconstruction must state it explicitly, while
 instance-based reconstruction preserves the source parameter set's value.
+
+Every coordinate uses a bounded sigmoid bijection. The physical ranges are:
+`leak ∈ (0, 1)`, `lrate_wmat ∈ (0, 1.5)`, `lrate_targ ∈ (0, 0.25)`,
+`threshold_mult ∈ (0.25, 4)`, `targ_min ∈ (0.05, 5)`,
+`input_weight ∈ (0, 16)`, and `weight_init_std ∈ (0, 4)`. These bounds contain
+the registered sweep grids and the published task values, including the
+collective input amplitude of 12.5, while preventing unbounded optimiser
+coordinates from becoming unbounded physical learning rates or scales.
 """
 function unpack_params(
     ::Type{FalandaysParams},
@@ -49,13 +71,22 @@ function unpack_params(
         throw(ArgumentError("expected raw vector of length $(FALANDAYS_PARAM_DIM), got $(length(raw))"))
 
     return FalandaysParams(
-        leak=_sigmoid_clipped(raw[1]),
-        lrate_wmat=softplus(Float64(raw[2])),
-        lrate_targ=softplus(Float64(raw[3])),
-        threshold_mult=0.1 + softplus(Float64(raw[4])),
-        targ_min=0.1 + softplus(Float64(raw[5])),
-        input_weight=softplus(Float64(raw[6])),
-        weight_init_std=softplus(Float64(raw[7])),
+        leak=_falandays_range(raw[1], FALANDAYS_PARAM_RANGES.leak),
+        lrate_wmat=_falandays_range(raw[2], FALANDAYS_PARAM_RANGES.lrate_wmat),
+        lrate_targ=_falandays_range(raw[3], FALANDAYS_PARAM_RANGES.lrate_targ),
+        threshold_mult=_falandays_range(
+            raw[4],
+            FALANDAYS_PARAM_RANGES.threshold_mult,
+        ),
+        targ_min=_falandays_range(raw[5], FALANDAYS_PARAM_RANGES.targ_min),
+        input_weight=_falandays_range(
+            raw[6],
+            FALANDAYS_PARAM_RANGES.input_weight,
+        ),
+        weight_init_std=_falandays_range(
+            raw[7],
+            FALANDAYS_PARAM_RANGES.weight_init_std,
+        ),
         learn_on=learn_on,
     )
 end
@@ -65,13 +96,22 @@ unpack_params(p::FalandaysParams, raw::AbstractVector{<:Real}) =
 
 function pack_params(p::FalandaysParams)
     return Float64[
-        _inverse_sigmoid(p.leak),
-        _inverse_softplus(p.lrate_wmat),
-        _inverse_softplus(p.lrate_targ),
-        _inverse_softplus(p.threshold_mult - 0.1),
-        _inverse_softplus(p.targ_min - 0.1),
-        _inverse_softplus(p.input_weight),
-        _inverse_softplus(p.weight_init_std),
+        _falandays_invrange(p.leak, FALANDAYS_PARAM_RANGES.leak),
+        _falandays_invrange(p.lrate_wmat, FALANDAYS_PARAM_RANGES.lrate_wmat),
+        _falandays_invrange(p.lrate_targ, FALANDAYS_PARAM_RANGES.lrate_targ),
+        _falandays_invrange(
+            p.threshold_mult,
+            FALANDAYS_PARAM_RANGES.threshold_mult,
+        ),
+        _falandays_invrange(p.targ_min, FALANDAYS_PARAM_RANGES.targ_min),
+        _falandays_invrange(
+            p.input_weight,
+            FALANDAYS_PARAM_RANGES.input_weight,
+        ),
+        _falandays_invrange(
+            p.weight_init_std,
+            FALANDAYS_PARAM_RANGES.weight_init_std,
+        ),
     ]
 end
 
@@ -649,6 +689,13 @@ function step!(
     end
 
     params.learn_on && learn_connectome!(c, m.sign, cs, ns, params)
+    all(isfinite, ns.acts) &&
+        all(isfinite, ns.targets) &&
+        all(isfinite, ns.errors) ||
+        throw(DomainError(
+            nothing,
+            "Falandays reservoir state diverged to a non-finite value",
+        ))
 
     return copy(ns.spikes)
 end

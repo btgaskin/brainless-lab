@@ -51,6 +51,7 @@ end
         @test restored.weights == [1.0, 2.0]
         @test Set(readdir("records/example/models")) ==
             Set(("schema.toml", "models.csv", "coordinates.csv"))
+        @test TOML.parsefile("records/example/models/schema.toml")["format_version"] == 2
         @test all(path -> !occursin("/private/", read(path, String)), (
             "records/example/models/schema.toml",
             "records/example/models/models.csv",
@@ -90,7 +91,24 @@ end
         ),
         committed_candidate_count=2,
     )
+    checkpoint_manifest = TOML.parsefile(joinpath(
+        record,
+        "checkpoints",
+        "generation-00000001",
+        "checkpoint.toml",
+    ))
+    @test checkpoint_manifest["format_version"] == 2
     @test Evolution.read_checkpoint(record, 1).completed_iteration == 1
+
+    checkpoint_path = joinpath(record, "checkpoints", "generation-00000001")
+    checkpoint_manifest["format_version"] = 1
+    open(joinpath(checkpoint_path, "checkpoint.toml"), "w") do io
+        TOML.print(io, checkpoint_manifest; sorted=true)
+    end
+    open(joinpath(checkpoint_path, "DONE"), "w") do io
+        println(io, _artifact_sha256(joinpath(checkpoint_path, "checkpoint.toml")))
+    end
+    @test_throws ArgumentError Evolution.read_checkpoint(record, 1)
 end
 
 @testset "model artifacts reject unsafe references and corrupted data" begin
@@ -125,6 +143,30 @@ end
             :artifact_node,
             wrong_design,
         )
+
+        schema_path = "records/example/models/schema.toml"
+        old_schema = TOML.parsefile(schema_path)
+        old_schema["format_version"] = 1
+        open(schema_path, "w") do io
+            TOML.print(io, old_schema; sorted=true)
+        end
+        old_reference = Evolution.ModelReference(
+            reference.path,
+            reference.model_id,
+            reference.node,
+            _artifact_sha256(schema_path),
+            reference.coordinates_sha256,
+        )
+        @test_throws ArgumentError Evolution.read_model(
+            old_reference,
+            :artifact_node,
+            design,
+        )
+        old_schema["format_version"] = 2
+        open(schema_path, "w") do io
+            TOML.print(io, old_schema; sorted=true)
+        end
+        @test _artifact_sha256(schema_path) == reference.schema_sha256
 
         coordinates_path = "records/example/models/coordinates.csv"
         open(coordinates_path, "a") do io
