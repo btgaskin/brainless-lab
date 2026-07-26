@@ -37,7 +37,7 @@ function _coerce_score_anchor(anchor::ScoreAnchor, role::Symbol, task_name::Symb
 end
 
 function _coerce_score_anchor(value::Real, role::Symbol, task_name::Symbol)
-    @warn "TaskSpec $(role) for :$(task_name) was passed as a bare literal; wrapping as an uncalibrated legacy analytic anchor" maxlog = 1
+    @warn "TaskSpec $(role) for :$(task_name) was passed as a bare literal; wrapping as an uncalibrated legacy analytic anchor" maxlog = 1 _id = (:uncalibrated_score_anchor, task_name)
     return analytic(Float64(value); note="legacy literal (uncalibrated)")
 end
 

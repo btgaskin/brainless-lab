@@ -34,6 +34,13 @@ using Test
     @test legacy.ceiling.kind == ANALYTIC
     @test legacy.floor.provenance == "legacy literal (uncalibrated)"
     @test normalized_score(legacy, 2.0) == 0.5
+    second_legacy = @test_logs (:warn, r"bare literal") TaskSpec(
+        :second_legacy_anchor_test,
+        WallEnv;
+        score_floor=2.0,
+        score_ceiling=4.0,
+    )
+    @test normalized_score(second_legacy, 3.0) == 0.5
 
     @test WALL_TASK.score_key == :nav_score
     @test :collisions_window in WALL_TASK.descriptor_keys

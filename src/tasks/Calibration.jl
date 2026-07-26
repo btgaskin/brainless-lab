@@ -221,11 +221,13 @@ function _calibrated_ceiling(
 end
 
 function _reference_ceiling_with_fallback(task_spec::TaskSpec, measured::ScoreAnchor, floor::ScoreAnchor)
-    if measured.kind == REFERENCE_MEASURED &&
-       measured.value <= floor.value &&
-       task_spec.ceiling.kind == REFERENCE_MEASURED &&
-       task_spec.ceiling.value > floor.value
-        return task_spec.ceiling
+    if measured.kind == REFERENCE_MEASURED && measured.value <= floor.value
+        throw(ArgumentError(
+            "fresh reference ceiling $(measured.value) for task :$(task_spec.name) " *
+            "does not exceed the measured null floor $(floor.value); the stored ceiling " *
+            "$(task_spec.ceiling.value) was not retained. The reference policy is at or " *
+            "below the null and the task calibration must be inspected.",
+        ))
     end
     return measured
 end
@@ -233,10 +235,10 @@ end
 """
     calibrate_task(task; null=:null_random, reference=nothing, seeds=0:7, kw...)
 
-Measure the null floor for a task using the model-agnostic random-output policy
-and return `(floor, ceiling)` anchors. Reference ceilings are measured only when
-`reference` is supplied; otherwise existing non-analytic ceilings are retagged as
-legacy observed bests pending reference-genome calibration.
+Measure the null floor for a task using the input-independent rate-matched
+control and return `(floor, ceiling)` anchors. Reference ceilings are measured
+only when `reference` is supplied; otherwise existing non-analytic ceilings are
+retagged as legacy observed bests pending reference-genome calibration.
 """
 function calibrate_task(
     task;
@@ -308,7 +310,7 @@ end
 
 function write_calibration_report(
     io::IO=stdout;
-    task_names=(:wall, :pong, :pong_hitrate, :cartpole_swingup, :forage),
+    task_names=(:wall, :tracking, :pong, :pong_hitrate, :cartpole_swingup, :forage),
     references=Dict{Symbol,Any}(
         :wall => (model=FalandaysParams(), model_sym=:falandays),
         :pong => (model=FalandaysParams(), model_sym=:falandays),
