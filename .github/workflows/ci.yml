@@ -88,8 +88,8 @@ jobs:
   legacy:
     name: Legacy / Julia 1.10.11 / Ubuntu
     if: >-
-      github.event_name == 'push' || github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch'
+      github.event_name == 'push' || github.event_name == 'pull_request' ||
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     env:

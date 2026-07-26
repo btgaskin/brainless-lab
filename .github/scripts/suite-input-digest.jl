@@ -32,8 +32,8 @@ const EXTERNAL_INPUTS = (
         "examples/templates/new_project",
         "examples/shoal_forage_quickstart.jl",
     ),
-    operations=("plans", "experiments", "research"),
-    oracle=("test/fixtures", "calibration"),
+    operations=("bin", "plans", "experiments", "research"),
+    oracle=("test/fixtures", "test/oracle", "calibration", "configs"),
     legacy=(),
 )
 
