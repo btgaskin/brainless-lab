@@ -3,7 +3,12 @@ using Test
 
 @testset "Falandays paper config table" begin
     @test paramdim(FalandaysParams) == 7
-    @test length(pack_params(FalandaysParams())) == 7
+    default_params = FalandaysParams()
+    default_raw = pack_params(default_params)
+    default_restored = unpack_params(default_params, default_raw)
+    @test length(default_raw) == 7
+    @test default_params.lrate_wmat == 1.0
+    @test default_restored.lrate_wmat ≈ default_params.lrate_wmat
     frozen_params = FalandaysParams(learn_on=false)
     frozen_raw = pack_params(frozen_params)
     @test !unpack_params(frozen_params, frozen_raw).learn_on
@@ -197,6 +202,7 @@ end
         @test reservoir.rectify == false
         @test reservoir.params.lrate_wmat == cfg.lrate_wmat
         @test reservoir.params.lrate_targ == cfg.lrate_targ
+        @test reservoir.params.input_weight == cfg.input_amp
         @test maximum(reservoir.input_wmat) == cfg.input_amp
     end
 
@@ -231,7 +237,30 @@ end
     override_reservoir = override.ensemble.agents[1].reservoir
     @test override.n_nodes == 12
     @test override_reservoir.params.lrate_wmat == 0.25
+    @test override_reservoir.params.input_weight == 1.5
     @test maximum(override_reservoir.input_wmat) == 1.5
+
+    low_input = BrainlessLab._build_ensemble(
+        :tracking,
+        :falandays;
+        ticks=1,
+        seed=10,
+        record=Symbol[],
+        input_weight=0.5,
+    ).ensemble.agents[1].reservoir
+    high_input = BrainlessLab._build_ensemble(
+        :tracking,
+        :falandays;
+        ticks=1,
+        seed=10,
+        record=Symbol[],
+        input_weight=1.5,
+    ).ensemble.agents[1].reservoir
+    @test low_input.params.input_weight == 0.5
+    @test high_input.params.input_weight == 1.5
+    @test maximum(low_input.input_wmat) == 0.5
+    @test maximum(high_input.input_wmat) == 1.5
+    @test low_input.input_wmat != high_input.input_wmat
 end
 
 @testset "swarm Falandays path keeps legacy defaults explicit" begin

@@ -229,6 +229,11 @@ end
 
 function _normalize_node_options!(node::Symbol, options::Dict{Symbol,Any})
     if _is_falandays_node(node)
+        if haskey(options, :input_amp)
+            # Preserve the legacy alias's precedence while recording the value
+            # that the constructor will use in FalandaysParams.
+            options[:input_weight] = pop!(options, :input_amp)
+        end
         options[:params] = _take_falandays_params!(options)
         _normalize_drive_options!(options)
     elseif node == :sorn
@@ -382,7 +387,7 @@ function _apply_falandays_task_defaults!(
     if !haskey(node_kwargs, :params)
         _setdefault!(node_kwargs, :lrate_wmat, cfg.lrate_wmat)
         _setdefault!(node_kwargs, :lrate_targ, cfg.lrate_targ)
-        _setdefault!(node_kwargs, :input_amp, cfg.input_amp)
+        _setdefault!(node_kwargs, :input_weight, cfg.input_amp)
     end
     _setdefault!(node_kwargs, :weight_init_mode, cfg.weight_init_mode)
     _setdefault!(node_kwargs, :rectify, false)

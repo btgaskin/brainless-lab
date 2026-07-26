@@ -12,9 +12,21 @@ const FALANDAYS_PARAM_RANGES = (
     weight_init_std=(0.0, 4.0),
 )
 
+"""
+    FalandaysParams(; ...)
+
+Shared parameters for the Falandays reservoir. The authors define task-specific
+constants in separate Julia scripts rather than through a shared parameter
+constructor. `lrate_wmat=1.0` matches their wall, tracking, and Pong scripts.
+
+`input_weight=1.875` is a BrainlessLab convenience for tasks without a paper
+configuration; it is not a value from the authors' source. Use the registered
+`:falandays_tracking` and `:falandays_pong` composition presets, or
+`falandays_paper_config(:wall)`, for the authors' task-specific input gains.
+"""
 Base.@kwdef struct FalandaysParams <: NodeModel
     leak::Float64 = 0.25
-    lrate_wmat::Float64 = 0.1
+    lrate_wmat::Float64 = 1.0
     lrate_targ::Float64 = 0.01
     threshold_mult::Float64 = 2.0
     targ_min::Float64 = 1.0
