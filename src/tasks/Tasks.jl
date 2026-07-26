@@ -428,6 +428,14 @@ end
 make_env(task::TaskSpec, rng; kwargs...) = make_env(task; rng=rng, kwargs...)
 make_env(task_name::Union{Symbol,AbstractString}; kwargs...) = make_env(resolve_task(task_name); kwargs...)
 
+"""
+    normalized_score(task, raw_score)
+
+Map a raw task score between its declared floor and ceiling. Values at or
+beyond an anchor are clamped to `[0, 1]`. Aggregated results must therefore
+report how many observations hit each bound. A Student-t interval over these
+censored values is descriptive; it is not a calibrated interval.
+"""
 function normalized_score(task::TaskSpec, raw_score::Real)
     return _normalized_anchor_score(raw_score, task.floor, task.ceiling, "task $(task.name)")
 end

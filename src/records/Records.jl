@@ -307,6 +307,7 @@ function _record_task_metric_rows(trials)
         :score_key,
         :raw_score,
         :normalized_score,
+        :normalized_bound,
         :viable,
         :liveness,
     )
@@ -342,7 +343,7 @@ function _empty_table_columns(name::Symbol)
         :phase, :iteration, :candidate, :condition, :block, :trial,
         :seed_ledger_agents, :topology_seed, :node_state_seed, :world_seed,
         :body_seed, :task_seed, :mechanism_seed, :initial_state, :score_key,
-        :raw_score, :normalized_score, :viable, :liveness,
+        :raw_score, :normalized_score, :normalized_bound, :viable, :liveness,
     )
     name === :candidate_scores && return (
         :iteration, :candidate, :target, :measure, :valid, :score,
@@ -356,12 +357,16 @@ function _empty_table_columns(name::Symbol)
         :condition, :block, :trial, :seed_ledger_agents, :topology_seed,
         :node_state_seed, :world_seed, :body_seed, :task_seed, :mechanism_seed,
         :initial_state, :score_key,
-        :raw_score, :normalized_score, :viable, :liveness,
+        :raw_score, :normalized_score, :normalized_bound, :viable, :liveness,
     )
     name === :contrasts && return (
         :case, :condition, :baseline, :n, :raw_difference, :raw_ci_lower,
         :raw_ci_upper, :normalized_difference, :normalized_ci_lower,
-        :normalized_ci_upper, :interval_method,
+        :normalized_ci_upper, :condition_normalized_floor_count,
+        :condition_normalized_ceiling_count, :baseline_normalized_floor_count,
+        :baseline_normalized_ceiling_count, :normalized_censored_pair_count,
+        :normalized_censored_pair_fraction, :normalized_interval_calibrated,
+        :interval_method,
     )
     return (:empty,)
 end
@@ -415,7 +420,7 @@ function _operation_method(kind::Symbol)
     kind === :sweep && return "Evaluates declared parameter cells under paired block and trial seeds. Cells are development results, not confirmed optima."
     kind === :ablation && return "Compares an implicit baseline with declared capability-checked interventions under paired evaluation seeds."
     kind === :evolution && return "Searches a fixed experimental node design, records every candidate and seed, and emits selected, Pareto, or archive model artifacts. Scalar SepCMA models may then be evaluated on held-out targets."
-    kind === :benchmark && return "Reports each task separately with 95% Student-t intervals. Cases with a declared baseline also report paired within-task contrasts. No cross-task aggregate is formed."
+    kind === :benchmark && return "Reports each task separately with 95% Student-t intervals and counts at each normalised-score bound. Intervals over censored normalised values are descriptive, not calibrated. Cases with a declared baseline also report paired within-task contrasts. No cross-task aggregate is formed."
     return "Executes the declared BrainlessLab operation."
 end
 
@@ -474,7 +479,7 @@ function _render_report(
 <style>
 :root{color-scheme:light dark;--paper:#f5f2ea;--ink:#181b1c;--muted:#657074;--accent:#087f8c;--line:#c9cec9}*{box-sizing:border-box}body{margin:0;font:16px/1.55 ui-sans-serif,system-ui;background:var(--paper);color:var(--ink)}main{max-width:1120px;margin:auto;padding:64px 32px 120px}header{border-bottom:1px solid var(--line);padding-bottom:36px;margin-bottom:48px}h1{font:600 clamp(2.4rem,7vw,5.4rem)/.96 ui-serif,Georgia;margin:.2em 0}h2{font:500 2rem/1.1 ui-serif,Georgia;margin-top:2.5em}h3{margin-top:2em}.eyebrow{letter-spacing:.13em;text-transform:uppercase;color:var(--accent);font-size:.76rem}nav a{margin-right:1.2rem;color:var(--accent)}.table-wrap{overflow:auto;border:1px solid var(--line)}table{border-collapse:collapse;width:100%;font-size:.82rem}th,td{padding:.6rem .75rem;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}th{position:sticky;top:0;background:var(--paper)}.equation{overflow:auto;padding:1rem;border-left:3px solid var(--accent);font-family:ui-monospace,monospace}.axis{stroke:var(--muted);stroke-width:1}.series{fill:none;stroke:var(--accent);stroke-width:3}svg{width:100%;background:rgba(255,255,255,.35);border:1px solid var(--line)}code{font-family:ui-monospace,monospace}@media(prefers-color-scheme:dark){:root{--paper:#121718;--ink:#edf1ee;--muted:#9aa5a5;--line:#354041}}
 </style></head><body><main><header><div class=eyebrow>BrainlessLab · $(_html_escape(kind))</div><h1>$(_html_escape(plan.id))</h1><p>$(_html_escape(_operation_method(kind)))</p><nav><a href=#method>Method</a><a href=#results>Results</a><a href=#equations>Equations</a></nav></header>
-<section id=method><h2>Method</h2><p>$(_html_escape(_operation_method(kind)))</p><p>The CSV tables are the authoritative tabular outputs. They and this report are generated from the same typed result.</p></section>
+<section id=method><h2>Method</h2><p>$(_html_escape(_operation_method(kind)))</p><p>Normalised task scores are clamped to their declared anchors. Bound counts remain visible beside aggregate scores; a Student-t interval over censored values is not a calibrated interval.</p><p>The CSV tables are the authoritative tabular outputs. They and this report are generated from the same typed result.</p></section>
 <div id=results>$(chart)$(join(sections))</div><div id=equations>$(_equations_html(plan, registry))</div>
 </main></body></html>"""
     open(path, "w") do io

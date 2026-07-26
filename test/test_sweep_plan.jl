@@ -91,6 +91,12 @@ end
     @test compact.n_cells == 2
     @test compact.n_rollouts == 4
     @test all(row -> isfinite(row.raw_score), output.trials)
+    @test all(row -> row.normalized_n == 2, output.cells)
+    @test all(
+        row -> row.normalized_censored_count ==
+               row.normalized_floor_count + row.normalized_ceiling_count,
+        output.cells,
+    )
 
     for trial in 1:2
         paired = filter(row -> row.block == 1 && row.trial == trial, output.trials)

@@ -17,6 +17,9 @@ using Test
     @test normalized_score(task, 4.0) == 0.5
     @test normalized_score(task, -10.0) == 0.0
     @test normalized_score(task, 10.0) == 1.0
+    @test BrainlessLab._normalized_anchor_result(-10.0, 2.0, 6.0, "test").bound === :floor
+    @test BrainlessLab._normalized_anchor_result(4.0, 2.0, 6.0, "test").bound === :none
+    @test BrainlessLab._normalized_anchor_result(10.0, 2.0, 6.0, "test").bound === :ceiling
 
     bad = TaskSpec(:bad_anchor_test, WallEnv; floor=analytic(1.0), ceiling=analytic(1.0))
     @test_throws ArgumentError normalized_score(bad, 1.0)
@@ -44,6 +47,7 @@ end
         @test outcome.key === key
         @test outcome.raw === Float64(getproperty(sim.metrics, key))
         @test outcome.normalized === normalized_score(resolve_task(task), outcome.raw)
+        @test outcome.normalized_bound in (:floor, :none, :ceiling)
     end
 
     wall = simulate(:wall; node=:null_random, ticks=12, seed=10, record=Symbol[])

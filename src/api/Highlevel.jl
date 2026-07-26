@@ -18,9 +18,11 @@ end
 """
     task_outcome(sim::SimResult)
 
-Return the outcome declared by the task as `(key, raw, normalized)`. Return
-`nothing` when the task has no scalar objective. Legacy metric fields remain
-available as diagnostics but do not define the task outcome.
+Return the outcome declared by the task as
+`(key, raw, normalized, normalized_bound)`. `normalized_bound` is `:floor`,
+`:ceiling`, or `:none` and makes anchor censoring explicit. Return `nothing`
+when the task has no scalar objective. Legacy metric fields remain available
+as diagnostics but do not define the task outcome.
 """
 function task_outcome(sim::SimResult)
     contract = if hasproperty(sim.config, :outcome_contract)
@@ -52,11 +54,20 @@ function task_outcome(sim::SimResult)
     raw = Float64(getproperty(sim.metrics, key))
     floor = Float64(contract.floor)
     ceiling = Float64(contract.ceiling)
-    ceiling > floor || throw(ArgumentError(
-        "task :$(sim.task) outcome ceiling must be greater than its floor",
-    ))
-    normalized = clamp((raw - floor) / (ceiling - floor), 0.0, 1.0)
-    return (key=key, raw=raw, normalized=normalized)
+    normalized = try
+        _normalized_anchor_result(raw, floor, ceiling, "task :$(sim.task)")
+    catch error
+        error isa ArgumentError || rethrow()
+        throw(ArgumentError(
+            "task :$(sim.task) outcome ceiling must be greater than its floor",
+        ))
+    end
+    return (
+        key=key,
+        raw=raw,
+        normalized=normalized.value,
+        normalized_bound=normalized.bound,
+    )
 end
 
 function view(sim::SimResult, sym::Union{Symbol,AbstractString}; kwargs...)

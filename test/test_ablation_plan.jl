@@ -162,6 +162,12 @@ end
     @test compact.n_rollouts == 6
     @test first(output.cases).ablation === :none
     @test all(row -> isfinite(row.raw_score), output.trials)
+    @test all(row -> row.normalized_n == 2, output.cases)
+    @test all(
+        row -> row.normalized_censored_count ==
+               row.normalized_floor_count + row.normalized_ceiling_count,
+        output.cases,
+    )
 
     for trial in 1:2
         paired = filter(row -> row.block == 1 && row.trial == trial, output.trials)

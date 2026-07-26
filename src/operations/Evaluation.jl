@@ -39,6 +39,35 @@ function _trial_viability(metrics)
     return missing
 end
 
+function _normalized_censoring_summary(rows)
+    bounds = Symbol[]
+    for row in rows
+        :normalized_bound in propertynames(row) || continue
+        bound = row.normalized_bound
+        ismissing(bound) && continue
+        bound in (:none, :floor, :ceiling) || throw(ArgumentError(
+            "normalized_bound must be :none, :floor, :ceiling, or missing",
+        ))
+        push!(bounds, bound)
+    end
+    n = length(bounds)
+    floor_count = count(==(:floor), bounds)
+    ceiling_count = count(==(:ceiling), bounds)
+    censored_count = floor_count + ceiling_count
+    fraction = n == 0 ? missing : censored_count / n
+    display = n == 0 ?
+        missing :
+        "$(floor_count)/$(n) at floor; $(ceiling_count)/$(n) at ceiling"
+    return (
+        normalized_n=n,
+        normalized_floor_count=floor_count,
+        normalized_ceiling_count=ceiling_count,
+        normalized_censored_count=censored_count,
+        normalized_censored_fraction=fraction,
+        normalized_censoring=display,
+    )
+end
+
 function _evaluate_trial(
     target::EvaluationTarget,
     resolved::ResolvedComposition,
@@ -209,6 +238,7 @@ function trial_row(trial::EvaluationTrial)
         score_key=outcome === nothing ? missing : outcome.key,
         raw_score=outcome === nothing ? missing : outcome.raw,
         normalized_score=outcome === nothing ? missing : outcome.normalized,
+        normalized_bound=outcome === nothing ? missing : outcome.normalized_bound,
         viable=_trial_viability(trial.simulation.metrics),
         liveness=_trial_liveness(trial.simulation.metrics),
     )

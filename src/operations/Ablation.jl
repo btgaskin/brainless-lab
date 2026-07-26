@@ -150,6 +150,7 @@ function _ablation_case_summaries(
     for case in plan.cases
         selected = filter(row -> row.case === case.id, rows)
         viability = [row.viable for row in selected if !ismissing(row.viable)]
+        censoring = _normalized_censoring_summary(selected)
         push!(summaries, (
             operation=plan.source.id,
             case=case.id,
@@ -161,6 +162,12 @@ function _ablation_case_summaries(
                 (row.normalized_score for row in selected),
                 policy,
             ),
+            normalized_n=censoring.normalized_n,
+            normalized_floor_count=censoring.normalized_floor_count,
+            normalized_ceiling_count=censoring.normalized_ceiling_count,
+            normalized_censored_count=censoring.normalized_censored_count,
+            normalized_censored_fraction=censoring.normalized_censored_fraction,
+            normalized_censoring=censoring.normalized_censoring,
             viable_fraction=isempty(viability) ? missing : mean(viability),
         ))
     end

@@ -189,6 +189,7 @@ end
     report = read(joinpath(directory, "report", "index.html"), String)
     summary_json = read(joinpath(directory, "summary", "summary.json"), String)
     @test occursin("raw_score", trials)
+    @test occursin("normalized_bound", trials)
     @test count(==('\n'), seeds) == 7
     @test startswith(
         seeds,
@@ -199,6 +200,7 @@ end
     @test occursin("record_smoke", report)
     @test occursin("Deterministic test coordinate", report)
     @test occursin("CSV tables are the authoritative tabular outputs", report)
+    @test occursin("Student-t interval over censored values is not a calibrated interval", report)
     @test startswith(summary_json, "{")
 
     for path in expected

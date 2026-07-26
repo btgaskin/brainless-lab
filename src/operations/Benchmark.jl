@@ -155,6 +155,7 @@ function _benchmark_statistics(rows)
     for ((case, condition), group) in sort!(collect(groups); by=pair -> string(first(pair)))
         raw = _benchmark_mean_std(row.raw_score for row in group)
         normalized = _benchmark_mean_std(row.normalized_score for row in group)
+        censoring = _normalized_censoring_summary(group)
         push!(output, (
             case=case,
             condition=condition,
@@ -164,9 +165,16 @@ function _benchmark_statistics(rows)
             raw_ci_lower=raw.lower,
             raw_ci_upper=raw.upper,
             normalized_mean=normalized.mean,
+            normalized_censoring=censoring.normalized_censoring,
+            normalized_n=censoring.normalized_n,
             normalized_std=normalized.std,
             normalized_ci_lower=normalized.lower,
             normalized_ci_upper=normalized.upper,
+            normalized_floor_count=censoring.normalized_floor_count,
+            normalized_ceiling_count=censoring.normalized_ceiling_count,
+            normalized_censored_count=censoring.normalized_censored_count,
+            normalized_censored_fraction=censoring.normalized_censored_fraction,
+            normalized_interval_calibrated=false,
             interval_method=:student_t_95,
         ))
     end
@@ -189,11 +197,15 @@ function _benchmark_contrasts(result::BenchmarkResult)
             condition.id === case.baseline && continue
             differences = Float64[]
             raw_differences = Float64[]
+            paired_baseline = NamedTuple[]
+            paired_condition = NamedTuple[]
             for key in sort!(collect(keys(baseline_rows)))
                 baseline = baseline_rows[key]
                 candidate = condition_rows[condition.id][key]
                 if !ismissing(baseline.normalized_score) && !ismissing(candidate.normalized_score)
                     push!(differences, candidate.normalized_score - baseline.normalized_score)
+                    push!(paired_baseline, baseline)
+                    push!(paired_condition, candidate)
                 end
                 if !ismissing(baseline.raw_score) && !ismissing(candidate.raw_score)
                     push!(raw_differences, candidate.raw_score - baseline.raw_score)
@@ -201,6 +213,16 @@ function _benchmark_contrasts(result::BenchmarkResult)
             end
             normalized = _benchmark_mean_std(differences)
             raw = _benchmark_mean_std(raw_differences)
+            baseline_censoring = _normalized_censoring_summary(paired_baseline)
+            condition_censoring = _normalized_censoring_summary(paired_condition)
+            censored_pair_count = count(
+                pair -> pair[1].normalized_bound !== :none ||
+                        pair[2].normalized_bound !== :none,
+                zip(paired_baseline, paired_condition),
+            )
+            censored_pair_fraction = normalized.n == 0 ?
+                missing :
+                censored_pair_count / normalized.n
             push!(output, (
                 case=case.case,
                 condition=condition.id,
@@ -212,6 +234,13 @@ function _benchmark_contrasts(result::BenchmarkResult)
                 normalized_difference=normalized.mean,
                 normalized_ci_lower=normalized.lower,
                 normalized_ci_upper=normalized.upper,
+                condition_normalized_floor_count=condition_censoring.normalized_floor_count,
+                condition_normalized_ceiling_count=condition_censoring.normalized_ceiling_count,
+                baseline_normalized_floor_count=baseline_censoring.normalized_floor_count,
+                baseline_normalized_ceiling_count=baseline_censoring.normalized_ceiling_count,
+                normalized_censored_pair_count=censored_pair_count,
+                normalized_censored_pair_fraction=censored_pair_fraction,
+                normalized_interval_calibrated=false,
                 interval_method=:paired_student_t_95,
             ))
         end

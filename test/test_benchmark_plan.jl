@@ -40,8 +40,17 @@ end
     @test result_tables.contrasts[1].condition === :tracking_low_gain
     @test result_tables.contrasts[1].n == 2
     @test hasproperty(result_tables.contrasts[1], :raw_ci_lower)
+    @test hasproperty(result_tables.contrasts[1], :normalized_censored_pair_count)
+    @test result_tables.contrasts[1].normalized_interval_calibrated === false
     @test result_tables.contrasts[1].interval_method === :paired_student_t_95
     @test all(row -> row.interval_method === :student_t_95, result_tables.statistics)
+    @test all(row -> row.normalized_n == row.n, result_tables.statistics)
+    @test all(row -> row.normalized_interval_calibrated === false, result_tables.statistics)
+    @test all(
+        row -> row.normalized_censored_count ==
+               row.normalized_floor_count + row.normalized_ceiling_count,
+        result_tables.statistics,
+    )
     @test summary(result).cases == (:tracking, :pong)
     @test !hasproperty(summary(result), :aggregate)
     @test_throws ArgumentError BenchmarkCasePlan(

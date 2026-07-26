@@ -217,6 +217,19 @@ function _evolution_aggregate(values, policy::Symbol)
     throw(ArgumentError("unsupported evolution aggregation policy :$(policy)"))
 end
 
+function _evolution_censoring(evaluation::EvolutionEvaluation)
+    evaluation.measure === :normalized_score ||
+        return (
+            normalized_n=missing,
+            normalized_floor_count=missing,
+            normalized_ceiling_count=missing,
+            normalized_censored_count=missing,
+            normalized_censored_fraction=missing,
+            normalized_censoring=missing,
+        )
+    return _normalized_censoring_summary(evaluation.trial_rows)
+end
+
 function _evolution_seed_rows(batch::EvaluationBatch)
     rows = NamedTuple[]
     for trial in batch.trials
@@ -539,6 +552,7 @@ function tables(result::EvolutionResult)
     candidate_trials = NamedTuple[]
     for candidate in result.candidates
         for evaluation in candidate.evaluations
+            censoring = _evolution_censoring(evaluation)
             push!(candidate_scores, (
                 iteration=candidate.iteration,
                 candidate=candidate.id,
@@ -546,6 +560,12 @@ function tables(result::EvolutionResult)
                 measure=evaluation.measure,
                 valid=candidate.valid && !ismissing(evaluation.aggregate),
                 score=evaluation.aggregate,
+                normalized_n=censoring.normalized_n,
+                normalized_floor_count=censoring.normalized_floor_count,
+                normalized_ceiling_count=censoring.normalized_ceiling_count,
+                normalized_censored_count=censoring.normalized_censored_count,
+                normalized_censored_fraction=censoring.normalized_censored_fraction,
+                normalized_censoring=censoring.normalized_censoring,
             ))
             for row in evaluation.trial_rows
                 push!(candidate_trials, merge(
@@ -577,12 +597,21 @@ function tables(result::EvolutionResult)
         ))
     end
     heldout = [
-        (
-            target=evaluation.target,
-            measure=evaluation.measure,
-            score=evaluation.aggregate,
-            trials=length(evaluation.values),
-        )
+        begin
+            censoring = _evolution_censoring(evaluation)
+            (
+                target=evaluation.target,
+                measure=evaluation.measure,
+                score=evaluation.aggregate,
+                trials=length(evaluation.values),
+                normalized_n=censoring.normalized_n,
+                normalized_floor_count=censoring.normalized_floor_count,
+                normalized_ceiling_count=censoring.normalized_ceiling_count,
+                normalized_censored_count=censoring.normalized_censored_count,
+                normalized_censored_fraction=censoring.normalized_censored_fraction,
+                normalized_censoring=censoring.normalized_censoring,
+            )
+        end
         for evaluation in result.heldout
     ]
     return (
@@ -606,11 +635,20 @@ function summary(result::EvolutionResult)
         valid_candidates=count(candidate -> candidate.valid, result.candidates),
         models=Tuple(model.model_id for model in result.models),
         heldout=Tuple(
-            (
-                target=evaluation.target,
-                measure=evaluation.measure,
-                score=evaluation.aggregate,
-            )
+            begin
+                censoring = _evolution_censoring(evaluation)
+                (
+                    target=evaluation.target,
+                    measure=evaluation.measure,
+                    score=evaluation.aggregate,
+                    normalized_n=censoring.normalized_n,
+                    normalized_floor_count=censoring.normalized_floor_count,
+                    normalized_ceiling_count=censoring.normalized_ceiling_count,
+                    normalized_censored_count=censoring.normalized_censored_count,
+                    normalized_censored_fraction=censoring.normalized_censored_fraction,
+                    normalized_censoring=censoring.normalized_censoring,
+                )
+            end
             for evaluation in result.heldout
         ),
     )

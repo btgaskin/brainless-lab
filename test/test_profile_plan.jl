@@ -94,6 +94,9 @@ end
     @test report.analyses == (:heading_error,)
     @test report.record_channels == (:scene,)
     @test isfinite(report.raw_score_mean)
+    @test report.normalized_n == 4
+    @test report.normalized_censored_count ==
+          report.normalized_floor_count + report.normalized_ceiling_count
     @test all(item -> item.n_trials == 4, report.analysis_statistics)
 end
 

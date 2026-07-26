@@ -10,11 +10,26 @@ analytic(v; note="") = ScoreAnchor(Float64(v), ANALYTIC, String(note))
 null_anchor(v, prov) = ScoreAnchor(Float64(v), NULL_MEASURED, String(prov))
 reference_anchor(v, prov) = ScoreAnchor(Float64(v), REFERENCE_MEASURED, String(prov))
 
-function _normalized_anchor_score(raw_score::Real, floor::ScoreAnchor, ceiling::ScoreAnchor, label)
-    ceiling.value <= floor.value &&
+function _normalized_anchor_result(
+    raw_score::Real,
+    floor::Real,
+    ceiling::Real,
+    label,
+)
+    ceiling <= floor &&
         throw(ArgumentError("score_ceiling must exceed score_floor for $(label)"))
-    scaled = (Float64(raw_score) - floor.value) / (ceiling.value - floor.value)
-    return clamp(scaled, 0.0, 1.0)
+    scaled = (Float64(raw_score) - Float64(floor)) / (Float64(ceiling) - Float64(floor))
+    bound = scaled <= 0.0 ? :floor : scaled >= 1.0 ? :ceiling : :none
+    return (value=clamp(scaled, 0.0, 1.0), bound)
+end
+
+function _normalized_anchor_score(
+    raw_score::Real,
+    floor::ScoreAnchor,
+    ceiling::ScoreAnchor,
+    label,
+)
+    return _normalized_anchor_result(raw_score, floor.value, ceiling.value, label).value
 end
 
 function _coerce_score_anchor(anchor::ScoreAnchor, role::Symbol, task_name::Symbol)
