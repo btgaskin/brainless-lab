@@ -29,8 +29,16 @@ end
 
 _mean_float64(values::Vector{Float64}) = sum(values) / length(values)
 
-function _calibration_provenance(task_obj, null, score_key, seed_values)
+function _calibration_provenance(
+    task_obj,
+    null,
+    rate_reference,
+    null_target_rate,
+    score_key,
+    seed_values,
+)
     return "task=$(_calibration_task_symbol(task_obj)), null=$(null), " *
+           "rate_reference=$(rate_reference), null_target_rate=$(null_target_rate), " *
            "score_key=$(score_key), rng=MersenneTwister, julia=$(VERSION), " *
            "seeds $(_seed_summary(seed_values)), git $(_git_short_sha()), $(Dates.today())"
 end
@@ -89,6 +97,60 @@ function _calibration_raw_score(sim::SimResult, preferred::Symbol)
     return _metric_value(sim.metrics, key), key
 end
 
+function _calibration_window_rate(sim::SimResult)
+    rates = _analysis_rate_matrix(sim, :calibrate_task)
+    n_samples = size(rates, 1)
+    window = min(_analysis_config_int(sim, :window, n_samples), n_samples)
+    window >= 1 || throw(ArgumentError("calibration window must contain at least one tick"))
+    first_sample = n_samples - window + 1
+    total = 0.0
+    count = 0
+    @inbounds for agent in axes(rates, 2), tick in first_sample:n_samples
+        total += rates[tick, agent]
+        count += 1
+    end
+    count > 0 || throw(ArgumentError("canonical rate measurement produced no samples"))
+    return total / count
+end
+
+function _measure_canonical_rate(
+    task_obj,
+    seed_values::Vector{Int};
+    rate_reference,
+    ticks,
+    window,
+    N,
+    n_agents,
+    node_kwargs,
+    env_kwargs,
+    kwargs,
+)
+    task_sym = _calibration_task_symbol(task_obj)
+    rates = Float64[]
+    for seed in seed_values
+        options = _merge_kwdicts(_calibration_sim_kwargs(
+            task_obj;
+            node=rate_reference,
+            seed=seed,
+            ticks=ticks,
+            window=window,
+            N=N,
+            n_agents=n_agents,
+            record=(:rate,),
+            node_kwargs=node_kwargs,
+            env_kwargs=env_kwargs,
+            kwargs=kwargs,
+        ))
+        # Recorder settings do not change the task protocol. Use every tick so
+        # the measured rate covers the same scoring window exactly.
+        options[:record] = (:rate,)
+        options[:every] = 1
+        sim = simulate(task_sym; _kwargs_tuple(options)...)
+        push!(rates, _calibration_window_rate(sim))
+    end
+    return _mean_float64(rates)
+end
+
 function _measure_null_anchor(
     task_obj,
     preferred_key::Symbol,
@@ -103,6 +165,22 @@ function _measure_null_anchor(
     env_kwargs,
     kwargs,
 )
+    rate_reference = :falandays
+    matched_rate = _measure_canonical_rate(
+        task_obj,
+        seed_values;
+        rate_reference=rate_reference,
+        ticks=ticks,
+        window=window,
+        N=N,
+        n_agents=n_agents,
+        node_kwargs=node_kwargs,
+        env_kwargs=env_kwargs,
+        kwargs=kwargs,
+    )
+    matched_node_kwargs = _merge_kwdicts(node_kwargs)
+    matched_node_kwargs[:target_rate] = matched_rate
+
     raw = Float64[]
     used_key = preferred_key
     task_sym = _calibration_task_symbol(task_obj)
@@ -118,7 +196,7 @@ function _measure_null_anchor(
                 N=N,
                 n_agents=n_agents,
                 record=record,
-                node_kwargs=node_kwargs,
+                node_kwargs=matched_node_kwargs,
                 env_kwargs=env_kwargs,
                 kwargs=kwargs,
             )...,
@@ -127,7 +205,14 @@ function _measure_null_anchor(
         used_key = key
         push!(raw, value)
     end
-    provenance = _calibration_provenance(task_obj, null, used_key, seed_values)
+    provenance = _calibration_provenance(
+        task_obj,
+        null,
+        rate_reference,
+        matched_rate,
+        used_key,
+        seed_values,
+    )
     return null_anchor(_mean_float64(raw), provenance)
 end
 
@@ -235,10 +320,11 @@ end
 """
     calibrate_task(task; null=:null_random, reference=nothing, seeds=0:7, kw...)
 
-Measure the null floor for a task using the input-independent rate-matched
-control and return `(floor, ceiling)` anchors. Reference ceilings are measured
-only when `reference` is supplied; otherwise existing non-analytic ceilings are
-retagged as legacy observed bests pending reference-genome calibration.
+Measure the canonical `:falandays` spike rate on the task protocol, use that
+rate to construct the input-independent null, and return `(floor, ceiling)`
+anchors. Reference ceilings are measured only when `reference` is supplied;
+otherwise existing non-analytic ceilings are retagged as legacy observed bests
+pending reference-genome calibration.
 """
 function calibrate_task(
     task;

@@ -1,6 +1,6 @@
 using Random
 
-const NULL_RANDOM_DEFAULT_RATE = 0.035
+const NULL_RANDOM_PLACEHOLDER_RATE = 0.035
 
 mutable struct NullRandomReservoir <: Reservoir
     n_receptors_::Int
@@ -15,17 +15,20 @@ end
 """
     NullRandomReservoir(n_nodes, n_receptors, n_effectors; target_rate=0.035, seed=0)
 
-Construct an input-independent rate-matched control. Each step draws a
-Bernoulli spike train at `target_rate`, then reports effector spike fractions
-from disjoint node groups. The `0.035` default reflects the approximate
-reference activity measured for the canonical Falandays node. Use an explicit
-rate when a different reference protocol defines the control.
+Construct an input-independent random control. Each step draws a Bernoulli
+spike train at `target_rate`, then reports effector spike fractions from
+disjoint node groups.
+
+The `0.035` default is an unmatched placeholder retained for direct
+construction. It does not match a task or reference protocol.
+`calibrate_task` measures and supplies the task-specific rate when it constructs
+a matched null.
 """
 function NullRandomReservoir(
     n_nodes::Integer,
     n_receptors_::Integer,
     n_effectors_::Integer;
-    target_rate::Real=NULL_RANDOM_DEFAULT_RATE,
+    target_rate::Real=NULL_RANDOM_PLACEHOLDER_RATE,
     seed=0,
     kwargs...,
 )

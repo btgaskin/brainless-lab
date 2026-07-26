@@ -13,6 +13,8 @@ end
     @test wall.ceiling.kind == ANALYTIC
     @test wall.ceiling.value > wall.floor.value
     @test occursin("task=wall", wall.floor.provenance)
+    @test occursin("rate_reference=falandays", wall.floor.provenance)
+    @test occursin("null_target_rate=", wall.floor.provenance)
     @test occursin("rng=MersenneTwister", wall.floor.provenance)
     @test occursin("julia=$(VERSION)", wall.floor.provenance)
 
@@ -93,6 +95,49 @@ end
 
     @test_throws ArgumentError BrainlessLab.NullRandomReservoir(20, 2, 2; target_rate=-0.01)
     @test_throws ArgumentError BrainlessLab.NullRandomReservoir(20, 2, 2; target_rate=1.01)
+end
+
+@testset "Calibration injects the task-window rate" begin
+    seed = 19
+    ticks = 24
+    window = 7
+    n_nodes = 20
+    canonical = simulate(
+        :tracking;
+        node=:falandays,
+        seed=seed,
+        ticks=ticks,
+        window=window,
+        N=n_nodes,
+        record=(:rate,),
+    )
+    rate_samples = getchannel(canonical.recorder, :rate)
+    matched_rate = sum(
+        Float64(rate)
+        for frame in rate_samples[(end - window + 1):end]
+        for rate in frame
+    ) / window
+
+    calibrated = BrainlessLab.calibrate_task(
+        :tracking;
+        seeds=seed:seed,
+        ticks=ticks,
+        window=window,
+        N=n_nodes,
+    )
+    explicit_null = simulate(
+        :tracking;
+        node=:null_random,
+        seed=seed,
+        ticks=ticks,
+        window=window,
+        N=n_nodes,
+        record=Symbol[],
+        node_kwargs=(target_rate=matched_rate,),
+    )
+
+    @test calibrated.floor.value == explicit_null.metrics.track_score
+    @test occursin("null_target_rate=$(matched_rate)", calibrated.floor.provenance)
 end
 
 @testset "Calibration diagnostics stay visible" begin
