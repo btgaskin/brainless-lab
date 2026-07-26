@@ -34,9 +34,9 @@ tasks(DEFAULT_REGISTRY; tag=:benchmark)
 analyses(DEFAULT_REGISTRY)
 analyses(DEFAULT_REGISTRY; task=:tracking)
 ablations(DEFAULT_REGISTRY)
-compositions(DEFAULT_REGISTRY)
-components()
-readiness()
+BrainlessLab.compositions(DEFAULT_REGISTRY)
+BrainlessLab.components()
+BrainlessLab.readiness()
 ```
 
 Typed queries are the source for new plans and extensions. Zero-argument discovery
@@ -110,14 +110,14 @@ requires an eigenvalue calculation.
 Call analyses as ordinary functions:
 
 ```julia
-branching_ratio_mr(sim; level=:node, kmax=4)
-susceptibility(sim; level=:agent)
+BrainlessLab.branching_ratio_mr(sim; level=:node, kmax=4)
+BrainlessLab.susceptibility(sim; level=:agent)
 spectral_radius(sim)
 participation_ratio(sim)
-correlation_length(sim)
-crossshift_null(
+BrainlessLab.correlation_length(sim)
+BrainlessLab.crossshift_null(
     sim,
-    shifted -> susceptibility(shifted; level=:agent).susceptibility;
+    shifted -> BrainlessLab.susceptibility(shifted; level=:agent).susceptibility;
     n_shifts=200,
 )
 ```
@@ -130,11 +130,11 @@ interpreting a result.
 Read and materialise a strict component configuration:
 
 ```julia
-config = read_embodiment_config("examples/embodiments/differential_robot.toml")
-body = materialize_embodiment(config)
+config = BrainlessLab.read_embodiment_config("examples/embodiments/differential_robot.toml")
+body = BrainlessLab.materialize_embodiment(config)
 
 portspec(body)
-component_slots(body)
+BrainlessLab.component_slots(body)
 ```
 
 Each materialisation creates fresh runtime state. Stable component IDs define port names,
@@ -188,7 +188,7 @@ the required channels.
 For a multi-agent result, select a stable identity:
 
 ```julia
-networkplot(sim; entity=EntityID(3))
+BrainlessLab.networkplot(sim; entity=BrainlessLab.EntityID(3))
 ```
 
 Automatic network selection is allowed only when exactly one entity exposes a network.

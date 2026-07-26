@@ -14,7 +14,7 @@ end
 
 function _operation_node_builder(context::NodeBuildContext, parameters)
     seed = Int(mod(context.seeds.topology, UInt64(typemax(Int))))
-    return NullRandomReservoir(
+    return BrainlessLab.NullRandomReservoir(
         context.n_nodes,
         n_receptors(context.ports),
         n_effectors(context.ports);
@@ -57,7 +57,7 @@ function operation_registry()
             :sweep => (:gain, :bias),
         ),
         equations=(
-            EquationSpec(
+            BrainlessLab.EquationSpec(
                 :test_output,
                 raw"y_t = g x_t + b";
                 title="Deterministic test coordinate",
@@ -70,7 +70,7 @@ function operation_registry()
     )
     register!(registry, node)
     for task in (:tracking, :pong)
-        register!(registry, task_spec(DEFAULT_REGISTRY, task))
+        register!(registry, BrainlessLab.task_spec(DEFAULT_REGISTRY, task))
     end
     register!(
         registry,

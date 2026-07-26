@@ -5,12 +5,12 @@ using Test
 
 function _delay_embedding(N::Integer)
     positions = [SVector{2,Float64}(Float64(i), 0.0) for i in 1:Int(N)]
-    return Embedding(positions, SVector{2,Float64}[], SVector{2,Float64}[])
+    return BrainlessLab.Embedding(positions, SVector{2,Float64}[], SVector{2,Float64}[])
 end
 
 function _delayed_clone_from_dense(dense, embedding, delays, maxdelay, all_unit, noise_draws)
     n_nodes = size(dense.wmat0, 1)
-    connectome = DelayedConnectome{2}(
+    connectome = BrainlessLab.DelayedConnectome{2}(
         copy(dense.recurrent_mask),
         copy(dense.input_wmat),
         copy(dense.output_mask),
@@ -22,22 +22,22 @@ function _delayed_clone_from_dense(dense, embedding, delays, maxdelay, all_unit,
         all_unit,
     )
     conn = all_unit ?
-        FalandaysConnState(copy(dense.wmat0)) :
-        FalandaysConnState(copy(dense.wmat0), SpikeHistory(n_nodes, maxdelay))
+        BrainlessLab.FalandaysConnState(copy(dense.wmat0)) :
+        FalandaysConnState(copy(dense.wmat0), BrainlessLab.SpikeHistory(n_nodes, maxdelay))
 
-    return ReservoirInstance(
-        FalandaysModel(dense.params, dense.drive, dense.sign, dense.rectify),
+    return BrainlessLab.ReservoirInstance(
+        BrainlessLab.FalandaysModel(dense.params, dense.drive, dense.sign, dense.rectify),
         connectome,
         conn,
-        FalandaysNodeState(
+        BrainlessLab.FalandaysNodeState(
             zeros(Float64, n_nodes),
             ones(Float64, n_nodes),
             zeros(Float64, n_nodes),
             zeros(Float64, n_nodes),
             zeros(Float64, n_nodes),
-            RecordedNoise(copy(noise_draws)),
+            BrainlessLab.RecordedNoise(copy(noise_draws)),
         ),
-        PortSpec(size(dense.input_wmat, 1), size(dense.output_mask, 2)),
+        BrainlessLab.PortSpec(size(dense.input_wmat, 1), size(dense.output_mask, 2)),
     )
 end
 
@@ -57,11 +57,11 @@ end
         n_effectors_;
         seed=7,
         params=params,
-        noise_source=RecordedNoise(copy(noise_draws)),
+        noise_source=BrainlessLab.RecordedNoise(copy(noise_draws)),
     )
     embedding = _delay_embedding(n_nodes)
     delays, maxdelay, all_unit =
-        delays_from_embedding(embedding, dense.recurrent_mask, Inf, 1.0)
+        BrainlessLab.delays_from_embedding(embedding, dense.recurrent_mask, Inf, 1.0)
     delayed = _delayed_clone_from_dense(dense, embedding, delays, maxdelay, all_unit, noise_draws)
 
     @test all_unit
@@ -77,7 +77,7 @@ end
 end
 
 @testset "Delay mapping from conduction velocity" begin
-    embedding = Embedding(
+    embedding = BrainlessLab.Embedding(
         SVector{2,Float64}[SVector(0.0, 0.0), SVector(2.0, 0.0), SVector(2.0, 1.0)],
         SVector{2,Float64}[],
         SVector{2,Float64}[],
@@ -87,13 +87,13 @@ end
     mask[2, 3] = true
 
     unit_delays, unit_maxdelay, unit_all =
-        delays_from_embedding(embedding, mask, Inf, 1.0)
+        BrainlessLab.delays_from_embedding(embedding, mask, Inf, 1.0)
     @test all(unit_delays .== 1)
     @test unit_maxdelay == 1
     @test unit_all
 
     finite_delays, finite_maxdelay, finite_all =
-        delays_from_embedding(embedding, mask, 0.5, 1.0)
+        BrainlessLab.delays_from_embedding(embedding, mask, 0.5, 1.0)
     @test finite_delays[1, 2] == 4
     @test finite_delays[2, 3] == 2
     @test finite_maxdelay == 4
@@ -109,14 +109,14 @@ function _tiny_delayed_reservoir(delay::Integer)
     output_mask = reshape([0.0, 1.0], n_nodes, 1)
     wmat0 = zeros(Float64, n_nodes, n_nodes)
     wmat0[1, 2] = 1.2
-    embedding = Embedding(
+    embedding = BrainlessLab.Embedding(
         SVector{2,Float64}[SVector(0.0, 0.0), SVector(2.0, 0.0)],
         SVector{2,Float64}[],
         SVector{2,Float64}[],
     )
     delays = ones(Int, n_nodes, n_nodes)
     delays[1, 2] = Int(delay)
-    connectome = DelayedConnectome{2}(
+    connectome = BrainlessLab.DelayedConnectome{2}(
         recurrent_mask,
         input_wmat,
         output_mask,
@@ -129,19 +129,19 @@ function _tiny_delayed_reservoir(delay::Integer)
     )
     params = FalandaysParams(leak=1.0, threshold_mult=1.0, learn_on=false)
 
-    return ReservoirInstance(
-        FalandaysModel(params, NoDrive(), BrainlessLab.UnsignedAxis(), true),
+    return BrainlessLab.ReservoirInstance(
+        BrainlessLab.FalandaysModel(params, BrainlessLab.NoDrive(), BrainlessLab.UnsignedAxis(), true),
         connectome,
-        FalandaysConnState(copy(wmat0), SpikeHistory(n_nodes, delay)),
-        FalandaysNodeState(
+        BrainlessLab.FalandaysConnState(copy(wmat0), BrainlessLab.SpikeHistory(n_nodes, delay)),
+        BrainlessLab.FalandaysNodeState(
             zeros(Float64, n_nodes),
             ones(Float64, n_nodes),
             zeros(Float64, n_nodes),
             zeros(Float64, n_nodes),
             zeros(Float64, n_nodes),
-            RecordedNoise(zeros(Float64, Int(delay) + 2, n_nodes)),
+            BrainlessLab.RecordedNoise(zeros(Float64, Int(delay) + 2, n_nodes)),
         ),
-        PortSpec(1, 1),
+        BrainlessLab.PortSpec(1, 1),
     )
 end
 
@@ -154,7 +154,7 @@ end
     delays = ones(Int, n_nodes, n_nodes)
     delays[1, 2] = 2
     delays[3, 4] = 2
-    connectome = DelayedConnectome{2}(
+    connectome = BrainlessLab.DelayedConnectome{2}(
         recurrent_mask,
         zeros(Float64, 1, n_nodes),
         zeros(Float64, n_nodes, 1),
@@ -165,24 +165,24 @@ end
         2,
         false,
     )
-    history = SpikeHistory(n_nodes, 2)
+    history = BrainlessLab.SpikeHistory(n_nodes, 2)
     BrainlessLab.push_spikes!(history, [1.0, 0.0, 1.0, 0.0])
     BrainlessLab.push_spikes!(history, zeros(Float64, n_nodes))
     weights = fill(0.5, n_nodes, n_nodes)
-    conn = FalandaysConnState(weights, history)
-    state = FalandaysNodeState(
+    conn = BrainlessLab.FalandaysConnState(weights, history)
+    state = BrainlessLab.FalandaysNodeState(
         zeros(Float64, n_nodes),
         ones(Float64, n_nodes),
         zeros(Float64, n_nodes),
         [0.2, -0.1, 0.3, -0.2],
         zeros(Float64, n_nodes),
-        RecordedNoise(zeros(Float64, 1, n_nodes)),
+        BrainlessLab.RecordedNoise(zeros(Float64, 1, n_nodes)),
     )
     params = FalandaysParams(lrate_wmat=0.1, lrate_targ=0.0)
 
     BrainlessLab.learn_connectome!(
         connectome,
-        Dale([1, -1, 1, -1]),
+        BrainlessLab.Dale([1, -1, 1, -1]),
         conn,
         state,
         params,
@@ -212,7 +212,7 @@ end
 end
 
 @testset "Delayed Falandays builder and simulate smoke" begin
-    c1 = build_delayed_connectome(
+    c1 = BrainlessLab.build_delayed_connectome(
         24,
         3,
         2;
@@ -223,7 +223,7 @@ end
         weight_init_std=1.0,
         input_weight=1.875,
     )
-    c2 = build_delayed_connectome(
+    c2 = BrainlessLab.build_delayed_connectome(
         24,
         3,
         2;

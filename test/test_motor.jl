@@ -27,8 +27,8 @@ _falandays_reservoir(n, nr, ne; seed=1) =
                        repair_masks=true, rectify=true)
 
 @testset "Motor defaults and registry" begin
-    m = KinematicMotor()
-    @test m isa Motor
+    m = BrainlessLab.KinematicMotor()
+    @test m isa BrainlessLab.Motor
     @test m.scheme === :differential
     @test m.readout === :spike_fraction
     @test m.turn_gain == 1.0
@@ -37,22 +37,22 @@ _falandays_reservoir(n, nr, ne; seed=1) =
     @test m.top_speed == 0.2 && m.accel_time == 5.0
     @test m.top_heading_rate == pi / 8.0 && m.h_accel_time == 5.0 && m.dt == 1.0
 
-    @test BrainlessLab.PASSTHROUGH_MOTOR === KinematicMotor()  # both isbits + all-default
-    @test resolve_motor(:situated_kinematics) === KinematicMotor
-    @test readout_policy(Embodiment()) === BrainlessLab.PASSTHROUGH_MOTOR
-    @test readout_policy(situated_embodiment(SituatedSensorLayout())) === BrainlessLab.PASSTHROUGH_MOTOR
-    custom = KinematicMotor(scheme=:signed_differential)
-    @test readout_policy(situated_embodiment(SituatedSensorLayout(), custom)) === custom
+    @test BrainlessLab.PASSTHROUGH_MOTOR === BrainlessLab.KinematicMotor()  # both isbits + all-default
+    @test resolve_motor(:situated_kinematics) === BrainlessLab.KinematicMotor
+    @test BrainlessLab.readout_policy(BrainlessLab.Embodiment()) === BrainlessLab.PASSTHROUGH_MOTOR
+    @test BrainlessLab.readout_policy(BrainlessLab.situated_embodiment(BrainlessLab.SituatedSensorLayout())) === BrainlessLab.PASSTHROUGH_MOTOR
+    custom = BrainlessLab.KinematicMotor(scheme=:signed_differential)
+    @test BrainlessLab.readout_policy(BrainlessLab.situated_embodiment(BrainlessLab.SituatedSensorLayout(), custom)) === custom
 end
 
 @testset "KinematicMotor genome is opt-in and bounded" begin
-    m0 = KinematicMotor()
+    m0 = BrainlessLab.KinematicMotor()
     @test paramdim(m0) == 0
     @test isempty(BrainlessLab.paramspace(m0))
     @test isempty(pack_params(m0))
     @test unpack_params(m0, Float64[]) === m0
 
-    m = KinematicMotor(
+    m = BrainlessLab.KinematicMotor(
         readout=:graded_state,
         turn_gain=1.25,
         turn_gain_range=(0.5, 2.0),
@@ -71,7 +71,7 @@ end
     g = pack_params(m)
     @test length(g) == paramdim(m)
     m2 = unpack_params(m, g)
-    @test m2 isa KinematicMotor
+    @test m2 isa BrainlessLab.KinematicMotor
     @test m2.scheme === m.scheme
     @test m2.readout === m.readout
     @test m2.allow_reverse === m.allow_reverse
@@ -92,24 +92,24 @@ end
 
 @testset "Default readout is a strict no-op (== effectors)" begin
     R = 0.2 .* rand(MersenneTwister(2), 64)
-    m = KinematicMotor()
+    m = BrainlessLab.KinematicMotor()
 
     r = _falandays_reservoir(40, 64, 3)
     s = step!(r, R)
     # Both spike-based schemes defer to effectors verbatim (no re-averaging).
-    @test readout(m, r, s) == effectors(r, s)
-    @test readout(KinematicMotor(readout=:window_rate), r, s) == effectors(r, s)
+    @test BrainlessLab.readout(m, r, s) == effectors(r, s)
+    @test BrainlessLab.readout(BrainlessLab.KinematicMotor(readout=:window_rate), r, s) == effectors(r, s)
 
     # Non-Falandays reservoir: same no-op through the generic default.
-    sorn = SORNReservoir(40, 64, 3; seed=1)
+    sorn = BrainlessLab.SORNReservoir(40, 64, 3; seed=1)
     ss = step!(sorn, R)
-    @test readout(m, sorn, ss) == effectors(sorn, ss)
-    @test readout(KinematicMotor(readout=:window_rate), sorn, ss) == effectors(sorn, ss)
+    @test BrainlessLab.readout(m, sorn, ss) == effectors(sorn, ss)
+    @test BrainlessLab.readout(BrainlessLab.KinematicMotor(readout=:window_rate), sorn, ss) == effectors(sorn, ss)
 end
 
 @testset "Default integration is byte-identical to the old arithmetic" begin
-    torus = Torus(15.0)
-    m = KinematicMotor()
+    torus = BrainlessLab.Torus(15.0)
+    m = BrainlessLab.KinematicMotor()
     rng = MersenneTwister(3)
     for _ in 1:500
         pos = (rand(rng) * 15, rand(rng) * 15)
@@ -117,7 +117,7 @@ end
         speed = rand(rng) * 0.3
         hr = (rand(rng) - 0.5) * 0.5
         e = [rand(rng), rand(rng), rand(rng)]
-        new = integrate!(m, pos, heading, speed, hr, e, torus)
+        new = BrainlessLab.integrate!(m, pos, heading, speed, hr, e, torus)
         old = _old_integrate_motion(pos, heading, speed, hr, e, torus)
         @test new === old   # exact bit-identity, not just ≈
     end
@@ -128,7 +128,7 @@ end
         base = simulate(task; node=:falandays_base, n_agents=6, n_nodes=40, ticks=50,
                         seed=7, record=(:poses,), metrics=(:polarization, :milling))
         withm = simulate(task; node=:falandays_base, n_agents=6, n_nodes=40, ticks=50,
-                         seed=7, motor=KinematicMotor(), record=(:poses,),
+                         seed=7, motor=BrainlessLab.KinematicMotor(), record=(:poses,),
                          metrics=(:polarization, :milling))
         @test getchannel(base.recorder, :poses) == getchannel(withm.recorder, :poses)
         @test base.metrics.polarization == withm.metrics.polarization
@@ -143,56 +143,56 @@ end
     ne = n_effectors(r)
 
     for scheme in (:graded_state, :graded_deviation)
-        E = readout(KinematicMotor(readout=scheme), r, s)
+        E = BrainlessLab.readout(BrainlessLab.KinematicMotor(readout=scheme), r, s)
         @test length(E) == ne
         @test all(isfinite, E)
         @test E isa Vector{Float64}
     end
     # graded readouts re-express internal state, so they differ from the spike map
-    @test readout(KinematicMotor(readout=:graded_state), r, s) != effectors(r, s)
+    @test BrainlessLab.readout(BrainlessLab.KinematicMotor(readout=:graded_state), r, s) != effectors(r, s)
 end
 
 @testset "Graded readout unsupported on a non-Falandays reservoir throws" begin
     R = 0.2 .* rand(MersenneTwister(6), 64)
-    sorn = SORNReservoir(40, 64, 3; seed=1)
+    sorn = BrainlessLab.SORNReservoir(40, 64, 3; seed=1)
     ss = step!(sorn, R)
     for scheme in (:graded_state, :graded_deviation)
-        err = @test_throws ArgumentError readout(KinematicMotor(readout=scheme), sorn, ss)
+        err = @test_throws ArgumentError BrainlessLab.readout(BrainlessLab.KinematicMotor(readout=scheme), sorn, ss)
         @test occursin("graded readout", err.value.msg)
         @test occursin("SORNReservoir", err.value.msg)
     end
 end
 
 @testset ":signed_differential + allow_reverse produces reverse motion" begin
-    torus = Torus(15.0)
+    torus = BrainlessLab.Torus(15.0)
     st0 = ((5.0, 5.0), 0.0, 0.0, 0.0)
     e_reverse = [0.5, 0.5, 0.0]   # thrust=0 -> signed drive = 2*0-1 = -1 (full reverse)
 
     # allow_reverse: speed crosses zero and stays negative (travels backward).
-    mrev = KinematicMotor(scheme=:signed_differential, allow_reverse=true)
+    mrev = BrainlessLab.KinematicMotor(scheme=:signed_differential, allow_reverse=true)
     st = st0
     for _ in 1:15
-        st = integrate!(mrev, st..., e_reverse, torus)
+        st = BrainlessLab.integrate!(mrev, st..., e_reverse, torus)
     end
     @test st[3] < 0.0                     # negative speed == reverse
 
     # no allow_reverse: the same signed drive brakes to a standstill, never reverses.
-    mbrake = KinematicMotor(scheme=:signed_differential, allow_reverse=false)
+    mbrake = BrainlessLab.KinematicMotor(scheme=:signed_differential, allow_reverse=false)
     st = st0
     for _ in 1:15
-        st = integrate!(mbrake, st..., e_reverse, torus)
+        st = BrainlessLab.integrate!(mbrake, st..., e_reverse, torus)
     end
     @test st[3] == 0.0                    # clamped to a stop
 
     # unknown scheme is rejected.
-    @test_throws ArgumentError integrate!(
-        KinematicMotor(scheme=:bogus), (0.0, 0.0), 0.0, 0.0, 0.0, [0.5, 0.5, 0.5], torus)
+    @test_throws ArgumentError BrainlessLab.integrate!(
+        BrainlessLab.KinematicMotor(scheme=:bogus), (0.0, 0.0), 0.0, 0.0, 0.0, [0.5, 0.5, 0.5], torus)
 end
 
 @testset ":signed_differential + reverse changes swarm trajectories vs the default" begin
     common = (node=:falandays_base, n_agents=8, n_nodes=40, ticks=60, seed=11,
               record=(:poses,))
-    base = simulate(:torus; common..., motor=KinematicMotor())
-    rev = simulate(:torus; common..., motor=KinematicMotor(scheme=:signed_differential, allow_reverse=true))
+    base = simulate(:torus; common..., motor=BrainlessLab.KinematicMotor())
+    rev = simulate(:torus; common..., motor=BrainlessLab.KinematicMotor(scheme=:signed_differential, allow_reverse=true))
     @test getchannel(base.recorder, :poses) != getchannel(rev.recorder, :poses)
 end

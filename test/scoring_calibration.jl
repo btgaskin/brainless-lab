@@ -7,36 +7,36 @@ function _test_calibrated_floor(measured)
 end
 
 @testset "Scoring calibration" begin
-    wall = calibrate_task(:wall; seeds=0:7)
+    wall = BrainlessLab.calibrate_task(:wall; seeds=0:7)
     _test_calibrated_floor(wall.floor)
-    @test wall.ceiling.value ≈ WALL_TASK.ceiling.value atol=1e-12
+    @test wall.ceiling.value ≈ BrainlessLab.WALL_TASK.ceiling.value atol=1e-12
     @test wall.ceiling.kind == ANALYTIC
     @test wall.ceiling.value > wall.floor.value
     @test occursin("task=wall", wall.floor.provenance)
     @test occursin("rng=MersenneTwister", wall.floor.provenance)
     @test occursin("julia=$(VERSION)", wall.floor.provenance)
 
-    tracking = calibrate_task(:tracking; seeds=0:7)
+    tracking = BrainlessLab.calibrate_task(:tracking; seeds=0:7)
     _test_calibrated_floor(tracking.floor)
     @test 0.05 < tracking.floor.value < 0.35
-    @test tracking.ceiling.value == TRACKING_TASK.ceiling.value
+    @test tracking.ceiling.value == BrainlessLab.TRACKING_TASK.ceiling.value
 
-    pong = calibrate_task(:pong; seeds=0:7)
+    pong = BrainlessLab.calibrate_task(:pong; seeds=0:7)
     _test_calibrated_floor(pong.floor)
-    @test pong.ceiling.value ≈ PONG_TASK.ceiling.value atol=1e-12
-    @test PONG_TASK.ceiling.kind == ANALYTIC
+    @test pong.ceiling.value ≈ BrainlessLab.PONG_TASK.ceiling.value atol=1e-12
+    @test BrainlessLab.PONG_TASK.ceiling.kind == ANALYTIC
 
-    pong_hitrate = calibrate_task(:pong_hitrate; seeds=0:7)
+    pong_hitrate = BrainlessLab.calibrate_task(:pong_hitrate; seeds=0:7)
     _test_calibrated_floor(pong_hitrate.floor)
-    @test pong_hitrate.ceiling.value ≈ PONG_HITRATE_TASK.ceiling.value atol=1e-12
-    @test PONG_HITRATE_TASK.ceiling.kind == ANALYTIC
+    @test pong_hitrate.ceiling.value ≈ BrainlessLab.PONG_HITRATE_TASK.ceiling.value atol=1e-12
+    @test BrainlessLab.PONG_HITRATE_TASK.ceiling.kind == ANALYTIC
 
-    cartpole_swingup = calibrate_task(:cartpole_swingup; seeds=0:7)
+    cartpole_swingup = BrainlessLab.calibrate_task(:cartpole_swingup; seeds=0:7)
     _test_calibrated_floor(cartpole_swingup.floor)
-    @test cartpole_swingup.ceiling.value ≈ CARTPOLE_SWINGUP_TASK.ceiling.value atol=1e-12
+    @test cartpole_swingup.ceiling.value ≈ BrainlessLab.CARTPOLE_SWINGUP_TASK.ceiling.value atol=1e-12
     @test cartpole_swingup.ceiling.kind == ANALYTIC
 
-    forage = calibrate_task(:forage; seeds=0:7)
+    forage = BrainlessLab.calibrate_task(:forage; seeds=0:7)
     _test_calibrated_floor(forage.floor)
     @test forage.ceiling.kind == ANALYTIC
 
@@ -53,7 +53,7 @@ end
 
 @testset "Rate-matched null reservoir" begin
     reference_rate = 0.035
-    reservoir = NullRandomReservoir(200, 2, 2; target_rate=reference_rate, seed=91)
+    reservoir = BrainlessLab.NullRandomReservoir(200, 2, 2; target_rate=reference_rate, seed=91)
     spikes = Float64[]
     outputs = Float64[]
     for _ in 1:200
@@ -65,8 +65,8 @@ end
     @test abs(sum(spikes) / length(spikes) - reference_rate) <= 0.005
     @test abs(sum(outputs) / length(outputs) - reference_rate) <= 0.005
 
-    blind_a = NullRandomReservoir(40, 2, 2; seed=17)
-    blind_b = NullRandomReservoir(40, 2, 2; seed=17)
+    blind_a = BrainlessLab.NullRandomReservoir(40, 2, 2; seed=17)
+    blind_b = BrainlessLab.NullRandomReservoir(40, 2, 2; seed=17)
     @test blind_a.target_rate == reference_rate
     for _ in 1:20
         spikes_a = step!(blind_a, zeros(2))
@@ -75,12 +75,12 @@ end
         @test effectors(blind_a, spikes_a) == effectors(blind_b, spikes_b)
     end
 
-    replay_source = NullRandomReservoir(40, 2, 2; target_rate=0.08, seed=29)
+    replay_source = BrainlessLab.NullRandomReservoir(40, 2, 2; target_rate=0.08, seed=29)
     for _ in 1:12
         step!(replay_source, zeros(2))
     end
     state = snapshot_state(replay_source)
-    replay_target = NullRandomReservoir(40, 2, 2; target_rate=0.5, seed=999)
+    replay_target = BrainlessLab.NullRandomReservoir(40, 2, 2; target_rate=0.5, seed=999)
     load_state!(replay_target, state)
     @test replay_target.target_rate == 0.08
     for _ in 1:20
@@ -91,14 +91,14 @@ end
               effectors(replay_target, target_spikes)
     end
 
-    @test_throws ArgumentError NullRandomReservoir(20, 2, 2; target_rate=-0.01)
-    @test_throws ArgumentError NullRandomReservoir(20, 2, 2; target_rate=1.01)
+    @test_throws ArgumentError BrainlessLab.NullRandomReservoir(20, 2, 2; target_rate=-0.01)
+    @test_throws ArgumentError BrainlessLab.NullRandomReservoir(20, 2, 2; target_rate=1.01)
 end
 
 @testset "Calibration diagnostics stay visible" begin
     diagnostic_task = TaskSpec(
         :diagnostic_reference,
-        WallEnv;
+        BrainlessLab.WallEnv;
         floor=null_anchor(0.5, "fresh null"),
         ceiling=reference_anchor(0.8, "stored reference"),
     )
@@ -117,7 +117,7 @@ end
     @test occursin("stored ceiling 0.8 was not retained", sprint(showerror, error))
 
     report = IOBuffer()
-    write_calibration_report(
+    BrainlessLab.write_calibration_report(
         report;
         seeds=0:0,
         ticks=1,

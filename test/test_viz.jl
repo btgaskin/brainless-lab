@@ -19,9 +19,9 @@ using Test
 
     fig = visualize(sim; panels=[:raster, :rate, :trajectory])
     @test fig isa Makie.Figure
-    @test rasterplot(sim) isa Makie.Figure
-    @test driftplot(sim) isa Makie.Figure
-    @test networkplot(sim) isa Makie.Figure
+    @test BrainlessLab.rasterplot(sim) isa Makie.Figure
+    @test BrainlessLab.driftplot(sim) isa Makie.Figure
+    @test BrainlessLab.networkplot(sim) isa Makie.Figure
     @test visualize(sim; panels=[:network]) isa Makie.Figure
 
     path = tempname() * ".png"
@@ -43,8 +43,8 @@ using Test
 
     rec = Recorder(enabled=(:poses, :objects, :body_alive))
     for t in 1:4
-        record!(rec, :poses, [(4.0 + 0.2t, 5.0, 0.0)])
-        record!(rec, :objects, [(
+        BrainlessLab.record!(rec, :poses, [(4.0 + 0.2t, 5.0, 0.0)])
+        BrainlessLab.record!(rec, :objects, [(
             object=1,
             type_index=1,
             kind=:beacon,
@@ -55,8 +55,8 @@ using Test
             remaining=typemax(Int),
             capacity=nothing,
         )])
-        record!(rec, :body_alive, [t < 4])
-        tick!(rec)
+        BrainlessLab.record!(rec, :body_alive, [t < 4])
+        BrainlessLab.tick!(rec)
     end
     physical_sim = SimResult(
         rec,
@@ -65,7 +65,7 @@ using Test
         :falandays_base,
         (environment=(bounds=(0.0, 10.0, 0.0, 10.0),),),
     )
-    @test swarmplot(physical_sim) isa Makie.Figure
+    @test BrainlessLab.swarmplot(physical_sim) isa Makie.Figure
     @test visualize(physical_sim; panels=[:swarm]) isa Makie.Figure
     gif = tempname() * ".gif"
     @test animate(physical_sim; path=gif, maxframes=2, framerate=2) == gif
@@ -73,31 +73,31 @@ using Test
     rm(gif; force=true)
 
     ext = Base.get_extension(BrainlessLab, :BrainlessLabMakieExt)
-    sparse_ids = EntityID.([10, 42])
+    sparse_ids = BrainlessLab.EntityID.([10, 42])
     identity_rec = Recorder(enabled=(:poses, :body_alive, :spikes, :objects))
-    record!(identity_rec, :poses, EntityFrame(
+    BrainlessLab.record!(identity_rec, :poses, BrainlessLab.EntityFrame(
         sparse_ids,
         [(1.0, 0.0, 0.0), (101.0, 0.0, 0.0)],
     ))
-    record!(identity_rec, :body_alive, EntityFrame(sparse_ids, [true, false]))
-    record!(identity_rec, :spikes, EntityFrame(sparse_ids, [[1.0, 0.0], [0.0, 1.0]]))
-    record!(identity_rec, :objects, [
+    BrainlessLab.record!(identity_rec, :body_alive, BrainlessLab.EntityFrame(sparse_ids, [true, false]))
+    BrainlessLab.record!(identity_rec, :spikes, BrainlessLab.EntityFrame(sparse_ids, [[1.0, 0.0], [0.0, 1.0]]))
+    BrainlessLab.record!(identity_rec, :objects, [
         (kind=:food, position=(1.0, 1.0), active=true),
         (kind=:food, position=(2.0, 1.0), active=true),
     ])
-    tick!(identity_rec)
+    BrainlessLab.tick!(identity_rec)
     reversed_ids = reverse(sparse_ids)
-    record!(identity_rec, :poses, EntityFrame(
+    BrainlessLab.record!(identity_rec, :poses, BrainlessLab.EntityFrame(
         reversed_ids,
         [(102.0, 0.0, 0.0), (2.0, 0.0, 0.0)],
     ))
-    record!(identity_rec, :body_alive, EntityFrame(reversed_ids, [false, true]))
-    record!(identity_rec, :spikes, EntityFrame(reversed_ids, [[0.5, 1.0], [1.0, 0.5]]))
-    record!(identity_rec, :objects, [
+    BrainlessLab.record!(identity_rec, :body_alive, BrainlessLab.EntityFrame(reversed_ids, [false, true]))
+    BrainlessLab.record!(identity_rec, :spikes, BrainlessLab.EntityFrame(reversed_ids, [[0.5, 1.0], [1.0, 0.5]]))
+    BrainlessLab.record!(identity_rec, :objects, [
         (kind=:food, position=(2.0, 1.0), active=true),
         (kind=:food, position=(1.0, 1.0), active=true),
     ])
-    tick!(identity_rec)
+    BrainlessLab.tick!(identity_rec)
     networks = (
         (kind=:synthetic, adjacency=[0.0 1.0; 0.0 0.0], state=[0.0, 0.0]),
         (kind=:synthetic, adjacency=[0.0 0.0; 1.0 0.0], state=[0.0, 0.0]),
@@ -128,12 +128,12 @@ using Test
     @test first.(track_data.tracks[1]) == [1.0, 2.0]
     @test first.(track_data.tracks[2]) == [101.0, 102.0]
     @test ext._alive_sample(identity_sim, 2, sparse_ids) == [true, false]
-    @test ext._network_info(identity_sim, 42).id == EntityID(42)
+    @test ext._network_info(identity_sim, 42).id == BrainlessLab.EntityID(42)
     @test ext._network_state(identity_sim, 2, ext._network_info(identity_sim, 42)) == [0.5, 1.0]
-    @test_throws ArgumentError networkplot(identity_sim)
-    @test networkplot(identity_sim; entity=42) isa Makie.Figure
-    @test visualize(identity_sim; panels=[:network], entity=EntityID(10)) isa Makie.Figure
-    @test swarmplot(identity_sim) isa Makie.Figure
+    @test_throws ArgumentError BrainlessLab.networkplot(identity_sim)
+    @test BrainlessLab.networkplot(identity_sim; entity=42) isa Makie.Figure
+    @test visualize(identity_sim; panels=[:network], entity=BrainlessLab.EntityID(10)) isa Makie.Figure
+    @test BrainlessLab.swarmplot(identity_sim) isa Makie.Figure
     @test ext._object_style_key((kind=:food,), 1) ==
           ext._object_style_key((kind=:food,), 2)
     @test ext._object_style_key((type_index=3, kind=:food), 1) ==
@@ -148,7 +148,7 @@ using Test
         :synthetic,
         (network=networks[1], environment=(bounds=nothing,)),
     )
-    @test ext._network_info(legacy_network_sim).id == EntityID(1)
+    @test ext._network_info(legacy_network_sim).id == BrainlessLab.EntityID(1)
 
     one_available_network_sim = SimResult(
         identity_rec,
@@ -164,5 +164,5 @@ using Test
         ),
     )
     @test ext._network_info(one_available_network_sim).id == sparse_ids[2]
-    @test_throws ArgumentError networkplot(one_available_network_sim; entity=sparse_ids[1])
+    @test_throws ArgumentError BrainlessLab.networkplot(one_available_network_sim; entity=sparse_ids[1])
 end

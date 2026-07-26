@@ -4,7 +4,7 @@ using Test
 function _io_target(id, task)
     return EvaluationTarget(
         id,
-        default_composition(DEFAULT_REGISTRY, :falandays, task),
+        BrainlessLab.default_composition(DEFAULT_REGISTRY, :falandays, task),
         EvaluationSpec(
             blocks=2,
             trials_per_block=3,
@@ -29,11 +29,11 @@ end
         ),
         EvaluationSpec(horizon=1, aggregate=:mean),
     )
-    evolution_run = Evolution.RunConfig(
+    evolution_run = BrainlessLab.Evolution.RunConfig(
         strategy=:sepcma,
         iterations=2,
         search_seed=44,
-        initialisation=Evolution.NormalInitialisation(
+        initialisation=BrainlessLab.Evolution.NormalInitialisation(
             centre=:zero,
             scale=0.1,
         ),
@@ -44,7 +44,7 @@ end
         SweepPlan(
             :sweep,
             target;
-            axes=(SweepAxis(:leak, (0.1, 0.5)),),
+            axes=(BrainlessLab.SweepAxis(:leak, (0.1, 0.5)),),
             mode=:one_at_a_time,
             max_rollouts=100,
         ),
@@ -57,8 +57,8 @@ end
         BenchmarkPlan(
             :benchmark,
             (
-                BenchmarkCasePlan(:tracking, (target,)),
-                BenchmarkCasePlan(
+                BrainlessLab.BenchmarkCasePlan(:tracking, (target,)),
+                BrainlessLab.BenchmarkCasePlan(
                     :pong,
                     (_io_target(:pong, :pong),);
                     baseline=:pong,
@@ -72,7 +72,7 @@ end
         parsed = read_plan(path)
         @test typeof(parsed).name.wrapper === typeof(plan).name.wrapper
         @test parsed.id === plan.id
-        @test plan_document(parsed)["format_version"] == 2
+        @test BrainlessLab.plan_document(parsed)["format_version"] == 2
     end
 end
 
@@ -80,9 +80,9 @@ end
     target = _io_target(:tracking, :tracking)
     plan = BenchmarkPlan(
         :anchor_only,
-        (BenchmarkCasePlan(:tracking, (target,)),),
+        (BrainlessLab.BenchmarkCasePlan(:tracking, (target,)),),
     )
-    document = plan_document(plan)
+    document = BrainlessLab.plan_document(plan)
     @test !haskey(only(document["benchmark"]["cases"]), "baseline")
 
     path = tempname() * ".toml"
@@ -92,14 +92,14 @@ end
 end
 
 @testset "plan IO preserves the interaction cycle" begin
-    base = default_composition(DEFAULT_REGISTRY, :falandays, :tracking)
+    base = BrainlessLab.default_composition(DEFAULT_REGISTRY, :falandays, :tracking)
     composition = CompositionSpec(
         :timed_tracking,
         base.node,
         base.task;
         n_nodes=base.n_nodes,
         parameters=base.parameters,
-        interaction_cycle=FixedRateCycle(7),
+        interaction_cycle=BrainlessLab.FixedRateCycle(7),
     )
     plan = ProfilePlan(
         :timed_profile,
@@ -108,7 +108,7 @@ end
     path = tempname() * ".toml"
     write_plan(path, plan)
     parsed = read_plan(path)
-    @test parsed.target.composition.interaction_cycle == FixedRateCycle(7)
+    @test parsed.target.composition.interaction_cycle == BrainlessLab.FixedRateCycle(7)
 end
 
 @testset "plan parser rejects unknown schema" begin

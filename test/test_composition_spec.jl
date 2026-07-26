@@ -4,21 +4,21 @@ using Test
 @testset "typed composition catalog" begin
     registry = RegistrySet()
     @test isempty(nodes(registry))
-    register!(registry, falandays_node_spec())
+    register!(registry, BrainlessLab.falandays_node_spec())
     @test nodes(registry) == [:falandays]
-    @test_throws ArgumentError register!(registry, falandays_node_spec())
+    @test_throws ArgumentError register!(registry, BrainlessLab.falandays_node_spec())
 
     falandays = node_spec(DEFAULT_REGISTRY, :falandays)
     @test falandays.stability === :reference
     @test falandays.genome_type === FalandaysParams
-    @test node_parameter_set(falandays, :sweep) == (:leak, :lrate_wmat)
-    @test_throws KeyError node_parameter_set(falandays, :evolve)
-    @test node_parameter(falandays, :link_p).owner === :reservoir
-    @test_throws KeyError node_parameter(falandays, :n_nodes)
+    @test BrainlessLab.node_parameter_set(falandays, :sweep) == (:leak, :lrate_wmat)
+    @test_throws KeyError BrainlessLab.node_parameter_set(falandays, :evolve)
+    @test BrainlessLab.node_parameter(falandays, :link_p).owner === :reservoir
+    @test_throws KeyError BrainlessLab.node_parameter(falandays, :n_nodes)
 
-    @test task_spec(DEFAULT_REGISTRY, :wall).status === :experimental
-    @test task_spec(DEFAULT_REGISTRY, :tracking).status === :reference
-    @test task_spec(DEFAULT_REGISTRY, :pong).status === :reference
+    @test BrainlessLab.task_spec(DEFAULT_REGISTRY, :wall).status === :experimental
+    @test BrainlessLab.task_spec(DEFAULT_REGISTRY, :tracking).status === :reference
+    @test BrainlessLab.task_spec(DEFAULT_REGISTRY, :pong).status === :reference
     @test Set(tasks(DEFAULT_REGISTRY; tag=:benchmark)) == Set((:tracking, :pong))
     @test :branching_ratio_mr in analyses(DEFAULT_REGISTRY; task=:tracking)
     @test :freeze_plasticity in ablations(DEFAULT_REGISTRY)
@@ -30,9 +30,9 @@ using Test
         :cartpole_plank_hardest,
     ))
 
-    tracking = default_composition(DEFAULT_REGISTRY, :falandays, :tracking)
-    pong = default_composition(DEFAULT_REGISTRY, :falandays, :pong)
-    wall = default_composition(DEFAULT_REGISTRY, :falandays, :wall)
+    tracking = BrainlessLab.default_composition(DEFAULT_REGISTRY, :falandays, :tracking)
+    pong = BrainlessLab.default_composition(DEFAULT_REGISTRY, :falandays, :pong)
+    wall = BrainlessLab.default_composition(DEFAULT_REGISTRY, :falandays, :wall)
     @test tracking.n_nodes == 200
     @test tracking.parameters[:input_weight] == 0.75
     @test tracking.parameters[:lrate_targ] == 0.01
@@ -42,7 +42,7 @@ using Test
     @test pong.parameters[:lrate_targ] == 0.1
     @test pong.parameters[:weight_init_mode] === :pong_mixed
     @test wall.n_nodes == 200
-    @test_throws KeyError default_composition(
+    @test_throws KeyError BrainlessLab.default_composition(
         DEFAULT_REGISTRY,
         :falandays,
         :cartpole_plank_easy,
@@ -55,21 +55,21 @@ using Test
         n_nodes=12,
         parameters=Dict(:unknown => 1.0),
     )
-    @test_throws ArgumentError resolve_composition(bad, DEFAULT_REGISTRY)
+    @test_throws ArgumentError BrainlessLab.resolve_composition(bad, DEFAULT_REGISTRY)
 
-    resolved = resolve_composition(tracking, DEFAULT_REGISTRY)
+    resolved = BrainlessLab.resolve_composition(tracking, DEFAULT_REGISTRY)
     @test resolved.parameters[:leak] == FalandaysParams().leak
     @test resolved.parameters[:lrate_wmat] == 1.0
     @test resolved.interaction_cycle === nothing
 
     atomic = RegistrySet()
-    register!(atomic, falandays_node_spec())
-    register!(atomic, task_spec(DEFAULT_REGISTRY, :tracking))
+    register!(atomic, BrainlessLab.falandays_node_spec())
+    register!(atomic, BrainlessLab.task_spec(DEFAULT_REGISTRY, :tracking))
     first_default = CompositionSpec(:first_default, :falandays, :tracking; n_nodes=8)
     second_default = CompositionSpec(:second_default, :falandays, :tracking; n_nodes=8)
-    register_default!(atomic, first_default)
-    @test_throws ArgumentError register_default!(atomic, second_default)
-    @test :second_default ∉ compositions(atomic)
+    BrainlessLab.register_default!(atomic, first_default)
+    @test_throws ArgumentError BrainlessLab.register_default!(atomic, second_default)
+    @test :second_default ∉ BrainlessLab.compositions(atomic)
 end
 
 @testset "CompositionSpec executes through named seed streams" begin
@@ -112,7 +112,7 @@ end
             streams=(:topology, :world, :node_custom),
         ),
     )
-    custom_batch = evaluate(custom_target)
+    custom_batch = BrainlessLab.evaluate(custom_target)
     @test propertynames(only(only(custom_batch.trials).seeds)) ==
         (:topology, :world, :node_custom)
 
@@ -121,5 +121,5 @@ end
         composition,
         EvaluationSpec(horizon=2, streams=(:world,)),
     )
-    @test_throws ArgumentError evaluate(missing_required)
+    @test_throws ArgumentError BrainlessLab.evaluate(missing_required)
 end

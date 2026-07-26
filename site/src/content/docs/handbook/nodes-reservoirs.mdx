@@ -32,8 +32,8 @@ no task-loss backpropagation or fitted readout.
 Task-specific presets resolve the numerical settings:
 
 ```julia
-composition_spec(DEFAULT_REGISTRY, :falandays_tracking)
-composition_spec(DEFAULT_REGISTRY, :falandays_pong)
+BrainlessLab.composition_spec(DEFAULT_REGISTRY, :falandays_tracking)
+BrainlessLab.composition_spec(DEFAULT_REGISTRY, :falandays_pong)
 ```
 
 The canonical implementation is validated on declared reference trajectories. This covers

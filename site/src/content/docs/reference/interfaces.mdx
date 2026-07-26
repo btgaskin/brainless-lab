@@ -61,8 +61,8 @@ implements:
 ```julia
 n_receptors(body)
 n_effectors(body)
-sense!(body, percept)
-decode!(body, effectors)
+BrainlessLab.sense!(body, percept)
+BrainlessLab.decode!(body, effectors)
 ```
 
 A body may also specialise `portspec`, `alive`, `inactive_command`, `update!`, `reset!`,
@@ -90,13 +90,13 @@ activity vectors and uses `inactive_command(body)` without advancing the reservo
 An `Ensemble` uses one synchronous lifecycle:
 
 ```julia
-sync_activity!(environment, bodies)
-prepare_step!(environment, bodies)
-percepts = sample!(environment, bodies)
+BrainlessLab.sync_activity!(environment, bodies)
+BrainlessLab.prepare_step!(environment, bodies)
+percepts = BrainlessLab.sample!(environment, bodies)
 # sense! → step! → effectors → decode! for each body
-effects = apply_commands!(environment, bodies, commands)
-update!(body, effects_for_body)
-sync_activity!(environment, bodies)
+effects = BrainlessLab.apply_commands!(environment, bodies, commands)
+BrainlessLab.update!(body, effects_for_body)
+BrainlessLab.sync_activity!(environment, bodies)
 ```
 
 `sample!` returns one percept per body from the same pre-action state.

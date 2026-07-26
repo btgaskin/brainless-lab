@@ -25,13 +25,13 @@ function _tiny_run(;
     iterations=1,
     options=(population=2, reducer=:mean,),
 )
-    return Evolution.RunConfig(
+    return BrainlessLab.Evolution.RunConfig(
         strategy,
         iterations,
         101,
         :normalized_score,
         :maximise,
-        Evolution.NormalInitialisation(centre=:zero, scale=0.1),
+        BrainlessLab.Evolution.NormalInitialisation(centre=:zero, scale=0.1),
         options,
     )
 end
@@ -48,22 +48,22 @@ end
 
     @test validate(plan, DEFAULT_REGISTRY) === plan
     resolved = resolve(plan, DEFAULT_REGISTRY)
-    @test resolved isa ResolvedEvolutionPlan
+    @test resolved isa BrainlessLab.ResolvedEvolutionPlan
     @test resolved.node.id === :compartmental_structured
     @test resolved.design.dimension == 220
     @test resolved.strategy.key === :sepcma
 
     result = execute(resolved)
-    @test result isa EvolutionResult
+    @test result isa BrainlessLab.EvolutionResult
     @test length(result.candidates) == 2
     @test length(result.convergence) == 1
     @test all(candidate -> length(candidate.evaluations) == 1, result.candidates)
     @test only(result.models).model_id == "selected"
-    @test only(result.models).model isa StructuredCompartmental
+    @test only(result.models).model isa BrainlessLab.StructuredCompartmental
     @test only(result.heldout).target === :tracking_heldout
     @test !ismissing(only(result.heldout).aggregate)
 
-    output = tables(result)
+    output = BrainlessLab.tables(result)
     @test length(output.convergence) == 1
     @test length(output.candidates) == 2
     @test length(output.candidate_scores) == 2
@@ -71,7 +71,7 @@ end
     @test length(output.models) == 1
     @test length(output.heldout_trials) == 1
 
-    report = summary(result)
+    report = BrainlessLab.summary(result)
     @test report.plan === :tiny_ctrnn
     @test report.strategy === :sepcma
     @test report.models == ("selected",)
@@ -92,7 +92,7 @@ end
 
     falandays = EvaluationTarget(
         :legacy_parameter_search,
-        default_composition(DEFAULT_REGISTRY, :falandays, :tracking),
+        BrainlessLab.default_composition(DEFAULT_REGISTRY, :falandays, :tracking),
         EvaluationSpec(horizon=1, aggregate=:mean),
     )
     @test_throws ArgumentError validate(

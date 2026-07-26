@@ -9,11 +9,11 @@ struct ArtifactNodeModel <: NodeModel
 end
 
 function _artifact_design()
-    return Evolution.NodeDesignSpec(
+    return BrainlessLab.Evolution.NodeDesignSpec(
         ArtifactNodeModel,
         (
-            Evolution.DesignBlock(:gain, (1,), 1:1),
-            Evolution.DesignBlock(:weights, (2,), 2:3),
+            BrainlessLab.Evolution.DesignBlock(:gain, (1,), 1:1),
+            BrainlessLab.Evolution.DesignBlock(:weights, (2,), 2:3),
         ),
         model -> [model.gain; model.weights],
         coordinates -> ArtifactNodeModel(coordinates[1], coordinates[2:3]),
@@ -31,7 +31,7 @@ end
     directory = mktempdir()
     cd(directory) do
         design = _artifact_design()
-        references = Evolution.write_models(
+        references = BrainlessLab.Evolution.write_models(
             "records/example",
             :artifact_node,
             design,
@@ -42,11 +42,11 @@ end
         )
         @test getfield.(references, :model_id) == ["baseline", "champion"]
         champion = only(filter(reference -> reference.model_id == "champion", references))
-        indexed = Evolution.model_reference("records/example", "champion")
+        indexed = BrainlessLab.Evolution.model_reference("records/example", "champion")
         @test indexed.path == champion.path
         @test indexed.schema_sha256 == champion.schema_sha256
         @test indexed.coordinates_sha256 == champion.coordinates_sha256
-        restored = Evolution.read_model(champion, :artifact_node, design)
+        restored = BrainlessLab.Evolution.read_model(champion, :artifact_node, design)
         @test restored.gain == 0.5
         @test restored.weights == [1.0, 2.0]
         @test Set(readdir("records/example/models")) ==
@@ -63,7 +63,7 @@ end
 @testset "absolute record roots persist portable model references" begin
     parent = mktempdir()
     record = joinpath(parent, "absolute-record")
-    reference = only(Evolution.write_models(
+    reference = only(BrainlessLab.Evolution.write_models(
         record,
         :artifact_node,
         _artifact_design(),
@@ -73,13 +73,13 @@ end
     @test !isabspath(reference.path)
     @test !(".." in split(reference.path, '/'))
     cd(parent) do
-        @test Evolution.read_model(
+        @test BrainlessLab.Evolution.read_model(
             reference,
             :artifact_node,
             _artifact_design(),
         ).weights == [1.0, 2.0]
     end
-    Evolution.write_checkpoint(
+    BrainlessLab.Evolution.write_checkpoint(
         record;
         completed_iteration=1,
         run_digest=_artifact_digest("a"),
@@ -98,7 +98,7 @@ end
         "checkpoint.toml",
     ))
     @test checkpoint_manifest["format_version"] == 2
-    @test Evolution.read_checkpoint(record, 1).completed_iteration == 1
+    @test BrainlessLab.Evolution.read_checkpoint(record, 1).completed_iteration == 1
 
     checkpoint_path = joinpath(record, "checkpoints", "generation-00000001")
     checkpoint_manifest["format_version"] = 1
@@ -108,37 +108,37 @@ end
     open(joinpath(checkpoint_path, "DONE"), "w") do io
         println(io, _artifact_sha256(joinpath(checkpoint_path, "checkpoint.toml")))
     end
-    @test_throws ArgumentError Evolution.read_checkpoint(record, 1)
+    @test_throws ArgumentError BrainlessLab.Evolution.read_checkpoint(record, 1)
 end
 
 @testset "model artifacts reject unsafe references and corrupted data" begin
     directory = mktempdir()
     cd(directory) do
         design = _artifact_design()
-        reference = only(Evolution.write_models(
+        reference = only(BrainlessLab.Evolution.write_models(
             "records/example",
             :artifact_node,
             design,
             ((model_id="candidate", role="candidate", model=ArtifactNodeModel(0.5, [1.0, 2.0])),),
         ))
-        @test_throws ArgumentError Evolution.ModelReference(
+        @test_throws ArgumentError BrainlessLab.Evolution.ModelReference(
             "../records/example",
             "candidate",
             :artifact_node,
             reference.schema_sha256,
             reference.coordinates_sha256,
         )
-        @test_throws ArgumentError Evolution.read_model(reference, :wrong_node, design)
+        @test_throws ArgumentError BrainlessLab.Evolution.read_model(reference, :wrong_node, design)
 
-        wrong_design = Evolution.NodeDesignSpec(
+        wrong_design = BrainlessLab.Evolution.NodeDesignSpec(
             ArtifactNodeModel,
-            (Evolution.DesignBlock(:all, (3,), 1:3),),
+            (BrainlessLab.Evolution.DesignBlock(:all, (3,), 1:3),),
             model -> [model.gain; model.weights],
             coordinates -> ArtifactNodeModel(coordinates[1], coordinates[2:3]),
             ;
             stability=:experimental,
         )
-        @test_throws ArgumentError Evolution.read_model(
+        @test_throws ArgumentError BrainlessLab.Evolution.read_model(
             reference,
             :artifact_node,
             wrong_design,
@@ -150,14 +150,14 @@ end
         open(schema_path, "w") do io
             TOML.print(io, old_schema; sorted=true)
         end
-        old_reference = Evolution.ModelReference(
+        old_reference = BrainlessLab.Evolution.ModelReference(
             reference.path,
             reference.model_id,
             reference.node,
             _artifact_sha256(schema_path),
             reference.coordinates_sha256,
         )
-        @test_throws ArgumentError Evolution.read_model(
+        @test_throws ArgumentError BrainlessLab.Evolution.read_model(
             old_reference,
             :artifact_node,
             design,
@@ -172,7 +172,7 @@ end
         open(coordinates_path, "a") do io
             write(io, "candidate,4,3.0\n")
         end
-        @test_throws ArgumentError Evolution.read_model(
+        @test_throws ArgumentError BrainlessLab.Evolution.read_model(
             reference,
             :artifact_node,
             design,
@@ -181,24 +181,24 @@ end
 
     nonfinite = mktempdir()
     cd(nonfinite) do
-        @test_throws ArgumentError Evolution.write_models(
+        @test_throws ArgumentError BrainlessLab.Evolution.write_models(
             "records/nonfinite",
             :artifact_node,
             _artifact_design(),
             ((model_id="bad", role="candidate", model=ArtifactNodeModel(Inf, [1.0, 2.0])),),
         )
-        short_design = Evolution.NodeDesignSpec(
+        short_design = BrainlessLab.Evolution.NodeDesignSpec(
             ArtifactNodeModel,
             (
-                Evolution.DesignBlock(:gain, (1,), 1:1),
-                Evolution.DesignBlock(:weights, (2,), 2:3),
+                BrainlessLab.Evolution.DesignBlock(:gain, (1,), 1:1),
+                BrainlessLab.Evolution.DesignBlock(:weights, (2,), 2:3),
             ),
             model -> [model.gain, only(model.weights)],
             coordinates -> ArtifactNodeModel(coordinates[1], coordinates[2:3]),
             ;
             stability=:experimental,
         )
-        @test_throws ArgumentError Evolution.write_models(
+        @test_throws ArgumentError BrainlessLab.Evolution.write_models(
             "records/wrong-length",
             :artifact_node,
             short_design,
@@ -209,7 +209,7 @@ end
     wrong_length = mktempdir()
     cd(wrong_length) do
         design = _artifact_design()
-        reference = only(Evolution.write_models(
+        reference = only(BrainlessLab.Evolution.write_models(
             "records/example",
             :artifact_node,
             design,
@@ -229,14 +229,14 @@ end
         open(schema_path, "w") do io
             TOML.print(io, schema; sorted=true)
         end
-        updated = Evolution.ModelReference(
+        updated = BrainlessLab.Evolution.ModelReference(
             reference.path,
             reference.model_id,
             reference.node,
             _artifact_sha256(schema_path),
             coordinate_sha256,
         )
-        @test_throws ArgumentError Evolution.read_model(
+        @test_throws ArgumentError BrainlessLab.Evolution.read_model(
             updated,
             :artifact_node,
             design,
@@ -260,7 +260,7 @@ end
             "trial_rows" => [(candidate="candidate-1", score=1.0)],
             "seed_rows" => [(candidate="candidate-1", seed=typemax(UInt64))],
         )
-        checkpoint = Evolution.write_checkpoint(
+        checkpoint = BrainlessLab.Evolution.write_checkpoint(
             "records/run",
             ;
             completed_iteration=7,
@@ -274,7 +274,7 @@ end
         @test basename(checkpoint) == "generation-00000007"
         @test Set(readdir(checkpoint)) ==
             Set(("checkpoint.toml", "runner.toml", "DONE"))
-        restored = Evolution.read_checkpoint(
+        restored = BrainlessLab.Evolution.read_checkpoint(
             "records/run",
             7;
             run_digest=_artifact_digest("a"),
@@ -291,7 +291,7 @@ end
         @test restored.strategy_snapshot["root_seed"] === typemax(UInt64)
         @test restored.runner_document["candidate_history"] ==
             [(id="candidate-1", fitness=1.0)]
-        @test Evolution.latest_checkpoint(
+        @test BrainlessLab.Evolution.latest_checkpoint(
             "records/run";
             run_digest=_artifact_digest("a"),
         ).completed_iteration == 7
@@ -299,10 +299,10 @@ end
         incomplete = "records/run/checkpoints/generation-00000008"
         mkpath(incomplete)
         write(joinpath(incomplete, "checkpoint.toml"), "format = \"incomplete\"\n")
-        @test Evolution.latest_checkpoint("records/run").completed_iteration == 7
-        @test_throws ArgumentError Evolution.read_checkpoint("records/run", 8)
+        @test BrainlessLab.Evolution.latest_checkpoint("records/run").completed_iteration == 7
+        @test_throws ArgumentError BrainlessLab.Evolution.read_checkpoint("records/run", 8)
 
-        @test_throws ArgumentError Evolution.read_checkpoint(
+        @test_throws ArgumentError BrainlessLab.Evolution.read_checkpoint(
             "records/run",
             7;
             resolution_digest=_artifact_digest("d"),
@@ -310,6 +310,6 @@ end
         open(joinpath(checkpoint, "runner.toml"), "a") do io
             write(io, "\n# corruption\n")
         end
-        @test_throws ArgumentError Evolution.read_checkpoint("records/run", 7)
+        @test_throws ArgumentError BrainlessLab.Evolution.read_checkpoint("records/run", 7)
     end
 end

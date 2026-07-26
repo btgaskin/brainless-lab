@@ -5,16 +5,16 @@
 `step!(ensemble)` runs one synchronous lifecycle for one agent or a mixed population:
 
 ```julia
-prepare_step!(environment, bodies)
-percepts = sample!(environment, bodies)          # same pre-action world
+BrainlessLab.prepare_step!(environment, bodies)
+percepts = BrainlessLab.sample!(environment, bodies)  # same pre-action world
 
-R = sense!(body, percept)                        # sensors/encoders + physiology
+R = BrainlessLab.sense!(body, percept)           # sensors/encoders + physiology
 spikes = step!(reservoir, R)
-E = readout(readout_policy(body), reservoir, spikes)
-command = decode!(body, E)                       # reusable typed command
+E = BrainlessLab.readout(BrainlessLab.readout_policy(body), reservoir, spikes)
+command = BrainlessLab.decode!(body, E)          # reusable typed command
 
-effects = apply_commands!(environment, bodies, commands)
-update!(body, effects_for_body)                  # physiology / viability
+effects = BrainlessLab.apply_commands!(environment, bodies, commands)
+BrainlessLab.update!(body, effects_for_body)     # physiology / viability
 ```
 
 The reservoir remains task-agnostic. It is constructed from `portspec(body)`, which fixes
@@ -60,9 +60,9 @@ in `decode!`; dynamics integrate only compatible command types.
 Strict TOML is the reusable body configuration:
 
 ```julia
-config = read_embodiment_config("examples/embodiments/bilateral_insect.toml")
-blueprint = materialize_blueprint(config)
-body = materialize_embodiment(config)
+config = BrainlessLab.read_embodiment_config("examples/embodiments/bilateral_insect.toml")
+blueprint = BrainlessLab.materialize_blueprint(config)
+body = BrainlessLab.materialize_embodiment(config)
 ```
 
 Each `[[components]]` entry has `id`, generic `family`, registered `kind`, and validated

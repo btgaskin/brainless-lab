@@ -51,12 +51,12 @@ function _build_compartmental(mode::AbstractString, data)
     raw = _float_vector_fixture(data, "raw")
     genome =
         mode == "dense" ?
-        unpack_params(DenseCompartmental, raw) :
-        unpack_params(StructuredCompartmental, raw)
+        unpack_params(BrainlessLab.DenseCompartmental, raw) :
+        unpack_params(BrainlessLab.StructuredCompartmental, raw)
 
     @test pack_params(genome) == raw
 
-    wiring = inject_wiring(
+    wiring = BrainlessLab.inject_wiring(
         mode=mode,
         N=_int_scalar(data, "N"),
         K_rec=_int_scalar(data, "K_rec"),
@@ -74,7 +74,7 @@ function _build_compartmental(mode::AbstractString, data)
         M_ne=data["M_ne"],
     )
 
-    return CompartmentalReservoir(
+    return BrainlessLab.CompartmentalReservoir(
         genome,
         wiring;
         substeps=1,   # match the single forward-Euler step (dt=1.0) of the numpy oracle

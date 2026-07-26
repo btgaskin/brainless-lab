@@ -28,7 +28,7 @@ end
 
 @testset "profile resolves registry contracts once" begin
     registry = RegistrySet()
-    register_builtins!(registry)
+    BrainlessLab.register_builtins!(registry)
     target = _profile_tracking_target()
 
     defaults = ProfilePlan(:tracking_defaults, target)
@@ -77,7 +77,7 @@ end
     resolved = resolve(plan, registry)
     @test resolved.record_channels == (:scene,)
     result = execute(resolved)
-    output = tables(result)
+    output = BrainlessLab.tables(result)
     report = BrainlessLab.summary(result)
 
     @test result isa BrainlessLab.ProfileResult
@@ -105,7 +105,7 @@ end
     register!(
         registry,
         :analyses,
-        ImplementationSpec(
+        BrainlessLab.ImplementationSpec(
             :profile_failure_fixture,
             _ -> error("deliberate analysis failure");
             metadata=(task=:tracking, required_channels=()),

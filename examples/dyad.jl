@@ -13,7 +13,7 @@ let
         record=[:spikes, :rate, :poses, :polarization, :milling],
     )
 
-    swarm = swarmplot(sim)
+    swarm = BrainlessLab.swarmplot(sim)
     overview = visualize(sim; panels=[:swarm, :rate], size=(900, 520))
 
     save(joinpath(output_dir, "dyad_swarm.png"), swarm)

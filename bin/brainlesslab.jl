@@ -62,7 +62,7 @@ function main(args=ARGS)
         output = get(options, "--output", joinpath(root, "catalogue.json"))
         repository = get(options, "--repository", pwd())
         main_ref = get(options, "--main-ref", "origin/main")
-        write_research_catalogue(output; root, repository, main_ref)
+        BrainlessLab.write_research_catalogue(output; root, repository, main_ref)
         println("research catalogue: ", output)
         return 0
     end
@@ -77,7 +77,7 @@ function main(args=ARGS)
             args[3:end],
             ("--repository", "--main-ref", "--base"),
         )
-        result = validate_contribution(
+        result = BrainlessLab.validate_contribution(
             source_path;
             repository=get(options, "--repository", pwd()),
             main_ref=get(options, "--main-ref", "origin/main"),
@@ -98,7 +98,7 @@ function main(args=ARGS)
             ))
             write = true
         end
-        comparison = compare_contribution(source_path; write)
+        comparison = BrainlessLab.compare_contribution(source_path; write)
         write && println("comparison: ", joinpath(source_path, "comparison.json"))
         println("configuration equal: ", comparison["configuration_equal"])
         println("seeds equal: ", comparison["seeds_equal"])
@@ -134,8 +134,8 @@ function main(args=ARGS)
 
     if command == "check"
         println("valid plan: ", plan.id)
-        println("operation: ", operation_kind(plan))
-        println("targets: ", join(string.(getfield.(operation_targets(plan), :id)), ", "))
+        println("operation: ", BrainlessLab.operation_kind(plan))
+        println("targets: ", join(string.(getfield.(BrainlessLab.operation_targets(plan), :id)), ", "))
         println("resolved: ", nameof(typeof(resolved)))
         return 0
     end
@@ -143,7 +143,7 @@ function main(args=ARGS)
     root = parse_run_options(args[3:end])
     run = run_operation(plan; root=root)
     println("record: ", run.directory)
-    println("summary: ", summary(run.result))
+    println("summary: ", BrainlessLab.summary(run.result))
     return 0
 end
 

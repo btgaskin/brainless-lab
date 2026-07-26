@@ -12,7 +12,7 @@ using Test
         record=[:spikes, :rate, :poses, :scene],
     )
 
-    path = save_recorder(dir, sim)
+    path = BrainlessLab.save_recorder(dir, sim)
     @test path == joinpath(dir, "recorder.jld2")
     @test isfile(path)
 

@@ -18,11 +18,11 @@ end
     model = ExternalTemplateNode.MyNodeParams(leak=0.5, input_gain=2.0)
     context = NodeBuildContext(
         7,
-        PortSpec(2, 2),
+        BrainlessLab.PortSpec(2, 2),
         (topology=UInt64(4),);
         model=model,
     )
-    values = resolve_parameters(ExternalTemplateNode.MY_NODE_SPEC)
+    values = BrainlessLab.resolve_parameters(ExternalTemplateNode.MY_NODE_SPEC)
     reservoir = ExternalTemplateNode.build_my_node(context, values)
     @test reservoir.params == model
 
@@ -47,11 +47,11 @@ end
 @testset "copy-ready reservoir supports inactive stable slots" begin
     reservoir = ExternalTemplateNode.MyNode(7, 1, 1; seed=4)
     body = _DyingBody(true)
-    ensemble = Ensemble([Agent(reservoir, body)], _MetriclessEnvironment())
+    ensemble = BrainlessLab.Ensemble([BrainlessLab.Agent(reservoir, body)], _MetriclessEnvironment())
 
     first = step!(ensemble)
     @test length(only(first)) == 7
-    @test !alive(body)
+    @test !BrainlessLab.alive(body)
 
     second = step!(ensemble)
     @test only(second) == zeros(7)

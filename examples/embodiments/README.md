@@ -15,16 +15,16 @@ a particular animal or vehicle.
 ```julia
 using BrainlessLab
 
-config = read_embodiment_config(
+config = BrainlessLab.read_embodiment_config(
     "examples/embodiments/bilateral_insect.toml",
 )
 
-blueprint = materialize_blueprint(config)
-body = materialize_embodiment(config)
+blueprint = BrainlessLab.materialize_blueprint(config)
+body = BrainlessLab.materialize_embodiment(config)
 
-component_slots(body)
+BrainlessLab.component_slots(body)
 portspec(body)
-component_state(body)
+BrainlessLab.component_state(body)
 ```
 
 Every call to `materialize_embodiment` creates fresh runtime state. The TOML component IDs
@@ -98,8 +98,8 @@ duplicate IDs, missing bilateral references, and incompatible physical commands.
 To see the accepted parameter names for a configured kind:
 
 ```julia
-component_info(:sensor, :spectral_camera).parameters
-component_info(:physiology, :regulated).parameters
+BrainlessLab.component_info(:sensor, :spectral_camera).parameters
+BrainlessLab.component_info(:physiology, :regulated).parameters
 ```
 
 These are required/optional names only; the catalog does not yet expose types, defaults, or

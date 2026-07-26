@@ -124,13 +124,13 @@ An evolution operation writes a standard full record. If it stops after at least
 complete generation, continue the same record to its original iteration budget:
 
 ```julia
-continued = Evolution.resume(record_directory; registry=DEFAULT_REGISTRY)
+continued = BrainlessLab.Evolution.resume(record_directory; registry=DEFAULT_REGISTRY)
 ```
 
 Use a recorded model in a later benchmark:
 
 ```julia
-model = Evolution.model_reference(record_directory, "selected")
+model = BrainlessLab.Evolution.model_reference(record_directory, "selected")
 target = EvaluationTarget(:saved_model, composition, evaluation; model=model)
 ```
 

@@ -49,9 +49,9 @@ end
 
 function _ablation_intervention(mode::AbstractString)
     mode == "normal" && return nothing
-    mode == "no_soma_back" && return NoSomaBack()
-    mode == "no_hillock_back" && return NoHillockBack()
-    mode == "reset_dendrites" && return ResetDendrites()
+    mode == "no_soma_back" && return BrainlessLab.NoSomaBack()
+    mode == "no_hillock_back" && return BrainlessLab.NoHillockBack()
+    mode == "reset_dendrites" && return BrainlessLab.ResetDendrites()
     throw(ArgumentError("unknown ablation mode $mode"))
 end
 
@@ -59,10 +59,10 @@ function _build_ablation_reservoir(mode::AbstractString, ablation::AbstractStrin
     raw = _ablation_float_vector(data, "raw")
     genome =
         mode == "dense" ?
-        unpack_params(DenseCompartmental, raw) :
-        unpack_params(StructuredCompartmental, raw)
+        unpack_params(BrainlessLab.DenseCompartmental, raw) :
+        unpack_params(BrainlessLab.StructuredCompartmental, raw)
 
-    wiring = inject_wiring(
+    wiring = BrainlessLab.inject_wiring(
         mode=mode,
         N=_ablation_int_scalar(data, "N"),
         K_rec=_ablation_int_scalar(data, "K_rec"),
@@ -80,7 +80,7 @@ function _build_ablation_reservoir(mode::AbstractString, ablation::AbstractStrin
         M_ne=data["M_ne"],
     )
 
-    reservoir = CompartmentalReservoir(
+    reservoir = BrainlessLab.CompartmentalReservoir(
         genome,
         wiring;
         substeps=1,   # match the single forward-Euler step (dt=1.0) of the numpy oracle
@@ -139,7 +139,7 @@ end
 
 @testset "Native compartmental wiring" begin
     for mode in (:dense, :structured)
-        w = build_wiring(40, 20260628; link_p=0.2, n_receptors=7, n_effectors=3, rho=0.5, mode=mode)
+        w = BrainlessLab.build_wiring(40, 20260628; link_p=0.2, n_receptors=7, n_effectors=3, rho=0.5, mode=mode)
         @test w.N == 40
         @test w.K_rec == min(w.N - 1, max(1, round(Int, 0.2 * (w.N - 1))))
         @test w.K_in == max(1, round(Int, 0.5 * w.K_rec))
@@ -167,7 +167,7 @@ end
             @test all(sum(w.R_fwd[n, k, :]) == 1.0 for n in 1:w.N, k in 1:w.K)
             @test all(sum(w.fwd_count[n, :]) == Float64(w.K) for n in 1:w.N)
 
-            cover_len = min(COMPARTMENTAL_S, w.K_in)
+            cover_len = min(BrainlessLab.COMPARTMENTAL_S, w.K_in)
             for n in 1:w.N
                 covered = vec(w.fwd_unit[n, (w.K_rec + 1):(w.K_rec + cover_len)])
                 @test length(unique(covered)) == cover_len
@@ -177,9 +177,9 @@ end
 
     sim = simulate(:wall; node=:compartmental_structured, ticks=8, seed=11, ablation=:reset_dendrites)
     @test sim isa SimResult
-    @test resolve_ablation(:reset_dendrites) === ResetDendrites
-    @test resolve_ablation(:no_soma_back) === NoSomaBack
-    @test resolve_ablation(:no_hillock_back) === NoHillockBack
+    @test resolve_ablation(:reset_dendrites) === BrainlessLab.ResetDendrites
+    @test resolve_ablation(:no_soma_back) === BrainlessLab.NoSomaBack
+    @test resolve_ablation(:no_hillock_back) === BrainlessLab.NoHillockBack
 end
 
 @testset "Compartmental ablation oracle parity" begin

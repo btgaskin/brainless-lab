@@ -18,7 +18,7 @@ SepCMA writes one model role named `selected`:
 using BrainlessLab
 
 evolution_record = "records/RECORD_ID"
-model = Evolution.model_reference(evolution_record, "selected")
+model = BrainlessLab.Evolution.model_reference(evolution_record, "selected")
 ```
 
 NSGA-II and CMA-ME do not create an implicit champion. For those strategies, choose an
@@ -55,7 +55,7 @@ condition = EvaluationTarget(
     model=model,
 )
 
-case = BenchmarkCasePlan(:tracking, (condition,))
+case = BrainlessLab.BenchmarkCasePlan(:tracking, (condition,))
 plan = BenchmarkPlan(:saved_structured_ctrnn_benchmark, (case,))
 
 write_plan("plans/saved_structured_ctrnn_benchmark.toml", plan)

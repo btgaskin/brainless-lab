@@ -64,13 +64,13 @@ end
 
 function _reference_rollout(task::Symbol, seed::Integer, ticks::Integer)
     env = if task === :tracking
-        make_env(task; rng=MersenneTwister(seed), randomize_start=true)
+        BrainlessLab.make_env(task; rng=MersenneTwister(seed), randomize_start=true)
     else
-        make_env(task; rng=MersenneTwister(seed))
+        BrainlessLab.make_env(task; rng=MersenneTwister(seed))
     end
     policy =
-        task === :tracking ? tracking_reference_policy :
-        task === :pong ? pong_reference_policy :
+        task === :tracking ? BrainlessLab.tracking_reference_policy :
+        task === :pong ? BrainlessLab.pong_reference_policy :
         throw(ArgumentError("no core reference policy for :$(task)"))
     for _ in 1:Int(ticks)
         step!(env, policy(env))
@@ -332,14 +332,14 @@ function main(args=ARGS)
         ))
     end
     seeds = collect(0:(n_seeds - 1))
-    parallelism = init_parallelism!(; verbose=true)
+    parallelism = BrainlessLab.init_parallelism!(; verbose=true)
     jobs = [
         (task=task, seed=seed, condition=condition)
         for task in CORE_TASKS
         for seed in seeds
         for condition in CORE_CONDITIONS
     ]
-    rows = parallel_map(jobs) do job
+    rows = BrainlessLab.parallel_map(jobs) do job
         task_spec = resolve_task(job.task)
         result = job.condition === :reference ?
             _reference_rollout(job.task, job.seed, ticks) :

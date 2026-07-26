@@ -6,7 +6,7 @@ let
 
     sim = simulate(:wall; node=:falandays, ticks=300, seed=23, record=[:spikes, :rate, :poses])
     outcome = task_outcome(sim)
-    fig = driftplot(sim; bin=6)
+    fig = BrainlessLab.driftplot(sim; bin=6)
 
     save(joinpath(output_dir, "drift.png"), fig)
 

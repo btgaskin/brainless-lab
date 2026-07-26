@@ -57,25 +57,25 @@ function _single_reservoir(data)
     n_nodes = _single_int(data, "N")
     return FalandaysReservoir(
         params=_single_params(data),
-        drive=NoDrive(),
+        drive=BrainlessLab.NoDrive(),
         sign=BrainlessLab.UnsignedAxis(),
         recurrent_mask=_single_bitmatrix(data, "recurrent_mask"),
         input_wmat=_single_matrix(data, "input_wmat"),
         output_mask=_single_matrix(data, "output_mask"),
         wmat0=_single_matrix(data, "wmat0"),
-        noise_source=RecordedNoise(zeros(Float64, ticks, n_nodes)),
+        noise_source=BrainlessLab.RecordedNoise(zeros(Float64, ticks, n_nodes)),
         rectify=_single_bool(data, "rectify"),
     )
 end
 
 function _single_ensemble(data)
-    env = WallEnv(; rng=MersenneTwister(23))
-    agent = Agent(_single_reservoir(data), direct_embodiment(2, 2))
-    ensemble = Ensemble([agent], TaskEnvironment(env))
+    env = BrainlessLab.WallEnv(; rng=MersenneTwister(23))
+    agent = BrainlessLab.Agent(_single_reservoir(data), BrainlessLab.direct_embodiment(2, 2))
+    ensemble = BrainlessLab.Ensemble([agent], BrainlessLab.TaskEnvironment(env))
     return ensemble, env, agent
 end
 
-function _single_pose(env::WallEnv)
+function _single_pose(env::BrainlessLab.WallEnv)
     return [env.box.x, env.box.y, env.box.theta]
 end
 
@@ -106,7 +106,7 @@ end
     n_nodes = _single_int(data, "N")
 
     @test length(ensemble.agents) == 1
-    @test ensemble.environment isa TaskEnvironment
+    @test ensemble.environment isa BrainlessLab.TaskEnvironment
     @test n_receptors(env) == 2
     @test n_effectors(env) == 2
 
@@ -135,10 +135,10 @@ end
     @test got_metrics.collisions_window >= 0
     @test size(got_metrics.xy_path, 1) == ticks
 
-    expected_live = liveness(rates, n_nodes, default_window(env))
+    expected_live = BrainlessLab.liveness(rates, n_nodes, default_window(env))
 
     ensemble2, _, _ = _single_ensemble(data)
-    rollout_result = rollout!(ensemble2, ticks; window=default_window(env))
+    rollout_result = BrainlessLab.rollout!(ensemble2, ticks; window=default_window(env))
     @test rollout_result.score ≈ got_metrics.score atol=COLLECTIVE_SINGLE_ATOL
     @test rollout_result.distance_window ≈ got_metrics.distance_window atol=COLLECTIVE_SINGLE_ATOL
     @test rollout_result.collisions_window == got_metrics.collisions_window

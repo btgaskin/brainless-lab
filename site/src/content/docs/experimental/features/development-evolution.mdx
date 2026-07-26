@@ -31,13 +31,13 @@ One typed search-strategy registry provides:
 Every run uses explicit seeded normal initialisation. For example:
 
 ```julia
-run = Evolution.RunConfig(;
+run = BrainlessLab.Evolution.RunConfig(;
     strategy=:sepcma,
     iterations=2,
     search_seed=0x2a,
     measure=:normalized_score,
     direction=:maximise,
-    initialisation=Evolution.NormalInitialisation(
+    initialisation=BrainlessLab.Evolution.NormalInitialisation(
         centre=:zero,
         scale=0.25,
     ),

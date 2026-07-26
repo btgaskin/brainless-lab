@@ -71,7 +71,7 @@ function main(args=ARGS)
         return 0
     end
 
-    init_parallelism!(verbose=true)
+    BrainlessLab.init_parallelism!(verbose=true)
 
     force = "--force" in args
     if first(args) == "ablate"

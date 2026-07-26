@@ -23,22 +23,22 @@ function (::ObjectWorldExampleSetup)(;
             "embodiments",
             "differential_robot.toml",
         )
-        materialize_embodiment(read_embodiment_config(preset))
+        BrainlessLab.materialize_embodiment(BrainlessLab.read_embodiment_config(preset))
     elseif body isa AbstractBody
         body
     else
         throw(ArgumentError("body must be an AbstractBody or nothing"))
     end
 
-    beacon = ObjectType(
+    beacon = BrainlessLab.ObjectType(
         :beacon;
         radius=0.45,
-        appearance=rgb_appearance((1.0, 0.15, 0.02)),
+        appearance=BrainlessLab.rgb_appearance((1.0, 0.15, 0.02)),
     )
-    world = ObjectWorld(
-        WalledArena(12.0),
-        [MotionState2D(position=(2.0, 6.0), heading=0.0)];
-        populations=(ObjectPopulation(beacon, [(7.0, 6.0)]),),
+    world = BrainlessLab.ObjectWorld(
+        BrainlessLab.WalledArena(12.0),
+        [BrainlessLab.MotionState2D(position=(2.0, 6.0), heading=0.0)];
+        populations=(BrainlessLab.ObjectPopulation(beacon, [(7.0, 6.0)]),),
         rng=rng === nothing ? MersenneTwister(seed) : rng,
     )
     return TaskSetup(world, [body_])

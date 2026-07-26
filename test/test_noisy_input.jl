@@ -27,20 +27,20 @@ _wrapper_trait_probe_allocated(wrapper) = @allocated _wrapper_trait_probe(wrappe
     _wrapper_trait_probe_allocated(wrapper)
     @test _wrapper_trait_probe_allocated(wrapper) == 0
 
-    @test activations(wrapper) === activations(inner)
-    @test weights(wrapper) === weights(inner)
+    @test BrainlessLab.activations(wrapper) === BrainlessLab.activations(inner)
+    @test BrainlessLab.weights(wrapper) === BrainlessLab.weights(inner)
     @test all(name -> hasproperty(wrapper, name), propertynames(inner))
     @test hasproperty(wrapper, :sensory_noise)
-    @test network_snapshot(wrapper) == network_snapshot(inner)
+    @test BrainlessLab.network_snapshot(wrapper) == BrainlessLab.network_snapshot(inner)
 
-    @test supports_intervention(FreezePlasticity(), wrapper)
-    @test !supports_intervention(ResetDendrites(), wrapper)
-    apply!(FreezePlasticity(), wrapper)
+    @test BrainlessLab.supports_intervention(BrainlessLab.FreezePlasticity(), wrapper)
+    @test !BrainlessLab.supports_intervention(BrainlessLab.ResetDendrites(), wrapper)
+    BrainlessLab.apply!(BrainlessLab.FreezePlasticity(), wrapper)
     @test !wrapper.params.learn_on
     @test plasticity(wrapper) isa NoPlasticity
     @test !unpack_params(wrapper.params, pack_params(wrapper.params)).learn_on
     @test temporal_window(wrapper) == 3
-    @test_throws MethodError apply!(ResetDendrites(), wrapper)
+    @test_throws MethodError BrainlessLab.apply!(BrainlessLab.ResetDendrites(), wrapper)
 end
 
 @testset "NoisyInput state snapshots continue the wrapper RNG" begin

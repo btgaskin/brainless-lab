@@ -33,11 +33,11 @@ end
 
 @testset "HomeostaticFlowV2 reservoir" begin
     @test :homeostatic_flow_v2 in variants()
-    @test genome_type(:homeostatic_flow_v2) === HomeostaticFlowV2Params
-    @test paramdim(HomeostaticFlowV2Params) == length(pack_params(HomeostaticFlowV2Params()))
+    @test BrainlessLab.genome_type(:homeostatic_flow_v2) === BrainlessLab.HomeostaticFlowV2Params
+    @test paramdim(BrainlessLab.HomeostaticFlowV2Params) == length(pack_params(BrainlessLab.HomeostaticFlowV2Params()))
 
-    raw = pack_params(HomeostaticFlowV2Params())
-    params = unpack_params(HomeostaticFlowV2Params, raw)
+    raw = pack_params(BrainlessLab.HomeostaticFlowV2Params())
+    params = unpack_params(BrainlessLab.HomeostaticFlowV2Params, raw)
     @test pack_params(params) ≈ raw
 
     # nonnegative internal activity -- the change that motivated this node --

@@ -48,13 +48,13 @@ function _authors_reservoir(data)
     n_nodes = _authors_int(data, "nnodes")
     return FalandaysReservoir(
         params=_authors_params(data),
-        drive=NoDrive(),
+        drive=BrainlessLab.NoDrive(),
         sign=BrainlessLab.UnsignedAxis(),
         recurrent_mask=_authors_bitmatrix(data, "recurrent_mask"),
         input_wmat=_authors_matrix(data, "input_wmat"),
         output_mask=_authors_matrix(data, "output_mask"),
         wmat0=_authors_matrix(data, "wmat0"),
-        noise_source=RecordedNoise(zeros(Float64, ticks, n_nodes)),
+        noise_source=BrainlessLab.RecordedNoise(zeros(Float64, ticks, n_nodes)),
         rectify=false,
     )
 end

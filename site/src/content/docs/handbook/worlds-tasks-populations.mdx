@@ -42,7 +42,7 @@ Query the live registry:
 ```julia
 tasks(DEFAULT_REGISTRY)
 tasks(DEFAULT_REGISTRY; tag=:benchmark)
-task_spec(DEFAULT_REGISTRY, :tracking)
+BrainlessLab.task_spec(DEFAULT_REGISTRY, :tracking)
 ```
 
 Read the [Core catalogue](/reference/core-catalog/) for current outcome and anchor details.

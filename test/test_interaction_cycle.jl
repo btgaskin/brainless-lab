@@ -21,27 +21,27 @@ effectors(reservoir::_CycleCounterReservoir, neural_output) =
 reset!(reservoir::_CycleCounterReservoir) = (reservoir.steps = 0; reservoir)
 
 @testset "FixedRateCycle owns world-to-neural timing" begin
-    @test neural_frames(FixedRateCycle()) == 1
-    @test neural_frames(FixedRateCycle(24)) == 24
-    @test_throws ArgumentError FixedRateCycle(0)
+    @test BrainlessLab.neural_frames(BrainlessLab.FixedRateCycle()) == 1
+    @test BrainlessLab.neural_frames(BrainlessLab.FixedRateCycle(24)) == 24
+    @test_throws ArgumentError BrainlessLab.FixedRateCycle(0)
 
-    body = direct_embodiment(2, 2; readouts=(MeanReadout(),))
+    body = BrainlessLab.direct_embodiment(2, 2; readouts=(BrainlessLab.MeanReadout(),))
     reservoir = _CycleCounterReservoir(0, 2, 2)
-    agent = Agent(reservoir, body; cycle=FixedRateCycle(4))
+    agent = BrainlessLab.Agent(reservoir, body; cycle=BrainlessLab.FixedRateCycle(4))
     # The interaction helper is tested directly because WallEnv's native
     # observation width is unrelated to this minimal contract reservoir.
     receptors, neural, command = BrainlessLab._run_interaction!(agent, [0.25, 0.75])
     @test reservoir.steps == 4
     @test receptors == [0.25, 0.75]
     @test neural == [2.5, 1.0]
-    @test command_values(command) == [1.0, 1.0]
+    @test BrainlessLab.command_values(command) == [1.0, 1.0]
 end
 
 @testset "default cycle preserves held-input window semantics" begin
     receptors = [0.3, 0.7, 0.1, 0.5]
     windowed = BrainlessLab._falandays_native(20, 4, 2; seed=5, substeps=3)
     manual = BrainlessLab._falandays_native(20, 4, 2; seed=5, substeps=1)
-    agent = Agent(windowed, direct_embodiment(4, 2))
+    agent = BrainlessLab.Agent(windowed, BrainlessLab.direct_embodiment(4, 2))
     held, neural_mean, _ = BrainlessLab._run_interaction!(agent, receptors)
     manual_outputs = [step!(manual, receptors) for _ in 1:3]
     @test held ≈ receptors
@@ -50,30 +50,30 @@ end
 
 @testset "readout reductions are explicit and deterministic" begin
     reservoir = _CycleCounterReservoir(0, 1, 2)
-    cycle = FixedRateCycle(3)
+    cycle = BrainlessLab.FixedRateCycle(3)
 
-    mean_readout = MeanReadout()
+    mean_readout = BrainlessLab.MeanReadout()
     mean_state = BrainlessLab.readout_state(mean_readout, reservoir)
-    begin_readout!(mean_state, mean_readout, cycle)
+    BrainlessLab.begin_readout!(mean_state, mean_readout, cycle)
     for (frame, output) in enumerate(([1.0, 0.0], [0.0, 1.0], [1.0, 1.0]))
-        observe_frame!(mean_state, mean_readout, reservoir, output, frame)
+        BrainlessLab.observe_frame!(mean_state, mean_readout, reservoir, output, frame)
     end
-    @test finish_readout!(mean_state, mean_readout, reservoir, cycle) ≈ [2 / 3, 2 / 3]
+    @test BrainlessLab.finish_readout!(mean_state, mean_readout, reservoir, cycle) ≈ [2 / 3, 2 / 3]
 
-    voting = VotingReadout()
+    voting = BrainlessLab.VotingReadout()
     voting_state = BrainlessLab.readout_state(voting, reservoir)
-    begin_readout!(voting_state, voting, cycle)
+    BrainlessLab.begin_readout!(voting_state, voting, cycle)
     for (frame, output) in enumerate(([0.5, 0.5], [0.0, 1.0], [1.0, 0.0]))
-        observe_frame!(voting_state, voting, reservoir, output, frame)
+        BrainlessLab.observe_frame!(voting_state, voting, reservoir, output, frame)
     end
     # Both the frame-one tie and the final vote tie choose the lower index.
-    @test finish_readout!(voting_state, voting, reservoir, cycle) == [1.0, 0.0]
+    @test BrainlessLab.finish_readout!(voting_state, voting, reservoir, cycle) == [1.0, 0.0]
 end
 
 @testset "Embodiment owns its readout component" begin
-    body = direct_embodiment(2, 2; readouts=(InstantReadout(),))
-    @test only(readout_components(body)) isa InstantReadout
-    @test primary_readout(body) === only(body.readouts)
-    @test component_id(only(component_slots(body).readouts)) === :readout_1
-    @test readout_policy(body) === BrainlessLab.PASSTHROUGH_MOTOR
+    body = BrainlessLab.direct_embodiment(2, 2; readouts=(BrainlessLab.InstantReadout(),))
+    @test only(BrainlessLab.readout_components(body)) isa BrainlessLab.InstantReadout
+    @test BrainlessLab.primary_readout(body) === only(body.readouts)
+    @test BrainlessLab.component_id(only(BrainlessLab.component_slots(body).readouts)) === :readout_1
+    @test BrainlessLab.readout_policy(body) === BrainlessLab.PASSTHROUGH_MOTOR
 end

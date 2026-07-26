@@ -9,9 +9,9 @@ using Test
     @test ceiling.kind == REFERENCE_MEASURED
     @test analytic(1.0; note="unit").provenance == "unit"
 
-    task = TaskSpec(:anchor_test, WallEnv; floor=floor, ceiling=ceiling)
-    @test score_floor(task) == 2.0
-    @test score_ceiling(task) == 6.0
+    task = TaskSpec(:anchor_test, BrainlessLab.WallEnv; floor=floor, ceiling=ceiling)
+    @test BrainlessLab.score_floor(task) == 2.0
+    @test BrainlessLab.score_ceiling(task) == 6.0
     @test task.score_floor == 2.0
     @test task.score_ceiling == 6.0
     @test normalized_score(task, 4.0) == 0.5
@@ -21,12 +21,12 @@ using Test
     @test BrainlessLab._normalized_anchor_result(4.0, 2.0, 6.0, "test").bound === :none
     @test BrainlessLab._normalized_anchor_result(10.0, 2.0, 6.0, "test").bound === :ceiling
 
-    bad = TaskSpec(:bad_anchor_test, WallEnv; floor=analytic(1.0), ceiling=analytic(1.0))
+    bad = TaskSpec(:bad_anchor_test, BrainlessLab.WallEnv; floor=analytic(1.0), ceiling=analytic(1.0))
     @test_throws ArgumentError normalized_score(bad, 1.0)
 
     legacy = @test_logs (:warn, r"bare literal") TaskSpec(
         :legacy_anchor_test,
-        WallEnv;
+        BrainlessLab.WallEnv;
         score_floor=1.0,
         score_ceiling=3.0,
     )
@@ -36,15 +36,15 @@ using Test
     @test normalized_score(legacy, 2.0) == 0.5
     second_legacy = @test_logs (:warn, r"bare literal") TaskSpec(
         :second_legacy_anchor_test,
-        WallEnv;
+        BrainlessLab.WallEnv;
         score_floor=2.0,
         score_ceiling=4.0,
     )
     @test normalized_score(second_legacy, 3.0) == 0.5
 
-    @test WALL_TASK.score_key == :nav_score
-    @test :collisions_window in WALL_TASK.descriptor_keys
-    @test :distance_window in WALL_TASK.descriptor_keys
+    @test BrainlessLab.WALL_TASK.score_key == :nav_score
+    @test :collisions_window in BrainlessLab.WALL_TASK.descriptor_keys
+    @test :distance_window in BrainlessLab.WALL_TASK.descriptor_keys
 end
 
 @testset "Task outcomes follow declared objectives" begin
@@ -73,7 +73,7 @@ end
 
     direct_scored = TaskSpec(
         :direct_scored,
-        WALL_TASK.setup;
+        BrainlessLab.WALL_TASK.setup;
         default_ticks=4,
         default_window=4,
         floor=analytic(0.0),
@@ -91,7 +91,7 @@ end
 
     direct_unscored = TaskSpec(
         :direct_unscored,
-        TORUS_TASK.setup;
+        BrainlessLab.TORUS_TASK.setup;
         default_ticks=4,
         default_window=4,
         score_key=nothing,

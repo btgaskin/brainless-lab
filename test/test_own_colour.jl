@@ -17,7 +17,7 @@ using Test
         record=(:spikes, :acts, :poses),
     )
 
-    res = @test_logs (:warn, r"underpowered") own_colour_decodability(
+    res = @test_logs (:warn, r"underpowered") BrainlessLab.own_colour_decodability(
         sim;
         n_perm=32,
         rng=MersenneTwister(12),
@@ -47,7 +47,7 @@ using Test
         colour_sensing=true,
         record=(:spikes, :poses),
     )
-    fallback = @test_logs (:warn, r"underpowered") own_colour_decodability(
+    fallback = @test_logs (:warn, r"underpowered") BrainlessLab.own_colour_decodability(
         spike_only;
         n_perm=8,
         rng=MersenneTwister(13),
@@ -65,7 +65,7 @@ using Test
         colour_sensing=false,
         record=(:spikes, :poses),
     )
-    @test_throws ArgumentError own_colour_decodability(one_colour; n_perm=2)
+    @test_throws ArgumentError BrainlessLab.own_colour_decodability(one_colour; n_perm=2)
 
     rate_only = simulate(
         :torus;
@@ -78,9 +78,10 @@ using Test
         colour_sensing=true,
         record=(:rate,),
     )
-    @test_throws ArgumentError own_colour_decodability(rate_only; n_perm=2)
-    @test_throws ArgumentError own_colour_decodability(sim; channel=:rate, n_perm=2)
+    @test_throws ArgumentError BrainlessLab.own_colour_decodability(rate_only; n_perm=2)
+    @test_throws ArgumentError BrainlessLab.own_colour_decodability(sim; channel=:rate, n_perm=2)
 
-    @test :own_colour_decodability in task_analyses(:torus)
-    @test resolve_analysis(:own_colour_decodability) === own_colour_decodability
+    @test :own_colour_decodability in BrainlessLab.task_analyses(:torus)
+    @test resolve_analysis(:own_colour_decodability) ===
+          BrainlessLab.own_colour_decodability
 end

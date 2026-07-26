@@ -31,8 +31,8 @@ end
     @test resolved_default.rollouts == 8
 
     axes = (
-        SweepAxis(:gain, (0.5, 1.0)),
-        SweepAxis(:bias, (-0.25, 0.25)),
+        BrainlessLab.SweepAxis(:gain, (0.5, 1.0)),
+        BrainlessLab.SweepAxis(:bias, (-0.25, 0.25)),
     )
     factorial = BrainlessLab.resolve(
         SweepPlan(:factorial, target; axes, max_rollouts=8),
@@ -58,7 +58,7 @@ end
         SweepPlan(
             :missing_parameter,
             target;
-            axes=(SweepAxis(:missing, (1.0,)),),
+            axes=(BrainlessLab.SweepAxis(:missing, (1.0,)),),
         ),
         registry,
     )
@@ -66,7 +66,7 @@ end
         SweepPlan(
             :invalid_value,
             target;
-            axes=(SweepAxis(:gain, (3.0,)),),
+            axes=(BrainlessLab.SweepAxis(:gain, (3.0,)),),
         ),
         registry,
     )
@@ -78,7 +78,7 @@ end
     plan = SweepPlan(
         :paired_sweep,
         target;
-        axes=(SweepAxis(:gain, (0.5, 1.0)),),
+        axes=(BrainlessLab.SweepAxis(:gain, (0.5, 1.0)),),
         mode=:one_at_a_time,
         max_rollouts=4,
     )

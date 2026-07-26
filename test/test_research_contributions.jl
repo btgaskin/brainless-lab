@@ -13,7 +13,7 @@ function _contribution_experiment(; horizon=2)
             :null_random,
             :tracking;
             n_nodes=8,
-            interaction_cycle=FixedRateCycle(1),
+            interaction_cycle=BrainlessLab.FixedRateCycle(1),
         ),
         EvaluationSpec(blocks=1, trials_per_block=1, horizon=horizon, root_seed=919),
     )

@@ -26,8 +26,8 @@ The exact Pong floor and its provenance live in `TaskSpec`. Inspect them rather 
 copying a number into a new protocol:
 
 ```julia
-tracking = task_spec(DEFAULT_REGISTRY, :tracking)
-pong = task_spec(DEFAULT_REGISTRY, :pong)
+tracking = BrainlessLab.task_spec(DEFAULT_REGISTRY, :tracking)
+pong = BrainlessLab.task_spec(DEFAULT_REGISTRY, :pong)
 
 tracking.floor
 tracking.ceiling

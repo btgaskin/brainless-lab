@@ -46,17 +46,17 @@ end
 
 function _case_axis(name, data)
     sign = vec(Int.(data["sign"]))
-    return name == "dale" ? Dale(sign) : BrainlessLab.UnsignedAxis()
+    return name == "dale" ? BrainlessLab.Dale(sign) : BrainlessLab.UnsignedAxis()
 end
 
 function _case_drive(name, data)
     if name == "oosawa"
-        return OosawaDrive(
+        return BrainlessLab.OosawaDrive(
             membrane_noise=_scalar(data, "membrane_noise"),
             noise_gain=_scalar(data, "noise_gain"),
         )
     end
-    return NoDrive()
+    return BrainlessLab.NoDrive()
 end
 
 function _build_reservoir(name, data)
@@ -68,7 +68,7 @@ function _build_reservoir(name, data)
         input_wmat=_matrix(data, "input_wmat"),
         output_mask=_matrix(data, "output_mask"),
         wmat0=_matrix(data, "wmat0"),
-        noise_source=RecordedNoise(_matrix(data, "noise_draws")),
+        noise_source=BrainlessLab.RecordedNoise(_matrix(data, "noise_draws")),
         rectify=_bool_scalar(data, "rectify"),
     )
 end

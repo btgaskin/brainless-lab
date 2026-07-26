@@ -8,9 +8,9 @@ using TOML
         joinpath(root, "examples", "embodiments", "bilateral_insect.toml"),
     )
 
-    configs = read_embodiment_config.(examples)
+    configs = BrainlessLab.read_embodiment_config.(examples)
     @test getfield.(configs, :name) == (:differential_robot, :planar_uav, :bilateral_insect)
-    @test all(config -> config.schema_version == EMBODIMENT_SCHEMA_VERSION, configs)
+    @test all(config -> config.schema_version == BrainlessLab.EMBODIMENT_SCHEMA_VERSION, configs)
     @test all(config -> isabspath(config.source), configs)
     @test [component.id for component in configs[1].components] ==
           [:chassis, :camera, :wheels, :motion]
@@ -18,17 +18,17 @@ using TOML
     @test configs[2].components[3].parameters.mount == (0.12, 0.18)
     @test configs[3].components[4].family === :encoder
 
-    canonical = embodiment_config_namedtuple(configs[1])
+    canonical = BrainlessLab.embodiment_config_namedtuple(configs[1])
     @test propertynames(canonical) == (:schema_version, :name, :components)
     @test canonical.name == "differential_robot"
     @test canonical.components[1].parameters == (radius=0.35,)
-    @test !occursin(configs[1].source, canonical_embodiment_toml(configs[1]))
+    @test !occursin(configs[1].source, BrainlessLab.canonical_embodiment_toml(configs[1]))
 
     mktempdir() do temp
         canonical_path = joinpath(temp, "canonical.toml")
-        @test write_embodiment_config(canonical_path, configs[1]) == canonical_path
-        roundtrip = read_embodiment_config(canonical_path)
-        @test embodiment_config_namedtuple(roundtrip) == canonical
+        @test BrainlessLab.write_embodiment_config(canonical_path, configs[1]) == canonical_path
+        roundtrip = BrainlessLab.read_embodiment_config(canonical_path)
+        @test BrainlessLab.embodiment_config_namedtuple(roundtrip) == canonical
 
         base_path = joinpath(temp, "base.toml")
         cp(examples[1], base_path)
@@ -42,7 +42,7 @@ using TOML
             "camera.range" = 14.0
             "wheels.max_speed" = 1.8
             """)
-        derived = read_embodiment_config(derived_path)
+        derived = BrainlessLab.read_embodiment_config(derived_path)
         @test derived.name === :fast_robot
         @test derived.components[2].parameters.range == 14.0
         @test derived.components[3].parameters.max_speed == 1.8
@@ -56,7 +56,7 @@ using TOML
             [overrides]
             "missing.range" = 2.0
             """)
-        @test_throws ArgumentError read_embodiment_config(bad_override)
+        @test_throws ArgumentError BrainlessLab.read_embodiment_config(bad_override)
 
         append_parameter = joinpath(temp, "append_parameter.toml")
         write(append_parameter, """
@@ -66,7 +66,7 @@ using TOML
             [overrides]
             "camera.new_parameter" = 2.0
             """)
-        @test_throws ArgumentError read_embodiment_config(append_parameter)
+        @test_throws ArgumentError BrainlessLab.read_embodiment_config(append_parameter)
 
         structural_override = joinpath(temp, "structural_override.toml")
         write(structural_override, """
@@ -76,7 +76,7 @@ using TOML
             [overrides]
             "camera.kind" = "other_camera"
             """)
-        @test_throws ArgumentError read_embodiment_config(structural_override)
+        @test_throws ArgumentError BrainlessLab.read_embodiment_config(structural_override)
 
         unquoted_override = joinpath(temp, "unquoted_override.toml")
         write(unquoted_override, """
@@ -86,7 +86,7 @@ using TOML
             [overrides.camera]
             range = 4.0
             """)
-        @test_throws ArgumentError read_embodiment_config(unquoted_override)
+        @test_throws ArgumentError BrainlessLab.read_embodiment_config(unquoted_override)
 
         extends_with_components = joinpath(temp, "extends_with_components.toml")
         write(extends_with_components, """
@@ -98,7 +98,7 @@ using TOML
             family = "sensor"
             kind = "field_probe"
             """)
-        @test_throws ArgumentError read_embodiment_config(extends_with_components)
+        @test_throws ArgumentError BrainlessLab.read_embodiment_config(extends_with_components)
 
         self_path = joinpath(temp, "self.toml")
         write(self_path, """
@@ -106,7 +106,7 @@ using TOML
             name = "self"
             extends = "self.toml"
             """)
-        @test_throws ArgumentError read_embodiment_config(self_path)
+        @test_throws ArgumentError BrainlessLab.read_embodiment_config(self_path)
 
         absolute_base = joinpath(temp, "absolute_base.toml")
         open(absolute_base, "w") do io
@@ -119,7 +119,7 @@ using TOML
                 ),
             )
         end
-        @test_throws ArgumentError read_embodiment_config(absolute_base)
+        @test_throws ArgumentError BrainlessLab.read_embodiment_config(absolute_base)
 
         nested_base = joinpath(temp, "nested_base.toml")
         write(nested_base, """
@@ -133,7 +133,7 @@ using TOML
             name = "nested_child"
             extends = "nested_base.toml"
             """)
-        @test_throws ArgumentError read_embodiment_config(nested_child)
+        @test_throws ArgumentError BrainlessLab.read_embodiment_config(nested_child)
 
         unknown_key = joinpath(temp, "unknown.toml")
         write(unknown_key, """
@@ -145,7 +145,7 @@ using TOML
             family = "geometry"
             kind = "disc"
             """)
-        @test_throws ArgumentError read_embodiment_config(unknown_key)
+        @test_throws ArgumentError BrainlessLab.read_embodiment_config(unknown_key)
 
         unknown_component_key = joinpath(temp, "unknown_component.toml")
         write(unknown_component_key, """
@@ -157,7 +157,7 @@ using TOML
             kind = "disc"
             radius = 0.5
             """)
-        @test_throws ArgumentError read_embodiment_config(unknown_component_key)
+        @test_throws ArgumentError BrainlessLab.read_embodiment_config(unknown_component_key)
 
         duplicate = joinpath(temp, "duplicate.toml")
         write(duplicate, """
@@ -172,7 +172,7 @@ using TOML
             family = "sensor"
             kind = "field_probe"
             """)
-        @test_throws ArgumentError read_embodiment_config(duplicate)
+        @test_throws ArgumentError BrainlessLab.read_embodiment_config(duplicate)
 
         dotted_id = joinpath(temp, "dotted_id.toml")
         write(dotted_id, """
@@ -183,7 +183,7 @@ using TOML
             family = "sensor"
             kind = "field_probe"
             """)
-        @test_throws ArgumentError read_embodiment_config(dotted_id)
+        @test_throws ArgumentError BrainlessLab.read_embodiment_config(dotted_id)
 
         legacy_key = joinpath(temp, "legacy_key.toml")
         write(legacy_key, """
@@ -193,7 +193,7 @@ using TOML
             sensor_count = 62
             """)
         legacy_error = try
-            read_embodiment_config(legacy_key)
+            BrainlessLab.read_embodiment_config(legacy_key)
             nothing
         catch err
             err
@@ -211,7 +211,7 @@ using TOML
             kind = "kinematic"
             """)
         family_error = try
-            read_embodiment_config(legacy_family)
+            BrainlessLab.read_embodiment_config(legacy_family)
             nothing
         catch err
             err
@@ -228,7 +228,7 @@ using TOML
             family = "geometry"
             kind = "disc"
             """)
-        @test_throws ArgumentError read_embodiment_config(bad_schema)
+        @test_throws ArgumentError BrainlessLab.read_embodiment_config(bad_schema)
     end
 
     registered = Tuple{Symbol,Symbol}[]
@@ -244,7 +244,7 @@ using TOML
                 calls[] += 1
                 return (id=component.id, state=Float64[], parameters=component.parameters)
             end
-            descriptor = ComponentDescriptor(
+            descriptor = BrainlessLab.ComponentDescriptor(
                 family,
                 kind,
                 resolver;
@@ -256,15 +256,15 @@ using TOML
                 example_path=relpath(example, root),
                 root=root,
             )
-            register_component!(descriptor; replace=true)
+            BrainlessLab.register_component!(descriptor; replace=true)
             push!(registered, (family, kind))
         end
 
-        first_blueprints = materialize_blueprint.(configs)
-        second_blueprints = materialize_blueprint.(configs)
+        first_blueprints = BrainlessLab.materialize_blueprint.(configs)
+        second_blueprints = BrainlessLab.materialize_blueprint.(configs)
         expected_calls = 2 * sum(length(config.components) for config in configs)
         @test calls[] == expected_calls
-        @test all(blueprint -> blueprint isa EmbodimentBlueprint, first_blueprints)
+        @test all(blueprint -> blueprint isa BrainlessLab.EmbodimentBlueprint, first_blueprints)
         @test first_blueprints[1].components isa Tuple
         @test first_blueprints[1].components[1].id === :chassis
         @test first_blueprints[1].components[1].value.state !==
@@ -286,7 +286,7 @@ end
     root = pkgdir(BrainlessLab)
     key = (:accessory, :test_tag)
     previous = get(BrainlessLab.COMPONENTS, key, nothing)
-    descriptor = ComponentDescriptor(
+    descriptor = BrainlessLab.ComponentDescriptor(
         key...,
         component -> (tag=component.id,);
         readiness=:available,
@@ -298,14 +298,14 @@ end
         root=root,
     )
     try
-        register_component!(descriptor; replace=true)
-        component = ComponentConfig(:status_light, key..., NamedTuple())
-        config = EmbodimentConfig(1, :tagged_robot, (component,))
-        blueprint = materialize_blueprint(config)
+        BrainlessLab.register_component!(descriptor; replace=true)
+        component = BrainlessLab.ComponentConfig(:status_light, key..., NamedTuple())
+        config = BrainlessLab.EmbodimentConfig(1, :tagged_robot, (component,))
+        blueprint = BrainlessLab.materialize_blueprint(config)
         @test only(blueprint.components).family === :accessory
 
         err = try
-            materialize_embodiment(config)
+            BrainlessLab.materialize_embodiment(config)
             nothing
         catch caught
             caught

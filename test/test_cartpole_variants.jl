@@ -13,7 +13,7 @@ _cartpole_nothing_policy(env) = [0.0, 0.0]
 
 function _assert_cartpole_variant_runs(task::Symbol; seed::Integer=11, ticks::Integer=120)
     spec = resolve_task(task)
-    env = make_env(spec; rng=MersenneTwister(seed))
+    env = BrainlessLab.make_env(spec; rng=MersenneTwister(seed))
     @test n_receptors(env) == 8
     @test n_effectors(env) == 2
 
@@ -39,9 +39,13 @@ function _assert_balance_oracle(task::Symbol; seeds=1:5, ticks::Integer=400)
     baseline_scores = Float64[]
 
     for seed in seeds
-        oracle_env = make_env(task; rng=MersenneTwister(seed))
-        baseline_env = make_env(task; rng=MersenneTwister(seed))
-        oracle_metrics = _cartpole_variant_rollout(oracle_env, cartpole_balancer, ticks)
+        oracle_env = BrainlessLab.make_env(task; rng=MersenneTwister(seed))
+        baseline_env = BrainlessLab.make_env(task; rng=MersenneTwister(seed))
+        oracle_metrics = _cartpole_variant_rollout(
+            oracle_env,
+            BrainlessLab.cartpole_balancer,
+            ticks,
+        )
         baseline_metrics = _cartpole_variant_rollout(baseline_env, _cartpole_nothing_policy, ticks)
         push!(oracle_scores, Float64(oracle_metrics.score))
         push!(baseline_scores, Float64(baseline_metrics.score))
@@ -56,9 +60,13 @@ function _assert_swingup_oracle(; seeds=1:5, ticks::Integer=700)
     baseline_scores = Float64[]
 
     for seed in seeds
-        oracle_env = make_env(:cartpole_swingup; rng=MersenneTwister(seed))
-        baseline_env = make_env(:cartpole_swingup; rng=MersenneTwister(seed))
-        oracle_metrics = _cartpole_variant_rollout(oracle_env, cartpole_swingup_controller, ticks)
+        oracle_env = BrainlessLab.make_env(:cartpole_swingup; rng=MersenneTwister(seed))
+        baseline_env = BrainlessLab.make_env(:cartpole_swingup; rng=MersenneTwister(seed))
+        oracle_metrics = _cartpole_variant_rollout(
+            oracle_env,
+            BrainlessLab.cartpole_swingup_controller,
+            ticks,
+        )
         baseline_metrics = _cartpole_variant_rollout(baseline_env, _cartpole_nothing_policy, ticks)
         push!(oracle_scores, Float64(oracle_metrics.mean_uprightness))
         push!(baseline_scores, Float64(baseline_metrics.mean_uprightness))
@@ -70,7 +78,7 @@ end
 
 @testset "CartPole variants" begin
     @test :cartpole in tasks()
-    @test make_env(:cartpole; rng=MersenneTwister(1)) isa CartPoleEnv
+    @test BrainlessLab.make_env(:cartpole; rng=MersenneTwister(1)) isa BrainlessLab.CartPoleEnv
     result = simulate(:cartpole; node=:falandays, ticks=20, seed=1, record=Symbol[])
     @test result isa SimResult
     @test isfinite(Float64(result.metrics.score))

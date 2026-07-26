@@ -14,7 +14,7 @@ function _record_sweep_plan()
     return SweepPlan(
         :record_smoke,
         target;
-        axes=(SweepAxis(:gain, (0.5,)),),
+        axes=(BrainlessLab.SweepAxis(:gain, (0.5,)),),
         max_rollouts=1,
     )
 end
@@ -44,11 +44,11 @@ function _record_evolution_plan(; iterations=1)
             aggregate=:mean,
         ),
     )
-    run = Evolution.RunConfig(
+    run = BrainlessLab.Evolution.RunConfig(
         strategy=:sepcma,
         iterations=iterations,
         search_seed=606,
-        initialisation=Evolution.NormalInitialisation(
+        initialisation=BrainlessLab.Evolution.NormalInitialisation(
             centre=:zero,
             scale=0.1,
         ),
@@ -104,7 +104,7 @@ end
         "development",
         read(joinpath(directory, "seeds.csv"), String),
     )
-    resumed = Evolution.resume(directory)
+    resumed = BrainlessLab.Evolution.resume(directory)
     @test resumed.directory == directory
     @test length(resumed.result.candidates) == 4
     @test sort(readdir(joinpath(directory, "checkpoints"))) == [
@@ -126,7 +126,7 @@ function _record_anchor_benchmark_plan()
     )
     return BenchmarkPlan(
         :record_anchor_benchmark,
-        (BenchmarkCasePlan(:tracking, (target,)),),
+        (BrainlessLab.BenchmarkCasePlan(:tracking, (target,)),),
     )
 end
 
@@ -283,13 +283,13 @@ end
         ),
         EvaluationSpec(horizon=2, root_seed=919),
     )
-    batch = evaluate(target)
+    batch = BrainlessLab.evaluate(target)
     rows = BrainlessLab._append_seed_rows!(NamedTuple[], batch)
     @test length(rows) == 12
     @test Set(row.agent for row in rows) == Set((1, 2))
-    @test Set(row.stream for row in rows) == Set(seed_stream_names(target.evaluation))
-    @test trial_row(only(batch.trials)).seed_ledger_agents == 2
-    @test ismissing(trial_row(only(batch.trials)).topology_seed)
+    @test Set(row.stream for row in rows) == Set(BrainlessLab.seed_stream_names(target.evaluation))
+    @test BrainlessLab.trial_row(only(batch.trials)).seed_ledger_agents == 2
+    @test ismissing(BrainlessLab.trial_row(only(batch.trials)).topology_seed)
 end
 
 @testset "run_operation executes and writes one record" begin
@@ -297,7 +297,7 @@ end
     plan = _record_sweep_plan()
     root = mktempdir()
     run = run_operation(plan; registry, root, id="run-smoke")
-    @test run.result isa SweepResult
+    @test run.result isa BrainlessLab.SweepResult
     @test run.directory == joinpath(root, "run-smoke")
     @test isfile(joinpath(run.directory, "DONE"))
 end

@@ -65,7 +65,7 @@ function reset!(r::MyNode)
 end
 
 snapshot_state(r::MyNode) = (spikes=copy(r.spikes),)
-network_snapshot(r::MyNode) = (kind=:mynode, gain=r.gain)
+BrainlessLab.network_snapshot(r::MyNode) = (kind=:mynode, gain=r.gain)
 
 function load_state!(r::MyNode, state)
     copyto!(r.spikes, Float64.(state.spikes))
@@ -76,14 +76,14 @@ _myview(x; kwargs...) = x
 
 struct MyBody <: AbstractBody end
 
-sense!(::MyBody, percept) = percept
-decode!(::MyBody, e) = e
+BrainlessLab.sense!(::MyBody, percept) = percept
+BrainlessLab.decode!(::MyBody, e) = e
 n_receptors(::MyBody) = 2
 n_effectors(::MyBody) = 2
 
 struct MyDrive <: Drive end
 
-apply_drive!(::MyDrive, acts, targets, p, noise) = acts
+BrainlessLab.apply_drive!(::MyDrive, acts, targets, p, noise) = acts
 
 _custom_metric(metrics) = (:score in propertynames(metrics)) ? Float64(metrics.score) + 1.0 : 1.0
 
@@ -118,10 +118,10 @@ end
         @test resolve_task(sym) isa TaskSpec
     end
     @test resolve_task(:forage) isa TaskSpec
-    @test !has_objective(resolve_task(:torus))
-    @test has_objective(resolve_task(:forage))
+    @test !BrainlessLab.has_objective(resolve_task(:torus))
+    @test BrainlessLab.has_objective(resolve_task(:forage))
 
-    unregistered = TaskSpec(:unregistered_wall, WallEnv; default_ticks=4, default_window=4)
+    unregistered = TaskSpec(:unregistered_wall, BrainlessLab.WallEnv; default_ticks=4, default_window=4)
     direct = simulate(unregistered; node=:null_random, ticks=4, seed=9, record=Symbol[])
     @test direct.task == :unregistered_wall
 
@@ -138,15 +138,15 @@ end
 @testset "Tinkering smoke" begin
     register_node!(:mynode, MyNode; genome_type=MyNodeParams)
     @test resolve_node(:mynode) === MyNode
-    @test genome_type(:mynode) === MyNodeParams
+    @test BrainlessLab.genome_type(:mynode) === MyNodeParams
     @test :mynode in variants()
 
-    mytask = TaskSpec(:mytoy, WallEnv; default_ticks=20, default_window=10)
+    mytask = TaskSpec(:mytoy, BrainlessLab.WallEnv; default_ticks=20, default_window=10)
     register_task!(:mytoy, mytask)
     @test resolve_task(:mytoy).name == :mytoy
     @test :mytoy in tasks()
 
-    register_view!(:myview, _myview)
+    BrainlessLab.register_view!(:myview, _myview)
     @test resolve_view(:myview) === _myview
 
     register_body!(:mybody, MyBody)
@@ -170,7 +170,7 @@ end
     @test custom.task == :mytoy
     @test !isempty(getchannel(custom.recorder, :spikes))
     @test resolve_view(:myview)(custom) === custom
-    @test view(custom, :myview) === custom
+    @test BrainlessLab.view(custom, :myview) === custom
 
     body_sim = simulate(:wall; node=:mynode, body=:mybody, ticks=12, n_nodes=8)
     @test body_sim isa SimResult
@@ -183,7 +183,7 @@ end
     @test hasproperty(metric_sim.metrics, :custom_metric)
 
     packed = pack_params(MyNodeParams(1.25))
-    params = unpack_params(genome_type(:mynode), packed)
+    params = unpack_params(BrainlessLab.genome_type(:mynode), packed)
     stamped = simulate(
         :wall;
         node=:mynode,

@@ -2,7 +2,7 @@ using BrainlessLab
 using Test
 
 function _plan_target(id, task; blocks=1, trials=2, horizon=20)
-    composition = default_composition(DEFAULT_REGISTRY, :falandays, task)
+    composition = BrainlessLab.default_composition(DEFAULT_REGISTRY, :falandays, task)
     evaluation = EvaluationSpec(
         blocks=blocks,
         trials_per_block=trials,
@@ -27,8 +27,8 @@ end
         root_seed=91,
         aggregate=:none,
     )
-    batch = evaluate(EvaluationTarget(:tracking, composition, evaluation))
-    rows = trial_table(batch)
+    batch = BrainlessLab.evaluate(EvaluationTarget(:tracking, composition, evaluation))
+    rows = BrainlessLab.trial_table(batch)
     @test length(batch.trials) == 4
     @test length(rows) == 4
     @test rows[1].topology_seed == rows[2].topology_seed
@@ -42,7 +42,7 @@ end
         composition,
         EvaluationSpec(horizon=4, reset=:body_environment),
     )
-    @test_throws ArgumentError evaluate(unsupported)
+    @test_throws ArgumentError BrainlessLab.evaluate(unsupported)
 end
 
 @testset "Plank evaluation records explicit starts under one fixed design" begin
@@ -60,7 +60,7 @@ end
         root_seed=101,
         aggregate=:mean,
     )
-    rows = trial_table(evaluate(EvaluationTarget(:plank_easy, composition, evaluation)))
+    rows = BrainlessLab.trial_table(BrainlessLab.evaluate(EvaluationTarget(:plank_easy, composition, evaluation)))
     @test length(rows) == 2
     @test rows[1].topology_seed == rows[2].topology_seed
     @test rows[1].initial_state isa NTuple{4,Float64}
@@ -73,16 +73,16 @@ end
     pong = _plan_target(:pong, :pong)
 
     profile = ProfilePlan(:profile_tracking, tracking; record_every=2)
-    @test profile isa AbstractOperationPlan
+    @test profile isa BrainlessLab.AbstractOperationPlan
     @test isempty(profile.analyses)
     @test profile.record_every == 2
     @test_throws ArgumentError ProfilePlan(:bad, tracking; record_every=0)
 
-    axis = SweepAxis(:leak, (0.1, 0.25, 0.5))
+    axis = BrainlessLab.SweepAxis(:leak, (0.1, 0.25, 0.5))
     sweep = SweepPlan(:sweep_tracking, tracking; axes=(axis,), max_rollouts=100)
     @test sweep.mode === :factorial
     @test sweep.axes[1].values == (0.1, 0.25, 0.5)
-    @test_throws ArgumentError SweepAxis(:leak, ())
+    @test_throws ArgumentError BrainlessLab.SweepAxis(:leak, ())
     @test_throws ArgumentError SweepPlan(:bad, tracking; mode=:random)
 
     ablation = AblationPlan(
@@ -108,11 +108,11 @@ end
         ctrnn_composition,
         EvaluationSpec(horizon=1, root_seed=18, aggregate=:mean),
     )
-    run = Evolution.RunConfig(
+    run = BrainlessLab.Evolution.RunConfig(
         strategy=:sepcma,
         iterations=5,
         search_seed=17,
-        initialisation=Evolution.NormalInitialisation(
+        initialisation=BrainlessLab.Evolution.NormalInitialisation(
             centre=:zero,
             scale=0.1,
         ),
@@ -132,16 +132,16 @@ end
         run,
     )
 
-    tracking_case = BenchmarkCasePlan(
+    tracking_case = BrainlessLab.BenchmarkCasePlan(
         :tracking,
         (tracking,);
         baseline=:tracking,
     )
-    pong_case = BenchmarkCasePlan(:pong, (pong,); baseline=:pong)
+    pong_case = BrainlessLab.BenchmarkCasePlan(:pong, (pong,); baseline=:pong)
     benchmark = BenchmarkPlan(:core, (tracking_case, pong_case))
     @test Tuple(case.id for case in benchmark.cases) == (:tracking, :pong)
     @test !hasproperty(benchmark, :aggregate)
-    @test_throws ArgumentError BenchmarkCasePlan(
+    @test_throws ArgumentError BrainlessLab.BenchmarkCasePlan(
         :bad,
         (tracking,);
         baseline=:missing,
@@ -159,15 +159,15 @@ end
     )
     @test experiment.version == v"1.0.0"
     @test experiment.evidence_state === :exploratory
-    registry = ExperimentRegistry(:test_experiments)
-    @test register_experiment!(registry, experiment) === experiment
-    @test experiment_spec(
+    registry = BrainlessLab.ExperimentRegistry(:test_experiments)
+    @test BrainlessLab.register_experiment!(registry, experiment) === experiment
+    @test BrainlessLab.experiment_spec(
         :falandays_cross_task,
         v"1.0.0";
         experiments=registry,
     ) === experiment
-    @test experiments(registry) == [(:falandays_cross_task, v"1.0.0")]
-    @test_throws ArgumentError register_experiment!(registry, experiment)
+    @test BrainlessLab.experiments(registry) == [(:falandays_cross_task, v"1.0.0")]
+    @test_throws ArgumentError BrainlessLab.register_experiment!(registry, experiment)
 
     copied_tracking = EvaluationTarget(
         tracking.id,

@@ -68,7 +68,7 @@ using Test
     @test all(isfinite, reservoir.targets)
     @test all(isfinite, reservoir.wmat)
 
-    wall = falandays_paper_config(:wall)
+    wall = BrainlessLab.falandays_paper_config(:wall)
     @test wall.nnodes == 200
     @test wall.input_amp == 4.0
     @test wall.lrate_wmat == 1.0
@@ -78,7 +78,7 @@ using Test
     @test !wall.sensory_noise_assumption
     @test wall.clip_sensory_noise
 
-    tracking = falandays_paper_config(:tracking)
+    tracking = BrainlessLab.falandays_paper_config(:tracking)
     @test tracking.nnodes == 200
     @test tracking.input_amp == 0.75
     @test tracking.lrate_wmat == 1.0
@@ -86,15 +86,15 @@ using Test
     @test tracking.weight_init_mode === :excitatory
     @test tracking.sensory_noise == 0.0
 
-    pong = falandays_paper_config(:pong)
+    pong = BrainlessLab.falandays_paper_config(:pong)
     @test pong.nnodes == 500
     @test pong.input_amp == 2.75
     @test pong.lrate_wmat == 1.0
     @test pong.lrate_targ == 0.1
     @test pong.weight_init_mode === :pong_mixed
-    @test PONG_TASK.score_key === :hit_rate
+    @test BrainlessLab.PONG_TASK.score_key === :hit_rate
 
-    collective = falandays_paper_config(:collective)
+    collective = BrainlessLab.falandays_paper_config(:collective)
     @test collective.nnodes == 250
     @test collective.input_amp == 12.5
     @test collective.lrate_wmat == 0.10
@@ -110,10 +110,10 @@ end
 
 @testset "Falandays canonical name and compatibility alias" begin
     @test resolve_node(:falandays) === resolve_node(:falandays_base)
-    @test genome_type(:falandays) === FalandaysParams
-    @test genome_type(:falandays_base) === FalandaysParams
-    @test node_receptor_profile_keyword(:falandays) === :input_link_p
-    @test node_receptor_profile_keyword(:falandays_base) === :input_link_p
+    @test BrainlessLab.genome_type(:falandays) === FalandaysParams
+    @test BrainlessLab.genome_type(:falandays_base) === FalandaysParams
+    @test BrainlessLab.node_receptor_profile_keyword(:falandays) === :input_link_p
+    @test BrainlessLab.node_receptor_profile_keyword(:falandays_base) === :input_link_p
     @test :falandays_base in variants()
     @test !(:falandays_node in variants())
 
@@ -135,7 +135,7 @@ end
         canonical_reservoir = canonical.ensemble.agents[1].reservoir
         alias_reservoir = alias.ensemble.agents[1].reservoir
 
-        @test canonical.n_nodes == alias.n_nodes == falandays_paper_config(task).nnodes
+        @test canonical.n_nodes == alias.n_nodes == BrainlessLab.falandays_paper_config(task).nnodes
         @test canonical_reservoir.params == alias_reservoir.params
         @test canonical_reservoir.recurrent_mask == alias_reservoir.recurrent_mask
         @test canonical_reservoir.wmat0 == alias_reservoir.wmat0
@@ -195,7 +195,7 @@ end
 
 @testset "simulate injects task-specific Falandays base defaults" begin
     for task in (:wall, :tracking, :pong)
-        cfg = falandays_paper_config(task)
+        cfg = BrainlessLab.falandays_paper_config(task)
         setup = BrainlessLab._build_ensemble(task, :falandays; ticks=1, seed=10, record=Symbol[])
         reservoir = setup.ensemble.agents[1].reservoir
         @test setup.n_nodes == cfg.nnodes
@@ -208,7 +208,7 @@ end
 
     wall_setup = BrainlessLab._build_ensemble(:wall, :falandays; ticks=1, seed=10, record=Symbol[])
     wall_env = wall_setup.ensemble.environment
-    @test wall_env isa WallEnv
+    @test wall_env isa BrainlessLab.WallEnv
     @test wall_env.sensory_noise == 0.0
     @test wall_env.clip_sensory_noise == true
 

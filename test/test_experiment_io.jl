@@ -9,7 +9,7 @@ function _experiment_io_fixture()
             :null_random,
             :tracking;
             n_nodes=8,
-            interaction_cycle=FixedRateCycle(2),
+            interaction_cycle=BrainlessLab.FixedRateCycle(2),
         ),
         EvaluationSpec(
             blocks=1,
@@ -44,8 +44,8 @@ end
     @test parsed.version == experiment.version
     @test parsed.evidence_state === :planned
     @test parsed.metadata.programme == "core_demo"
-    @test operation_targets(only(parsed.operations))[1].composition.interaction_cycle ==
-        FixedRateCycle(2)
+    @test BrainlessLab.operation_targets(only(parsed.operations))[1].composition.interaction_cycle ==
+        BrainlessLab.FixedRateCycle(2)
     @test_throws ArgumentError write_experiment(directory, experiment)
 end
 
@@ -54,7 +54,7 @@ end
     root = mktempdir()
     run = run_experiment(experiment; root=root, id="experiment-run")
     @test length(run.results) == 1
-    @test only(run.results) isa ProfileResult
+    @test only(run.results) isa BrainlessLab.ProfileResult
     @test isfile(joinpath(run.directory, "experiment-run.toml"))
     @test isfile(joinpath(run.directory, "DONE"))
     @test isfile(joinpath(run.directory, only(run.records), "DONE"))

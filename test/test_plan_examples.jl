@@ -13,6 +13,6 @@ using Test
     for path in paths
         plan = read_plan(path)
         @test validate(plan, DEFAULT_REGISTRY) === plan
-        @test resolve(plan, DEFAULT_REGISTRY) isa AbstractResolvedOperationPlan
+        @test resolve(plan, DEFAULT_REGISTRY) isa BrainlessLab.AbstractResolvedOperationPlan
     end
 end

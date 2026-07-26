@@ -77,32 +77,33 @@ end
             @test sum(he[inm]) / count(inm) < sum(he[.!inm]) / count(.!inm)
         end
         @test resolve_analysis(:object_in_view) === object_in_view
-        @test analysis_meta(:object_in_view).task === :tracking
+        @test BrainlessLab.analysis_meta(:object_in_view).task === :tracking
         blind = simulate(:tracking; node=:falandays_base, ticks=20, record=(:rate,))
         @test_throws ArgumentError object_in_view(blind)
     end
 
     @testset "drive-conditioned windowed branching" begin
-        w = branching_ratio_mr_windowed(sim; level=:pooled, window=150, stride=75, drive=:object_in_view)
+        w = BrainlessLab.branching_ratio_mr_windowed(sim; level=:pooled, window=150, stride=75, drive=:object_in_view)
         @test length(w[2]) > 0
-        wh = branching_ratio_mr_windowed(sim; level=:pooled, window=150, stride=75, drive=:heading_error)
+        wh = BrainlessLab.branching_ratio_mr_windowed(sim; level=:pooled, window=150, stride=75, drive=:heading_error)
         @test length(wh[2]) == length(w[2])
-        @test_throws ArgumentError branching_ratio_mr_windowed(sim; level=:pooled, window=150, stride=75, drive=:bogus)
+        @test_throws ArgumentError BrainlessLab.branching_ratio_mr_windowed(sim; level=:pooled, window=150, stride=75, drive=:bogus)
 
-        c = branching_ratio_mr_conditioned(sim; window=150, stride=75)
+        c = BrainlessLab.branching_ratio_mr_conditioned(sim; window=150, stride=75)
         @test hasproperty(c, :m_in) && hasproperty(c, :m_out) && hasproperty(c, :m_diff)
         @test c.n_in + c.n_out > 0
-        @test resolve_analysis(:branching_ratio_mr_conditioned) === branching_ratio_mr_conditioned
+        @test resolve_analysis(:branching_ratio_mr_conditioned) ===
+              BrainlessLab.branching_ratio_mr_conditioned
     end
 
     @testset "temporal_null (within-network, condition-shuffle)" begin
         cond = object_in_view(sim)
-        mfn = (s, c) -> branching_ratio_mr_conditioned(s; condition=c, window=150, stride=75).m_diff
-        r1 = temporal_null(sim, cond, mfn; n_shifts=20, rng=MersenneTwister(1))
-        r2 = temporal_null(sim, cond, mfn; n_shifts=20, rng=MersenneTwister(1))
+        mfn = (s, c) -> BrainlessLab.branching_ratio_mr_conditioned(s; condition=c, window=150, stride=75).m_diff
+        r1 = BrainlessLab.temporal_null(sim, cond, mfn; n_shifts=20, rng=MersenneTwister(1))
+        r2 = BrainlessLab.temporal_null(sim, cond, mfn; n_shifts=20, rng=MersenneTwister(1))
         @test isfinite(r1.real)
         @test r1.null_mean == r2.null_mean        # deterministic in the seed
         @test hasproperty(r1, :ratio) && hasproperty(r1, :null_std)
-        @test resolve_analysis(:temporal_null) === temporal_null
+        @test resolve_analysis(:temporal_null) === BrainlessLab.temporal_null
     end
 end

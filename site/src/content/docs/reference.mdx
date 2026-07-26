@@ -6,6 +6,10 @@ description: Discover registered implementations and inspect the current composi
 This page lists the stable entry points for current platform work. Query the registries
 instead of copying a static list of built-in names.
 
+`using BrainlessLab` imports the core single-agent workflow and extension contracts.
+Supported experimental and lower-level interfaces remain available as
+`BrainlessLab.name`, but do not enter the caller's namespace.
+
 ## Discover registered items
 
 `DEFAULT_REGISTRY` contains nodes, tasks, bodies, analyses, search strategies, ablations,
@@ -19,32 +23,32 @@ tasks(DEFAULT_REGISTRY)
 tasks(DEFAULT_REGISTRY; tag=:benchmark)
 analyses(DEFAULT_REGISTRY; task=:tracking)
 ablations(DEFAULT_REGISTRY)
-compositions(DEFAULT_REGISTRY)
-Evolution.search_strategies(DEFAULT_REGISTRY)
+BrainlessLab.compositions(DEFAULT_REGISTRY)
+BrainlessLab.Evolution.search_strategies(DEFAULT_REGISTRY)
 ```
 
 Resolve one descriptor:
 
 ```julia
 node = node_spec(DEFAULT_REGISTRY, :falandays)
-task = task_spec(DEFAULT_REGISTRY, :tracking)
-preset = composition_spec(DEFAULT_REGISTRY, :falandays_tracking)
+task = BrainlessLab.task_spec(DEFAULT_REGISTRY, :tracking)
+preset = BrainlessLab.composition_spec(DEFAULT_REGISTRY, :falandays_tracking)
 ```
 
 Other typed registries are available as fields of `DEFAULT_REGISTRY`:
 
 ```julia
 sort!(collect(keys(DEFAULT_REGISTRY.bodies)); by=string)
-Evolution.search_strategy(DEFAULT_REGISTRY, :sepcma)
+BrainlessLab.Evolution.search_strategy(DEFAULT_REGISTRY, :sepcma)
 ```
 
 The configured embodiment component catalogue is separate:
 
 ```julia
-components()
-components(family=:sensor)
-component_info(:sensor, :spectral_camera)
-readiness()
+BrainlessLab.components()
+BrainlessLab.components(family=:sensor)
+BrainlessLab.component_info(:sensor, :spectral_camera)
+BrainlessLab.readiness()
 ```
 
 Component readiness describes software integration. It does not establish scientific
@@ -63,7 +67,7 @@ composition = CompositionSpec(
     parameters=Dict(:leak => 0.25),
 )
 
-resolved = resolve_composition(composition, DEFAULT_REGISTRY)
+resolved = BrainlessLab.resolve_composition(composition, DEFAULT_REGISTRY)
 ```
 
 Fields:
@@ -158,13 +162,13 @@ See [Operations](/handbook/operations/) for the complete workflow.
 declares the complete search contract:
 
 ```julia
-run = Evolution.RunConfig(;
+run = BrainlessLab.Evolution.RunConfig(;
     strategy=:sepcma,
     iterations=2,
     search_seed=0x2a,
     measure=:normalized_score,
     direction=:maximise,
-    initialisation=Evolution.NormalInitialisation(
+    initialisation=BrainlessLab.Evolution.NormalInitialisation(
         centre=:zero,
         scale=0.25,
     ),
@@ -202,7 +206,7 @@ node count, body structure, or ports.
 An interrupted run can continue from its last complete generation:
 
 ```julia
-continued = Evolution.resume(record_directory; registry=DEFAULT_REGISTRY)
+continued = BrainlessLab.Evolution.resume(record_directory; registry=DEFAULT_REGISTRY)
 ```
 
 Resume validates and updates the same record directory. It continues to the original
@@ -212,7 +216,7 @@ Resume validates and updates the same record directory. It continues to the orig
 Load one recorded model by stable role:
 
 ```julia
-model = Evolution.model_reference(record_directory, "selected")
+model = BrainlessLab.Evolution.model_reference(record_directory, "selected")
 target = EvaluationTarget(:saved_model, composition, evaluation; model=model)
 ```
 
@@ -246,9 +250,9 @@ Allowed evidence states are `:planned`, `:exploratory`, `:tuned`, `:frozen`, `:c
 ```julia
 write_experiment("experiments/my-experiment", experiment)
 loaded = read_experiment("experiments/my-experiment")
-register_experiment!(loaded)
-experiments()
-experiment_spec(:my_experiment, v"1.0.0")
+BrainlessLab.register_experiment!(loaded)
+BrainlessLab.experiments()
+BrainlessLab.experiment_spec(:my_experiment, v"1.0.0")
 ```
 
 Repeated condition names must have identical definitions in every operation. Declared
@@ -274,10 +278,10 @@ range = 10.0
 Use:
 
 ```julia
-config = read_embodiment_config(path)
-canonical_embodiment_toml(config)
-write_embodiment_config(output_path, config)
-body = materialize_embodiment(config)
+config = BrainlessLab.read_embodiment_config(path)
+BrainlessLab.canonical_embodiment_toml(config)
+BrainlessLab.write_embodiment_config(output_path, config)
+body = BrainlessLab.materialize_embodiment(config)
 ```
 
 Component IDs must be unique and cannot contain `.`. Unknown keys and parameters fail
@@ -298,8 +302,8 @@ the anchor values and provenance.
 Typed operation results support:
 
 ```julia
-tables(result)
-summary(result)
+BrainlessLab.tables(result)
+BrainlessLab.summary(result)
 ```
 
 The record writer stores authoritative CSV tables, a compact JSON summary, the submitted

@@ -4,8 +4,8 @@ using StaticArrays
 using Test
 
 @testset "Spatial Falandays connectome" begin
-    @test connection_prob(ExpKernel(0.5, 0.3), 0.0) >
-          connection_prob(ExpKernel(0.5, 0.3), 1.0)
+    @test BrainlessLab.connection_prob(BrainlessLab.ExpKernel(0.5, 0.3), 0.0) >
+          BrainlessLab.connection_prob(BrainlessLab.ExpKernel(0.5, 0.3), 1.0)
 
     r = resolve_node(:falandays_spatial)(24, 3, 2; seed=7)
     @test spatiality(r.connectome) == Embedded{2}()
@@ -16,10 +16,10 @@ using Test
     sim = simulate(:wall; node=:falandays_spatial, ticks=50, seed=1)
     @test isfinite(Float64(sim.metrics.score))
 
-    space = MetricSpace(SVector(0.0, 0.0), SVector(1.0, 1.0))
-    rule = SpatialRule(space, ExpKernel(0.5, 0.3), 0.1, 1.0)
-    c1 = build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11))
-    c2 = build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11))
+    space = BrainlessLab.MetricSpace(SVector(0.0, 0.0), SVector(1.0, 1.0))
+    rule = BrainlessLab.SpatialRule(space, BrainlessLab.ExpKernel(0.5, 0.3), 0.1, 1.0)
+    c1 = BrainlessLab.build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11))
+    c2 = BrainlessLab.build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11))
     @test c1.recurrent_mask == c2.recurrent_mask
 end
 
@@ -27,7 +27,7 @@ end
     params = FalandaysParams()
 
     build_test_connectome(N=8, R=4, E=4; seed=13, kwargs...) =
-        build_hemispheric_connectome(
+        BrainlessLab.build_hemispheric_connectome(
             N,
             R,
             E;
@@ -84,26 +84,26 @@ end
 end
 
 @testset "Power-law spatial kernel" begin
-    k = PowerLawKernel(0.5, 0.3, 2.0)
-    @test connection_prob(k, 0.0) == 0.5
-    @test connection_prob(k, 1.0) < connection_prob(k, 0.0)
-    @test connection_prob(k, 0.5) > connection_prob(k, 5.0)
-    @test connection_prob(k, 1e6) >= 0.0
+    k = BrainlessLab.PowerLawKernel(0.5, 0.3, 2.0)
+    @test BrainlessLab.connection_prob(k, 0.0) == 0.5
+    @test BrainlessLab.connection_prob(k, 1.0) < BrainlessLab.connection_prob(k, 0.0)
+    @test BrainlessLab.connection_prob(k, 0.5) > BrainlessLab.connection_prob(k, 5.0)
+    @test BrainlessLab.connection_prob(k, 1e6) >= 0.0
 
     @test_throws ArgumentError BrainlessLab._spatial_kernel(:bogus, 0.5, 0.3, 0.3, 2.0)
-    @test BrainlessLab._spatial_kernel(:exp, 0.5, 0.3, 0.3, 2.0) isa ExpKernel
-    @test BrainlessLab._spatial_kernel(:power_law, 0.5, 0.3, 0.3, 2.0) isa PowerLawKernel
+    @test BrainlessLab._spatial_kernel(:exp, 0.5, 0.3, 0.3, 2.0) isa BrainlessLab.ExpKernel
+    @test BrainlessLab._spatial_kernel(:power_law, 0.5, 0.3, 0.3, 2.0) isa BrainlessLab.PowerLawKernel
 
-    space = MetricSpace(SVector(0.0, 0.0), SVector(1.0, 1.0))
-    rule = SpatialRule(space, PowerLawKernel(0.9, 0.3, 1.5), 0.1, 1.0)
-    c1 = build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11))
-    c2 = build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11))
+    space = BrainlessLab.MetricSpace(SVector(0.0, 0.0), SVector(1.0, 1.0))
+    rule = BrainlessLab.SpatialRule(space, BrainlessLab.PowerLawKernel(0.9, 0.3, 1.5), 0.1, 1.0)
+    c1 = BrainlessLab.build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11))
+    c2 = BrainlessLab.build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11))
     @test c1.recurrent_mask == c2.recurrent_mask
     @test isempty(c1.embedding.effector_anchor)
 
-    c_spatial_eff = build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11); effector_wiring=:spatial)
+    c_spatial_eff = BrainlessLab.build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11); effector_wiring=:spatial)
     @test length(c_spatial_eff.embedding.effector_anchor) == 2
-    @test_throws ArgumentError build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11); effector_wiring=:bogus)
+    @test_throws ArgumentError BrainlessLab.build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11); effector_wiring=:bogus)
 
     sim = simulate(:wall; node=:falandays_spatial, ticks=30, seed=1,
         node_kwargs=(kernel=:power_law, d0=0.3, alpha=2.0, effector_wiring=:spatial))
@@ -113,7 +113,7 @@ end
 @testset "Hemispheric power-law kernel + spatial effector wiring" begin
     params = FalandaysParams()
     build_test_connectome(N=8, R=4, E=4; seed=13, kwargs...) =
-        build_hemispheric_connectome(
+        BrainlessLab.build_hemispheric_connectome(
             N,
             R,
             E;

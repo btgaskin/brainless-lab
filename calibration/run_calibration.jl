@@ -2,4 +2,4 @@
 
 using BrainlessLab
 
-write_calibration_report()
+BrainlessLab.write_calibration_report()

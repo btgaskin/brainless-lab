@@ -22,17 +22,17 @@ end
     plan = BenchmarkPlan(
         :core_smoke,
         (
-            BenchmarkCasePlan(
+            BrainlessLab.BenchmarkCasePlan(
                 :tracking,
                 (tracking_base, tracking_low_gain);
                 baseline=:tracking_base,
             ),
-            BenchmarkCasePlan(:pong, (pong_base,)),
+            BrainlessLab.BenchmarkCasePlan(:pong, (pong_base,)),
         ),
     )
     result = execute(plan; registry)
-    result_tables = tables(result)
-    @test result isa BenchmarkResult
+    result_tables = BrainlessLab.tables(result)
+    @test result isa BrainlessLab.BenchmarkResult
     @test length(result_tables.trials) == 6
     @test Set(row.case for row in result_tables.statistics) == Set((:tracking, :pong))
     @test length(result_tables.contrasts) == 1
@@ -51,9 +51,9 @@ end
                row.normalized_floor_count + row.normalized_ceiling_count,
         result_tables.statistics,
     )
-    @test summary(result).cases == (:tracking, :pong)
-    @test !hasproperty(summary(result), :aggregate)
-    @test_throws ArgumentError BenchmarkCasePlan(
+    @test BrainlessLab.summary(result).cases == (:tracking, :pong)
+    @test !hasproperty(BrainlessLab.summary(result), :aggregate)
+    @test_throws ArgumentError BrainlessLab.BenchmarkCasePlan(
         :missing_baseline,
         (tracking_base, tracking_low_gain),
     )
@@ -61,7 +61,7 @@ end
     unpaired = _benchmark_target(:unpaired, :tracking; root_seed=56)
     bad = BenchmarkPlan(
         :bad,
-        (BenchmarkCasePlan(
+        (BrainlessLab.BenchmarkCasePlan(
             :tracking,
             (tracking_base, unpaired);
             baseline=:tracking_base,
@@ -71,7 +71,7 @@ end
 
     cross_task = BenchmarkPlan(
         :cross_task,
-        (BenchmarkCasePlan(
+        (BrainlessLab.BenchmarkCasePlan(
             :invalid,
             (tracking_base, pong_base);
             baseline=:tracking_base,
@@ -92,7 +92,7 @@ end
     )
     bad_protocol = BenchmarkPlan(
         :bad_protocol,
-        (BenchmarkCasePlan(
+        (BrainlessLab.BenchmarkCasePlan(
             :tracking,
             (tracking_base, mismatched_protocol);
             baseline=:tracking_base,

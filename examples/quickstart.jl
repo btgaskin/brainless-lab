@@ -13,7 +13,7 @@ let
     )
     if isdefined(Main, :CairoMakie)
         fig = visualize(sim)
-        raster = rasterplot(sim)
+        raster = BrainlessLab.rasterplot(sim)
 
         Main.CairoMakie.save(joinpath(output_dir, "quickstart_visualize.png"), fig)
         Main.CairoMakie.save(joinpath(output_dir, "quickstart_raster.png"), raster)

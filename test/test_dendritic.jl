@@ -4,7 +4,7 @@ using Test
 @testset "Dendritic (eligibility-tag) node" begin
     @testset "registration + build" begin
         @test :falandays_dendritic in variants()
-        r = DendriticReservoir(40, 3, 2; seed=1)
+        r = BrainlessLab.DendriticReservoir(40, 3, 2; seed=1)
         @test n_receptors(r) == 3
         @test n_effectors(r) == 2
         @test size(r.wmat) == (40, 40)
@@ -16,8 +16,8 @@ using Test
     end
 
     @testset "determinism by seed" begin
-        r1 = DendriticReservoir(30, 2, 2; seed=42)
-        r2 = DendriticReservoir(30, 2, 2; seed=42)
+        r1 = BrainlessLab.DendriticReservoir(30, 2, 2; seed=42)
+        r2 = BrainlessLab.DendriticReservoir(30, 2, 2; seed=42)
         @test r1.wmat == r2.wmat
         @test r1.dend_id == r2.dend_id
         inp = [0.4, 0.3]
@@ -32,7 +32,7 @@ using Test
         sim = simulate(:wall; node=:falandays_dendritic, ticks=300, seed=0)
         @test isfinite(sim.metrics.score)
 
-        r = DendriticReservoir(60, 3, 2; seed=3)
+        r = BrainlessLab.DendriticReservoir(60, 3, 2; seed=3)
         inp = [0.6, 0.2, 0.1]
         fired = false
         for _ in 1:300
@@ -47,14 +47,14 @@ using Test
         # With no presynaptic spikes, base-style plasticity would make no update.
         # A dendritic spike (forced via a large dendritic drive) must still license
         # a weight change — the defining feature of this variant.
-        driven = DendriticReservoir(8, 2, 2; seed=7,
+        driven = BrainlessLab.DendriticReservoir(8, 2, 2; seed=7,
                                     link_p=1.0, dend_drive=50.0, drive_floor=50.0)
         w0 = copy(driven.wmat)
         step!(driven, [0.0, 0.0])            # first tick: prev_spikes all zero
         @test any(driven.wmat .!= w0)
 
         # No dendritic drive + no presynaptic spikes ⇒ no recurrent weight change.
-        quiet = DendriticReservoir(8, 2, 2; seed=7,
+        quiet = BrainlessLab.DendriticReservoir(8, 2, 2; seed=7,
                                    link_p=1.0, dend_drive=0.0)
         wq = copy(quiet.wmat)
         step!(quiet, [0.0, 0.0])
@@ -63,7 +63,7 @@ using Test
 
     @testset "eligibility_only=false injects somatic current" begin
         # Dendritic spikes should raise somatic activation when not eligibility-only.
-        r = DendriticReservoir(12, 2, 2; seed=5,
+        r = BrainlessLab.DendriticReservoir(12, 2, 2; seed=5,
                                link_p=1.0, dend_drive=50.0, drive_floor=50.0,
                                eligibility_only=false)
         # Seed some recurrent activity so dendrites receive input, then step.
@@ -74,7 +74,7 @@ using Test
     end
 
     @testset "reset! restores initial state" begin
-        r = DendriticReservoir(20, 2, 2; seed=9)
+        r = BrainlessLab.DendriticReservoir(20, 2, 2; seed=9)
         inp = [0.5, 0.5]
         for _ in 1:40
             step!(r, inp)

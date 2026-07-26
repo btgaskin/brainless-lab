@@ -16,14 +16,14 @@ const _SENSOR_DEFAULT_ANGLES_DEG = Float64[
 
 @testset "Default sensor is a strict byte-identical no-op" begin
     s = BL.BEARING_DEFAULT
-    @test s isa BearingSensor
-    @test s isa AbstractSensor
-    @test resolve_sensor(:bearing_cone) === BearingSensor
+    @test s isa BrainlessLab.BearingSensor
+    @test s isa BrainlessLab.AbstractSensor
+    @test resolve_sensor(:bearing_cone) === BrainlessLab.BearingSensor
 
     # canonical geometry pinned to the literal 62-vector
     @test BL.angles_deg(s) == _SENSOR_DEFAULT_ANGLES_DEG
     @test length(_SENSOR_DEFAULT_ANGLES_DEG) == 62
-    @test n_sensors(s) == 62
+    @test BrainlessLab.n_sensors(s) == 62
     @test BL.encoding(s) == :binary
     @test s.tuning_deg == 0.0
 
@@ -36,10 +36,10 @@ const _SENSOR_DEFAULT_ANGLES_DEG = Float64[
     @test BL.DEFAULT_SIGNAL_RECEPTOR_INDEX == 65
 
     # default situated-sensor widths + ports unchanged
-    @test n_receptors(portspec(SituatedSensorLayout())) == 64
-    @test n_receptors(portspec(SituatedSensorLayout(sensor=BearingSensor()))) == 64
-    ports_default = ports(portspec(SituatedSensorLayout())).receptors
-    ports_explicit = ports(portspec(SituatedSensorLayout(sensor=BearingSensor()))).receptors
+    @test n_receptors(portspec(BrainlessLab.SituatedSensorLayout())) == 64
+    @test n_receptors(portspec(BrainlessLab.SituatedSensorLayout(sensor=BrainlessLab.BearingSensor()))) == 64
+    ports_default = BrainlessLab.ports(portspec(BrainlessLab.SituatedSensorLayout())).receptors
+    ports_explicit = BrainlessLab.ports(portspec(BrainlessLab.SituatedSensorLayout(sensor=BrainlessLab.BearingSensor()))).receptors
     @test [p.id for p in ports_default] == [p.id for p in ports_explicit]
     @test [p.placement for p in ports_default] == [p.placement for p in ports_explicit]
 end
@@ -49,7 +49,7 @@ end
         base = simulate(task; node=:falandays_base, n_agents=6, n_nodes=40, ticks=50,
                         seed=7, record=(:poses,), metrics=(:polarization, :milling))
         withs = simulate(task; node=:falandays_base, n_agents=6, n_nodes=40, ticks=50,
-                         seed=7, sensor=BearingSensor(), record=(:poses,),
+                         seed=7, sensor=BrainlessLab.BearingSensor(), record=(:poses,),
                          metrics=(:polarization, :milling))
         @test getchannel(base.recorder, :poses) == getchannel(withs.recorder, :poses)
         @test base.metrics.polarization == withs.metrics.polarization
@@ -58,30 +58,30 @@ end
 end
 
 @testset "encoding :binary/:graded match the legacy sens_agent_dist knob" begin
-    torus = Torus(15.0)
+    torus = BrainlessLab.Torus(15.0)
     positions = [(5.0, 5.0), (7.0, 6.0), (4.0, 8.0), (8.0, 4.5)]
     ang = BL.SENS_ANGLES_RAD
     r = 0.5
     # Symbol encoding passed positionally == old integer knob (0 -> binary, 1 -> graded).
-    bin_old = sense_agents(positions[1], 0.3, positions, 1, r, torus, ang, 0, 0.0, MersenneTwister(0))
-    bin_new = sense_agents(positions[1], 0.3, positions, 1, r, torus, ang, :binary, 0.0, MersenneTwister(0))
-    grd_old = sense_agents(positions[1], 0.3, positions, 1, r, torus, ang, 1, 0.0, MersenneTwister(0))
-    grd_new = sense_agents(positions[1], 0.3, positions, 1, r, torus, ang, :graded, 0.0, MersenneTwister(0))
+    bin_old = BrainlessLab.sense_agents(positions[1], 0.3, positions, 1, r, torus, ang, 0, 0.0, MersenneTwister(0))
+    bin_new = BrainlessLab.sense_agents(positions[1], 0.3, positions, 1, r, torus, ang, :binary, 0.0, MersenneTwister(0))
+    grd_old = BrainlessLab.sense_agents(positions[1], 0.3, positions, 1, r, torus, ang, 1, 0.0, MersenneTwister(0))
+    grd_new = BrainlessLab.sense_agents(positions[1], 0.3, positions, 1, r, torus, ang, :graded, 0.0, MersenneTwister(0))
     @test bin_new == bin_old
     @test grd_new == grd_old
     @test bin_new != grd_new
 
     # An unknown encoding is rejected.
-    @test_throws ArgumentError sense_agents(positions[1], 0.3, positions, 1, r, torus, ang, :bogus, 0.0)
+    @test_throws ArgumentError BrainlessLab.sense_agents(positions[1], 0.3, positions, 1, r, torus, ang, :bogus, 0.0)
 
     # A :graded sensor forces the graded map through the full sim; default is binary.
     common = (node=:falandays_base, n_agents=6, n_nodes=40, ticks=40, seed=7, record=(:poses,))
-    binary_sim = simulate(:torus; common..., sensor=BearingSensor(encoding=:binary))
-    graded_sim = simulate(:torus; common..., sensor=BearingSensor(encoding=:graded))
+    binary_sim = simulate(:torus; common..., sensor=BrainlessLab.BearingSensor(encoding=:binary))
+    graded_sim = simulate(:torus; common..., sensor=BrainlessLab.BearingSensor(encoding=:graded))
     legacy_graded = simulate(:torus; common..., sens_agent_dist=1)
     @test binary_sim.config.environment.sensor.kind == :bearing
     @test binary_sim.config.environment.sensor.n_sensors == 62
-    @test binary_sim.config.environment.sensor.angles_deg == BL.angles_deg(BearingSensor())
+    @test binary_sim.config.environment.sensor.angles_deg == BL.angles_deg(BrainlessLab.BearingSensor())
     @test binary_sim.config.environment.sensor.encoding == :binary
     @test binary_sim.config.environment.motor.kind == :kinematic
     @test binary_sim.config.environment.agent_radius == 0.5
@@ -91,7 +91,7 @@ end
 end
 
 @testset "BearingSensor validation and coercion" begin
-    s = BearingSensor(
+    s = BrainlessLab.BearingSensor(
         angles_deg=(-30, 0, 30),
         angle_range_deg=[-90, 90],
         tuning_range_deg=[0, 15],
@@ -103,28 +103,28 @@ end
     @test s.enabled == BitVector([true, false, true])
     @test BL.angles_deg(s) == [-30.0, 30.0]
 
-    @test_throws ArgumentError BearingSensor(angles_deg=[0.0, Inf])
-    @test_throws ArgumentError BearingSensor(tuning_deg=NaN)
-    @test_throws ArgumentError BearingSensor(angle_range_deg=[-90.0, 0.0, 90.0])
-    @test_throws ArgumentError BearingSensor(angle_range_deg=(90.0, -90.0))
-    @test_throws ArgumentError BearingSensor(tuning_range_deg=(0.0, NaN))
+    @test_throws ArgumentError BrainlessLab.BearingSensor(angles_deg=[0.0, Inf])
+    @test_throws ArgumentError BrainlessLab.BearingSensor(tuning_deg=NaN)
+    @test_throws ArgumentError BrainlessLab.BearingSensor(angle_range_deg=[-90.0, 0.0, 90.0])
+    @test_throws ArgumentError BrainlessLab.BearingSensor(angle_range_deg=(90.0, -90.0))
+    @test_throws ArgumentError BrainlessLab.BearingSensor(tuning_range_deg=(0.0, NaN))
 end
 
 @testset "Non-default geometry: receptor width tracks 2 + n_sensors and runs" begin
-    s = bearing_eyes(n_per_eye=15, half_fov_deg=45.0)   # two eyes -> 30 rays
-    @test n_sensors(s) == 30
-    @test n_receptors(portspec(SituatedSensorLayout(sensor=s))) == 2 + 30
-    @test n_receptors(portspec(SituatedSensorLayout(sensor=s, source_bank=true))) == (2 + 30) + (2 + 30)
+    s = BrainlessLab.bearing_eyes(n_per_eye=15, half_fov_deg=45.0)   # two eyes -> 30 rays
+    @test BrainlessLab.n_sensors(s) == 30
+    @test n_receptors(portspec(BrainlessLab.SituatedSensorLayout(sensor=s))) == 2 + 30
+    @test n_receptors(portspec(BrainlessLab.SituatedSensorLayout(sensor=s, source_bank=true))) == (2 + 30) + (2 + 30)
 
     # ports carry the spec's actual angle placement, generalized off n_sensors.
-    rec_ports = ports(portspec(SituatedSensorLayout(sensor=s))).receptors
+    rec_ports = BrainlessLab.ports(portspec(BrainlessLab.SituatedSensorLayout(sensor=s))).receptors
     @test length(rec_ports) == 32
     @test [p.id for p in rec_ports[3:end]] == [Symbol("bearing_", i) for i in 1:30]
     @test [p.placement for p in rec_ports[3:end]] == BL.angles_deg(s)
 
     # single-eye spec also runs and matches its width.
-    single = bearing_eyes(n_eyes=1, eye_offsets_deg=(0.0,), half_fov_deg=60.0, n_per_eye=21)
-    @test n_sensors(single) == 21
+    single = BrainlessLab.bearing_eyes(n_eyes=1, eye_offsets_deg=(0.0,), half_fov_deg=60.0, n_per_eye=21)
+    @test BrainlessLab.n_sensors(single) == 21
     sim = simulate(:torus; node=:falandays_base, n_agents=6, n_nodes=40, ticks=30, seed=7,
                    sensor=single, record=Symbol[], metrics=(:polarization, :milling))
     @test isfinite(sim.metrics.polarization)
@@ -143,37 +143,37 @@ end
 @testset "enabled mask reduces the active ray count" begin
     mask = trues(62)
     mask[1:10] .= false
-    gated = BearingSensor(enabled=mask)
-    @test n_sensors(gated) == 52
+    gated = BrainlessLab.BearingSensor(enabled=mask)
+    @test BrainlessLab.n_sensors(gated) == 52
     @test length(BL.angles_deg(gated)) == 52
     @test BL.angles_deg(gated) == BL.angles_deg(BL.BEARING_DEFAULT)[mask]
-    @test n_receptors(portspec(SituatedSensorLayout(sensor=gated))) == 2 + 52
+    @test n_receptors(portspec(BrainlessLab.SituatedSensorLayout(sensor=gated))) == 2 + 52
 
     # A wrong-length mask is rejected.
-    @test_throws DimensionMismatch BearingSensor(enabled=trues(5))
+    @test_throws DimensionMismatch BrainlessLab.BearingSensor(enabled=trues(5))
     # An unknown encoding is rejected at construction.
-    @test_throws ArgumentError BearingSensor(encoding=:nope)
+    @test_throws ArgumentError BrainlessLab.BearingSensor(encoding=:nope)
 end
 
 @testset "paramspace / pack_params / unpack_params roundtrip (raw per-ray angles)" begin
-    s = bearing_eyes(n_per_eye=15, half_fov_deg=45.0)
+    s = BrainlessLab.bearing_eyes(n_per_eye=15, half_fov_deg=45.0)
     space = BL.paramspace(s)
-    @test length(space) == n_sensors(s)          # one entry per active ray, no tuning
-    @test BL.paramdim(s) == n_sensors(s)
+    @test length(space) == BrainlessLab.n_sensors(s)          # one entry per active ray, no tuning
+    @test BL.paramdim(s) == BrainlessLab.n_sensors(s)
     @test all(e -> e.lo == -180.0 && e.hi == 180.0, space)
     @test [e.label for e in space] == [Symbol("angle_", i) for i in 1:n_sensors(s)]
 
     g = BL.pack_params(s)
     @test length(g) == BL.paramdim(s)
     s2 = BL.unpack_params(s, g)
-    @test s2 isa BearingSensor
+    @test s2 isa BrainlessLab.BearingSensor
     @test isapprox(BL.angles_deg(s2), BL.angles_deg(s); atol=1e-6)
     @test BL.encoding(s2) == BL.encoding(s)
     # roundtrip is idempotent on the raw genome.
     @test isapprox(BL.pack_params(s2), g; atol=1e-8)
 
     # tuning enters the parameter space only when its range is non-degenerate.
-    st = BearingSensor(tuning_range_deg=(0.0, 30.0), tuning_deg=5.0)
+    st = BrainlessLab.BearingSensor(tuning_range_deg=(0.0, 30.0), tuning_deg=5.0)
     @test BL.paramdim(st) == 62 + 1
     @test BL.paramspace(st)[end].label == :tuning
     gt = BL.pack_params(st)
@@ -183,7 +183,7 @@ end
 
     # the enabled mask restricts the genome to the active rays and is preserved.
     mask = trues(62); mask[1:10] .= false
-    sg = BearingSensor(enabled=mask)
+    sg = BrainlessLab.BearingSensor(enabled=mask)
     @test BL.paramdim(sg) == 52
     sg2 = BL.unpack_params(sg, BL.pack_params(sg))
     @test sg2.enabled == sg.enabled

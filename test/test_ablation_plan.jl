@@ -40,7 +40,7 @@ function _with_ablation_parameter(
 end
 
 function _register_test_ablations!(registry)
-    freeze = AblationSpec(
+    freeze = BrainlessLab.AblationSpec(
         :freeze_plasticity,
         source -> _with_ablation_parameter(
             source,
@@ -51,7 +51,7 @@ function _register_test_ablations!(registry)
         stage=:composition,
         required_capabilities=(:online_plasticity,),
     )
-    clamp = AblationSpec(
+    clamp = BrainlessLab.AblationSpec(
         :clamp_target,
         source -> _with_ablation_parameter(
             source,
@@ -65,12 +65,12 @@ function _register_test_ablations!(registry)
     register!(
         registry,
         :ablations,
-        ImplementationSpec(:freeze_plasticity, freeze),
+        BrainlessLab.ImplementationSpec(:freeze_plasticity, freeze),
     )
     register!(
         registry,
         :ablations,
-        ImplementationSpec(:clamp_target, clamp),
+        BrainlessLab.ImplementationSpec(:clamp_target, clamp),
     )
     return registry
 end
@@ -91,7 +91,7 @@ end
     @test resolved.cases[2].target.composition.parameters[:gain] == 0.5
     @test resolved.cases[3].target.composition.parameters[:bias] == -0.25
 
-    missing_capability = AblationSpec(
+    missing_capability = BrainlessLab.AblationSpec(
         :requires_dendrites,
         source -> _with_ablation_parameter(source, :dendrites, :gain, 0.25);
         required_capabilities=(:dendrites,),
@@ -99,14 +99,14 @@ end
     register!(
         registry,
         :ablations,
-        ImplementationSpec(:requires_dendrites, missing_capability),
+        BrainlessLab.ImplementationSpec(:requires_dendrites, missing_capability),
     )
     @test_throws ArgumentError BrainlessLab.resolve(
         AblationPlan(:bad_capability, target; ablations=(:requires_dendrites,)),
         registry,
     )
 
-    reservoir_stage = AblationSpec(
+    reservoir_stage = BrainlessLab.AblationSpec(
         :reservoir_stage,
         identity;
         stage=:reservoir,
@@ -114,7 +114,7 @@ end
     register!(
         registry,
         :ablations,
-        ImplementationSpec(:reservoir_stage, reservoir_stage),
+        BrainlessLab.ImplementationSpec(:reservoir_stage, reservoir_stage),
     )
     @test_throws ArgumentError BrainlessLab.resolve(
         AblationPlan(:bad_stage, target; ablations=(:reservoir_stage,)),
@@ -124,7 +124,7 @@ end
     register!(
         registry,
         :ablations,
-        ImplementationSpec(:raw_intervention, FreezePlasticity),
+        BrainlessLab.ImplementationSpec(:raw_intervention, BrainlessLab.FreezePlasticity),
     )
     @test_throws ArgumentError BrainlessLab.resolve(
         AblationPlan(:raw, target; ablations=(:raw_intervention,)),
@@ -134,9 +134,9 @@ end
     register!(
         registry,
         :ablations,
-        ImplementationSpec(
+        BrainlessLab.ImplementationSpec(
             :baseline,
-            AblationSpec(:baseline, source -> deepcopy(source)),
+            BrainlessLab.AblationSpec(:baseline, source -> deepcopy(source)),
         ),
     )
     @test_throws ArgumentError BrainlessLab.resolve(
