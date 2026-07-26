@@ -38,7 +38,7 @@ function _build_env(name::AbstractString, data)
     if name == "wall"
         return WallEnv(; rng=draws)
     elseif name == "tracking"
-        return TrackingEnv(; rng=draws)
+        return TrackingEnv(; rng=draws, randomize_start=false)
     elseif name == "pong"
         return PongEnv(; rng=draws)
     elseif name == "cartpole"
@@ -199,7 +199,7 @@ end
     end
 
     @testset "tracking sensor flat top" begin
-        tracking = TrackingEnv(; rng=RecordedDraws(Float64[]))
+        tracking = TrackingEnv(; rng=RecordedDraws(Float64[]), randomize_start=false)
         sensors = sense(tracking)
         @test sensors[33] == 1.0
         @test exp(-(4.0^2) / 10.0) < 0.21
@@ -233,7 +233,7 @@ end
 
 @testset "TaskWorld RNG fields are concrete" begin
     wall = WallEnv(; rng=RecordedDraws([1.0, 1.0, 0.0]))
-    tracking = TrackingEnv(; rng=RecordedDraws(Float64[]))
+    tracking = TrackingEnv(; rng=RecordedDraws(Float64[]), randomize_start=false)
     pong = PongEnv(; rng=RecordedDraws([250.0, 1.0]))
     cartpole = CartPoleEnv(; rng=RecordedDraws([0.0, 0.0, 0.0, 0.0]))
     variant = CartPoleVariantEnv(; rng=RecordedDraws([0.0, 0.0, 0.0, 0.0]))

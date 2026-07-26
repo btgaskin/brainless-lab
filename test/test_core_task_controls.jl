@@ -11,9 +11,9 @@ end
 
 @testset "core task sensory controls" begin
     @testset "tracking gain is explicit and validated" begin
-        default = TrackingEnv()
-        explicit = TrackingEnv(; sensory_gain=1.0)
-        blind = TrackingEnv(; sensory_gain=0.0)
+        default = TrackingEnv(; rng=MersenneTwister(11))
+        explicit = TrackingEnv(; rng=MersenneTwister(11), sensory_gain=1.0)
+        blind = TrackingEnv(; rng=MersenneTwister(11), sensory_gain=0.0)
 
         @test sense(default) == sense(explicit)
         @test any(!iszero, sense(default))
@@ -51,11 +51,9 @@ end
     for seed in 1:5
         tracking = TrackingEnv(;
             rng=MersenneTwister(seed),
-            randomize_start=true,
         )
         stationary_tracking = TrackingEnv(;
             rng=MersenneTwister(seed),
-            randomize_start=true,
         )
         push!(
             tracking_reference,

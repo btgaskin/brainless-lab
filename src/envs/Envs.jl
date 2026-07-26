@@ -149,7 +149,7 @@ function TrackingEnv(;
     eye_offset_deg::Real=30.0,
     sensor_offsets_deg::AbstractVector{<:Real}=collect(-60.0:4.0:60.0),
     sensory_gain::Real=1.0,
-    randomize_start::Bool=false,
+    randomize_start::Bool=true,
     theta0=nothing,
     phi0=nothing,
     direction0=nothing,

@@ -21,7 +21,13 @@ using Random
     end
 
     @testset "freeze freezes recurrent weights and flips learn_on" begin
-        setup = BrainlessLab._build_ensemble(:tracking, :falandays_base; ticks=80, seed=0)
+        setup = BrainlessLab._build_ensemble(
+            :tracking,
+            :falandays_base;
+            ticks=80,
+            seed=0,
+            env_kwargs=(randomize_start=false,),
+        )
         res = setup.ensemble.agents[1].reservoir
         w0 = copy(res.wmat)
         BrainlessLab.rollout!(setup.ensemble, 80; window=setup.window,
@@ -30,7 +36,13 @@ using Random
         @test res.wmat == w0
 
         # control: with learning on, recurrent weights DO change
-        setup2 = BrainlessLab._build_ensemble(:tracking, :falandays_base; ticks=80, seed=0)
+        setup2 = BrainlessLab._build_ensemble(
+            :tracking,
+            :falandays_base;
+            ticks=80,
+            seed=0,
+            env_kwargs=(randomize_start=false,),
+        )
         res2 = setup2.ensemble.agents[1].reservoir
         w0b = copy(res2.wmat)
         BrainlessLab.rollout!(setup2.ensemble, 80; window=setup2.window)
