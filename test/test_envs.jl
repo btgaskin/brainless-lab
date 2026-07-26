@@ -218,9 +218,15 @@ end
         pong.hit_flags = [1, 0, 0]
         pong.miss_flags = [0, 1, 1]
         pong.align_flags = [0.1, 0.2, 1.0]
-        m = metrics(pong, 1)
-        @test m.hit_rate ≈ 1 / 3 atol=ENV_ATOL
-        @test m.score === m.hit_rate
+        final_tick = metrics(pong, 1)
+        full_run = metrics(pong, 3)
+        @test final_tick.hit_rate == 0.0
+        @test final_tick.mean_align == 1.0
+        @test full_run.hit_rate ≈ 1 / 3 atol=ENV_ATOL
+        @test full_run.mean_align ≈ (0.1 + 0.2 + 1.0) / 3 atol=ENV_ATOL
+        @test final_tick.hit_rate != full_run.hit_rate
+        @test final_tick.mean_align != full_run.mean_align
+        @test final_tick.score === final_tick.hit_rate
         @test PONG_TASK.score_key === :hit_rate
     end
 end

@@ -450,7 +450,7 @@ function reset!(env::PongEnv)
 end
 
 function metrics(env::PongEnv, window::Integer=default_window(env))
-    bounds = eachindex(env.hit_flags)
+    bounds = _tail_bounds(length(env.hit_flags), Int(window))
     hits = isempty(bounds) ? 0 : Int(sum(@view env.hit_flags[bounds]))
     misses = isempty(bounds) ? 0 : Int(sum(@view env.miss_flags[bounds]))
     denom = hits + misses
