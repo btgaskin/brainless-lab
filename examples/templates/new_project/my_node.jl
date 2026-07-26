@@ -19,54 +19,105 @@ Base.@kwdef struct MyNodeParams <: NodeModel
     learn_on::Bool = true
 end
 
+const MY_NODE_PARAM_RANGES = (
+    leak=(0.0, 0.95),
+    lrate_wmat=(1.0e-4, 1.0),
+    lrate_targ=(1.0e-4, 0.5),
+    threshold_mult=(0.1, 5.0),
+    target_floor=(0.01, 3.0),
+    input_gain=(0.0, 4.0),
+    recurrent_scale=(0.0, 3.0),
+    weight_limit=(0.1, 10.0),
+)
+
 paramdim(::Type{MyNodeParams}) = 8
 paramdim(::MyNodeParams) = 8
 
 pack_params(::Type{MyNodeParams}) = pack_params(MyNodeParams())
 
+function _my_sigmoid(raw::Real)
+    value = Float64(raw)
+    if value >= 0.0
+        z = exp(-value)
+        return inv(1.0 + z)
+    else
+        z = exp(value)
+        return z / (1.0 + z)
+    end
+end
+
+function _my_logit(probability::Real)
+    bounded = clamp(Float64(probability), 1.0e-12, 1.0 - 1.0e-12)
+    return log(bounded / (1.0 - bounded))
+end
+
+_my_decode(raw::Real, range) =
+    range[1] + (range[2] - range[1]) * _my_sigmoid(raw)
+
+function _my_encode(value::Real, range)
+    physical = Float64(value)
+    range[1] <= physical <= range[2] || throw(ArgumentError(
+        "parameter value $physical lies outside the supported range $range",
+    ))
+    return _my_logit((physical - range[1]) / (range[2] - range[1]))
+end
+
+_my_range_validator(range) =
+    value -> value isa Float64 &&
+        isfinite(value) &&
+        range[1] <= value <= range[2]
+
+_my_parameter(name::Symbol, default::Float64; sweep=nothing) = ParameterSpec(
+    name,
+    default;
+    validator=_my_range_validator(getproperty(MY_NODE_PARAM_RANGES, name)),
+    sweep=sweep,
+)
+
+# Model fields remain readable physical values. Pack and unpack map them to
+# unconstrained optimiser coordinates through fixed bounded sigmoid bijections.
 pack_params(p::MyNodeParams) = Float64[
-    p.leak,
-    p.lrate_wmat,
-    p.lrate_targ,
-    p.threshold_mult,
-    p.target_floor,
-    p.input_gain,
-    p.recurrent_scale,
-    p.weight_limit,
+    _my_encode(p.leak, MY_NODE_PARAM_RANGES.leak),
+    _my_encode(p.lrate_wmat, MY_NODE_PARAM_RANGES.lrate_wmat),
+    _my_encode(p.lrate_targ, MY_NODE_PARAM_RANGES.lrate_targ),
+    _my_encode(p.threshold_mult, MY_NODE_PARAM_RANGES.threshold_mult),
+    _my_encode(p.target_floor, MY_NODE_PARAM_RANGES.target_floor),
+    _my_encode(p.input_gain, MY_NODE_PARAM_RANGES.input_gain),
+    _my_encode(p.recurrent_scale, MY_NODE_PARAM_RANGES.recurrent_scale),
+    _my_encode(p.weight_limit, MY_NODE_PARAM_RANGES.weight_limit),
 ]
 
-function unpack_params(::Type{MyNodeParams}, raw::AbstractVector{<:Real})
+function unpack_params(
+    ::Type{MyNodeParams},
+    raw::AbstractVector{<:Real};
+    learn_on::Bool=true,
+)
     length(raw) == paramdim(MyNodeParams) ||
         throw(ArgumentError("expected $(paramdim(MyNodeParams)) MyNode params, got $(length(raw))"))
     return MyNodeParams(
-        leak=clamp(Float64(raw[1]), 0.0, 0.95),
-        lrate_wmat=max(0.0, Float64(raw[2])),
-        lrate_targ=max(0.0, Float64(raw[3])),
-        threshold_mult=max(0.1, Float64(raw[4])),
-        target_floor=max(0.01, Float64(raw[5])),
-        input_gain=max(0.0, Float64(raw[6])),
-        recurrent_scale=max(0.0, Float64(raw[7])),
-        weight_limit=max(0.1, Float64(raw[8])),
-        learn_on=true,
+        leak=_my_decode(raw[1], MY_NODE_PARAM_RANGES.leak),
+        lrate_wmat=_my_decode(raw[2], MY_NODE_PARAM_RANGES.lrate_wmat),
+        lrate_targ=_my_decode(raw[3], MY_NODE_PARAM_RANGES.lrate_targ),
+        threshold_mult=_my_decode(
+            raw[4],
+            MY_NODE_PARAM_RANGES.threshold_mult,
+        ),
+        target_floor=_my_decode(raw[5], MY_NODE_PARAM_RANGES.target_floor),
+        input_gain=_my_decode(raw[6], MY_NODE_PARAM_RANGES.input_gain),
+        recurrent_scale=_my_decode(
+            raw[7],
+            MY_NODE_PARAM_RANGES.recurrent_scale,
+        ),
+        weight_limit=_my_decode(raw[8], MY_NODE_PARAM_RANGES.weight_limit),
+        learn_on=learn_on,
     )
 end
+
+unpack_params(p::MyNodeParams, raw::AbstractVector{<:Real}) =
+    unpack_params(MyNodeParams, raw; learn_on=p.learn_on)
 
 _as_my_params(p::MyNodeParams) = p
 _as_my_params(raw::AbstractVector{<:Real}) = unpack_params(MyNodeParams, raw)
-
-function _as_my_params(p::BrainlessLab.FalandaysParams)
-    return MyNodeParams(
-        leak=p.leak,
-        lrate_wmat=p.lrate_wmat,
-        lrate_targ=p.lrate_targ,
-        threshold_mult=p.threshold_mult,
-        target_floor=p.targ_min,
-        input_gain=p.input_weight,
-        recurrent_scale=p.weight_init_std,
-        weight_limit=max(1.0, 3.0 * p.weight_init_std),
-        learn_on=p.learn_on,
-    )
-end
 
 function _float_vector(x, name::AbstractString)
     values = Float64.(vec(collect(x)))
@@ -277,17 +328,25 @@ function load_state!(r::MyNode, state)
 end
 
 function build_my_node(context::NodeBuildContext, values)
-    params = MyNodeParams(
-        leak=values[:leak],
-        lrate_wmat=values[:lrate_wmat],
-        lrate_targ=values[:lrate_targ],
-        threshold_mult=values[:threshold_mult],
-        target_floor=values[:target_floor],
-        input_gain=values[:input_gain],
-        recurrent_scale=values[:recurrent_scale],
-        weight_limit=values[:weight_limit],
-        learn_on=values[:learn_on],
-    )
+    params = if context.model === nothing
+        MyNodeParams(
+            leak=values[:leak],
+            lrate_wmat=values[:lrate_wmat],
+            lrate_targ=values[:lrate_targ],
+            threshold_mult=values[:threshold_mult],
+            target_floor=values[:target_floor],
+            input_gain=values[:input_gain],
+            recurrent_scale=values[:recurrent_scale],
+            weight_limit=values[:weight_limit],
+            learn_on=values[:learn_on],
+        )
+    elseif context.model isa MyNodeParams
+        context.model
+    else
+        throw(ArgumentError(
+            "my_node model must be MyNodeParams, got $(typeof(context.model))",
+        ))
+    end
     seed = Int(mod(context.seeds.topology, UInt64(typemax(Int))))
     return MyNode(
         context.n_nodes,
@@ -307,29 +366,27 @@ const MY_NODE_SPEC = NodeSpec(
     tags=(:experimental,),
     capabilities=(:online_plasticity, :recurrent_weights, :homeostatic_target),
     parameters=(
-        ParameterSpec(:leak, 0.25; sweep=(0.1, 0.25, 0.5), evolve=(lower=0.0, upper=0.95)),
-        ParameterSpec(:lrate_wmat, 0.04; sweep=(0.01, 0.04, 0.1), evolve=(lower=1.0e-4, upper=1.0, scale=:log)),
-        ParameterSpec(:lrate_targ, 0.01; evolve=(lower=1.0e-4, upper=0.5, scale=:log)),
-        ParameterSpec(:threshold_mult, 2.0; evolve=(lower=0.1, upper=5.0)),
-        ParameterSpec(:target_floor, 1.0; evolve=(lower=0.01, upper=3.0, scale=:log)),
-        ParameterSpec(:input_gain, 1.4; evolve=(lower=0.0, upper=4.0)),
-        ParameterSpec(:recurrent_scale, 0.7; evolve=(lower=0.0, upper=3.0)),
-        ParameterSpec(:weight_limit, 3.0; evolve=(lower=0.1, upper=10.0, scale=:log)),
+        _my_parameter(:leak, 0.25; sweep=(0.1, 0.25, 0.5)),
+        _my_parameter(:lrate_wmat, 0.04; sweep=(0.01, 0.04, 0.1)),
+        _my_parameter(:lrate_targ, 0.01),
+        _my_parameter(:threshold_mult, 2.0),
+        _my_parameter(:target_floor, 1.0),
+        _my_parameter(:input_gain, 1.4),
+        _my_parameter(:recurrent_scale, 0.7),
+        _my_parameter(:weight_limit, 3.0),
         ParameterSpec(:learn_on, true),
-        ParameterSpec(:link_p, 0.18; owner=:reservoir, sweep=(0.1, 0.18, 0.3), evolve=(lower=0.01, upper=0.8)),
+        ParameterSpec(
+            :link_p,
+            0.18;
+            owner=:reservoir,
+            validator=value -> value isa Float64 &&
+                isfinite(value) &&
+                0.0 <= value <= 1.0,
+            sweep=(0.1, 0.18, 0.3),
+        ),
     ),
     parameter_sets=Dict(
         :sweep => (:leak, :lrate_wmat),
-        :evolve => (
-            :leak,
-            :lrate_wmat,
-            :lrate_targ,
-            :threshold_mult,
-            :target_floor,
-            :input_gain,
-            :recurrent_scale,
-            :weight_limit,
-        ),
         :connectivity => (:link_p,),
     ),
 )
