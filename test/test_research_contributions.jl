@@ -465,6 +465,20 @@ end
     _refresh_contribution_inventory!(seeds)
     @test_throws ArgumentError compare_contribution(seeds)
 
+    data = _copy_contribution(fixture.directory)
+    record = only(
+        joinpath(data, "replay", "operations", name)
+        for name in readdir(joinpath(data, "replay", "operations"))
+    )
+    open(joinpath(record, "data", "trials.csv"), "a") do io
+        write(io, "\n")
+    end
+    _refresh_record_checksum!(joinpath(data, "replay"), "data/trials.csv")
+    _refresh_contribution_inventory!(data)
+    comparison = compare_contribution(data; write=true)
+    @test !only(comparison["operations"])["data_equal"]
+    @test_throws ArgumentError validate_contribution(data; repository=nothing)
+
     protocol = _copy_contribution(fixture.directory)
     plan_path = only(
         joinpath(protocol, "replay", "protocol", "plans", name)

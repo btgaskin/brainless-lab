@@ -596,6 +596,11 @@ function validate_contribution(
         replay_run.experiment.version == submission_run.experiment.version ||
         throw(ArgumentError("replay ExperimentSpec does not match submission"))
     comparison = compare_contribution(directory)
+    for operation in comparison["operations"]
+        operation["data_equal"] || throw(ArgumentError(
+            "operation $(operation["index"]) replay data and summary artifacts differ",
+        ))
+    end
     comparison_path = joinpath(directory, "comparison.json")
     isfile(comparison_path) || throw(ArgumentError("contribution is missing comparison.json"))
     read(comparison_path, String) == _json(comparison) * "\n" || throw(ArgumentError(

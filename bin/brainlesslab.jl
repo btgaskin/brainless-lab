@@ -102,6 +102,10 @@ function main(args=ARGS)
         write && println("comparison: ", joinpath(source_path, "comparison.json"))
         println("configuration equal: ", comparison["configuration_equal"])
         println("seeds equal: ", comparison["seeds_equal"])
+        println(
+            "data equal: ",
+            all(operation -> operation["data_equal"], comparison["operations"]),
+        )
         return 0
     end
 
