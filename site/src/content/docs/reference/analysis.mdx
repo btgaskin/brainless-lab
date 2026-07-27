@@ -8,7 +8,10 @@ mechanism by itself. Read each analysis beside the task outcome, sampling protoc
 diagnostics, and a control that matches the claim.
 
 `ProfilePlan` is the standard way to request registered analyses. The executor records the
-channels they require and reports analysis failures explicitly.
+channels they require and reports analysis failures explicitly. The default Falandays
+profile contains `node_target_error`, `spectral_radius`, and `fano_factor`. Experimental
+analyses remain registered and requestable by name, but a default profile does not run
+them.
 
 ## Specify the method before the run
 
@@ -67,6 +70,10 @@ The fitted decay gives the branching estimate $m$ under the estimator's assumpti
 it with the accepted lags, fit quality, sample count, and per-agent distribution. A value
 near one is not sufficient evidence of criticality.
 
+The current experimental implementation reads a synthetic process with true $m=0.50$ as
+$0.816$. Its only ground-truth regression test uses $m=0.90$, where this bias is not
+visible. Treat the estimate as biased until a suitable calibration shows otherwise.
+
 The Falandays rule directly regulates activity. This feedback can hold an activity
 statistic near a target. Compare branching estimates with controls and other diagnostics
 before assigning a critical interpretation.
@@ -116,10 +123,16 @@ describe collective order such as polarisation. Similar equations do not make th
 levels numerically commensurate. Compare their locations across a declared control sweep,
 not their raw magnitudes.
 
+Susceptibility and participation ratio remain experimental. Independent Bernoulli activity
+gives susceptibility a rate floor of $p(1-p)$. Two zero-correlation reservoirs with 10%
+and 30% activity therefore differ by about 2.4 times from rate alone. Match activity rates
+before comparing this measure.
+
 Participation ratio needs enough recorded ticks as well as enough simultaneously observed
-units. The implementation rejects a series with fewer recorded ticks than units because
-its rank ceiling would dominate the result. Susceptibility remains experimental; the rate
-summary and participation ratio are core descriptive diagnostics.
+units. Its covariance rank, and therefore its reported value, cannot exceed
+`n_ticks - 1`. The implementation rejects a series with fewer recorded ticks than units
+because this ceiling would otherwise dominate silently. The activity-rate summary remains
+a core descriptive diagnostic.
 
 <p class="bl-source">Source: <code>src/analysis/ActivityLevels.jl</code>, <code>src/analysis/SecondOrder.jl</code>.</p>
 
@@ -155,8 +168,9 @@ $$
 $$
 
 The suite can apply it to node spike trains or agent movement events. The estimate can be
-biased upwards with finite samples. Check stationarity, binning sensitivity, sample count,
-time-shift surrogates, and correction across tested pairs.
+biased upwards with finite samples. On independent data at `N=500` and `bins=8`, it reports
+`0.674` bits: 22% of the 3-bit dynamic range. Check stationarity, binning sensitivity,
+sample count, time-shift surrogates, and correction across tested pairs.
 
 Transfer entropy shows predictive information under the estimator. It does not by itself
 show direct causal influence.

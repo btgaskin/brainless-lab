@@ -120,6 +120,12 @@ register_node!(
     receptor_profile_keyword=:input_link_p,
 ) # compatibility alias of :falandays
 register_node!(
+    :falandays_swarm_legacy,
+    _falandays_swarm_legacy_native;
+    genome_type=FalandaysParams,
+    receptor_profile_keyword=:input_link_p,
+)
+register_node!(
     :falandays_noisy,
     _falandays_noisy_native;
     genome_type=FalandaysParams,
@@ -196,7 +202,7 @@ register_analysis!(:spectral_radius, spectral_radius; label="spectral radius ρ(
 register_analysis!(:susceptibility, susceptibility; label="susceptibility χ (experimental)")
 register_analysis!(:susceptibility_windowed, susceptibility_windowed; label="windowed susceptibility χ (experimental)")
 register_analysis!(:fano_factor, fano_factor; label="activity-rate summary (mean, variance, Fano)")
-register_analysis!(:participation_ratio, participation_ratio; label="participation ratio")
+register_analysis!(:participation_ratio, participation_ratio; label="participation ratio (experimental)")
 register_analysis!(:swarm_regime, swarm_regime; label="swarm regime classifier (experimental)")
 register_analysis!(:correlation_length, correlation_length; label="swarm velocity correlation length (experimental)")
 register_analysis!(:correlation_length_windowed, correlation_length_windowed; label="windowed swarm velocity correlation length (experimental)")

@@ -366,7 +366,7 @@ function integrate! end
 """
     rawspec(object)
 
-Describe the raw physical samples produced by a sensor, sensor bank, body, or
+Describe the raw physical samples produced by a sensor, body, or
 environment before receptor encoding.
 """
 function rawspec end

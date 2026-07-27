@@ -251,8 +251,9 @@ end
 """
     correlation_length_windowed(sim; window, stride=window, nbins=12, crossing=:zero)
 
-Compute the swarm velocity-correlation length over sliding windows of recorded
-pose transitions. Returns `(; t_centers, correlation_length, window, stride)`.
+Compute the EXPERIMENTAL swarm velocity-correlation length over sliding windows
+of recorded pose transitions. Returns
+`(; t_centers, correlation_length, window, stride)`.
 """
 function correlation_length_windowed(sim::SimResult; window::Integer, stride::Integer=window, nbins::Integer=12, crossing::Symbol=:zero)
     window = Int(window)
@@ -326,8 +327,9 @@ end
 """
     contact_graph_clusters(sim; radius=nothing)
 
-Build the per-tick within-radius contact graph and summarize connected
-components. `radius=nothing` reuses `sim.config.environment.vision_range`.
+Build the EXPERIMENTAL per-tick within-radius contact graph and summarize
+connected components. `radius=nothing` reuses
+`sim.config.environment.vision_range`.
 """
 function contact_graph_clusters(sim::SimResult; radius=nothing)
     radius_, n_components, largest_component_frac, mean_component_size, n_agents =
@@ -356,7 +358,7 @@ end
 """
     contact_graph_clusters_windowed(sim; window, stride=window, radius=nothing)
 
-Return sliding-window means of contact-graph component summaries.
+Return EXPERIMENTAL sliding-window means of contact-graph component summaries.
 """
 function contact_graph_clusters_windowed(sim::SimResult; window::Integer, stride::Integer=window, radius=nothing)
     window = Int(window)

@@ -169,14 +169,6 @@ _sim_rng(seed) = seed === nothing ? MersenneTwister() : MersenneTwister(Int(seed
 _default_node_count(node::Symbol) = get(_NODE_DEFAULT_N, node, 100)
 
 const _FALANDAYS_ALIASES = Set{Symbol}((:falandays, :falandays_base))
-const _FALANDAYS_NATIVE_COMPAT_NODES = Set{Symbol}((
-    :falandays,
-    :falandays_base,
-    :falandays_noisy,
-    :falandays_extended,
-    :falandays_ablated,
-    :falandays_oosawa,
-))
 
 _falandays_config_key(task::Symbol) = task === :pong_hitrate ? :pong : task
 _has_falandays_paper_config(task::Symbol) = haskey(FALANDAYS_PAPER_CONFIG, _falandays_config_key(task))
@@ -438,20 +430,28 @@ function _apply_falandays_task_defaults!(
     return nothing
 end
 
-function _preserve_swarm_falandays_defaults!(
-    node::Symbol,
-    is_swarm::Bool,
-    node_kwargs::Dict{Symbol,Any},
-)
-    (is_swarm && node in _FALANDAYS_NATIVE_COMPAT_NODES) || return nothing
-    _setdefault!(node_kwargs, :weight_init_mode, :legacy_normal)
-    _setdefault!(node_kwargs, :repair_masks, true)
-    _setdefault!(node_kwargs, :rectify, true)
-    return nothing
-end
-
 function _falandays_native(n_nodes::Integer, n_receptors_::Integer, n_effectors_::Integer; seed=nothing, kwargs...)
     return FalandaysReservoir(Int(n_nodes), Int(n_receptors_), Int(n_effectors_); seed=seed, kwargs...)
+end
+
+function _falandays_swarm_legacy_native(
+    n_nodes::Integer,
+    n_receptors_::Integer,
+    n_effectors_::Integer;
+    seed=nothing,
+    kwargs...,
+)
+    options = _kwdict(kwargs)
+    _setdefault!(options, :weight_init_mode, :legacy_normal)
+    _setdefault!(options, :repair_masks, true)
+    _setdefault!(options, :rectify, true)
+    return _falandays_native(
+        n_nodes,
+        n_receptors_,
+        n_effectors_;
+        seed=seed,
+        _kwargs_tuple(options)...,
+    )
 end
 
 function _sorn_native(n_nodes::Integer, n_receptors_::Integer, n_effectors_::Integer; seed=nothing, kwargs...)
@@ -1000,51 +1000,6 @@ function _ports_config(body::AbstractBody)
     )
 end
 
-function _sensory_bank_config(bank::SensorBank)
-    return (
-        name=bank.name,
-        source=_sensory_source_config(bank.source),
-        modality=_sensory_modality_config(bank.modality),
-        norm_mode=bank.norm_mode,
-        norm_sigma=bank.norm_sigma,
-        gain=bank.gain,
-        link_p=bank.link_p,
-    )
-end
-
-_sensory_source_config(source::ObjectSource) = (
-    kind=:objects,
-    name=source_name(source),
-)
-
-_sensory_source_config(source::SpatialFieldSource) = (
-    kind=:spatial_field,
-    name=source_name(source),
-)
-
-_sensory_source_config(::ConspecificSource) = (kind=:conspecifics,)
-
-_sensory_modality_config(modality::BearingModality) = (
-    kind=:bearing,
-    range=modality.range,
-    curve=_curve_config(modality.curve),
-    sensor=_sensor_config(modality.sensor),
-)
-
-_sensory_modality_config(modality::FieldModality) = (
-    kind=:field,
-    range=modality.range,
-    curve=_curve_config(modality.curve),
-    probe_count=modality.probe_count,
-    probe_radius=modality.probe_radius,
-    aggregation=modality.aggregation,
-)
-
-_sensory_modality_config(modality::OffModality) = (
-    kind=:off,
-    underlying=_sensory_modality_config(modality.modality),
-)
-
 function _sensor_component_config(sensor::SituatedSensorLayout)
     return (
         kind=:situated,
@@ -1058,7 +1013,6 @@ function _sensor_component_config(sensor::SituatedSensorLayout)
         n_colours=sensor.n_colours,
         colour_sensing=sensor.colour_sensing,
         sensor=_sensor_config(sensor.sensor),
-        sensory_banks=Tuple(_sensory_bank_config(bank) for bank in sensor.sensory_banks),
     )
 end
 
@@ -1633,7 +1587,6 @@ function _build_ensemble(task_spec::TaskSpec, node::Symbol; ticks=nothing, seed=
 
     node_kwargs = _merge_kwdicts(node_kwargs, options)
     _apply_falandays_task_defaults!(task_spec.name, node, is_swarm, node_kwargs, task_options)
-    _preserve_swarm_falandays_defaults!(node, is_swarm, node_kwargs)
     ablation_sym = _prepare_ablation_options!(node, task_spec.name, is_swarm, node_kwargs, task_options, ablation_arg)
     ablation_notes = _ablation_notes(ablation_sym, node, task_spec.name, is_swarm)
     n_nodes = _resolve_n_nodes!(node, task_spec.name, explicit_n_nodes, node_kwargs, is_swarm)

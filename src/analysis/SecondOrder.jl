@@ -1,10 +1,3 @@
-# Lightweight second-order activity signatures.
-#
-# These are intentionally lightweight finite-window estimators for comparing
-# node-within-reservoir and agent-within-ensemble regimes. Susceptibility remains
-# experimental. Rate summaries and participation ratio are descriptive core
-# diagnostics without stationarity tests or across-run uncertainty estimates.
-
 function _second_order_level(level::Symbol, name::Symbol)
     level = _analysis_level(level, name)
     level == :pooled &&
@@ -143,6 +136,11 @@ Compute an EXPERIMENTAL finite-window susceptibility estimate.
 At `level=:node`, each agent contributes `N * var(mean(node activity))`, where
 `N` is that agent's node count. At `level=:agent`, the order parameter is swarm
 polarization and the estimate is `n_agents * var(polarization)`.
+
+For independent Bernoulli activity, the node-scale estimator has a rate floor
+of `p(1-p)`. Two zero-correlation reservoirs firing at 10% and 30% therefore
+differ by about 2.4 times from rate alone. Match activity rates or use an
+explicit rate-conditioned control before comparing susceptibility.
 """
 function susceptibility(sim::SimResult; level::Symbol=:node)
     level = _second_order_level(level, :susceptibility)
@@ -201,8 +199,13 @@ end
 """
     susceptibility_windowed(sim; level=:node, window, stride=window)
 
-Compute finite-window susceptibility at `level=:node` or `level=:agent` over a
-recorded rollout. Returns `(; level, t_centers, susceptibility, window, stride)`.
+Compute an EXPERIMENTAL finite-window susceptibility at `level=:node` or
+`level=:agent` over a recorded rollout. Returns
+`(; level, t_centers, susceptibility, window, stride)`.
+
+At node scale, independent Bernoulli activity has the rate floor `p(1-p)`.
+Changing activity from 10% to 30% changes this floor by about 2.4 times without
+introducing correlation.
 """
 function susceptibility_windowed(sim::SimResult; level::Symbol=:node, window::Integer, stride::Integer=window)
     level = _second_order_level(level, :susceptibility_windowed)
@@ -332,7 +335,7 @@ end
 """
     participation_ratio(sim; level=:node)
 
-Compute a covariance participation ratio,
+Compute an EXPERIMENTAL covariance participation ratio,
 `(sum(lambda))^2 / sum(lambda^2)`, where `lambda` are eigenvalues of the
 activity covariance matrix.
 
@@ -341,6 +344,10 @@ value summarizes the per-agent distribution. At `level=:agent`, the covariance
 is over per-agent population-rate activity. The estimator throws when the
 number of recorded ticks is smaller than the number of observed units because
 its rank ceiling would otherwise dominate the result silently.
+
+The covariance rank is at most `n_ticks - 1`, so the reported participation
+ratio also ceilings at `n_ticks - 1` even when more units are recorded. Increase
+the recorded duration before comparing high-dimensional reservoirs.
 """
 function participation_ratio(sim::SimResult; level::Symbol=:node)
     level = _second_order_level(level, :participation_ratio)

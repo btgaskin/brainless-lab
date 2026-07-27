@@ -263,8 +263,8 @@ end
     @test low_input.input_wmat != high_input.input_wmat
 end
 
-@testset "swarm Falandays path keeps legacy defaults explicit" begin
-    setup = BrainlessLab._build_ensemble(
+@testset "swarm Falandays compatibility is an explicit preset" begin
+    canonical = BrainlessLab._build_ensemble(
         :torus,
         :falandays;
         ticks=1,
@@ -273,9 +273,36 @@ end
         n_agents=2,
         n_nodes=24,
     )
-    reservoir = setup.ensemble.agents[1].reservoir
-    @test setup.n_nodes == 24
-    @test reservoir.rectify == true
-    @test reservoir.params.lrate_wmat == FalandaysParams().lrate_wmat
-    @test reservoir.params.lrate_targ == FalandaysParams().lrate_targ
+    preset = BrainlessLab._build_ensemble(
+        :torus,
+        :falandays_swarm_legacy;
+        ticks=1,
+        seed=4,
+        record=Symbol[],
+        n_agents=2,
+        n_nodes=24,
+    )
+    explicit = BrainlessLab._build_ensemble(
+        :torus,
+        :falandays;
+        ticks=1,
+        seed=4,
+        record=Symbol[],
+        n_agents=2,
+        n_nodes=24,
+        weight_init_mode=:legacy_normal,
+        repair_masks=true,
+        rectify=true,
+    )
+
+    canonical_reservoir = canonical.ensemble.agents[1].reservoir
+    preset_reservoir = preset.ensemble.agents[1].reservoir
+    explicit_reservoir = explicit.ensemble.agents[1].reservoir
+    @test canonical.n_nodes == 24
+    @test canonical_reservoir.rectify == false
+    @test preset_reservoir.rectify == true
+    @test preset_reservoir.params.lrate_wmat == FalandaysParams().lrate_wmat
+    @test preset_reservoir.params.lrate_targ == FalandaysParams().lrate_targ
+    @test preset_reservoir.wmat == explicit_reservoir.wmat
+    @test preset_reservoir.recurrent_mask == explicit_reservoir.recurrent_mask
 end

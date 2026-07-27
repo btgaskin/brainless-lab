@@ -39,7 +39,6 @@ end
           node_spec(registry, :falandays).default_analyses
     @test resolved.record_channels == (
         :acts,
-        :rate,
         :spectral_radius,
         :spikes,
         :targets,

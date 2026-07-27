@@ -263,8 +263,8 @@ end
     crossshift_null(sim, measure_fn; n_shifts, rng, threaded=true,
                     strict=true, alternative=:greater)
 
-Compute a circular-shift null test for a cross-agent measure. Each surrogate
-independently circular-shifts every agent's recorded time series, preserving
+Compute an EXPERIMENTAL circular-shift null test for a cross-agent measure. Each
+surrogate independently circular-shifts every agent's recorded time series, preserving
 single-agent dynamics while destroying inter-agent timing. Entity-owned channels
 are aligned and shifted by stable `EntityID`; derived ensemble and event channels
 are removed. In addition to the historical summary fields, the result includes

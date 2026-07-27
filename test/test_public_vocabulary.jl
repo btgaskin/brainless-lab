@@ -140,7 +140,6 @@ end
         :write_calibration_report,
         :fano_factor,
         :spectral_radius,
-        :participation_ratio,
         :node_target_error,
         :distance_to_source,
         :wall_distance,
@@ -181,7 +180,7 @@ end
     )
 
     @test actual_exports == expected_exports
-    @test length(public_only) == 509
+    @test length(public_only) == 505
     @test all(name -> name in public_only, (
         :explore,
         :Evolution,
@@ -196,6 +195,7 @@ end
         :branching_ratio_mr,
         :transfer_entropy,
         :susceptibility,
+        :participation_ratio,
     ))
     @test !Base.isexported(BrainlessLab, :Unsigned)
     @test !Base.ispublic(BrainlessLab, :Unsigned)

@@ -1,9 +1,3 @@
-# EXPERIMENTAL descriptive neuronal-avalanche analysis.
-#
-# Beggs & Plenz (2003) defined neuronal avalanches as contiguous excursions of
-# population activity above a quiet baseline. BrainlessLab reports the extracted
-# events and threshold without fitting a distribution to the small event samples.
-
 function _median_positive(values::AbstractVector{<:Real})
     positives = Float64[x for x in values if isfinite(Float64(x)) && Float64(x) > 0.0]
     isempty(positives) && return 0.0
@@ -114,6 +108,9 @@ end
 
 Extract EXPERIMENTAL descriptive neuronal-avalanche events from a recorded
 rollout. This function does not fit avalanche exponents or distributions.
+Beggs and Plenz (2003) define neuronal avalanches as contiguous excursions of
+population activity above a quiet baseline. BrainlessLab reports the extracted
+events and threshold without fitting the small event samples.
 
 `level=:pooled` preserves the legacy population activity: total recorded spike
 count per tick from `:spikes`; if `:spikes` is absent, `:rate` is multiplied by

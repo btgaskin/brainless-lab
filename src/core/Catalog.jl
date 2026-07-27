@@ -323,11 +323,9 @@ function falandays_node_spec()
         ),
         equations=_falandays_equations(),
         default_analyses=(
-            :branching_ratio_mr,
             :node_target_error,
             :spectral_radius,
             :fano_factor,
-            :participation_ratio,
         ),
         metadata=(
             source="Independent Julia reimplementation of Falandays et al. 2024, " *

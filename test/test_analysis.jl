@@ -80,13 +80,13 @@ using Test
         :branching_ratio_mr_windowed,
         :avalanches,
         :crossshift_null,
+        :participation_ratio,
     )
         @test endswith(BrainlessLab.analysis_meta(analysis).label, "(experimental)")
     end
     for analysis in (
         :fano_factor,
         :spectral_radius,
-        :participation_ratio,
         :node_target_error,
     )
         @test !endswith(BrainlessLab.analysis_meta(analysis).label, "(experimental)")
@@ -765,7 +765,8 @@ end
     @test resolve_analysis(:participation_ratio) === participation_ratio
     @test BrainlessLab.analysis_meta(:susceptibility).label == "susceptibility χ (experimental)"
     @test BrainlessLab.analysis_meta(:fano_factor).label == "activity-rate summary (mean, variance, Fano)"
-    @test BrainlessLab.analysis_meta(:participation_ratio).label == "participation ratio"
+    @test BrainlessLab.analysis_meta(:participation_ratio).label ==
+          "participation ratio (experimental)"
 end
 
 @testset "Swarm regime and correlation length" begin
