@@ -103,6 +103,34 @@ function recurrent_input(
     return out
 end
 
+function recurrent_input!(
+    output::Vector{Float64},
+    c::DelayedConnectome,
+    sign::UnsignedAxis,
+    cs::FalandaysConnState,
+    wmat::Matrix{Float64},
+    prev_spikes::Vector{Float64},
+    signed_prev::Vector{Float64},
+)
+    if c.all_unit
+        mul!(output, transpose(wmat), prev_spikes)
+        return output
+    end
+
+    h = _require_spike_history(c, cs)
+    push_spikes!(h, prev_spikes)
+    @inbounds for j in axes(wmat, 2)
+        total = 0.0
+        for i in axes(wmat, 1)
+            if c.recurrent_mask[i, j]
+                total += wmat[i, j] * _delayed_spike(h, i, c.delays[i, j])
+            end
+        end
+        output[j] = total
+    end
+    return output
+end
+
 function recurrent_input(
     c::DelayedConnectome,
     sign::Dale,
@@ -129,6 +157,41 @@ function recurrent_input(
         out[j] = total
     end
     return out
+end
+
+function recurrent_input!(
+    output::Vector{Float64},
+    c::DelayedConnectome,
+    sign::Dale,
+    cs::FalandaysConnState,
+    wmat::Matrix{Float64},
+    prev_spikes::Vector{Float64},
+    signed_prev::Vector{Float64},
+)
+    length(sign.sign) == length(prev_spikes) ||
+        throw(DimensionMismatch(
+            "Dale sign length $(length(sign.sign)) does not match spike length $(length(prev_spikes))",
+        ))
+    if c.all_unit
+        @inbounds for i in eachindex(prev_spikes)
+            signed_prev[i] = prev_spikes[i] * sign.sign[i]
+        end
+        mul!(output, transpose(wmat), signed_prev)
+        return output
+    end
+
+    h = _require_spike_history(c, cs)
+    push_spikes!(h, prev_spikes)
+    @inbounds for j in axes(wmat, 2)
+        total = 0.0
+        for i in axes(wmat, 1)
+            if c.recurrent_mask[i, j]
+                total += sign.sign[i] * wmat[i, j] * _delayed_spike(h, i, c.delays[i, j])
+            end
+        end
+        output[j] = total
+    end
+    return output
 end
 
 function _delayed_learn_counts(c::DelayedConnectome, h::SpikeHistory)
@@ -158,7 +221,16 @@ function learn_connectome!(
     params,
 )
     if c.all_unit
-        return learn!(sign, cs.wmat, ns.targets, ns.errors, c.recurrent_mask, ns.prev_spikes, params)
+        return learn!(
+            sign,
+            cs.wmat,
+            ns.targets,
+            ns.errors,
+            c.recurrent_mask,
+            ns.prev_spikes,
+            params,
+            ns.counts,
+        )
     end
 
     h = _require_spike_history(c, cs)
@@ -189,7 +261,16 @@ function learn_connectome!(
     params,
 )
     if c.all_unit
-        return learn!(sign, cs.wmat, ns.targets, ns.errors, c.recurrent_mask, ns.prev_spikes, params)
+        return learn!(
+            sign,
+            cs.wmat,
+            ns.targets,
+            ns.errors,
+            c.recurrent_mask,
+            ns.prev_spikes,
+            params,
+            ns.counts,
+        )
     end
 
     h = _require_spike_history(c, cs)

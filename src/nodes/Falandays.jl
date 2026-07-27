@@ -20,6 +20,7 @@
 # is no task-loss backpropagation and no fitted readout.
 
 using Random
+using LinearAlgebra: mul!
 
 const FALANDAYS_PARAM_DIM = 7
 const _DEFAULT_SHARED_INPUT_WEIGHT = 1.875
@@ -238,6 +239,11 @@ function next_noise!(source::RngNoise, n::Integer)
     return randn(source.rng, Int(n))
 end
 
+function next_noise!(source::RngNoise, buffer::AbstractVector{Float64})
+    randn!(source.rng, buffer)
+    return buffer
+end
+
 function next_noise!(source::RecordedNoise, n::Integer)
     n = Int(n)
     size(source.draws, 2) == n ||
@@ -248,6 +254,19 @@ function next_noise!(source::RecordedNoise, n::Integer)
     noise = copy(vec(@view source.draws[source.idx, :]))
     source.idx += 1
     return noise
+end
+
+function next_noise!(source::RecordedNoise, buffer::AbstractVector{Float64})
+    size(source.draws, 2) == length(buffer) ||
+        throw(DimensionMismatch(
+            "recorded noise width $(size(source.draws, 2)) does not match requested length $(length(buffer))",
+        ))
+    source.idx <= size(source.draws, 1) ||
+        throw(BoundsError(source.draws, (source.idx, :)))
+
+    copyto!(buffer, @view source.draws[source.idx, :])
+    source.idx += 1
+    return buffer
 end
 
 function reset_noise!(source::RngNoise)
@@ -327,7 +346,31 @@ mutable struct FalandaysNodeState{NS}
     spikes::Vector{Float64}
     errors::Vector{Float64}
     prev_spikes::Vector{Float64}
+    input_current::Vector{Float64}
+    recurrent_current::Vector{Float64}
+    signed_prev::Vector{Float64}
+    noise_buffer::Vector{Float64}
+    counts::Vector{Float64}
     noise::NS
+end
+
+function FalandaysNodeState(acts, targets, spikes, errors, prev_spikes, noise)
+    n = length(acts)
+    all(length(buffer) == n for buffer in (targets, spikes, errors, prev_spikes)) ||
+        throw(DimensionMismatch("Falandays node-state vectors must have equal lengths"))
+    return FalandaysNodeState(
+        acts,
+        targets,
+        spikes,
+        errors,
+        prev_spikes,
+        zeros(Float64, n),
+        zeros(Float64, n),
+        zeros(Float64, n),
+        zeros(Float64, n),
+        zeros(Float64, n),
+        noise,
+    )
 end
 
 function learn_connectome!(
@@ -337,7 +380,45 @@ function learn_connectome!(
     ns::FalandaysNodeState,
     params,
 )
-    return learn!(sign, cs.wmat, ns.targets, ns.errors, c.recurrent_mask, ns.prev_spikes, params)
+    return learn!(
+        sign,
+        cs.wmat,
+        ns.targets,
+        ns.errors,
+        c.recurrent_mask,
+        ns.prev_spikes,
+        params,
+        ns.counts,
+    )
+end
+
+function recurrent_input!(
+    output::Vector{Float64},
+    ::FalandaysConnectome,
+    ::UnsignedAxis,
+    ::FalandaysConnState,
+    wmat::Matrix{Float64},
+    prev_spikes::Vector{Float64},
+    signed_prev::Vector{Float64},
+)
+    mul!(output, transpose(wmat), prev_spikes)
+    return output
+end
+
+function recurrent_input!(
+    output::Vector{Float64},
+    ::FalandaysConnectome,
+    axis::Dale,
+    ::FalandaysConnState,
+    wmat::Matrix{Float64},
+    prev_spikes::Vector{Float64},
+    signed_prev::Vector{Float64},
+)
+    @inbounds for i in eachindex(prev_spikes)
+        signed_prev[i] = prev_spikes[i] * axis.sign[i]
+    end
+    mul!(output, transpose(wmat), signed_prev)
+    return output
 end
 
 const FalandaysReservoir = ReservoirInstance{<:FalandaysModel, <:FalandaysConnectome, <:FalandaysConnState}
@@ -711,14 +792,31 @@ function step!(
     n = length(ns.acts)
     copyto!(ns.prev_spikes, ns.spikes)
 
-    input_current = vec(transpose(receptor_currents) * c.input_wmat)
-    recurrent_current = recurrent_input(c, m.sign, cs, ns.prev_spikes)
+    mul!(ns.input_current, transpose(c.input_wmat), receptor_currents)
+    recurrent_input!(
+        ns.recurrent_current,
+        c,
+        m.sign,
+        cs,
+        cs.wmat,
+        ns.prev_spikes,
+        ns.signed_prev,
+    )
 
     @inbounds for i in 1:n
-        ns.acts[i] = ns.acts[i] * (1.0 - params.leak) + input_current[i] + recurrent_current[i]
+        ns.acts[i] =
+            ns.acts[i] * (1.0 - params.leak) +
+            ns.input_current[i] +
+            ns.recurrent_current[i]
     end
 
-    apply_drive!(m.drive, ns.acts, ns.targets, params, next_noise!(ns.noise, n))
+    apply_drive!(
+        m.drive,
+        ns.acts,
+        ns.targets,
+        params,
+        next_noise!(ns.noise, ns.noise_buffer),
+    )
 
     if m.rectify
         @inbounds for i in 1:n

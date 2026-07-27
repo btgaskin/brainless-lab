@@ -27,9 +27,21 @@ end
 function _learn_counts(mask::BitMatrix, prev_spikes::AbstractVector{<:Real})
     n = size(mask, 2)
     counts = zeros(Float64, n)
+    return counts, _learn_counts!(counts, mask, prev_spikes)
+end
+
+function _learn_counts!(
+    counts::Vector{Float64},
+    mask::BitMatrix,
+    prev_spikes::AbstractVector{<:Real},
+)
+    length(counts) == size(mask, 2) ||
+        throw(DimensionMismatch(
+            "count buffer length $(length(counts)) does not match recurrent width $(size(mask, 2))",
+        ))
     active_total = 0.0
 
-    @inbounds for j in 1:n
+    @inbounds for j in axes(mask, 2)
         count = 0.0
         for i in 1:size(mask, 1)
             if mask[i, j] && prev_spikes[i] != 0.0
@@ -40,7 +52,7 @@ function _learn_counts(mask::BitMatrix, prev_spikes::AbstractVector{<:Real})
         active_total += count
     end
 
-    return counts, active_total
+    return active_total
 end
 
 function _update_targets!(targets::Vector{Float64}, errors::AbstractVector{<:Real}, p)
@@ -71,7 +83,21 @@ function learn!(
     prev_spikes::Vector{Float64},
     p,
 )
-    counts, active_total = _learn_counts(mask, prev_spikes)
+    counts = zeros(Float64, size(mask, 2))
+    return learn!(UnsignedAxis(), wmat, targets, errors, mask, prev_spikes, p, counts)
+end
+
+function learn!(
+    ::UnsignedAxis,
+    wmat::Matrix{Float64},
+    targets::Vector{Float64},
+    errors::Vector{Float64},
+    mask::BitMatrix,
+    prev_spikes::Vector{Float64},
+    p,
+    counts::Vector{Float64},
+)
+    active_total = _learn_counts!(counts, mask, prev_spikes)
 
     if active_total > 0.0
         @inbounds for j in 1:size(wmat, 2)
@@ -99,7 +125,21 @@ function learn!(
     prev_spikes::Vector{Float64},
     p,
 )
-    counts, active_total = _learn_counts(mask, prev_spikes)
+    counts = zeros(Float64, size(mask, 2))
+    return learn!(axis, wmat, targets, errors, mask, prev_spikes, p, counts)
+end
+
+function learn!(
+    axis::Dale,
+    wmat::Matrix{Float64},
+    targets::Vector{Float64},
+    errors::Vector{Float64},
+    mask::BitMatrix,
+    prev_spikes::Vector{Float64},
+    p,
+    counts::Vector{Float64},
+)
+    active_total = _learn_counts!(counts, mask, prev_spikes)
 
     if active_total > 0.0
         @inbounds for j in 1:size(wmat, 2)
