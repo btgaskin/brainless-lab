@@ -14,7 +14,9 @@ matters for the `authors_*` files in particular, whose names describe what they 
 | Group | Produced by | What it establishes |
 | --- | --- | --- |
 | `authors_{wall,tracking,pong}.jld2` | `test/oracle/authors_falandays.jl` — a Julia transcription **in this repository** | Refactor regression: `src/nodes/Falandays.jl` still matches an independent transcription of the same equations, to 1e-9 |
-| `falandays_{base,dale,oosawa}.npz`, `single_agent_wall.npz`, `compartmental_*`, `ablation_*`, `env_*`, `dyad_torus.npz` | `test/oracle/*.py`, against the `crho` Python package in the sibling `v0.2` workspace | Cross-language agreement between the Julia implementation and a prior independent Python implementation |
+| `falandays_{base,dale,oosawa}.npz`, `compartmental_*`, `ablation_*`, `env_*` | `test/oracle/*.py`, against the `crho` Python package in the sibling `v0.2` workspace | Cross-language agreement between the Julia implementation and a prior independent Python implementation, verified to 1e-9 |
+| `single_agent_wall.npz` | same generator | **Construction input only.** Its `metric_*` ground truth is *not* verified — see below |
+| `dyad_torus.npz`, `cma_sphere_trace.npz` | same generator / `pycma` | **Read by nothing.** Sealed but unverified — see below |
 | `cma_sphere_trace.npz` | `test/oracle/gen_cma_trace.py`, using `pycma` | Optimiser reference trace |
 
 ### The `authors_*` files are not the authors' data
@@ -29,6 +31,34 @@ That bounds what the corresponding test proves. `test/test_authors_parity.jl` is
 comparison were written by the same hand from the same reading, so a shared misreading
 passes at 1e-9. The genuinely independent cross-implementation evidence is the `.npz`
 group, which comes from a separate Python codebase.
+
+### Fixtures that do not currently prove what their names suggest
+
+Three files are sealed and pass integrity checks, which makes them look like live
+evidence. They are not:
+
+**`single_agent_wall.npz`** supplies the reservoir masks, weights and parameters used to
+build the replay, and that part works. But its `metric_score`, `metric_distance_window`,
+`metric_collisions_window` and `metric_xy_path` ground-truth keys are **never compared to
+anything**. `test/test_collective_single.jl` asserts shape, finiteness, and Julia-against-
+Julia consistency only.
+
+Enabling the comparison fails — with the environment initialised from the fixture's own
+recorded `env_draws` and the reservoir fully pinned: `score` and `distance_window` each
+deviate by exactly 1.0000000000000018 against a fixture value of 6.125, and `xy_path` by
+4.116, against a 1e-9 tolerance. `collisions_window` "passes" only because both sides are
+zero. Both implementations accumulate translation identically, so the definitions agree
+and the values do not; an exact 1.0 points at a convention difference rather than drift.
+The cause is unresolved, and the generator imports `crho` from a workspace outside this
+repository, so it cannot be regenerated here to bisect. The assertions are `@test_skip`
+with this reasoning recorded at the call site.
+
+**`dyad_torus.npz`** has one consumer, and it is a permanent `@test_skip`.
+
+**`cma_sphere_trace.npz`** is a `pycma` reference trace with **no consumer at all**.
+`test/test_search_strategies.jl` contains no numerical assertions, so SepCMA — the
+optimiser used to evolve node parameters — has its numerical behaviour validated against
+nothing.
 
 ### Upstream reference
 

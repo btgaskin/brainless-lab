@@ -69,7 +69,21 @@ function _single_reservoir(data)
 end
 
 function _single_ensemble(data)
-    env = BrainlessLab.WallEnv(; rng=MersenneTwister(23))
+    # The fixture records the reference run's initial pose as `env_draws`.
+    # Constructing the environment from a bare RNG instead starts the agent
+    # somewhere else entirely, so any trajectory comparison against the
+    # reference is meaningless. Both cross-implementation helpers below were
+    # dead code, which is why this went unnoticed.
+    draws = Float64.(vec(data["env_draws"]))
+    length(draws) == 3 || error(
+        "fixture env_draws must hold (x, y, theta); got $(length(draws)) values",
+    )
+    env = BrainlessLab.WallEnv(;
+        rng=MersenneTwister(23),
+        x=draws[1],
+        y=draws[2],
+        theta=draws[3],
+    )
     agent = BrainlessLab.Agent(_single_reservoir(data), BrainlessLab.direct_embodiment(2, 2))
     ensemble = BrainlessLab.Ensemble([agent], BrainlessLab.TaskEnvironment(env))
     return ensemble, env, agent
@@ -134,6 +148,42 @@ end
     @test got_metrics.distance_window >= 0.0
     @test got_metrics.collisions_window >= 0
     @test size(got_metrics.xy_path, 1) == ticks
+
+    # UNRESOLVED CROSS-IMPLEMENTATION DISCREPANCY -- do not enable without reading this.
+    #
+    # The fixture carries metric_score, metric_distance_window,
+    # metric_collisions_window and metric_xy_path from the v0.2 Python `crho`
+    # implementation, and `_single_assert_metric` / `_single_max_abs_dev` exist
+    # to compare against them. Both helpers were dead code from the outset, so
+    # the comparison had never actually run.
+    #
+    # Enabling it fails, even with the environment initialised from the
+    # fixture's own recorded `env_draws` and the reservoir fully pinned from
+    # fixture masks, weights and parameters:
+    #
+    #   score            deviation 1.0000000000000018  (fixture 6.125)
+    #   distance_window  deviation 1.0000000000000018  (fixture 6.125)
+    #   collisions_window  passes -- but both sides are 0.0, so this agrees
+    #                      about nothing happening
+    #   xy_path          max deviation 4.115962750876231
+    #   tolerance        1e-9
+    #
+    # Both implementations accumulate translation the same way
+    # (`self.distance += translation` in crho/env_wall.py; `distance_last` here),
+    # so the definitions agree and the values do not. A deviation of exactly 1.0
+    # suggests a convention difference (an offset or a radius), not drift. The
+    # cause is unresolved, and the generator imports `crho` from a sibling
+    # workspace that is not part of this repository, so the fixture cannot be
+    # regenerated here to bisect it.
+    #
+    # This file therefore validates SHAPE and INTERNAL CONSISTENCY only. It is
+    # not cross-implementation evidence, and test/FIXTURES.md says so. The
+    # genuinely independent evidence is test_falandays.jl, which replays the
+    # falandays_{base,oosawa,dale}.npz fixtures against acts, targets and spikes
+    # at 1e-9 and passes.
+    @test_skip _single_assert_metric(data, got_metrics, :score)
+    @test_skip _single_max_abs_dev(got_metrics.xy_path, data["metric_xy_path"]) <=
+               COLLECTIVE_SINGLE_ATOL
 
     expected_live = BrainlessLab.liveness(rates, n_nodes, default_window(env))
 
