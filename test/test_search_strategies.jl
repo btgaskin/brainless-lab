@@ -1,8 +1,10 @@
 using BrainlessLab
+using NPZ
 using Random
 using Test
 
 const SearchEvolution = BrainlessLab.Evolution
+const SEARCH_CMA_TRACE_ATOL = 1e-12
 
 struct SearchStrategyToyModel <: BrainlessLab.NodeModel
     gain::Float64
@@ -43,6 +45,10 @@ function _state_has_rng(state)
         name -> getfield(state, name) isa Random.AbstractRNG,
         fieldnames(typeof(state)),
     )
+end
+
+function _search_fixture_path(name::AbstractString)
+    return joinpath(@__DIR__, "fixtures", name)
 end
 
 @testset "experimental node design and model references" begin
@@ -141,8 +147,8 @@ end
     specs = SearchEvolution.builtin_strategy_specs()
     @test getfield.(specs, :key) == (:sepcma, :nsga2, :cmame)
     @test all(spec -> spec.stability === :experimental, specs)
-    @test sort(getfield.(specs, :key)) ==
-        (:cmame, :nsga2, :sepcma)
+    @test sort(collect(getfield.(specs, :key))) ==
+        [:cmame, :nsga2, :sepcma]
 
     @test_throws ArgumentError SearchEvolution.RunConfig(
         ;
@@ -280,6 +286,49 @@ end
         ),
     ) == invalid_document
     @test_throws ArgumentError SearchEvolution.outcome(invalid_only)
+end
+
+@testset "SepCMA injected pycma trace parity" begin
+    data = npzread(_search_fixture_path("cma_sphere_trace.npz"))
+    x0 = Float64.(vec(data["x0"]))
+    sigma0 = Float64(data["sigma0"])
+    population_size = Int(data["popsize"])
+    populations = Float64.(data["X"])
+    losses = Float64.(data["losses"])
+    reference_means = Float64.(data["mean"])
+    reference_sigmas = Float64.(vec(data["sigma"]))
+
+    @test size(populations) == (10, population_size, length(x0))
+    @test size(losses) == (size(populations, 1), population_size)
+    @test size(reference_means) == (size(populations, 1), length(x0))
+    @test length(reference_sigmas) == size(populations, 1)
+
+    core = SearchEvolution._new_sep_core(
+        x0,
+        sigma0,
+        population_size,
+    )
+    for generation in axes(populations, 1)
+        candidates = [
+            Float64.(vec(populations[generation, index, :]))
+            for index in axes(populations, 2)
+        ]
+        generation_losses = Float64.(vec(losses[generation, :]))
+        @test generation_losses ≈ sum.(abs2, candidates) atol =
+            SEARCH_CMA_TRACE_ATOL rtol = SEARCH_CMA_TRACE_ATOL
+
+        SearchEvolution._sep_observe!(
+            core,
+            candidates,
+            generation_losses,
+        )
+
+        @test core.x_mean ≈
+            Float64.(vec(reference_means[generation, :])) atol =
+            SEARCH_CMA_TRACE_ATOL rtol = SEARCH_CMA_TRACE_ATOL
+        @test core.sigma ≈ reference_sigmas[generation] atol =
+            SEARCH_CMA_TRACE_ATOL rtol = SEARCH_CMA_TRACE_ATOL
+    end
 end
 
 @testset "NSGA-II returns only the Pareto set" begin

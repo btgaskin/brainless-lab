@@ -16,8 +16,7 @@ matters for the `authors_*` files in particular, whose names describe what they 
 | `authors_{wall,tracking,pong}.jld2` | `test/oracle/authors_falandays.jl` — a Julia transcription **in this repository** | Refactor regression: `src/nodes/Falandays.jl` still matches an independent transcription of the same equations, to 1e-9 |
 | `falandays_{base,dale,oosawa}.npz`, `compartmental_*`, `ablation_*`, `env_*` | `test/oracle/*.py`, against the `crho` Python package in the sibling `v0.2` workspace | Cross-language agreement between the Julia implementation and a prior independent Python implementation, verified to 1e-9 |
 | `single_agent_wall.npz` | same generator | **Construction input only.** Its `metric_*` ground truth is *not* verified — see below |
-| `dyad_torus.npz`, `cma_sphere_trace.npz` | same generator / `pycma` | **Read by nothing.** Sealed but unverified — see below |
-| `cma_sphere_trace.npz` | `test/oracle/gen_cma_trace.py`, using `pycma` | Optimiser reference trace |
+| `cma_sphere_trace.npz` | `test/oracle/gen_cma_trace.py`, using `pycma` | Injected-population parity for SepCMA mean and step-size updates, verified to 1e-12 |
 
 ### The `authors_*` files are not the authors' data
 
@@ -32,10 +31,7 @@ comparison were written by the same hand from the same reading, so a shared misr
 passes at 1e-9. The genuinely independent cross-implementation evidence is the `.npz`
 group, which comes from a separate Python codebase.
 
-### Fixtures that do not currently prove what their names suggest
-
-Three files are sealed and pass integrity checks, which makes them look like live
-evidence. They are not:
+### The wall fixture does not prove what its name suggests
 
 **`single_agent_wall.npz`** supplies the reservoir masks, weights and parameters used to
 build the replay, and that part works. But its `metric_score`, `metric_distance_window`,
@@ -53,12 +49,14 @@ The cause is unresolved, and the generator imports `crho` from a workspace outsi
 repository, so it cannot be regenerated here to bisect. The assertions are `@test_skip`
 with this reasoning recorded at the call site.
 
-**`dyad_torus.npz`** has one consumer, and it is a permanent `@test_skip`.
+### SepCMA parity boundary
 
-**`cma_sphere_trace.npz`** is a `pycma` reference trace with **no consumer at all**.
-`test/test_search_strategies.jl` contains no numerical assertions, so SepCMA — the
-optimiser used to evolve node parameters — has its numerical behaviour validated against
-nothing.
+`cma_sphere_trace.npz` records ten `pycma` diagonal-CMA populations, their sphere
+losses, and the mean and global step size after each update. The numerical test injects
+those recorded populations into BrainlessLab's SepCMA core. This avoids treating NumPy
+and Julia random-number streams as interchangeable. The recorded sphere losses, updated
+means, and step sizes agree at `atol=1e-12, rtol=1e-12`. Candidate generation remains
+covered by Julia-side determinism tests, not cross-language sample equality.
 
 ### Upstream reference
 

@@ -23,12 +23,3 @@ using Test
     headings = [-pi / 2, pi / 2]
     @test BrainlessLab.milling(positions, headings, centroid, torus) ≈ 1.0 atol=1e-12
 end
-
-# The v0.2 numpy dyad-parity fixture is intentionally retired. The numpy reference
-# (v0.2 crho/bodies.py) carries the same angular-wrap bug our vision fix corrected,
-# so byte-parity to it would only re-lock the corrected behaviour. Multi-agent
-# vision/metric correctness is covered by the seam tests above; paper-faithful
-# fidelity is validated by the single-agent Falandays fixtures.
-@testset "Ensemble dyad TorusEnvironment oracle parity (retired v0.2 path)" begin
-    @test_skip "retired: v0.2 numpy reference shares the vision-wrap bug; correctness covered by the seam tests"
-end

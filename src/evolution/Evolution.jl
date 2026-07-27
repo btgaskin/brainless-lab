@@ -822,11 +822,12 @@ function _sep_observe!(
     core.p_sigma .+=
         sqrt(core.c_sigma * (2.0 - core.c_sigma)) .* z
 
+    p_sigma_squared_sum = sum(abs2, core.p_sigma)
     denominator =
         1.0 - (1.0 - core.c_sigma)^(2 * core.countiter)
-    squared_sum = sum(abs2, core.p_sigma) / denominator
+    corrected_p_sigma_squared_sum = p_sigma_squared_sum / denominator
     hsig =
-        squared_sum / core.n_dim - 1.0 <
+        corrected_p_sigma_squared_sum / core.n_dim - 1.0 <
         1.0 + 4.0 / (core.n_dim + 1.0)
     h = hsig ? 1.0 : 0.0
     c1a =
@@ -836,7 +837,7 @@ function _sep_observe!(
     core.p_c .*= 1.0 - core.c_c
     core.p_c .+=
         h * sqrt(core.c_c * (2.0 - core.c_c) * core.mu_eff) .*
-        delta ./ core.sigma
+        delta ./ (core.sigma .* old_scale)
 
     weights = Vector{Float64}(undef, length(population) + 1)
     weights[1] = log(2.0) * c1a
@@ -865,7 +866,7 @@ function _sep_observe!(
         min(
             1.0,
             (core.c_sigma / core.d_sigma) *
-            (sqrt(squared_sum) / core.chi_n - 1.0),
+            (sqrt(p_sigma_squared_sum) / core.chi_n - 1.0),
         ),
     )
     return core
