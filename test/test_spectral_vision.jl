@@ -27,6 +27,7 @@ using Test
     )
     @test BrainlessLab.n_camera_channels(camera) == 2
     @test BrainlessLab.n_camera_rays(camera) == 2
+    @test portspec(camera) === portspec(camera)
     # Trapezoid integral: 0.5 reflectance across a 200 nm interval, then exposure 2.
     @test BrainlessLab.relative_radiometric_response(camera, reflectance, illuminant) == [200.0, 100.0]
     @test_throws DimensionMismatch BrainlessLab.SpectralCamera(grid, [:x], ones(1, 2))

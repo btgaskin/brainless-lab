@@ -48,8 +48,15 @@
     BrainlessLab.record!(rec, :disabled, 5)
 
     @test getchannel(rec, :state) == Any[1, 3]
+    @test getchannel(rec, :state) isa Vector{Int}
     @test isempty(getchannel(rec, :disabled))
     @test haskey(rec, :state)
+
+    mixed = Recorder(enabled=(:value,))
+    BrainlessLab.record!(mixed, :value, 1)
+    BrainlessLab.record!(mixed, :value, 2.5)
+    @test getchannel(mixed, :value) isa Vector{Union{Float64,Int}}
+    @test getchannel(mixed, :value) == [1, 2.5]
 
     reset!(rec)
     @test isempty(getchannel(rec, :state))

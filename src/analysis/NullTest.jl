@@ -221,7 +221,7 @@ function _crossshift_surrogate(
         "crossshift_null was given n_agents=$(n_agents), but the simulation contains $(context.n_agents)",
     ))
     shift_map = _crossshift_shift_map(context.ids, shifts, context.n_ticks)
-    shifted_channels = Dict{Symbol,Vector{Any}}()
+    shifted_channels = Dict{Symbol,Vector}()
     for (channel, raw) in sim.recorder.channels
         isempty(raw) && continue
         if channel in _CROSSSHIFT_DROP_CHANNELS

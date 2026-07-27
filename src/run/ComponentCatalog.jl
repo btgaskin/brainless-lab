@@ -84,19 +84,7 @@ _encoder_component_config(encoder::BilateralContrastEncoder) = (
     epsilon=encoder.encoder.epsilon,
 )
 
-function portspec(camera::SpectralCamera)
-    P = NamedTuple{(:mount, :ray_angle),Tuple{Mount2D,Float64}}
-    receptors = Vector{Port{P}}(undef, n_camera_channels(camera) * n_camera_rays(camera))
-    index = 1
-    for channel in camera.channels, (ray, angle) in enumerate(camera.ray_angles)
-        placement = (mount=camera.mount, ray_angle=angle)
-        receptors[index] = Port(Symbol(channel, :_ray_, ray), placement)
-        index += 1
-    end
-    return PortSpec(length(receptors), 0, receptors, Port{NoPlacement}[])
-end
-
-n_receptors(camera::SpectralCamera) = n_camera_channels(camera) * n_camera_rays(camera)
+n_receptors(camera::SpectralCamera) = n_receptors(camera.port_spec)
 n_effectors(::SpectralCamera) = 0
 ports(camera::SpectralCamera) = ports(portspec(camera))
 

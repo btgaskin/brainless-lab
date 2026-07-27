@@ -346,6 +346,7 @@ struct EmbodimentState{I,C,E,P,B,U}
     commands::C
     encoder_groups::E
     port_spec::P
+    sensor_width::Int
     receptor_buffer::B
     user::U
 end
@@ -415,12 +416,18 @@ function Embodiment(;
     encoder_groups = _encoder_groups(sensors_, encoders_, ids.sensors, ids.encoders)
     commands = Tuple(command_buffer(actuator) for actuator in actuators_)
     port_spec = _embodiment_portspec(ids, encoder_groups, actuators_, physiology)
+    sensor_width = sum(
+        n_receptors(_encoder_portspec(group[2], group[3]))
+        for group in encoder_groups;
+        init=0,
+    )
     receptor_buffer = zeros(Float64, n_receptors(port_spec))
     state_ = EmbodimentState(
         ids,
         commands,
         encoder_groups,
         port_spec,
+        sensor_width,
         receptor_buffer,
         state,
     )
@@ -820,11 +827,7 @@ function begin_encoding!(body::Embodiment, percept, cycle::FixedRateCycle)
         input = _encoder_input(encoder, sensors, selected_samples)
         begin_encoding!(encoder, input, cycle)
     end
-    sensor_width = sum(
-        n_receptors(_encoder_portspec(group[2], group[3]))
-        for group in _encoder_groups(body);
-        init=0,
-    )
+    sensor_width = body.state.sensor_width
     feedback_width = length(body.state.receptor_buffer) - sensor_width
     feedback_width >= 0 || throw(DimensionMismatch(
         "Embodiment encoders expose $(sensor_width) receptors, but its cached port " *

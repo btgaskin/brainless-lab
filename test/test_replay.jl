@@ -29,6 +29,8 @@ using Test
 
     for channel in keys(sim.recorder.channels)
         @test getchannel(restored.recorder, channel) == getchannel(sim.recorder, channel)
+        @test eltype(getchannel(restored.recorder, channel)) ===
+            eltype(getchannel(sim.recorder, channel))
     end
 
     restored_from_file = replay(path)

@@ -1,10 +1,30 @@
 import LinearAlgebra
 
+const _PARALLEL_MAP_ACTIVE_KEY = gensym(:brainlesslab_parallel_map_active)
+
+function _parallel_map_chunk(f, items, indices)
+    storage = task_local_storage()
+    had_previous = haskey(storage, _PARALLEL_MAP_ACTIVE_KEY)
+    previous = get(storage, _PARALLEL_MAP_ACTIVE_KEY, false)
+    storage[_PARALLEL_MAP_ACTIVE_KEY] = true
+    try
+        return map(index -> f(items[index]), indices)
+    finally
+        if had_previous
+            storage[_PARALLEL_MAP_ACTIVE_KEY] = previous
+        else
+            delete!(storage, _PARALLEL_MAP_ACTIVE_KEY)
+        end
+    end
+end
+
 """
     parallel_map(f, items; threaded=true)
 
 Ordered map over `items` running `f` on Julia threads via dynamically
-scheduled `Threads.@spawn` tasks. Falls back to a serial `map` when
+scheduled `Threads.@spawn` tasks. At most `Threads.nthreads()` worker tasks
+are created, and a nested `parallel_map` runs serially inside its outer worker
+so nested pipelines keep the same process-wide bound. Falls back to a serial `map` when
 `threaded=false`, when Julia has a single thread, or when there is at most
 one item. `f` must be thread-safe: no shared mutable state, and any RNG it
 uses must be constructed inside the call (all BrainlessLab rollouts build
@@ -12,15 +32,27 @@ their RNGs from explicit seeds, so seeded rollouts qualify).
 
 Results are returned in the order of `items` regardless of completion
 order, so seeded pipelines produce byte-identical outputs with and without
-threading. Nested `parallel_map` calls compose (depth-first work stealing).
+threading.
 """
 function parallel_map(f, items; threaded::Bool=true)
     items_v = collect(items)
-    if !threaded || Threads.nthreads() == 1 || length(items_v) <= 1
+    nested = get(task_local_storage(), _PARALLEL_MAP_ACTIVE_KEY, false)
+    if !threaded || nested || Threads.nthreads() == 1 || length(items_v) <= 1
         return map(f, items_v)
     end
-    tasks = [Threads.@spawn f(item) for item in items_v]
-    return [fetch(t) for t in tasks]
+
+    worker_count = min(Threads.nthreads(), length(items_v))
+    chunk_length = cld(length(items_v), worker_count)
+    ranges = UnitRange{Int}[
+        start:min(start + chunk_length - 1, length(items_v))
+        for start in 1:chunk_length:length(items_v)
+    ]
+    tasks = [
+        Threads.@spawn _parallel_map_chunk(f, items_v, indices)
+        for indices in ranges
+    ]
+    chunks = [fetch(task) for task in tasks]
+    return vcat(chunks...)
 end
 
 """

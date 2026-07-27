@@ -111,6 +111,22 @@ end
         _parallel_result_bytes(threaded)
 end
 
+@testset "parallel_map bounds nested worker tasks" begin
+    guard = ReentrantLock()
+    task_ids = Set{UInt}()
+    nested = BrainlessLab.parallel_map(1:8) do outer
+        BrainlessLab.parallel_map(1:8) do inner
+            Base.lock(guard) do
+                push!(task_ids, objectid(current_task()))
+            end
+            outer + inner
+        end
+    end
+
+    @test nested == [[outer + inner for inner in 1:8] for outer in 1:8]
+    @test length(task_ids) <= Threads.nthreads()
+end
+
 @testset "init_parallelism reports and restores process settings" begin
     original_blas_threads = LinearAlgebra.BLAS.get_num_threads()
     try

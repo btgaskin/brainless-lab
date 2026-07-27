@@ -262,6 +262,11 @@ SpectralCircleTarget(id, centre, radius::Real, reflectance::SpectralReflectance)
 An arbitrary-channel camera. Sensitivity rows are channels and columns are the
 camera grid's wavelengths. Camera samples are flattened channel-major.
 """
+const SpectralCameraPortPlacement =
+    NamedTuple{(:mount, :ray_angle),Tuple{Mount2D,Float64}}
+const SpectralCameraPortSpec =
+    PortSpec{SpectralCameraPortPlacement,NoPlacement}
+
 struct SpectralCamera <: AbstractSensor
     grid::SpectralGrid
     channels::Vector{Symbol}
@@ -272,6 +277,26 @@ struct SpectralCamera <: AbstractSensor
     exposure::Float64
     saturation::Float64
     weights::Vector{Float64}
+    port_spec::SpectralCameraPortSpec
+end
+
+function _spectral_camera_portspec(
+    channels::Vector{Symbol},
+    ray_angles::Vector{Float64},
+    mount::Mount2D,
+)
+    receptors =
+        Vector{Port{SpectralCameraPortPlacement}}(
+            undef,
+            length(channels) * length(ray_angles),
+        )
+    index = 1
+    for channel in channels, (ray, angle) in enumerate(ray_angles)
+        placement = (mount=mount, ray_angle=angle)
+        receptors[index] = Port(Symbol(channel, :_ray_, ray), placement)
+        index += 1
+    end
+    return PortSpec(length(receptors), 0, receptors, Port{NoPlacement}[])
 end
 
 function SpectralCamera(
@@ -309,9 +334,10 @@ function SpectralCamera(
         throw(ArgumentError("camera exposure must be finite and non-negative"))
     (isfinite(saturation_) || saturation_ == Inf) && saturation_ > 0.0 ||
         throw(ArgumentError("camera saturation must be positive"))
+    port_spec = _spectral_camera_portspec(channel_names, angles, mount)
     return SpectralCamera(
         grid, channel_names, matrix, angles, mount, range_, exposure_, saturation_,
-        _trapezoid_weights(grid),
+        _trapezoid_weights(grid), port_spec,
     )
 end
 
@@ -325,6 +351,7 @@ rawspec(camera::SpectralCamera) = (
     rays=Tuple(camera.ray_angles),
     layout=:channel_major,
 )
+portspec(camera::SpectralCamera) = camera.port_spec
 
 function relative_radiometric_response(
     camera::SpectralCamera,
