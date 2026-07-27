@@ -8,8 +8,8 @@ BrainlessLab is a Julia platform for studying simple neural substrates in closed
 sensorimotor loops. It separates runtime composition, repeated evaluation, research
 operations, and portable records.
 
-The canonical `:falandays` node is validated on declared reference trajectories. Tracking
-and Pong are the initial core benchmark tasks. These boundaries do not establish general
+The canonical `:falandays` node is validated on declared reference trajectories. Tracking,
+Pong, and Wall are the core benchmark tasks. These boundaries do not establish general
 competence or biological fidelity.
 
 ## Quick start

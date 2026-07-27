@@ -37,16 +37,21 @@ end
         :cartpole_plank_hardest,
     ))
     @test Set(tasks(tag=:plank_cartpole)) == expected
-    @test Set(tasks(tag=:qualification)) == Set((:tracking, :pong))
-    @test Set(tasks(tag=:benchmark)) == Set((:tracking, :pong))
+    @test Set(tasks(tag=:qualification)) == Set((:tracking, :pong, :wall))
+    @test Set(tasks(tag=:benchmark)) == Set((:tracking, :pong, :wall))
+    @test tasks(tag=:frontier) == [:cartpole_plank_easy]
     @test :pong_hitrate in tasks(tag=:alias)
-    @test :wall in tasks(tag=:extended)
-    @test :wall ∉ tasks(tag=:qualification)
+    @test :wall ∉ tasks(tag=:extended)
+    @test :wall in tasks(tag=:qualification)
 
     for task in expected
         info = BrainlessLab.task_info(task)
         @test info.status === :experimental
-        @test info.tags == (:experimental, :plank_cartpole)
+        @test info.tags == (
+            task === :cartpole_plank_easy ?
+            (:experimental, :plank_cartpole, :frontier) :
+            (:experimental, :plank_cartpole)
+        )
         @test info.interaction_cycle == BrainlessLab.FixedRateCycle(24)
         @test info.protocol.evaluation.trials_per_block == 1000
         @test info.protocol.evaluation.horizon == 15_000

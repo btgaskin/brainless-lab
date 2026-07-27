@@ -4,6 +4,38 @@ operation = "benchmark"
 id = "core_benchmark_example"
 
 [[targets]]
+id = "wall_falandays"
+[targets.composition]
+id = "wall_falandays"
+preset = "falandays_wall"
+[targets.evaluation]
+blocks = 2
+trials_per_block = 1
+horizon = 120
+warmup = 20
+construction_scope = "trial"
+reset = "full"
+root_seed = 501
+aggregate = "mean"
+
+[[targets]]
+id = "wall_random"
+[targets.composition]
+id = "wall_random"
+node = "null_random"
+task = "wall"
+n_nodes = 200
+[targets.evaluation]
+blocks = 2
+trials_per_block = 1
+horizon = 120
+warmup = 20
+construction_scope = "trial"
+reset = "full"
+root_seed = 501
+aggregate = "mean"
+
+[[targets]]
 id = "tracking_falandays"
 [targets.composition]
 id = "tracking_falandays"
@@ -68,6 +100,11 @@ root_seed = 2501
 aggregate = "mean"
 
 [benchmark]
+
+[[benchmark.cases]]
+id = "wall"
+conditions = ["wall_falandays", "wall_random"]
+baseline = "wall_random"
 
 [[benchmark.cases]]
 id = "tracking"

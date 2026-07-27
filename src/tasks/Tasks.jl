@@ -322,8 +322,8 @@ end
 const WALL_TASK = TaskSpec(
     :wall,
     WallEnv;
-    status=:experimental,
-    tags=(:extended,),
+    status=:reference,
+    tags=(:benchmark, :qualification, :core),
     options=WALL_TASK_OPTIONS,
     floor=null_anchor(0.775625, "task=wall, null=null_random, score_key=nav_score, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
     ceiling=analytic(1.0; note="nav_score max = collision-free navigation while moving (a true analytic optimum); untrained falandays ref measured ~0.013 << null 0.776, so the analytic optimum is the honest ceiling, not a reference agent"),
@@ -465,7 +465,9 @@ function _plank_cartpole_task(level_name::Symbol)
         default_window=PLANK_CARTPOLE_MISSION_STEPS,
         interaction_cycle=FixedRateCycle(PLANK_CARTPOLE_NEURAL_FRAMES),
         status=:experimental,
-        tags=(:experimental, :plank_cartpole),
+        tags=level.name === :easy ?
+             (:experimental, :plank_cartpole, :frontier) :
+             (:experimental, :plank_cartpole),
         options=(
             initial_ranges=(
                 (-1.2, 1.2),

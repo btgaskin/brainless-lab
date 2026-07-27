@@ -206,6 +206,8 @@ end
     end
 
     @testset "pong catch zone and hit-rate score" begin
+        @test default_ticks(BrainlessLab.PongEnv) == 7_200
+        @test default_window(BrainlessLab.PongEnv) == 6_000
         pong = BrainlessLab.PongEnv(; rng=BrainlessLab.RecordedDraws([250.0, 1.0]))
         pong.ball_x = pong.paddle_x + pong.ball_r + pong.ball_speed
         pong.ball_y = pong.paddle_y + pong.paddle_h / 2.0 + pong.ball_r

@@ -85,7 +85,7 @@ The function returns `nothing` when the task has no scalar outcome. Other fields
 
 Raw outcomes are not comparable across tasks. Normalisation places values within each
 task's anchors but does not make the measured capacities identical. Keep Tracking, Pong,
-CartPole, and ecological outcomes separate.
+Wall, CartPole, and ecological outcomes separate.
 
 ## Record the channels an analysis needs
 

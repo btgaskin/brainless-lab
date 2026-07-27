@@ -64,7 +64,7 @@ end
     explore(args...; kwargs...)
 
 Experimental GLMakie interactive explorer for collective simulations. This
-interface is not part of the core Tracking and Pong workflow.
+interface is not part of the core Tracking, Pong, and Wall workflow.
 """
 function explore end
 

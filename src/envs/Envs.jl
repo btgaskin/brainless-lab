@@ -347,9 +347,9 @@ n_receptors(::Type{<:PongEnv}) = 46
 n_receptors(::PongEnv) = n_receptors(PongEnv)
 n_effectors(::Type{<:PongEnv}) = 2
 n_effectors(::PongEnv) = n_effectors(PongEnv)
-default_ticks(::Type{<:PongEnv}) = 2000
+default_ticks(::Type{<:PongEnv}) = 7200
 default_ticks(::PongEnv) = default_ticks(PongEnv)
-default_window(::Type{<:PongEnv}) = 1000
+default_window(::Type{<:PongEnv}) = 6000
 default_window(::PongEnv) = default_window(PongEnv)
 bounds(env::PongEnv) = (0.0, Float64(env.width), 0.0, Float64(env.height))
 

@@ -16,10 +16,11 @@ using Test
     @test BrainlessLab.node_parameter(falandays, :link_p).owner === :reservoir
     @test_throws KeyError BrainlessLab.node_parameter(falandays, :n_nodes)
 
-    @test BrainlessLab.task_spec(DEFAULT_REGISTRY, :wall).status === :experimental
+    @test BrainlessLab.task_spec(DEFAULT_REGISTRY, :wall).status === :reference
     @test BrainlessLab.task_spec(DEFAULT_REGISTRY, :tracking).status === :reference
     @test BrainlessLab.task_spec(DEFAULT_REGISTRY, :pong).status === :reference
-    @test Set(tasks(DEFAULT_REGISTRY; tag=:benchmark)) == Set((:tracking, :pong))
+    @test Set(tasks(DEFAULT_REGISTRY; tag=:benchmark)) == Set((:tracking, :pong, :wall))
+    @test tasks(DEFAULT_REGISTRY; tag=:frontier) == [:cartpole_plank_easy]
     @test :branching_ratio_mr in analyses(DEFAULT_REGISTRY; task=:tracking)
     @test :freeze_plasticity in ablations(DEFAULT_REGISTRY)
     @test :pong_hitrate ∉ tasks(DEFAULT_REGISTRY)

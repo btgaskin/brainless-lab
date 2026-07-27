@@ -2,7 +2,7 @@
 tasks = ["tracking", "pong"]
 conditions = ["falandays", "blind", "random", "reference"]
 seeds = 32
-ticks = 2000
+ticks = 7200
 bootstrap_draws = 10000
 bootstrap_seed = 20260720
 

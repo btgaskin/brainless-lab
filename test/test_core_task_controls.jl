@@ -72,11 +72,11 @@ end
         stationary_pong = BrainlessLab.PongEnv(seed)
         push!(
             pong_reference,
-            _task_policy_rollout(pong, BrainlessLab.pong_reference_policy, 2_000).hit_rate,
+            _task_policy_rollout(pong, BrainlessLab.pong_reference_policy, 7_200).hit_rate,
         )
         push!(
             pong_stationary,
-            _task_policy_rollout(stationary_pong, _ -> (0.0, 0.0), 2_000).hit_rate,
+            _task_policy_rollout(stationary_pong, _ -> (0.0, 0.0), 7_200).hit_rate,
         )
     end
 
