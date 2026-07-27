@@ -25,6 +25,7 @@ const TEST_SUITES = (
         "test_interaction_cycle.jl",
         "test_analysis.jl",
         "test_api.jl",
+        "test_extension_points.jl",
         "test_colour.jl",
         "test_dendritic.jl",
         "test_forage.jl",
@@ -43,6 +44,7 @@ const TEST_SUITES = (
         "test_sorn.jl",
         "test_spatial.jl",
         "test_window.jl",
+        "test_falandays_extended.jl",
     ),
     operations=(
         "test_operation_plans.jl",
@@ -63,7 +65,6 @@ const TEST_SUITES = (
         "test_fixture_integrity.jl",
         "test_authors_parity.jl",
         "test_falandays.jl",
-        "test_falandays_extended.jl",
         "test_core_calibration.jl",
         "test_envs.jl",
         "test_ablation.jl",

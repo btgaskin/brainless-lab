@@ -233,6 +233,8 @@ end
     @test length(getchannel(sim.recorder, :poses)) == 2
     @test sim.config.environment.relations[1].kind === :proximity_exposure
     @test sim.config.agents[1].body.sensors[1].kind === :sector_vision
+    @test sim.config.agents[1].body.sensors[1].source === :conspecific
+    @test sim.config.agents[1].body.sensors[2].source === :resource_1
     @test sim.config.agents[1].body.actuators[1].kind === :antagonistic_turn
     needs = BrainlessLab.shoal_need_satisfaction(sim; warmup=0)
     grouped = BrainlessLab.shoal_group_movement_summary(sim; warmup=0, grouping_radius=2.0)

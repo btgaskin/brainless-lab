@@ -13,7 +13,10 @@ function _safe_fixture_path(path::AbstractString)
     return true
 end
 
-function _fixture_path(root::AbstractString, relative::AbstractString)
+function _integrity_fixture_path(
+    root::AbstractString,
+    relative::AbstractString,
+)
     return joinpath(root, split(relative, '/')...)
 end
 
@@ -90,7 +93,7 @@ function _fixture_integrity_errors(
         push!(errors, "unlisted fixture: $relative")
     end
     for relative in sort!(collect(intersect(sealed, present)))
-        path = _fixture_path(fixture_dir, relative)
+        path = _integrity_fixture_path(fixture_dir, relative)
         actual = bytes2hex(SHA.sha256(read(path)))
         actual == entries[relative] ||
             push!(errors, "fixture digest mismatch: $relative")
@@ -105,7 +108,9 @@ function _write_fixture_manifest(
 )
     open(joinpath(fixture_dir, FIXTURE_MANIFEST), "w") do io
         for relative in relative_paths
-            digest = bytes2hex(SHA.sha256(read(_fixture_path(fixture_dir, relative))))
+            digest = bytes2hex(SHA.sha256(
+                read(_integrity_fixture_path(fixture_dir, relative)),
+            ))
             println(io, digest, "  ", relative)
         end
     end

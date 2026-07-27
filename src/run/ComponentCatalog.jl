@@ -114,6 +114,9 @@ end
 
 component_state(::SpectralCamera) = NamedTuple()
 
+_sensory_source_config(::ConspecificSource) = :conspecific
+_sensory_source_config(source::ObjectSource) = source_name(source)
+
 _sensor_component_config(sensor::SectorVision) = (
     kind=:sector_vision,
     source=_sensory_source_config(sensor.source),

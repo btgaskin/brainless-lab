@@ -223,7 +223,12 @@ function register_analysis!(
     task::Union{Nothing,Symbol}=nothing,
     label::AbstractString=string(sym),
 )
-    ANALYSES[sym] = (f=f, task=task, label=String(label))
+    _register!(
+        ANALYSES,
+        "analysis",
+        sym,
+        (f=f, task=task, label=String(label)),
+    )
     return sym
 end
 

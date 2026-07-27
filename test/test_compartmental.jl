@@ -42,7 +42,10 @@ function _flatten_c3(x::Array{<:Real,3})
     return out
 end
 
-function _max_abs_dev(a::AbstractVector{<:Real}, b::AbstractVector{<:Real})
+function _compartmental_max_abs_dev(
+    a::AbstractVector{<:Real},
+    b::AbstractVector{<:Real},
+)
     length(a) == length(b) || throw(DimensionMismatch("lengths $(length(a)) and $(length(b)) differ"))
     return isempty(a) ? 0.0 : maximum(abs.(Float64.(a) .- Float64.(b)))
 end
@@ -107,9 +110,18 @@ function _assert_compartmental_replay(mode)
     for t in axes(inputs, 1)
         spikes = step!(reservoir, vec(inputs[t, :]))
 
-        dend_dev = _max_abs_dev(_flatten_c3(reservoir.dend_y), vec(dend_y_T[t, :]))
-        soma_dev = _max_abs_dev(_flatten_c2(reservoir.soma_y), vec(soma_y_T[t, :]))
-        V_dev = _max_abs_dev(reservoir.V, vec(V_T[t, :]))
+        dend_dev = _compartmental_max_abs_dev(
+            _flatten_c3(reservoir.dend_y),
+            vec(dend_y_T[t, :]),
+        )
+        soma_dev = _compartmental_max_abs_dev(
+            _flatten_c2(reservoir.soma_y),
+            vec(soma_y_T[t, :]),
+        )
+        V_dev = _compartmental_max_abs_dev(
+            reservoir.V,
+            vec(V_T[t, :]),
+        )
 
         max_dend = max(max_dend, dend_dev)
         max_soma = max(max_soma, soma_dev)

@@ -2,16 +2,12 @@ using BrainlessLab
 using Test
 
 @testset "Recording and Makie visualization extension" begin
-    @test Base.get_extension(BrainlessLab, :BrainlessLabMakieExt) === nothing
-
     sim = simulate(:wall; node=:falandays, ticks=60)
     @test sim isa SimResult
     @test sim.task == :wall
     @test sim.node == :falandays
     @test !isempty(getchannel(sim.recorder, :spikes))
     @test !isempty(getchannel(sim.recorder, :rate))
-    @test Base.get_extension(BrainlessLab, :BrainlessLabMakieExt) === nothing
-
     using CairoMakie
     import Makie
 

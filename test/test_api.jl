@@ -136,64 +136,99 @@ end
 end
 
 @testset "Tinkering smoke" begin
-    register_node!(:mynode, MyNode; genome_type=MyNodeParams)
-    @test resolve_node(:mynode) === MyNode
-    @test BrainlessLab.genome_type(:mynode) === MyNodeParams
-    @test :mynode in variants()
+    try
+        register_node!(:mynode, MyNode; genome_type=MyNodeParams)
+        @test resolve_node(:mynode) === MyNode
+        @test BrainlessLab.genome_type(:mynode) === MyNodeParams
+        @test :mynode in variants()
 
-    mytask = TaskSpec(:mytoy, BrainlessLab.WallEnv; default_ticks=20, default_window=10)
-    register_task!(:mytoy, mytask)
-    @test resolve_task(:mytoy).name == :mytoy
-    @test :mytoy in tasks()
+        mytask = TaskSpec(
+            :mytoy,
+            BrainlessLab.WallEnv;
+            default_ticks=20,
+            default_window=10,
+        )
+        register_task!(:mytoy, mytask)
+        @test resolve_task(:mytoy).name == :mytoy
+        @test :mytoy in tasks()
 
-    BrainlessLab.register_view!(:myview, _myview)
-    @test resolve_view(:myview) === _myview
+        BrainlessLab.register_view!(:myview, _myview)
+        @test resolve_view(:myview) === _myview
 
-    register_body!(:mybody, MyBody)
-    @test resolve_body(:mybody) === MyBody
+        register_body!(:mybody, MyBody)
+        @test resolve_body(:mybody) === MyBody
 
-    register_drive!(:mydrive, MyDrive)
-    @test resolve_drive(:mydrive) === MyDrive
+        register_drive!(:mydrive, MyDrive)
+        @test resolve_drive(:mydrive) === MyDrive
 
-    register_metric!(:custom_metric, _custom_metric)
-    @test resolve_metric(:custom_metric) === _custom_metric
+        register_metric!(:custom_metric, _custom_metric)
+        @test resolve_metric(:custom_metric) === _custom_metric
 
-    wall = simulate(:wall; node=:mynode, ticks=20, n_nodes=8)
-    @test wall isa SimResult
-    @test wall.node == :mynode
-    @test wall.task == :wall
-    @test !isempty(getchannel(wall.recorder, :spikes))
-    @test !isempty(getchannel(wall.recorder, :rate))
+        wall = simulate(:wall; node=:mynode, ticks=20, n_nodes=8)
+        @test wall isa SimResult
+        @test wall.node == :mynode
+        @test wall.task == :wall
+        @test !isempty(getchannel(wall.recorder, :spikes))
+        @test !isempty(getchannel(wall.recorder, :rate))
 
-    custom = simulate(:mytoy; node=:mynode, ticks=12, n_nodes=8)
-    @test custom isa SimResult
-    @test custom.task == :mytoy
-    @test !isempty(getchannel(custom.recorder, :spikes))
-    @test resolve_view(:myview)(custom) === custom
-    @test BrainlessLab.view(custom, :myview) === custom
+        custom = simulate(:mytoy; node=:mynode, ticks=12, n_nodes=8)
+        @test custom isa SimResult
+        @test custom.task == :mytoy
+        @test !isempty(getchannel(custom.recorder, :spikes))
+        @test resolve_view(:myview)(custom) === custom
+        @test BrainlessLab.view(custom, :myview) === custom
 
-    body_sim = simulate(:wall; node=:mynode, body=:mybody, ticks=12, n_nodes=8)
-    @test body_sim isa SimResult
+        body_sim = simulate(
+            :wall;
+            node=:mynode,
+            body=:mybody,
+            ticks=12,
+            n_nodes=8,
+        )
+        @test body_sim isa SimResult
 
-    drive_sim = simulate(:wall; node=:falandays, drive=:mydrive, ticks=12, n_nodes=8)
-    @test drive_sim isa SimResult
+        drive_sim = simulate(
+            :wall;
+            node=:falandays,
+            drive=:mydrive,
+            ticks=12,
+            n_nodes=8,
+        )
+        @test drive_sim isa SimResult
 
-    metric_sim = simulate(:wall; node=:mynode, ticks=12, n_nodes=8, metrics=[:custom_metric])
-    @test hasproperty(metric_sim.metrics, :score)
-    @test hasproperty(metric_sim.metrics, :custom_metric)
+        metric_sim = simulate(
+            :wall;
+            node=:mynode,
+            ticks=12,
+            n_nodes=8,
+            metrics=[:custom_metric],
+        )
+        @test hasproperty(metric_sim.metrics, :score)
+        @test hasproperty(metric_sim.metrics, :custom_metric)
 
-    packed = pack_params(MyNodeParams(1.25))
-    params = unpack_params(BrainlessLab.genome_type(:mynode), packed)
-    stamped = simulate(
-        :wall;
-        node=:mynode,
-        seed=2,
-        N=8,
-        ticks=12,
-        node_kwargs=(; params),
-    )
-    outcome = task_outcome(stamped)
-    @test stamped.node == :mynode
-    @test stamped.config.networks[1].gain == params.gain
-    @test isfinite(outcome.normalized)
+        packed = pack_params(MyNodeParams(1.25))
+        params = unpack_params(BrainlessLab.genome_type(:mynode), packed)
+        stamped = simulate(
+            :wall;
+            node=:mynode,
+            seed=2,
+            N=8,
+            ticks=12,
+            node_kwargs=(; params),
+        )
+        outcome = task_outcome(stamped)
+        @test stamped.node == :mynode
+        @test stamped.config.networks[1].gain == params.gain
+        @test isfinite(outcome.normalized)
+    finally
+        delete!(BrainlessLab.METRICS, :custom_metric)
+        delete!(BrainlessLab.DRIVES, :mydrive)
+        delete!(BrainlessLab.BODY_OPTION_DEFAULTS, :mybody)
+        delete!(BrainlessLab.BODIES, :mybody)
+        delete!(BrainlessLab.VIEWS, :myview)
+        delete!(BrainlessLab.TASKS, :mytoy)
+        delete!(BrainlessLab.NODE_RECEPTOR_PROFILE_KEYWORDS, :mynode)
+        delete!(BrainlessLab.NODE_GENOME_TYPES, :mynode)
+        delete!(BrainlessLab.NODES, :mynode)
+    end
 end

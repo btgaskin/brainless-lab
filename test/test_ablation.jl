@@ -197,22 +197,26 @@ end
 end
 
 @testset "registered high-level ablations require an execution handler" begin
-    register_ablation!(:test_unhandled_ablation, identity)
-    error = try
-        simulate(
-            :tracking;
-            node=:falandays,
-            ticks=1,
-            seed=3,
-            ablation=:test_unhandled_ablation,
+    try
+        register_ablation!(:test_unhandled_ablation, identity)
+        error = try
+            simulate(
+                :tracking;
+                node=:falandays,
+                ticks=1,
+                seed=3,
+                ablation=:test_unhandled_ablation,
+            )
+            nothing
+        catch caught
+            caught
+        end
+        @test error isa ArgumentError
+        @test occursin(
+            "registered ablation :test_unhandled_ablation has no high-level simulate handler",
+            sprint(showerror, error),
         )
-        nothing
-    catch caught
-        caught
+    finally
+        delete!(BrainlessLab.ABLATIONS, :test_unhandled_ablation)
     end
-    @test error isa ArgumentError
-    @test occursin(
-        "registered ablation :test_unhandled_ablation has no high-level simulate handler",
-        sprint(showerror, error),
-    )
 end

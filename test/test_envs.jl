@@ -69,7 +69,7 @@ function _state_vector(env::BrainlessLab.CartPoleEnv)
     return copy(env.state)
 end
 
-function _max_abs_dev(a, b)
+function _env_max_abs_dev(a, b)
     av = Float64.(vec(a))
     bv = Float64.(vec(b))
     length(av) == length(bv) ||
@@ -111,12 +111,12 @@ function _assert_env_replay(name)
 
     for t in axes(effs, 1)
         sensors = sense(env)
-        sensor_dev = _max_abs_dev(sensors, sensors_T[t, :])
+        sensor_dev = _env_max_abs_dev(sensors, sensors_T[t, :])
         max_sensor = max(max_sensor, sensor_dev)
         @test sensor_dev <= ENV_ATOL
 
         step!(env, vec(effs[t, :]))
-        state_dev = _max_abs_dev(_state_vector(env), state_T[t, :])
+        state_dev = _env_max_abs_dev(_state_vector(env), state_T[t, :])
         max_state = max(max_state, state_dev)
         @test state_dev <= ENV_ATOL
     end

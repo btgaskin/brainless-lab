@@ -5,7 +5,7 @@ using Test
 const FALANDAYS_ATOL = 1e-9
 const FALANDAYS_MARGIN_EPS = 1e-6
 
-function _fixture_path(name)
+function _falandays_fixture_path(name)
     return joinpath(@__DIR__, "fixtures", "falandays_$(name).npz")
 end
 
@@ -74,7 +74,7 @@ function _build_reservoir(name, data)
 end
 
 function _assert_replay(name)
-    path = _fixture_path(name)
+    path = _falandays_fixture_path(name)
     isfile(path) || error("missing legacy v0.2 fixture $path; run test/oracle/gen_falandays_fixtures.py from the v0.2 directory")
     data = npzread(path)
     reservoir = _build_reservoir(name, data)

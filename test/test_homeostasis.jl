@@ -344,20 +344,28 @@ end
     @test all(iszero, only(getchannel(sim.recorder, :spikes)[2]))
     @test length(only(getchannel(sim.recorder, :receptors)[1])) == 3
 
-    register_node!(
-        :profile_aware_test,
-        _profile_aware_test_node;
-        receptor_profile_keyword=:input_link_p,
-    )
-    @test BrainlessLab.node_receptor_profile_keyword(:profile_aware_test) === :input_link_p
-    simulate(task; node=:profile_aware_test, n_nodes=8, ticks=1, seed=2)
-    @test _RECEPTOR_PROFILE_CAPTURE[] == [0.1, 0.1, 1.0]
-    @test_throws ArgumentError register_node!(
-        :empty_profile_test,
-        _profile_aware_test_node;
-        receptor_profile_keyword="",
-    )
-    @test_throws KeyError resolve_node(:empty_profile_test)
+    try
+        register_node!(
+            :profile_aware_test,
+            _profile_aware_test_node;
+            receptor_profile_keyword=:input_link_p,
+        )
+        @test BrainlessLab.node_receptor_profile_keyword(
+            :profile_aware_test,
+        ) === :input_link_p
+        simulate(task; node=:profile_aware_test, n_nodes=8, ticks=1, seed=2)
+        @test _RECEPTOR_PROFILE_CAPTURE[] == [0.1, 0.1, 1.0]
+        @test_throws ArgumentError register_node!(
+            :empty_profile_test,
+            _profile_aware_test_node;
+            receptor_profile_keyword="",
+        )
+        @test_throws KeyError resolve_node(:empty_profile_test)
+    finally
+        delete!(BrainlessLab.NODE_RECEPTOR_PROFILE_KEYWORDS, :profile_aware_test)
+        delete!(BrainlessLab.NODE_GENOME_TYPES, :profile_aware_test)
+        delete!(BrainlessLab.NODES, :profile_aware_test)
+    end
 
     for node in (:falandays_noisy, :falandays_extended, :falandays_ablated)
         @test BrainlessLab.node_receptor_profile_keyword(node) === :input_link_p

@@ -750,8 +750,8 @@ end
     @test isfinite(agent_fano.rate_variance)
     @test agent_fano.turn_threshold == BrainlessLab.DEFAULT_TURN_THRESHOLD
 
-    node_pr = participation_ratio(sim; level=:node)
-    agent_pr = participation_ratio(sim; level=:agent)
+    node_pr = BrainlessLab.participation_ratio(sim; level=:node)
+    agent_pr = BrainlessLab.participation_ratio(sim; level=:agent)
     @test node_pr.level == :node
     @test agent_pr.level == :agent
     @test length(node_pr.distribution) == 4
@@ -762,7 +762,8 @@ end
     @test resolve_analysis(:susceptibility_windowed) ===
           BrainlessLab.susceptibility_windowed
     @test resolve_analysis(:fano_factor) === fano_factor
-    @test resolve_analysis(:participation_ratio) === participation_ratio
+    @test resolve_analysis(:participation_ratio) ===
+        BrainlessLab.participation_ratio
     @test BrainlessLab.analysis_meta(:susceptibility).label == "susceptibility χ (experimental)"
     @test BrainlessLab.analysis_meta(:fano_factor).label == "activity-rate summary (mean, variance, Fano)"
     @test BrainlessLab.analysis_meta(:participation_ratio).label ==

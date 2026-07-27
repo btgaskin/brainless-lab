@@ -34,30 +34,39 @@ end
 
 @testset "version-one experiments round trip" begin
     experiment = _experiment_io_fixture()
-    directory = tempname()
-    @test write_experiment(directory, experiment) == directory
-    @test isfile(joinpath(directory, "experiment.toml"))
-    @test isfile(joinpath(directory, "plans", "01-profile_tracking_null.toml"))
+    mktempdir() do root
+        directory = joinpath(root, "experiment")
+        @test write_experiment(directory, experiment) == directory
+        @test isfile(joinpath(directory, "experiment.toml"))
+        @test isfile(joinpath(
+            directory,
+            "plans",
+            "01-profile_tracking_null.toml",
+        ))
 
-    parsed = read_experiment(directory)
-    @test parsed.id === experiment.id
-    @test parsed.version == experiment.version
-    @test parsed.evidence_state === :planned
-    @test parsed.metadata.programme == "core_demo"
-    @test BrainlessLab.operation_targets(only(parsed.operations))[1].composition.interaction_cycle ==
-        BrainlessLab.FixedRateCycle(2)
-    @test_throws ArgumentError write_experiment(directory, experiment)
+        parsed = read_experiment(directory)
+        @test parsed.id === experiment.id
+        @test parsed.version == experiment.version
+        @test parsed.evidence_state === :planned
+        @test parsed.metadata.programme == "core_demo"
+        @test BrainlessLab.operation_targets(
+            only(parsed.operations),
+        )[1].composition.interaction_cycle ==
+            BrainlessLab.FixedRateCycle(2)
+        @test_throws ArgumentError write_experiment(directory, experiment)
+    end
 end
 
 @testset "an experiment executes its declared operations" begin
     experiment = _experiment_io_fixture()
-    root = mktempdir()
-    run = run_experiment(experiment; root=root, id="experiment-run")
-    @test length(run.results) == 1
-    @test only(run.results) isa BrainlessLab.ProfileResult
-    @test isfile(joinpath(run.directory, "experiment-run.toml"))
-    @test isfile(joinpath(run.directory, "DONE"))
-    @test isfile(joinpath(run.directory, only(run.records), "DONE"))
+    mktempdir() do root
+        run = run_experiment(experiment; root=root, id="experiment-run")
+        @test length(run.results) == 1
+        @test only(run.results) isa BrainlessLab.ProfileResult
+        @test isfile(joinpath(run.directory, "experiment-run.toml"))
+        @test isfile(joinpath(run.directory, "DONE"))
+        @test isfile(joinpath(run.directory, only(run.records), "DONE"))
+    end
 end
 
 @testset "checked fixed-design evolution experiment is planned and valid" begin

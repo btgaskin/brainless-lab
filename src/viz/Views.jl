@@ -66,7 +66,12 @@ end
 Experimental GLMakie interactive explorer for collective simulations. This
 interface is not part of the core Tracking, Pong, and Wall workflow.
 """
-function explore end
+function explore(args...; kwargs...)
+    throw(ArgumentError(
+        "the interactive explorer requires GLMakie; load GLMakie before " *
+        "calling BrainlessLab.explore",
+    ))
+end
 
 """
     replay(args...; kwargs...)
