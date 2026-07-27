@@ -430,7 +430,7 @@ end
 function register_builtins!(registry::RegistrySet)
     register!(registry, falandays_node_spec())
     for (id, constructor) in sort!(collect(NODES); by=pair -> string(first(pair)))
-        id in (:falandays, :falandays_base, :falandays_ablated) && continue
+        id === :falandays && continue
         register!(registry, _generic_registered_node_spec(id, constructor))
     end
 

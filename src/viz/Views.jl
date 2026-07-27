@@ -53,7 +53,12 @@ function fitnessplot end
 
 Generic multi-panel visualization hook.
 """
-function visualize end
+function visualize(value; kwargs...)
+    throw(ArgumentError(
+        "no visualization backend is loaded for $(typeof(value)); load CairoMakie " *
+        "or another Makie backend before calling visualize",
+    ))
+end
 
 """
     explore(args...; kwargs...)

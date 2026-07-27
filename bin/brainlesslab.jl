@@ -143,10 +143,19 @@ function main(args=ARGS)
     root = parse_run_options(args[3:end])
     run = run_operation(plan; root=root)
     println("record: ", run.directory)
-    println("summary: ", BrainlessLab.summary(run.result))
     return 0
 end
 
+function cli_main(args=ARGS; error_io=stderr)
+    try
+        return main(args)
+    catch error
+        error isa InterruptException && rethrow()
+        println(error_io, "error: ", sprint(showerror, error))
+        return 1
+    end
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
-    exit(main())
+    exit(cli_main())
 end

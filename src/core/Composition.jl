@@ -174,17 +174,53 @@ function resolve_parameters(spec::NodeSpec, overrides=Dict{Symbol,Any}())
 end
 
 """One serializable, runnable node-task-body composition."""
-Base.@kwdef struct CompositionSpec
+struct CompositionSpec
     id::Symbol
     node::Symbol
     task::Symbol
-    body::Union{Nothing,Symbol}=nothing
-    n_agents::Union{Nothing,Int}=nothing
+    body::Union{Nothing,Symbol}
+    n_agents::Union{Nothing,Int}
     n_nodes::Int
-    parameters::Dict{Symbol,Any}=Dict{Symbol,Any}()
-    task_options::Dict{Symbol,Any}=Dict{Symbol,Any}()
-    body_options::Dict{Symbol,Any}=Dict{Symbol,Any}()
-    interaction_cycle::Union{Nothing,InteractionCycle}=nothing
+    parameters::Dict{Symbol,Any}
+    task_options::Dict{Symbol,Any}
+    body_options::Dict{Symbol,Any}
+    interaction_cycle::Union{Nothing,InteractionCycle}
+
+    function CompositionSpec(
+        id::Symbol,
+        node::Symbol,
+        task::Symbol,
+        body::Union{Nothing,Symbol},
+        n_agents::Union{Nothing,Int},
+        n_nodes::Int,
+        parameters::Dict{Symbol,Any},
+        task_options::Dict{Symbol,Any},
+        body_options::Dict{Symbol,Any},
+        interaction_cycle::Union{Nothing,InteractionCycle},
+    )
+        id_ = _nonempty_symbol(id, "composition id")
+        node_ = _nonempty_symbol(node, "composition node")
+        task_ = _nonempty_symbol(task, "composition task")
+        n_nodes > 0 || throw(ArgumentError(
+            "composition :$(id_) requires positive n_nodes",
+        ))
+        n_agents === nothing || n_agents > 0 || throw(ArgumentError(
+            "composition :$(id_) requires positive n_agents when specified",
+        ))
+        body_ = body === nothing ? nothing : _nonempty_symbol(body, "composition body")
+        return new(
+            id_,
+            node_,
+            task_,
+            body_,
+            n_agents,
+            n_nodes,
+            parameters,
+            task_options,
+            body_options,
+            interaction_cycle,
+        )
+    end
 end
 
 function CompositionSpec(
@@ -199,20 +235,13 @@ function CompositionSpec(
     body_options=Dict{Symbol,Any}(),
     interaction_cycle::Union{Nothing,InteractionCycle}=nothing,
 )
-    id_ = _nonempty_symbol(id, "composition id")
-    node_ = _nonempty_symbol(node, "composition node")
-    task_ = _nonempty_symbol(task, "composition task")
     count = Int(n_nodes)
-    count > 0 || throw(ArgumentError("composition :$(id_) requires positive n_nodes"))
     agents = n_agents === nothing ? nothing : Int(n_agents)
-    agents === nothing || agents > 0 || throw(ArgumentError(
-        "composition :$(id_) requires positive n_agents when specified",
-    ))
     body_ = body === nothing ? nothing : _nonempty_symbol(body, "composition body")
     return CompositionSpec(
-        id_,
-        node_,
-        task_,
+        _nonempty_symbol(id, "composition id"),
+        _nonempty_symbol(node, "composition node"),
+        _nonempty_symbol(task, "composition task"),
         body_,
         agents,
         count,
@@ -220,6 +249,32 @@ function CompositionSpec(
         Dict{Symbol,Any}(Symbol(key) => value for (key, value) in pairs(task_options)),
         Dict{Symbol,Any}(Symbol(key) => value for (key, value) in pairs(body_options)),
         interaction_cycle,
+    )
+end
+
+function CompositionSpec(;
+    id,
+    node,
+    task,
+    body=nothing,
+    n_agents=nothing,
+    n_nodes,
+    parameters=Dict{Symbol,Any}(),
+    task_options=Dict{Symbol,Any}(),
+    body_options=Dict{Symbol,Any}(),
+    interaction_cycle::Union{Nothing,InteractionCycle}=nothing,
+)
+    return CompositionSpec(
+        id,
+        node,
+        task;
+        body=body,
+        n_agents=n_agents,
+        n_nodes=n_nodes,
+        parameters=parameters,
+        task_options=task_options,
+        body_options=body_options,
+        interaction_cycle=interaction_cycle,
     )
 end
 
@@ -351,9 +406,6 @@ function _materialize_registered_body(spec::ImplementationSpec, options::Dict{Sy
     implementation = spec.implementation
     implementation isa AbstractBody && return deepcopy(implementation)
     values = (; (key => value for (key, value) in options)...)
-    applicable(implementation; values...) || throw(ArgumentError(
-        "registered body :$(spec.key) does not accept its declared options",
-    ))
     body = implementation(; values...)
     body isa AbstractBody || throw(ArgumentError(
         "registered body :$(spec.key) returned $(typeof(body)), not AbstractBody",

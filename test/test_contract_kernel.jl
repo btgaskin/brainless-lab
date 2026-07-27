@@ -10,13 +10,16 @@ using BrainlessLab:
     Registry,
     DEFAULT_REGISTRY,
     SeedStreamSpec,
+    SimResult,
     derive_seed,
     node_spec,
     register!,
     resolve,
     seed_stream_names,
+    simulate,
     sweepable,
-    validate_parameter
+    validate_parameter,
+    visualize
 
 @testset "typed registry" begin
     registry = Registry{Symbol,Int}(:nodes)
@@ -33,12 +36,27 @@ end
 
 @testset "built-in node capabilities describe their mechanisms" begin
     expected = Dict(
+        :falandays_base => (
+            :spiking,
+            :online_plasticity,
+            :recurrent_weights,
+            :homeostatic_target,
+            :receptor_profile,
+        ),
         :falandays_noisy => (
             :spiking,
             :online_plasticity,
             :recurrent_weights,
             :homeostatic_target,
             :sensory_noise,
+            :receptor_profile,
+        ),
+        :falandays_ablated => (
+            :spiking,
+            :online_plasticity,
+            :recurrent_weights,
+            :homeostatic_target,
+            :clamped_homeostatic_target,
             :receptor_profile,
         ),
         :falandays_extended => (
@@ -119,6 +137,95 @@ end
     for (id, capabilities) in expected
         @test node_spec(DEFAULT_REGISTRY, id).capabilities == capabilities
     end
+end
+
+@testset "public surface failures stay concise and validated" begin
+    @test_throws ArgumentError CompositionSpec(
+        id=:invalid_keyword,
+        node=:falandays,
+        task=:tracking,
+        n_nodes=-5,
+    )
+    @test_throws ArgumentError CompositionSpec(
+        id=:invalid_agents,
+        node=:falandays,
+        task=:tracking,
+        n_nodes=5,
+        n_agents=0,
+    )
+    keyword_spec = CompositionSpec(
+        id=:valid_keyword,
+        node=:falandays_base,
+        task=:tracking,
+        body=:direct,
+        n_nodes=20,
+    )
+    @test keyword_spec.n_nodes == 20
+    @test node_spec(DEFAULT_REGISTRY, :falandays_base).id === :falandays_base
+    @test node_spec(DEFAULT_REGISTRY, :falandays_ablated).id === :falandays_ablated
+    @test simulate(keyword_spec; ticks=2, seed=5, record=()) isa SimResult
+
+    visual_error = try
+        visualize(SimResult(nothing, NamedTuple(), :tracking, :falandays, NamedTuple()))
+        nothing
+    catch caught
+        caught
+    end
+    @test visual_error isa ArgumentError
+    @test occursin("load CairoMakie", sprint(showerror, visual_error))
+    @test !occursin("SimResult(", sprint(showerror, visual_error))
+
+    bad_signature = () -> nothing
+    signature_error = try
+        BrainlessLab._build_reservoir(
+            :bad_signature,
+            bad_signature,
+            2,
+            1,
+            1,
+        )
+        nothing
+    catch caught
+        caught
+    end
+    @test signature_error isa ArgumentError
+    @test occursin(
+        "must accept (n_nodes, n_receptors, n_effectors; seed, kwargs...)",
+        sprint(showerror, signature_error),
+    )
+
+    internal_failure = (args...; kwargs...) -> throw(DomainError(:internal_node_failure))
+    internal_error = try
+        BrainlessLab._build_reservoir(
+            :internal_failure,
+            internal_failure,
+            2,
+            1,
+            1,
+        )
+        nothing
+    catch caught
+        caught
+    end
+    @test internal_error isa DomainError
+
+    keyword_inner = (; seed=0) -> nothing
+    keyword_outer = (args...; kwargs...) -> keyword_inner(; kwargs...)
+    keyword_error = try
+        BrainlessLab._build_reservoir(
+            :keyword_failure,
+            keyword_outer,
+            2,
+            1,
+            1;
+            node_kwargs=(typo=true,),
+        )
+        nothing
+    catch caught
+        caught
+    end
+    @test keyword_error isa MethodError
+    @test !occursin("Registered node", sprint(showerror, keyword_error))
 end
 
 @testset "canonical ablations resolve for declared node capabilities" begin

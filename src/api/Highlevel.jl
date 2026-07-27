@@ -774,6 +774,12 @@ function _compartmental_structured_native(args...; kwargs...)
     return _compartmental_native(StructuredCompartmental, args...; kwargs...)
 end
 
+function _methoderror_targets(error::MethodError, constructor)
+    error.f === constructor && return true
+    error.f === Core.kwcall || return false
+    return length(error.args) >= 2 && error.args[2] === constructor
+end
+
 function _build_reservoir(
     node::Symbol,
     node_ctor,
@@ -793,8 +799,12 @@ function _build_reservoir(
         reservoir = node_ctor(Int(n_nodes), Int(n_receptors_), Int(n_effectors_); kwargs...)
         return _apply_postbuild_ablation!(reservoir, Symbol(ablation))
     catch err
-        msg = "Registered node :$(node) must accept (n_nodes, n_receptors, n_effectors; seed, kwargs...). Original error: $(sprint(showerror, err))"
-        throw(ArgumentError(msg))
+        if err isa MethodError && _methoderror_targets(err, node_ctor)
+            msg = "Registered node :$(node) must accept " *
+                  "(n_nodes, n_receptors, n_effectors; seed, kwargs...)."
+            rethrow(ArgumentError(msg))
+        end
+        rethrow()
     end
 end
 

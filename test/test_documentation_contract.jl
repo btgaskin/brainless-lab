@@ -89,3 +89,86 @@ using Test
     end
     @test isempty(unique(offenders))
 end
+
+@testset "CLI reports concise errors and record paths" begin
+    repository = normpath(joinpath(@__DIR__, ".."))
+    cli = Module(:BrainlessLabCLITest)
+    Base.include(cli, joinpath(repository, "bin", "brainlesslab.jl"))
+
+    mktemp() do path, io
+        write(io, """
+format = "brainlesslab-plan"
+format_version = 1
+operation = "profile"
+id = "bad_cli_plan"
+unknown = true
+targets = []
+
+[profile]
+target = "missing"
+""")
+        flush(io)
+        errors = IOBuffer()
+        code = Base.invokelatest(
+            cli.cli_main,
+            ["check", path];
+            error_io=errors,
+        )
+        message = String(take!(errors))
+        @test code == 1
+        @test startswith(message, "error: ")
+        @test !occursin("Stacktrace", message)
+        @test !occursin("_require_document_keys", message)
+    end
+
+    mktemp() do plan_path, plan_io
+        write(plan_io, """
+format = "brainlesslab-plan"
+format_version = 1
+operation = "profile"
+id = "cli_path_smoke"
+
+[[targets]]
+id = "tracking"
+
+[targets.composition]
+id = "cli_tracking"
+node = "null_random"
+task = "tracking"
+n_nodes = 5
+
+[targets.evaluation]
+blocks = 1
+trials_per_block = 1
+horizon = 1
+warmup = 0
+construction_scope = "trial"
+reset = "full"
+root_seed = 7
+aggregate = "mean"
+
+[profile]
+target = "tracking"
+analyses = []
+record_every = 1
+""")
+        flush(plan_io)
+        mktempdir() do records
+            mktemp() do _, output
+                code = redirect_stdout(output) do
+                    Base.invokelatest(
+                        cli.main,
+                        ["run", plan_path, "--root", records],
+                    )
+                end
+                flush(output)
+                seekstart(output)
+                lines = filter(!isempty, split(read(output, String), '\n'))
+                @test code == 0
+                @test length(lines) == 1
+                @test startswith(only(lines), "record: ")
+                @test !occursin("summary:", only(lines))
+            end
+        end
+    end
+end

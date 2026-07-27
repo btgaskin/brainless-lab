@@ -5,6 +5,13 @@ end
 
 function _composition_body(resolved::ResolvedComposition)
     resolved.body === nothing && return nothing
+    if resolved.body.key === :direct
+        isempty(resolved.body_options) || throw(ArgumentError(
+            "registered body :direct does not accept body_options; its port widths " *
+            "come from the resolved task environment",
+        ))
+        return :direct
+    end
     return _materialize_registered_body(resolved.body, resolved.body_options)
 end
 
