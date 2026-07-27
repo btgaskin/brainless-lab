@@ -83,7 +83,7 @@ The authors' own Julia source is public at
 and is cited, not vendored: no upstream source, data, or figures are redistributed here.
 Task-specific constants are recorded with per-file provenance in
 [`src/api/paper_config.jl`](src/api/paper_config.jl), and the reference fixtures are
-described in [`test/fixtures/README.md`](test/fixtures/README.md).
+described in [`test/FIXTURES.md`](test/FIXTURES.md).
 
 ## Development
 
