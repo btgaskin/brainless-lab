@@ -40,7 +40,8 @@ not enter either surface.
 
 ## Task
 
-`TaskSpec` holds a setup callable and task metadata. The setup returns:
+`TaskSpec` holds a setup callable, its accepted option defaults, and task metadata. The
+setup returns:
 
 ```julia
 TaskSetup(environment, bodies)
@@ -48,6 +49,9 @@ TaskSetup(environment, bodies)
 
 The resolved body ports determine reservoir widths. Static receptor and effector counts on
 `TaskSpec` are optional default metadata.
+
+Declare every configurable setup keyword in `options`. Composition resolution writes the
+complete option set into the record and rejects unknown keys before execution.
 
 A scored task declares one `score_key`, a floor, and a ceiling. It may also declare
 descriptor keys. A task with `score_key=nothing` remains valid for profiling, but it cannot
@@ -67,6 +71,10 @@ BrainlessLab.decode!(body, effectors)
 
 A body may also specialise `portspec`, `alive`, `inactive_command`, `update!`, `reset!`,
 `component_state`, and `receptor_link_profile`.
+
+A registered body constructor declares accepted option defaults in its
+`ImplementationSpec`. Composition resolution records those defaults and rejects unknown
+`body_options` before construction.
 
 `Embodiment` composes six registered component families:
 

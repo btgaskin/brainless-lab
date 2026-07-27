@@ -111,6 +111,57 @@ end
     @test parsed.target.composition.interaction_cycle == BrainlessLab.FixedRateCycle(7)
 end
 
+@testset "plan IO resolves task defaults and rejects unknown options" begin
+    composition = CompositionSpec(
+        :configured_tracking,
+        :falandays,
+        :tracking;
+        n_nodes=12,
+        task_options=Dict(
+            :sensory_gain => 1.5,
+            :theta0 => nothing,
+        ),
+    )
+    plan = ProfilePlan(
+        :configured_tracking,
+        EvaluationTarget(
+            :tracking,
+            composition,
+            EvaluationSpec(horizon=2),
+        );
+        analyses=(),
+    )
+    path = tempname() * ".toml"
+    write_plan(path, plan)
+    parsed = read_plan(path)
+    resolved = resolve(parsed, DEFAULT_REGISTRY)
+    @test resolved.composition.task_options[:sensory_gain] == 1.5
+    @test resolved.composition.task_options[:movement_amp] == 10.0
+    @test resolved.composition.task_options[:theta0] === nothing
+
+    bad_composition = CompositionSpec(
+        :misspelled_tracking,
+        :falandays,
+        :tracking;
+        n_nodes=12,
+        task_options=Dict(:sensory_gaim => 1.5),
+    )
+    bad_plan = ProfilePlan(
+        :misspelled_tracking,
+        EvaluationTarget(
+            :tracking,
+            bad_composition,
+            EvaluationSpec(horizon=2),
+        );
+        analyses=(),
+    )
+    bad_path = tempname() * ".toml"
+    write_plan(bad_path, bad_plan)
+    parsed_bad = read_plan(bad_path)
+    @test_throws ArgumentError validate(parsed_bad, DEFAULT_REGISTRY)
+    @test_throws ArgumentError resolve(parsed_bad, DEFAULT_REGISTRY)
+end
+
 @testset "plan parser rejects unknown schema" begin
     path = tempname() * ".toml"
     open(path, "w") do io

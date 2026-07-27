@@ -161,7 +161,8 @@ end
     @test length(space) == BrainlessLab.n_sensors(s)          # one entry per active ray, no tuning
     @test BL.paramdim(s) == BrainlessLab.n_sensors(s)
     @test all(e -> e.lo == -180.0 && e.hi == 180.0, space)
-    @test [e.label for e in space] == [Symbol("angle_", i) for i in 1:n_sensors(s)]
+    @test [e.label for e in space] ==
+          [Symbol("angle_", i) for i in 1:BrainlessLab.n_sensors(s)]
 
     g = BL.pack_params(s)
     @test length(g) == BL.paramdim(s)

@@ -3,7 +3,9 @@ using TOML
 const PLAN_FORMAT = "brainlesslab-plan"
 const PLAN_FORMAT_VERSION = 2
 const _READABLE_PLAN_FORMAT_VERSIONS = (1, PLAN_FORMAT_VERSION)
+const _NOTHING_TOML_KEY = "__brainlesslab_nothing__"
 
+_plan_toml_value(::Nothing) = Dict{String,Any}(_NOTHING_TOML_KEY => true)
 _plan_toml_value(value::Symbol) = String(value)
 _plan_toml_value(value::Tuple) = [_plan_toml_value(item) for item in value]
 _plan_toml_value(value::AbstractVector) = [_plan_toml_value(item) for item in value]
@@ -17,6 +19,20 @@ _plan_toml_value(value::AbstractDict) = Dict(
 )
 _plan_toml_value(value::UInt64) = value <= UInt64(typemax(Int64)) ? Int64(value) : string(value)
 _plan_toml_value(value) = value
+
+function _parse_plan_toml_value(value::AbstractDict)
+    if length(value) == 1 && get(value, _NOTHING_TOML_KEY, false) === true
+        return nothing
+    end
+    return Dict(
+        key => _parse_plan_toml_value(item)
+        for (key, item) in pairs(value)
+    )
+end
+
+_parse_plan_toml_value(value::AbstractVector) =
+    [_parse_plan_toml_value(item) for item in value]
+_parse_plan_toml_value(value) = value
 
 function _interaction_cycle_document(cycle::FixedRateCycle)
     return Dict{String,Any}(
@@ -192,15 +208,15 @@ function _parse_composition(document, registry::RegistrySet)
         "composition",
     )
     parameters = Dict{Symbol,Any}(
-        Symbol(key) => value
+        Symbol(key) => _parse_plan_toml_value(value)
         for (key, value) in get(document, "parameters", Dict{String,Any}())
     )
     task_options = Dict{Symbol,Any}(
-        Symbol(key) => value
+        Symbol(key) => _parse_plan_toml_value(value)
         for (key, value) in get(document, "task_options", Dict{String,Any}())
     )
     body_options = Dict{Symbol,Any}(
-        Symbol(key) => value
+        Symbol(key) => _parse_plan_toml_value(value)
         for (key, value) in get(document, "body_options", Dict{String,Any}())
     )
     node_id = haskey(document, "preset") ?

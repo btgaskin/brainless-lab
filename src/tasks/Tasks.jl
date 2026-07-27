@@ -80,6 +80,8 @@ end
 Task composition plus rollout/scoring metadata. `setup` is any concrete callable
 returning `TaskSetup`; no builder hierarchy is required. Static receptor/effector
 counts are optional default metadata only; resolved body ports size reservoirs.
+Declare accepted setup keyword defaults in `options` so composition resolution
+can reject unknown keys and record the complete setup.
 
 For the `TaskWorld` compatibility path, implement `sense(environment)`,
 `step!(environment, effectors)`, `metrics(environment, window)`,
@@ -88,7 +90,7 @@ For the `TaskWorld` compatibility path, implement `sense(environment)`,
 `default_window(::Type{Environment})`. Register the resulting `TaskSpec` with
 `register_task!`.
 """
-struct TaskSpec{S,E} <: AbstractTask
+struct TaskSpec{S,E,O} <: AbstractTask
     name::Symbol
     setup::S
     env_type::E
@@ -100,6 +102,7 @@ struct TaskSpec{S,E} <: AbstractTask
     status::Symbol
     tags::Tuple{Vararg{Symbol}}
     protocol::NamedTuple
+    options::O
     floor::ScoreAnchor
     ceiling::ScoreAnchor
     score_key::Union{Nothing,Symbol}
@@ -117,6 +120,7 @@ function TaskSpec(
     status::Symbol=:stable,
     tags=(),
     protocol::NamedTuple=NamedTuple(),
+    options=Dict{Symbol,Any}(),
     floor=nothing,
     ceiling=nothing,
     score_floor=nothing,
@@ -136,6 +140,7 @@ function TaskSpec(
         status=status,
         tags=tags,
         protocol=protocol,
+        options=options,
         floor=floor,
         ceiling=ceiling,
         score_floor=score_floor,
@@ -157,6 +162,7 @@ function TaskSpec(
     status::Symbol=:stable,
     tags=(),
     protocol::NamedTuple=NamedTuple(),
+    options=Dict{Symbol,Any}(),
     floor=nothing,
     ceiling=nothing,
     score_floor=nothing,
@@ -187,6 +193,7 @@ function TaskSpec(
         score_ceiling,
         analytic(1.0; note="default analytic ceiling"),
     )
+    options_ = _option_defaults(options, "task :$(task_name)")
     return TaskSpec(
         task_name,
         setup,
@@ -199,6 +206,7 @@ function TaskSpec(
         status,
         tags_,
         protocol,
+        options_,
         floor_anchor,
         ceiling_anchor,
         score_key,
@@ -259,11 +267,64 @@ function _fixed_port_counts(layouts; context::AbstractString="fixed-layout calle
     return counts
 end
 
+const WALL_TASK_OPTIONS = (
+    x=nothing,
+    y=nothing,
+    theta=nothing,
+    lam=1.0,
+    sensory_noise=0.0,
+    clip_sensory_noise=true,
+)
+
+const TRACKING_TASK_OPTIONS = (
+    stim_speed_rad=deg2rad(1.0),
+    movement_amp=10.0,
+    eye_offset_deg=30.0,
+    sensor_offsets_deg=collect(-60.0:4.0:60.0),
+    sensory_gain=1.0,
+    randomize_start=true,
+    theta0=nothing,
+    phi0=nothing,
+    direction0=nothing,
+)
+
+const PONG_TASK_OPTIONS = (sensory_gain=1.0,)
+
+const CARTPOLE_VARIANT_TASK_OPTIONS = (
+    name=:cartpole_variant,
+    tau=0.02,
+    gravity=9.8,
+    max_force=10.0,
+    pole_length=0.5,
+    pole_mass=0.1,
+    cart_mass=1.0,
+    max_x=2.4,
+    max_theta=0.2095,
+    terminate_on_theta=true,
+    score_kind=:balanced_fraction,
+    init_x=nothing,
+    init_x_range=(-1.2, 1.2),
+    init_xdot=nothing,
+    init_xdot_range=(-0.05, 0.05),
+    init_theta=nothing,
+    init_theta_range=(-0.10475, 0.10475),
+    init_thetadot=nothing,
+    init_thetadot_range=(-0.05, 0.05),
+    obs_max=(2.4, 5.0, Float64(pi), 5.0),
+)
+
+function _cartpole_variant_task_options(overrides::NamedTuple)
+    defaults = Dict{Symbol,Any}(pairs(CARTPOLE_VARIANT_TASK_OPTIONS))
+    merge!(defaults, Dict{Symbol,Any}(pairs(overrides)))
+    return defaults
+end
+
 const WALL_TASK = TaskSpec(
     :wall,
     WallEnv;
     status=:experimental,
     tags=(:extended,),
+    options=WALL_TASK_OPTIONS,
     floor=null_anchor(0.775625, "task=wall, null=null_random, score_key=nav_score, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
     ceiling=analytic(1.0; note="nav_score max = collision-free navigation while moving (a true analytic optimum); untrained falandays ref measured ~0.013 << null 0.776, so the analytic optimum is the honest ceiling, not a reference agent"),
     score_key=:nav_score,
@@ -275,6 +336,7 @@ const TRACKING_TASK = TaskSpec(
     TrackingEnv;
     status=:reference,
     tags=(:benchmark, :qualification, :core),
+    options=TRACKING_TASK_OPTIONS,
     floor=analytic(0.0; note="E[cos]=0 chance"),
     ceiling=analytic(1.0; note="perfect heading alignment"),
     score_key=:track_score,
@@ -285,6 +347,7 @@ const PONG_TASK = TaskSpec(
     PongEnv;
     status=:reference,
     tags=(:benchmark, :qualification, :core),
+    options=PONG_TASK_OPTIONS,
     floor=null_anchor(0.35317460317460314, "task=pong, null=null_random, score_key=hit_rate, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
@@ -295,6 +358,7 @@ const PONG_HITRATE_TASK = TaskSpec(
     PongEnv;
     status=:alias,
     tags=(:alias,),
+    options=PONG_TASK_OPTIONS,
     floor=null_anchor(0.35317460317460314, "task=pong_hitrate, null=null_random, score_key=hit_rate, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
@@ -314,6 +378,13 @@ const CARTPOLE_HARD_TASK = TaskSpec(
     CartPoleHardEnv;
     status=:experimental,
     tags=(:extended, :legacy_cartpole_variant),
+    options=_cartpole_variant_task_options((
+        name=:cartpole_hard,
+        max_theta=0.12,
+        max_force=8.0,
+        pole_length=0.75,
+        obs_max=(2.4, 5.0, 0.12, 5.0),
+    )),
     floor=analytic(0.0; note="minimum balanced fraction"),
     ceiling=analytic(1.0; note="full window balanced"),
 )
@@ -323,6 +394,17 @@ const CARTPOLE_SWINGUP_TASK = TaskSpec(
     CartPoleSwingupEnv;
     status=:experimental,
     tags=(:extended, :legacy_cartpole_variant),
+    options=_cartpole_variant_task_options((
+        name=:cartpole_swingup,
+        init_x_range=(-0.25, 0.25),
+        init_theta_range=(Float64(pi - 0.08), Float64(pi + 0.08)),
+        terminate_on_theta=false,
+        max_x=20.0,
+        max_theta=Float64(pi),
+        max_force=10.0,
+        score_kind=:mean_uprightness,
+        obs_max=(20.0, 5.0, Float64(pi), 8.0),
+    )),
     floor=null_anchor(0.05026043382947809, "task=cartpole_swingup, null=null_random, score_key=mean_uprightness, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
     ceiling=analytic(1.0; note="perfect uprightness"),
     score_key=:mean_uprightness,
@@ -333,6 +415,13 @@ const CARTPOLE_LONG_TASK = TaskSpec(
     CartPoleLongEnv;
     status=:experimental,
     tags=(:extended, :legacy_cartpole_variant),
+    options=_cartpole_variant_task_options((
+        name=:cartpole_long,
+        pole_length=1.0,
+        max_theta=0.2095,
+        max_force=10.0,
+        obs_max=(2.4, 5.0, 0.2095, 5.0),
+    )),
     floor=analytic(0.0; note="minimum balanced fraction"),
     ceiling=analytic(1.0; note="full window balanced"),
 )
@@ -377,6 +466,14 @@ function _plank_cartpole_task(level_name::Symbol)
         interaction_cycle=FixedRateCycle(PLANK_CARTPOLE_NEURAL_FRAMES),
         status=:experimental,
         tags=(:experimental, :plank_cartpole),
+        options=(
+            initial_ranges=(
+                (-1.2, 1.2),
+                (-0.05, 0.05),
+                (-0.10475, 0.10475),
+                (-0.05, 0.05),
+            ),
+        ),
         protocol=(;
             PLANK_CARTPOLE_PROTOCOL...,
             level=level.name,

@@ -43,9 +43,10 @@ body options, and fixed-rate interaction cycle.
 Version 1 remains readable for non-evolution plans. The writer emits version 2. Evolution
 plans require version 2 and `[evolve.run]`.
 
-The root seed derives named streams for topology, node state, world, body, task, and
-mechanism randomness. `construction_scope` controls topology and node-state sharing.
-Records write the realised stream seeds for each trial and agent.
+The default root-seed policy derives `:topology` and `:world`. `construction_scope`
+controls topology sharing, while each trial receives its own world seed. Declare another
+named stream only when a node, body, task, or mechanism consumes it. Records write every
+declared realised stream seed.
 
 ## Operation sections
 

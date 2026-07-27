@@ -187,7 +187,7 @@ tables(result::AblationResult) = (
 )
 
 summary(result::AblationResult) = (
-    operation=:ablation,
+    operation=:ablate,
     id=result.plan.source.id,
     n_cases=length(result.plan.cases),
     n_rollouts=length(result.trial_rows),

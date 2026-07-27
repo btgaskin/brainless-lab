@@ -60,7 +60,62 @@ using Test
     resolved = BrainlessLab.resolve_composition(tracking, DEFAULT_REGISTRY)
     @test resolved.parameters[:leak] == FalandaysParams().leak
     @test resolved.parameters[:lrate_wmat] == 1.0
+    @test resolved.task_options[:movement_amp] == 10.0
+    @test resolved.task_options[:randomize_start] === true
+    @test resolved.task_options[:theta0] === nothing
+    @test isempty(resolved.body_options)
     @test resolved.interaction_cycle === nothing
+
+    bad_task_option = CompositionSpec(
+        :bad_task_option,
+        :falandays,
+        :tracking;
+        n_nodes=12,
+        task_options=Dict(:sensory_gaim => 1.0),
+    )
+    task_option_error = try
+        resolve_composition(bad_task_option, DEFAULT_REGISTRY)
+        nothing
+    catch error
+        error
+    end
+    @test task_option_error isa ArgumentError
+    @test occursin(
+        "task :tracking received unknown options [:sensory_gaim]",
+        sprint(showerror, task_option_error),
+    )
+
+    body_registry = RegistrySet()
+    register!(body_registry, node_spec(DEFAULT_REGISTRY, :falandays))
+    register!(body_registry, BrainlessLab.task_spec(DEFAULT_REGISTRY, :tracking))
+    register!(
+        body_registry,
+        :bodies,
+        BrainlessLab.ImplementationSpec(
+            :configured_body,
+            () -> nothing;
+            options=(radius=0.5, gain=1.0),
+        ),
+    )
+    configured = CompositionSpec(
+        :configured_body,
+        :falandays,
+        :tracking;
+        body=:configured_body,
+        n_nodes=12,
+        body_options=Dict(:gain => 2.0),
+    )
+    resolved_body = resolve_composition(configured, body_registry)
+    @test resolved_body.body_options == Dict(:radius => 0.5, :gain => 2.0)
+    bad_body = CompositionSpec(
+        :bad_body_option,
+        :falandays,
+        :tracking;
+        body=:configured_body,
+        n_nodes=12,
+        body_options=Dict(:raduis => 0.5),
+    )
+    @test_throws ArgumentError resolve_composition(bad_body, body_registry)
 
     atomic = RegistrySet()
     register!(atomic, BrainlessLab.falandays_node_spec())
@@ -95,11 +150,7 @@ end
     @test first_run.config.seed_ledger == second_run.config.seed_ledger
     @test propertynames(first_run.config.seed_ledger[1]) == (
         :topology,
-        :node_state,
         :world,
-        :body,
-        :task,
-        :mechanism,
     )
     @test task_outcome(first_run).key === :track_score
 

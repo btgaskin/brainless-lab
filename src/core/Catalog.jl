@@ -441,7 +441,15 @@ function register_builtins!(registry::RegistrySet)
     end
 
     for (id, implementation) in sort!(collect(BODIES); by=pair -> string(first(pair)))
-        register!(registry, :bodies, ImplementationSpec(id, implementation))
+        register!(
+            registry,
+            :bodies,
+            ImplementationSpec(
+                id,
+                implementation;
+                options=body_option_defaults(id),
+            ),
+        )
     end
     for (id, implementation) in sort!(collect(DRIVES); by=pair -> string(first(pair)))
         register!(registry, :drives, ImplementationSpec(id, implementation))

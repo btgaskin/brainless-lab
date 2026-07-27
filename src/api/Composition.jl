@@ -25,7 +25,7 @@ function _composition_seed_ledger(
 )
     names = seed_stream_names(evaluation)
     values = Tuple(begin
-        coordinates = if name in (:topology, :node_state)
+        coordinates = if name === :topology
             (construction_block, construction_trial, agent)
         elseif name in (:body, :mechanism)
             (block, trial, agent)

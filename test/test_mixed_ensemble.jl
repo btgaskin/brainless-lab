@@ -47,7 +47,7 @@ end
 
 effectors(r::_MixedReservoir, spikes) = fill(Float64(first(spikes)), r.ne)
 
-mutable struct _MixedEnvironment <: Environment
+mutable struct _MixedEnvironment <: BrainlessLab.Environment
     state::Float64
     samples::Vector{Vector{Vector{Float64}}}
     commands::Vector{Vector{Vector{Float64}}}
@@ -70,12 +70,12 @@ end
 
 metrics(environment::_MixedEnvironment, window::Integer=1) = (state=environment.state,)
 
-struct _MetriclessEnvironment <: Environment end
+struct _MetriclessEnvironment <: BrainlessLab.Environment end
 BrainlessLab.sample!(::_MetriclessEnvironment, bodies) =
     [zeros(Float64, n_receptors(body)) for body in bodies]
 BrainlessLab.apply_commands!(::_MetriclessEnvironment, bodies, commands) = [() for _ in bodies]
 
-struct _TypedCommand <: AbstractCommand
+struct _TypedCommand <: BrainlessLab.AbstractCommand
     value::Float64
 end
 
@@ -94,7 +94,7 @@ BrainlessLab.inactive_command(::_TypedDyingBody) = _TypedCommand(0.0)
 BrainlessLab.alive(body::_TypedDyingBody) = body.is_alive
 BrainlessLab.update!(body::_TypedDyingBody, effects=()) = (body.is_alive = false; nothing)
 
-mutable struct _TypedEnvironment <: Environment
+mutable struct _TypedEnvironment <: BrainlessLab.Environment
     commands::Vector{Vector{_TypedCommand}}
 end
 BrainlessLab.sample!(::_TypedEnvironment, bodies) = [ones(Float64, n_receptors(body)) for body in bodies]
@@ -137,7 +137,7 @@ function BrainlessLab.sense!(body::_BorrowingBody, percept)
 end
 BrainlessLab.decode!(::_BorrowingBody, values) = Vector{Float64}(values)
 
-struct _SlotEnvironment <: Environment end
+struct _SlotEnvironment <: BrainlessLab.Environment end
 BrainlessLab.sample!(::_SlotEnvironment, bodies) = [[Float64(i)] for i in eachindex(bodies)]
 BrainlessLab.apply_commands!(::_SlotEnvironment, bodies, commands) = [() for _ in bodies]
 

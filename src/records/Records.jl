@@ -31,7 +31,15 @@ function _record_git()
     catch
         "unknown"
     end
-    return (sha=sha, state=state)
+    manifest_path = joinpath(root, "Manifest.toml")
+    manifest_sha256 = if isfile(manifest_path)
+        open(manifest_path, "r") do io
+            bytes2hex(SHA.sha256(io))
+        end
+    else
+        "missing"
+    end
+    return (sha=sha, state=state, manifest_sha256=manifest_sha256)
 end
 
 function _csv_escape(value)
@@ -341,8 +349,7 @@ function _empty_table_columns(name::Symbol)
     )
     name === :candidate_trials && return (
         :phase, :iteration, :candidate, :condition, :block, :trial,
-        :seed_ledger_agents, :topology_seed, :node_state_seed, :world_seed,
-        :body_seed, :task_seed, :mechanism_seed, :initial_state, :score_key,
+        :seed_ledger_agents, :topology_seed, :world_seed, :initial_state, :score_key,
         :raw_score, :normalized_score, :normalized_bound, :viable, :liveness,
     )
     name === :candidate_scores && return (
@@ -355,8 +362,7 @@ function _empty_table_columns(name::Symbol)
     name === :heldout_trials && return (
         :phase, :heldout_target,
         :condition, :block, :trial, :seed_ledger_agents, :topology_seed,
-        :node_state_seed, :world_seed, :body_seed, :task_seed, :mechanism_seed,
-        :initial_state, :score_key,
+        :world_seed, :initial_state, :score_key,
         :raw_score, :normalized_score, :normalized_bound, :viable, :liveness,
     )
     name === :contrasts && return (
@@ -418,8 +424,8 @@ end
 function _operation_method(kind::Symbol)
     kind === :profile && return "Runs the declared analyses over every raw evaluation trial. Analysis tables are descriptive and do not change the task outcome contract."
     kind === :sweep && return "Evaluates declared parameter cells under paired block and trial seeds. Cells are development results, not confirmed optima."
-    kind === :ablation && return "Compares an implicit baseline with declared capability-checked interventions under paired evaluation seeds."
-    kind === :evolution && return "Searches a fixed experimental node design, records every candidate and seed, and emits selected, Pareto, or archive model artifacts. Scalar SepCMA models may then be evaluated on held-out targets."
+    kind === :ablate && return "Compares an implicit baseline with declared capability-checked interventions under paired evaluation seeds."
+    kind === :evolve && return "Searches a fixed experimental node design, records every candidate and seed, and emits selected, Pareto, or archive model artifacts. Cells are development results, not confirmed optima. Scalar SepCMA models may then be evaluated on held-out targets."
     kind === :benchmark && return "Reports each task separately with 95% Student-t intervals and counts at each normalised-score bound. Intervals over censored normalised values are descriptive, not calibrated. Cases with a declared baseline also report paired within-task contrasts. No cross-task aggregate is formed."
     return "Executes the declared BrainlessLab operation."
 end
@@ -792,6 +798,7 @@ function _write_record_contents(
             "threads" => Threads.nthreads(),
             "git_sha" => git.sha,
             "git_state" => git.state,
+            "manifest_sha256" => git.manifest_sha256,
             "artifacts" => artifacts,
             "artifact_sha256" => checksums,
             "completion_marker" => "DONE",
@@ -812,15 +819,7 @@ function write_record(
 )
     _assert_record_pair(plan, result)
     git = _record_git()
-    record_id = id === nothing ? _record_id(plan) : String(id)
-    isempty(record_id) && throw(ArgumentError("record id must not be empty"))
-    record_id in (".", "..") && throw(ArgumentError("record id must not be . or .."))
-    (occursin('/', record_id) || occursin('\\', record_id)) && throw(ArgumentError(
-        "record id must be one path component",
-    ))
-    directory = joinpath(root, record_id)
-    ispath(directory) && throw(ArgumentError("record directory already exists: $(directory)"))
-    mkpath(directory)
+    directory = _reserve_operation_record_directory(plan, root, id)
     try
         return _write_record_contents(
             directory,
@@ -844,10 +843,27 @@ function run_operation(
     root::AbstractString="records",
     id::Union{Nothing,AbstractString}=nothing,
 )
-    resolved = resolve(plan, registry)
-    result = execute(resolved)
-    directory = write_record(plan, result; root=root, id=id, registry=registry)
-    return (result=result, directory=directory)
+    git = _record_git()
+    directory = _reserve_operation_record_directory(plan, root, id)
+    try
+        write_plan(joinpath(directory, "request.toml"), plan)
+        resolved = resolve(plan, registry)
+        result = execute(resolved)
+        _write_record_contents(
+            directory,
+            plan,
+            result;
+            registry,
+            git,
+        )
+        return (result=result, directory=String(directory))
+    catch error
+        open(joinpath(directory, "FAILED"), "w") do io
+            write(io, string(nameof(typeof(error))), "\n")
+            write(io, "The calling process contains the detailed error.\n")
+        end
+        rethrow()
+    end
 end
 
 function _evolution_digest(value)
@@ -879,6 +895,7 @@ function _evolution_operation_digests(
     ))
     provenance_digest = _evolution_digest((
         git_sha=git.sha,
+        manifest_sha256=git.manifest_sha256,
         julia_version=string(VERSION),
         package_version=string(Base.pkgversion(@__MODULE__)),
     ))
@@ -904,6 +921,17 @@ function _operation_record_directory(
     ispath(directory) && throw(ArgumentError(
         "record directory already exists: $(directory)",
     ))
+    return directory
+end
+
+function _reserve_operation_record_directory(
+    plan::AbstractOperationPlan,
+    root::AbstractString,
+    id::Union{Nothing,AbstractString},
+)
+    directory = _operation_record_directory(plan, root, id)
+    mkpath(dirname(directory))
+    mkdir(directory)
     return directory
 end
 
@@ -993,6 +1021,7 @@ function _write_incomplete_record_manifest(
             "threads" => Threads.nthreads(),
             "git_sha" => git.sha,
             "git_state" => git.state,
+            "manifest_sha256" => git.manifest_sha256,
             "artifacts" => artifacts,
             "artifact_sha256" => checksums,
             "completion_marker" => "INCOMPLETE",
@@ -1065,24 +1094,23 @@ function run_operation(
     root::AbstractString="records",
     id::Union{Nothing,AbstractString}=nothing,
 )
-    resolved = resolve(plan, registry)
     git = _record_git()
-    directory = _operation_record_directory(plan, root, id)
-    mkpath(directory)
-    write_plan(joinpath(directory, "request.toml"), plan)
-    open(joinpath(directory, "resolved.toml"), "w") do io
-        TOML.print(io, _resolved_document(plan, resolved); sorted=true)
-    end
-    _mark_incomplete(directory)
-    digests = _evolution_operation_digests(plan, resolved, git)
-    checkpoint = _evolution_checkpoint_callback(
-        directory,
-        digests,
-        resolved.strategy.key,
-        plan,
-        git,
-    )
+    directory = _reserve_operation_record_directory(plan, root, id)
     try
+        write_plan(joinpath(directory, "request.toml"), plan)
+        resolved = resolve(plan, registry)
+        open(joinpath(directory, "resolved.toml"), "w") do io
+            TOML.print(io, _resolved_document(plan, resolved); sorted=true)
+        end
+        _mark_incomplete(directory)
+        digests = _evolution_operation_digests(plan, resolved, git)
+        checkpoint = _evolution_checkpoint_callback(
+            directory,
+            digests,
+            resolved.strategy.key,
+            plan,
+            git,
+        )
         result = execute(resolved; checkpoint)
         _clear_evolution_markers(directory)
         _write_record_contents(

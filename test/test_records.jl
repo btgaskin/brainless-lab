@@ -166,6 +166,13 @@ end
     @test metadata["kind"] == "sweep"
     @test metadata["git_state"] in ("clean", "dirty", "unknown")
     @test metadata["git_sha"] != "unknown"
+    expected_manifest_digest = open(
+        joinpath(@__DIR__, "..", "Manifest.toml"),
+        "r",
+    ) do io
+        bytes2hex(SHA.sha256(io))
+    end
+    @test metadata["manifest_sha256"] == expected_manifest_digest
     @test Set(metadata["artifacts"]) == Set(keys(metadata["artifact_sha256"]))
     @test "data/sweep_cells.csv" in metadata["artifacts"]
     for artifact in metadata["artifacts"]
@@ -182,6 +189,10 @@ end
     resolved = TOML.parsefile(joinpath(directory, "resolved.toml"))
     @test resolved["operation"] == "sweep"
     @test resolved["targets"][1]["parameters"]["gain"] == 0.5
+    @test resolved["targets"][1]["task_options"]["movement_amp"] == 10.0
+    @test resolved["targets"][1]["task_options"]["theta0"][
+        BrainlessLab._NOTHING_TOML_KEY
+    ] === true
     @test resolved["operation_settings"]["rollouts"] == 1
 
     trials = read(joinpath(directory, "data", "trials.csv"), String)
@@ -190,7 +201,7 @@ end
     summary_json = read(joinpath(directory, "summary", "summary.json"), String)
     @test occursin("raw_score", trials)
     @test occursin("normalized_bound", trials)
-    @test count(==('\n'), seeds) == 7
+    @test count(==('\n'), seeds) == 3
     @test startswith(
         seeds,
         "phase,case,cell,ablation,heldout_target,generation,individual,condition,block,trial,agent,stream,seed",
@@ -285,7 +296,7 @@ end
     )
     batch = BrainlessLab.evaluate(target)
     rows = BrainlessLab._append_seed_rows!(NamedTuple[], batch)
-    @test length(rows) == 12
+    @test length(rows) == 4
     @test Set(row.agent for row in rows) == Set((1, 2))
     @test Set(row.stream for row in rows) == Set(BrainlessLab.seed_stream_names(target.evaluation))
     @test BrainlessLab.trial_row(only(batch.trials)).seed_ledger_agents == 2
@@ -300,6 +311,30 @@ end
     @test run.result isa BrainlessLab.SweepResult
     @test run.directory == joinpath(root, "run-smoke")
     @test isfile(joinpath(run.directory, "DONE"))
+
+    existing_inventory = sort(readdir(run.directory))
+    @test_throws ArgumentError run_operation(
+        plan;
+        registry,
+        root,
+        id="run-smoke",
+    )
+    @test sort(readdir(run.directory)) == existing_inventory
+
+    invalid = SweepPlan(
+        :invalid_before_execution,
+        plan.target;
+        axes=(BrainlessLab.SweepAxis(:unknown, (0.5,)),),
+        max_rollouts=1,
+    )
+    @test_throws KeyError run_operation(
+        invalid;
+        registry,
+        root,
+        id="failed-resolution",
+    )
+    @test isfile(joinpath(root, "failed-resolution", "request.toml"))
+    @test isfile(joinpath(root, "failed-resolution", "FAILED"))
 end
 
 
@@ -324,6 +359,19 @@ end
     @test isempty(filter(name -> name in ("INCOMPLETE", "FAILED"), readdir(directory)))
     @test only(result.model_references).model_id == "selected"
     seeds = read(joinpath(directory, "seeds.csv"), String)
+    report = read(joinpath(directory, "report", "index.html"), String)
     @test occursin("development", seeds)
     @test occursin("heldout", seeds)
+    @test occursin("Cells are development results, not confirmed optima", report)
+end
+
+@testset "operation report methods use plan vocabulary" begin
+    ablate = BrainlessLab._operation_method(:ablate)
+    evolve = BrainlessLab._operation_method(:evolve)
+    @test occursin("implicit baseline", ablate)
+    @test occursin("development results, not confirmed optima", evolve)
+    @test BrainlessLab._operation_method(:ablation) ==
+          "Executes the declared BrainlessLab operation."
+    @test BrainlessLab._operation_method(:evolution) ==
+          "Executes the declared BrainlessLab operation."
 end

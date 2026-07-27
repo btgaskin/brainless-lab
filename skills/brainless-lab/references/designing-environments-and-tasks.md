@@ -169,6 +169,7 @@ A task setup callable returns `TaskSetup(environment, bodies)`. Declare it in a 
 const MY_TASK = TaskSpec(
     :my_task,
     my_setup;
+    options=(arena_size=10.0,),
     score_key=:score,
     floor=analytic(0.0; note="chance"),
     ceiling=analytic(1.0; note="optimal"),
@@ -179,6 +180,8 @@ register!(DEFAULT_REGISTRY, MY_TASK)
 
 Import `register!` and `DEFAULT_REGISTRY` from BrainlessLab. Typed registration rejects a
 duplicate task name rather than silently changing the active registry.
+Declare every configurable setup keyword and its default in `options`. Composition
+resolution records the complete option set and rejects unknown keys before a run starts.
 
 For a generic setup callable, accept `seed`, `rng`, `body`, `n_nodes`, and `kwargs...` so
 the high-level runner can supply deterministic construction context without task-specific

@@ -103,6 +103,5 @@ end
         @test length(paired) == 2
         @test length(unique(row.topology_seed for row in paired)) == 1
         @test length(unique(row.world_seed for row in paired)) == 1
-        @test length(unique(row.task_seed for row in paired)) == 1
     end
 end

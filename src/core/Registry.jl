@@ -10,6 +10,7 @@ const VIEWS = Dict{Symbol,Any}()
 const ABLATIONS = Dict{Symbol,Any}()
 const NODE_GENOME_TYPES = Dict{Symbol,Any}()
 const NODE_RECEPTOR_PROFILE_KEYWORDS = Dict{Symbol,Symbol}()
+const BODY_OPTION_DEFAULTS = Dict{Symbol,Dict{Symbol,Any}}()
 
 function _register!(registry::Dict{Symbol,Any}, kind::AbstractString, sym::Symbol, T)
     haskey(registry, sym) && throw(ArgumentError(
@@ -149,7 +150,15 @@ resolve_drive(sym::Symbol)::Any = _resolve(DRIVES, "drive", sym)
 
 Register a body constructor or concrete type under `sym`.
 """
-register_body!(sym::Symbol, T) = _register!(BODIES, "body", sym, T)
+function register_body!(sym::Symbol, T; options=Dict{Symbol,Any}())
+    defaults = _option_defaults(options, "body :$(sym)")
+    registered = _register!(BODIES, "body", sym, T)
+    BODY_OPTION_DEFAULTS[sym] = defaults
+    return registered
+end
+
+body_option_defaults(sym::Symbol) =
+    deepcopy(get(BODY_OPTION_DEFAULTS, sym, Dict{Symbol,Any}()))
 
 """
     resolve_body(sym)

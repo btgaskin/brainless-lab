@@ -35,8 +35,9 @@ settings that ran. `seeds.csv` is the realised seed ledger.
 CSV files are the authoritative tables. `summary/summary.json` supports other tools. The
 HTML report presents the same typed result for a reader.
 
-`record.toml` stores the package and Julia versions, Git revision and state, artifact
-inventory, and SHA-256 checksums. A failed write contains `FAILED` instead of `DONE`.
+`record.toml` stores the package and Julia versions, the Manifest SHA-256 digest, Git
+revision and state, artifact inventory, and artifact checksums. A failed write contains
+`FAILED` instead of `DONE`.
 
 ## Public contribution records
 

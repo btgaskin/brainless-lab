@@ -160,6 +160,7 @@ end
     @test length(output.cases) == 3
     @test compact.n_cases == 3
     @test compact.n_rollouts == 6
+    @test compact.operation === :ablate
     @test first(output.cases).ablation === :none
     @test all(row -> isfinite(row.raw_score), output.trials)
     @test all(row -> row.normalized_n == 2, output.cases)
@@ -174,6 +175,5 @@ end
         @test length(paired) == 3
         @test length(unique(row.topology_seed for row in paired)) == 1
         @test length(unique(row.world_seed for row in paired)) == 1
-        @test length(unique(row.task_seed for row in paired)) == 1
     end
 end

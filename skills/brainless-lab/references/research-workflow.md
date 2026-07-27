@@ -76,9 +76,9 @@ Keep these ledgers disjoint:
 - confirmation;
 - robustness.
 
-Within a paired block, share declared nuisance randomisation across conditions. Record
-separate streams for topology, node state, world layout, body state, task randomness, and
-mechanism noise when applicable.
+Within a paired block, share declared nuisance randomisation across conditions. The
+default evaluation streams cover topology and world construction. Declare and record
+another stream only when the corresponding node, body, task, or mechanism consumes it.
 
 Declare the smallest meaningful effect before confirmation. Estimate paired variance on
 fresh pilot blocks and plan the number of independent blocks prospectively. Resample

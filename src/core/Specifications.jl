@@ -17,6 +17,50 @@ function _symbol_tuple(values, label::AbstractString)
     return result
 end
 
+function _option_defaults(values, label::AbstractString)
+    defaults = Dict{Symbol,Any}()
+    for (key, value) in pairs(values)
+        name = _nonempty_symbol(key, "$(label) option")
+        haskey(defaults, name) && throw(ArgumentError(
+            "$(label) option names must be unique",
+        ))
+        defaults[name] = deepcopy(value)
+    end
+    return defaults
+end
+
+function _resolve_options(
+    kind::AbstractString,
+    id::Symbol,
+    defaults::Dict{Symbol,Any},
+    overrides,
+)
+    override_dict = Dict{Symbol,Any}(
+        Symbol(key) => deepcopy(value)
+        for (key, value) in pairs(overrides)
+    )
+    unknown = sort!(
+        collect(setdiff(Set(keys(override_dict)), Set(keys(defaults))));
+        by=string,
+    )
+    isempty(unknown) || throw(ArgumentError(
+        "$(kind) :$(id) received unknown options $(unknown)",
+    ))
+    resolved = deepcopy(defaults)
+    for (name, value) in override_dict
+        default = defaults[name]
+        resolved[name] = if default isa Symbol && value isa AbstractString
+            Symbol(value)
+        elseif default isa Tuple && value isa AbstractVector &&
+               length(default) == length(value)
+            Tuple(value)
+        else
+            value
+        end
+    end
+    return resolved
+end
+
 """
     Registry{K,V}(name=:registry)
 
@@ -74,11 +118,13 @@ Base.getindex(registry::Registry{K}, key::K) where {K} = resolve(registry, key)
 """
     ImplementationSpec(key, implementation; kwargs...)
 
-Generic discovery metadata for a registered implementation. This descriptor
-does not assume that the implementation is callable: tasks, bodies, analyses,
-and immutable specifications can all be registered through the same contract.
+Generic discovery metadata for a registered implementation. `options` declares
+the accepted constructor defaults for configurable implementations such as
+bodies. This descriptor does not assume that the implementation is callable:
+tasks, bodies, analyses, and immutable specifications can all be registered
+through the same contract.
 """
-struct ImplementationSpec{I,T<:Tuple,C<:Tuple,M<:NamedTuple}
+struct ImplementationSpec{I,T<:Tuple,C<:Tuple,O,M<:NamedTuple}
     key::Symbol
     implementation::I
     label::String
@@ -87,6 +133,7 @@ struct ImplementationSpec{I,T<:Tuple,C<:Tuple,M<:NamedTuple}
     stability::Symbol
     tags::T
     capabilities::C
+    options::O
     metadata::M
 end
 
@@ -99,6 +146,7 @@ function ImplementationSpec(
     stability::Symbol=:experimental,
     tags=(),
     capabilities=(),
+    options=Dict{Symbol,Any}(),
     metadata::NamedTuple=NamedTuple(),
 )
     key_ = _nonempty_symbol(key, "implementation key")
@@ -110,10 +158,12 @@ function ImplementationSpec(
     ))
     tags_ = _symbol_tuple(tags, "implementation tags")
     capabilities_ = _symbol_tuple(capabilities, "implementation capabilities")
+    options_ = _option_defaults(options, "implementation :$(key_)")
     return ImplementationSpec{
         typeof(implementation),
         typeof(tags_),
         typeof(capabilities_),
+        typeof(options_),
         typeof(metadata),
     }(
         key_,
@@ -124,6 +174,7 @@ function ImplementationSpec(
         stability,
         tags_,
         capabilities_,
+        options_,
         metadata,
     )
 end
@@ -314,11 +365,7 @@ end
 
 const DEFAULT_SEED_STREAMS = (
     SeedStreamSpec(:topology),
-    SeedStreamSpec(:node_state),
     SeedStreamSpec(:world),
-    SeedStreamSpec(:body),
-    SeedStreamSpec(:task),
-    SeedStreamSpec(:mechanism),
 )
 
 function _seed_streams(streams)

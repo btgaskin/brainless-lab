@@ -420,6 +420,18 @@ function resolve_composition(spec::CompositionSpec, registry::RegistrySet)
     parameters = resolve_parameters(node, spec.parameters)
     task_options = copy(spec.task_options)
     spec.n_agents === nothing || (task_options[:n_agents] = spec.n_agents)
+    task_options = _resolve_options(
+        "task",
+        task.name,
+        task.options,
+        task_options,
+    )
+    body === nothing && !isempty(spec.body_options) && throw(ArgumentError(
+        "composition :$(spec.id) provides body_options without a registered body",
+    ))
+    body_options = body === nothing ?
+        Dict{Symbol,Any}() :
+        _resolve_options("body", body.key, body.options, spec.body_options)
     return ResolvedComposition(
         spec.id,
         node,
@@ -429,7 +441,7 @@ function resolve_composition(spec::CompositionSpec, registry::RegistrySet)
         spec.n_nodes,
         parameters,
         task_options,
-        copy(spec.body_options),
+        body_options,
         spec.interaction_cycle === nothing ? task.interaction_cycle : spec.interaction_cycle,
     )
 end

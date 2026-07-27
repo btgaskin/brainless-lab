@@ -111,9 +111,9 @@ Allowed construction scopes are `:evaluation`, `:block`, and `:trial`. Reset pol
 `:full`, `:body_environment`, and `:none`. Aggregation policies are `:none`, `:mean`,
 `:median`, `:sum`, `:minimum`, and `:maximum`.
 
-Default named streams are `:topology`, `:node_state`, `:world`, `:body`, `:task`, and
-`:mechanism`. Use `SeedStreamSpec` to declare another stream and `derive_seed` to derive a
-stable seed.
+Default named streams are `:topology` and `:world`. Use `SeedStreamSpec` to declare
+another stream only when an implementation consumes it. `derive_seed` derives a stable
+seed from the declared stream and its coordinates.
 
 ## Operation plans
 

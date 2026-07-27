@@ -81,7 +81,7 @@ BrainlessLab.decode!(::MyBody, e) = e
 n_receptors(::MyBody) = 2
 n_effectors(::MyBody) = 2
 
-struct MyDrive <: Drive end
+struct MyDrive <: BrainlessLab.Drive end
 
 BrainlessLab.apply_drive!(::MyDrive, acts, targets, p, noise) = acts
 

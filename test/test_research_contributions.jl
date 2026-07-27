@@ -121,8 +121,8 @@ function _make_contribution()
     _patch_record_git!(submission.directory)
     _patch_record_git!(replay.directory)
     document = Dict{String,Any}(
-        "format" => CONTRIBUTION_FORMAT,
-        "format_version" => CONTRIBUTION_FORMAT_VERSION,
+        "format" => BrainlessLab.CONTRIBUTION_FORMAT,
+        "format_version" => BrainlessLab.CONTRIBUTION_FORMAT_VERSION,
         "id" => "first-run",
         "experiment_id" => "contribution_fixture",
         "experiment_version" => "1.0.0",
@@ -144,7 +144,7 @@ function _make_contribution()
         TOML.print(io, document; sorted=true)
     end
     _refresh_contribution_inventory!(directory)
-    compare_contribution(directory; write=true)
+    BrainlessLab.compare_contribution(directory; write=true)
     return (root=research_root, directory=directory)
 end
 
@@ -193,7 +193,7 @@ end
         TOML.print(io, manifest; sorted=true)
     end
     _refresh_contribution_inventory!(directory)
-    @test_throws ArgumentError validate_contribution(directory; repository)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(directory; repository)
 end
 
 @testset "repository protocol is read from the exact source revision" begin
@@ -240,7 +240,7 @@ end
         TOML.print(io, manifest; sorted=true)
     end
     _refresh_contribution_inventory!(directory)
-    @test validate_contribution(
+    @test BrainlessLab.validate_contribution(
         directory;
         repository,
         main_ref,
@@ -249,26 +249,33 @@ end
 
 @testset "accepted research contributions are exact and role-linked" begin
     fixture = _make_contribution()
-    result = validate_contribution(fixture.directory; repository=nothing)
+    result = BrainlessLab.validate_contribution(
+        fixture.directory;
+        repository=nothing,
+    )
     @test result.manifest["id"] == "first-run"
     @test result.experiment.id === :contribution_fixture
     @test !result.target_exceeded
     @test result.total_bytes > 0
 
-    comparison = compare_contribution(fixture.directory)
+    comparison = BrainlessLab.compare_contribution(fixture.directory)
     @test comparison["configuration_equal"]
     @test comparison["seeds_equal"]
     @test !comparison["replay_is_independent_evidence"]
-    @test comparison == compare_contribution(fixture.directory)
+    @test comparison == BrainlessLab.compare_contribution(fixture.directory)
 
-    catalogue = research_catalogue(; root=fixture.root, repository=nothing)
-    @test catalogue["format"] == RESEARCH_CATALOGUE_FORMAT
+    catalogue = BrainlessLab.research_catalogue(
+        ;
+        root=fixture.root,
+        repository=nothing,
+    )
+    @test catalogue["format"] == BrainlessLab.RESEARCH_CATALOGUE_FORMAT
     entry = only(catalogue["contributions"])
     @test entry["admission"] == "accepted"
     @test getindex.(entry["runs"], "role") == ["submission", "maintainer_replay"]
     @test getindex.(entry["runs"], "independent_evidence") == [true, false]
     first_json = BrainlessLab._json(catalogue)
-    @test first_json == BrainlessLab._json(research_catalogue(
+    @test first_json == BrainlessLab._json(BrainlessLab.research_catalogue(
         ;
         root=fixture.root,
         repository=nothing,
@@ -292,7 +299,11 @@ end
             )],
         ); sorted=true)
     end
-    @test_throws ArgumentError research_catalogue(; root, repository=nothing)
+    @test_throws ArgumentError BrainlessLab.research_catalogue(
+        ;
+        root,
+        repository=nothing,
+    )
 end
 
 @testset "contribution validation rejects changed and unsafe files" begin
@@ -302,7 +313,10 @@ end
     open(joinpath(corrupted, "submission", "DONE"), "a") do io
         write(io, "changed\n")
     end
-    @test_throws ArgumentError validate_contribution(corrupted; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        corrupted;
+        repository=nothing,
+    )
 
     reduced = _copy_contribution(fixture.directory)
     _remove_record_artifact!(
@@ -310,21 +324,33 @@ end
         "summary/summary.json",
     )
     _refresh_contribution_inventory!(reduced)
-    @test_throws ArgumentError validate_contribution(reduced; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        reduced;
+        repository=nothing,
+    )
 
     extra = _copy_contribution(fixture.directory)
     write(joinpath(extra, "submission", "extra.md"), "extra\n")
-    @test_throws ArgumentError validate_contribution(extra; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        extra;
+        repository=nothing,
+    )
 
     binary = _copy_contribution(fixture.directory)
     write(joinpath(binary, "submission", "payload.bin"), UInt8[0x00, 0xff])
     _refresh_contribution_inventory!(binary)
-    @test_throws ArgumentError validate_contribution(binary; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        binary;
+        repository=nothing,
+    )
 
     gif = _copy_contribution(fixture.directory)
     write(joinpath(gif, "submission", "plot.gif"), "GIF89a")
     _refresh_contribution_inventory!(gif)
-    @test_throws ArgumentError validate_contribution(gif; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        gif;
+        repository=nothing,
+    )
 
     invalid_text = _copy_contribution(fixture.directory)
     write(
@@ -332,19 +358,28 @@ end
         UInt8[0xc3, 0x28],
     )
     _refresh_contribution_inventory!(invalid_text)
-    @test_throws ArgumentError validate_contribution(invalid_text; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        invalid_text;
+        repository=nothing,
+    )
 
     raw_trace = _copy_contribution(fixture.directory)
     mkpath(joinpath(raw_trace, "submission", "raw"))
     write(joinpath(raw_trace, "submission", "raw", "trace.csv"), "value\n1\n")
     _refresh_contribution_inventory!(raw_trace)
-    @test_throws ArgumentError validate_contribution(raw_trace; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        raw_trace;
+        repository=nothing,
+    )
 
     figure = _copy_contribution(fixture.directory)
     mkpath(joinpath(figure, "submission", "figures"))
     write(joinpath(figure, "submission", "figures", "plot.html"), "<p>plot</p>\n")
     _refresh_contribution_inventory!(figure)
-    @test_throws ArgumentError validate_contribution(figure; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        figure;
+        repository=nothing,
+    )
 
     traversal = _copy_contribution(fixture.directory)
     manifest_path = joinpath(traversal, "contribution.toml")
@@ -354,7 +389,10 @@ end
     open(manifest_path, "w") do io
         TOML.print(io, manifest; sorted=true)
     end
-    @test_throws ArgumentError validate_contribution(traversal; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        traversal;
+        repository=nothing,
+    )
 
     symlinked = _copy_contribution(fixture.directory)
     symlink(
@@ -362,7 +400,10 @@ end
         joinpath(symlinked, "submission", "linked.md"),
     )
     _refresh_contribution_inventory!(symlinked)
-    @test_throws ArgumentError validate_contribution(symlinked; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        symlinked;
+        repository=nothing,
+    )
 
     linked_bundle = _copy_contribution(fixture.directory)
     mv(
@@ -373,7 +414,7 @@ end
         joinpath(linked_bundle, "submission-real"),
         joinpath(linked_bundle, "submission"),
     )
-    @test_throws ArgumentError validate_contribution(
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
         linked_bundle;
         repository=nothing,
     )
@@ -388,19 +429,28 @@ end
     )
     mkpath(dirname(linked_directory))
     symlink(fixture.directory, linked_directory)
-    @test_throws ArgumentError validate_contribution(linked_directory; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        linked_directory;
+        repository=nothing,
+    )
 
     oversized = _copy_contribution(fixture.directory)
     write(joinpath(oversized, "submission", "large.md"), repeat("x", 3 * 1024^2))
     write(joinpath(oversized, "replay", "large.md"), repeat("x", 3 * 1024^2))
     _refresh_contribution_inventory!(oversized)
-    @test_throws ArgumentError validate_contribution(oversized; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        oversized;
+        repository=nothing,
+    )
 
     above_target = _copy_contribution(fixture.directory)
     write(joinpath(above_target, "submission", "note.md"), repeat("x", 600 * 1024))
     write(joinpath(above_target, "replay", "note.md"), repeat("x", 600 * 1024))
     _refresh_contribution_inventory!(above_target)
-    @test validate_contribution(above_target; repository=nothing).target_exceeded
+    @test BrainlessLab.validate_contribution(
+        above_target;
+        repository=nothing,
+    ).target_exceeded
 end
 
 @testset "contribution comparison protects protocol, configuration, seeds, and roles" begin
@@ -409,7 +459,10 @@ end
     dirty = _copy_contribution(fixture.directory)
     _patch_record_git!(joinpath(dirty, "submission"); state="dirty")
     _refresh_contribution_inventory!(dirty)
-    @test_throws ArgumentError validate_contribution(dirty; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        dirty;
+        repository=nothing,
+    )
 
     roles = _copy_contribution(fixture.directory)
     manifest_path = joinpath(roles, "contribution.toml")
@@ -418,7 +471,10 @@ end
     open(manifest_path, "w") do io
         TOML.print(io, manifest; sorted=true)
     end
-    @test_throws ArgumentError validate_contribution(roles; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        roles;
+        repository=nothing,
+    )
 
     unsafe_url = _copy_contribution(fixture.directory)
     manifest_path = joinpath(unsafe_url, "contribution.toml")
@@ -427,7 +483,10 @@ end
     open(manifest_path, "w") do io
         TOML.print(io, manifest; sorted=true)
     end
-    @test_throws ArgumentError validate_contribution(unsafe_url; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        unsafe_url;
+        repository=nothing,
+    )
 
     renamed_run = _copy_contribution(fixture.directory)
     manifest_path = joinpath(renamed_run, "contribution.toml")
@@ -436,7 +495,10 @@ end
     open(manifest_path, "w") do io
         TOML.print(io, manifest; sorted=true)
     end
-    @test_throws ArgumentError validate_contribution(renamed_run; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        renamed_run;
+        repository=nothing,
+    )
 
     config = _copy_contribution(fixture.directory)
     record = only(
@@ -451,7 +513,7 @@ end
     end
     _refresh_record_checksum!(joinpath(config, "replay"), "resolved.toml")
     _refresh_contribution_inventory!(config)
-    @test_throws ArgumentError compare_contribution(config)
+    @test_throws ArgumentError BrainlessLab.compare_contribution(config)
 
     seeds = _copy_contribution(fixture.directory)
     record = only(
@@ -463,7 +525,7 @@ end
     end
     _refresh_record_checksum!(joinpath(seeds, "replay"), "seeds.csv")
     _refresh_contribution_inventory!(seeds)
-    @test_throws ArgumentError compare_contribution(seeds)
+    @test_throws ArgumentError BrainlessLab.compare_contribution(seeds)
 
     data = _copy_contribution(fixture.directory)
     record = only(
@@ -475,9 +537,12 @@ end
     end
     _refresh_record_checksum!(joinpath(data, "replay"), "data/trials.csv")
     _refresh_contribution_inventory!(data)
-    comparison = compare_contribution(data; write=true)
+    comparison = BrainlessLab.compare_contribution(data; write=true)
     @test !only(comparison["operations"])["data_equal"]
-    @test_throws ArgumentError validate_contribution(data; repository=nothing)
+    @test_throws ArgumentError BrainlessLab.validate_contribution(
+        data;
+        repository=nothing,
+    )
 
     protocol = _copy_contribution(fixture.directory)
     plan_path = only(
@@ -490,7 +555,7 @@ end
         TOML.print(io, plan; sorted=true)
     end
     _refresh_contribution_inventory!(protocol)
-    @test_throws ArgumentError compare_contribution(protocol)
+    @test_throws ArgumentError BrainlessLab.compare_contribution(protocol)
 end
 
 @testset "append-only validation rejects extension of an accepted record" begin
