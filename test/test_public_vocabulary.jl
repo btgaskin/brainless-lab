@@ -84,6 +84,9 @@ end
         :ablations,
         :nodes,
         :node_spec,
+        :genome_type,
+        :composition_spec,
+        :resolve_composition,
         :NodeModel,
         :Reservoir,
         :AbstractBody,
@@ -133,6 +136,8 @@ end
         :null_anchor,
         :reference_anchor,
         :normalized_score,
+        :calibrate_task,
+        :write_calibration_report,
         :fano_factor,
         :spectral_radius,
         :participation_ratio,
@@ -143,11 +148,13 @@ end
         :object_in_view,
         :ball_paddle_distance,
         :EvaluationTarget,
+        :BenchmarkCasePlan,
         :ProfilePlan,
         :SweepPlan,
         :AblationPlan,
         :EvolutionPlan,
         :BenchmarkPlan,
+        :evaluate,
         :resolve,
         :validate,
         :execute,
@@ -158,6 +165,11 @@ end
         :write_record,
         :run_operation,
         :run_experiment,
+        :components,
+        :component_info,
+        :read_embodiment_config,
+        :materialize_blueprint,
+        :materialize_embodiment,
     ))
     actual_exports = Set(
         name for name in names(BrainlessLab; all=true, imported=false)
@@ -169,7 +181,7 @@ end
     )
 
     @test actual_exports == expected_exports
-    @test length(public_only) == 521
+    @test length(public_only) == 509
     @test all(name -> name in public_only, (
         :explore,
         :Evolution,
@@ -187,6 +199,38 @@ end
     ))
     @test !Base.isexported(BrainlessLab, :Unsigned)
     @test !Base.ispublic(BrainlessLab, :Unsigned)
+    @test !Base.isexported(BrainlessLab, :node_receptor_profile_keyword)
+    @test !Base.ispublic(BrainlessLab, :node_receptor_profile_keyword)
     @test !isdefined(BrainlessLab, :HomeostaticFlowParams)
     @test !isdefined(BrainlessLab, :HomeostaticFlowReservoir)
+end
+
+@testset "core workflows are complete after using BrainlessLab" begin
+    workflows = (
+        add_task=(
+            :TaskWorld, :TaskSetup, :TaskSpec, :analytic, :null_anchor,
+            :reference_anchor, :calibrate_task, :write_calibration_report,
+            :register!, :DEFAULT_REGISTRY,
+        ),
+        add_node=(
+            :NodeModel, :Reservoir, :NodeBuildContext, :NodeSpec, :ParameterSpec,
+            :genome_type, :step!, :effectors, :reset!, :n_nodes, :n_receptors,
+            :n_effectors, :pack_params, :unpack_params, :paramdim,
+            :snapshot_state, :load_state!, :register!, :DEFAULT_REGISTRY,
+        ),
+        design_body=(
+            :components, :component_info, :read_embodiment_config,
+            :materialize_blueprint, :materialize_embodiment, :portspec,
+        ),
+        create_benchmark=(
+            :CompositionSpec, :composition_spec, :resolve_composition,
+            :EvaluationSpec, :EvaluationTarget, :evaluate, :BenchmarkCasePlan,
+            :BenchmarkPlan, :validate, :resolve, :execute, :write_plan,
+            :run_operation,
+        ),
+    )
+
+    for names in values(workflows), name in names
+        @test Base.isexported(BrainlessLab, name)
+    end
 end

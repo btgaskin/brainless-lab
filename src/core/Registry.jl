@@ -87,8 +87,9 @@ end
 """
     node_receptor_profile_keyword(sym)
 
-Return the constructor keyword registered for per-receptor input connection
-probabilities, or `nothing` when the node does not declare that capability.
+Internal compatibility lookup for constructors registered through
+`register_node!`. A typed node declares `:receptor_profile` in its `NodeSpec`
+and reads the resolved profile from `NodeBuildContext`.
 """
 node_receptor_profile_keyword(sym::Symbol) = get(NODE_RECEPTOR_PROFILE_KEYWORDS, sym, nothing)
 
