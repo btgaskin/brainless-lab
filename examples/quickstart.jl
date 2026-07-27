@@ -4,7 +4,7 @@ let
     output_dir = get(ENV, "BRAINLESSLAB_EXAMPLE_OUTPUT_DIR", joinpath(@__DIR__, "output"))
     mkpath(output_dir)
 
-    sim = simulate(:tracking; node=:falandays, ticks=300, seed=1)
+    sim = simulate(:tracking; node=:falandays, ticks=300, seed=26)
     outcome = task_outcome(sim)
 
     println(

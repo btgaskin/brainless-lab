@@ -73,7 +73,7 @@ export function ControlPanel({ params, onParamsChange }: ControlPanelProps) {
           Falandays node&nbsp;→
         </a>
         <br />
-        Browser reimplementation with aligned task constants; not a bit-level Julia replay.
+        TypeScript port for interaction; not the fixture-validated Julia implementation.
       </p>
     </div>
   );

@@ -19,6 +19,21 @@ bun run build
 bun run preview
 ```
 
+## Deploy
+
+The `Deploy site` GitHub Actions workflow builds `site/dist` and uploads it to the
+`brainless-lab` Cloudflare Pages project after each push to `main`. A maintainer must:
+
+1. Create a Cloudflare account API token with `Account` → `Cloudflare Pages` → `Edit`.
+2. Add the account ID as the GitHub Actions repository secret `CLOUDFLARE_ACCOUNT_ID`.
+3. Add the API token as the GitHub Actions repository secret `CLOUDFLARE_API_TOKEN`.
+4. Confirm that the Pages project is named `brainless-lab` and its production branch is `main`.
+5. Disable Cloudflare's automatic branch deployments if the existing Git integration would
+   otherwise deploy the same commit a second time.
+
+Run the workflow manually once after adding the secrets. The workflow's `production`
+environment records the URL returned by Cloudflare.
+
 ## Content model
 
 The guide is organised by the reader's task:

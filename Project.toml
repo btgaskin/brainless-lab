@@ -1,6 +1,6 @@
 name = "BrainlessLab"
 uuid = "d12add44-1e3e-4161-9a99-c2121a2f0f38"
-authors = ["btgaskin <bengaskin@outlook.com>"]
+authors = ["Polyphony Bruna", "Benjamin Gaskin", "Ian Jackson", "William O'Hearn"]
 version = "0.2.0"
 
 [deps]

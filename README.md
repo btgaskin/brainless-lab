@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/btgaskin/brainless-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/btgaskin/brainless-lab/actions/workflows/ci.yml)
 
+An exact-input proof-cache hit can make CI green without rerunning the matching test suite.
+
 <p align="center"><img src="brainless-lab.png" alt="BrainlessLab" width="760"></p>
 
 BrainlessLab is a Julia platform for studying simple neural substrates in closed
@@ -20,7 +22,7 @@ BrainlessLab is not yet registered in Julia General.
 git clone https://github.com/btgaskin/brainless-lab.git
 cd brainless-lab
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
-julia --project=. -e 'using BrainlessLab; sim = simulate(:tracking; node=:falandays, ticks=300, seed=11); println(task_outcome(sim))'
+julia --project=. -e 'using BrainlessLab; sim = simulate(:tracking; node=:falandays, ticks=300, seed=26); println(task_outcome(sim))'
 ```
 
 The public guide provides four direct paths:

@@ -1,9 +1,9 @@
 # BrainlessLab core benchmark
 
 This is the cross-node comparison tool for BrainlessLab. `bench` runs a roster
-of registered neuron variants across a task grid, ranks them by normalized
+of registered neuron variants across a task grid, ranks them by normalised
 score, and reports baseline-relative statistics. Use a typed `ProfilePlan` when
-you want to characterize one node in depth rather than compare nodes.
+you want to characterise one node in depth rather than compare nodes.
 
 Setup from `brainless-lab/bench`:
 
@@ -51,22 +51,22 @@ The comparison tool reads each run's `summary.csv`, aligns rows by neuron, task,
 
 Fairness rule:
 
-Falandays-family neurons default to `untrained`, which uses seeded per-trial wiring while online plasticity acts during the rollout. "Default parameters" means the generic `FalandaysParams()` genome defaults for every variant *except* canonical `:falandays` (and its `:falandays_base` compatibility alias) on a task with a registered paper config (`:wall`/`:tracking`/`:pong`) -- for those, it means the task's authors-faithful constants (`falandays_paper_config(task)`: task-specific `lrate_wmat`/`lrate_targ`/input weight), matching what plain `simulate(task; node=:falandays)` runs with. Compartmental-family neurons default to `trained`, because untrained non-plastic weights are not a meaningful benchmark. If a cell requires a trained genome and none exists, the pipeline falls back to untrained evaluation and marks that cell with `trained-required-but-untrained` in outputs.
+Falandays-family neurons default to `untrained`, which uses seeded per-trial wiring while online plasticity acts during the rollout. "Default parameters" means the generic `FalandaysParams()` genome defaults for every variant *except* canonical `:falandays` (and its `:falandays_base` compatibility alias) on a task with a registered paper config (`:wall`/`:tracking`/`:pong`) -- for those, it means the task's authors-faithful constants (`falandays_paper_config(task)`: task-specific `lrate_wmat`/`lrate_targ`/input weight), matching what plain `simulate(task; node=:falandays)` runs with. Compartmental-family neurons default to `trained`, because untrained non-plastic weights are not a meaningful benchmark. The repository does not ship `bench/genomes/`; this ignored directory contains local training outputs. If a cell requires a trained genome and none exists, the pipeline falls back to untrained evaluation and marks that cell with `trained-required-but-untrained` in outputs.
 
 Rankings are conditional on the configured node roster, task roster, task weighting,
 preparation policy, and seeds. A `trained-required-but-untrained` fallback must not enter an
 unqualified ranking. Training, model/parameter selection, and evaluation seeds must be
-disjoint. When every model shares the same randomized trial seeds within a task, analyze
+disjoint. When every model shares the same randomised trial seeds within a task, analyse
 model contrasts as paired by seed. Agents and ticks within a rollout are repeated
 observations, not additional independent trials.
 
-Normalized task scores are not universal cross-task units. Any aggregate ranking encodes a
+Normalised task scores are not universal cross-task units. Any aggregate ranking encodes a
 declared weighting over different operational contracts; it should be reported alongside
 per-task results and preparation status.
 
 Statistics:
 
-The pipeline uses normalized score for its current summaries and keeps raw score in the raw
+The pipeline uses normalised score for its current summaries and keeps raw score in the raw
 CSV. Trial seeds are shared across node conditions within a task, so inferential output is
 block-aware: the omnibus test permutes condition labels within seed, pairwise comparisons
 use paired sign flips, and mean-difference intervals bootstrap whole paired seed blocks.
