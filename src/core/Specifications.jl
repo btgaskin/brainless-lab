@@ -378,6 +378,18 @@ function _seed_streams(streams)
     names = getfield.(result, :name)
     length(unique(names)) == length(names) ||
         throw(ArgumentError("evaluation seed stream names must be unique"))
+    # Reject streams nothing consumes. A declared stream is derived, realised and
+    # written into seeds.csv and the run record, so accepting an arbitrary name
+    # produces a ledger that advertises seed provenance with no mechanism behind
+    # it -- the reason :node_state, :body, :task and :mechanism were removed.
+    # Without this guard a plan could reintroduce them, or a typo could invent
+    # one, and the record would look richer than it is.
+    known = getfield.(DEFAULT_SEED_STREAMS, :name)
+    unknown = sort!(collect(setdiff(Set(names), Set(known))); by=string)
+    isempty(unknown) || throw(ArgumentError(
+        "evaluation declares seed stream(s) $(unknown) that nothing consumes; " *
+        "available streams are $(collect(known))",
+    ))
     return result
 end
 

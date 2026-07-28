@@ -39,7 +39,7 @@ id = "tracking_development"
     horizon = 2
     reset = "full"
     root_seed = 0x1101
-    streams = ["topology", "node_state", "world", "body", "task", "mechanism"]
+    streams = ["topology", "world"]
     trials_per_block = 1
     warmup = 0
 [[targets]]
@@ -58,6 +58,6 @@ id = "tracking_heldout"
     horizon = 2
     reset = "full"
     root_seed = 0x2201
-    streams = ["topology", "node_state", "world", "body", "task", "mechanism"]
+    streams = ["topology", "world"]
     trials_per_block = 1
     warmup = 0
