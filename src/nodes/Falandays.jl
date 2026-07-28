@@ -167,6 +167,38 @@ end
 
 pack_params(::Type{FalandaysParams}) = pack_params(FalandaysParams())
 
+function _node_design_spec(::Type{FalandaysParams})
+    coordinate_names = (
+        :leak,
+        :lrate_wmat,
+        :lrate_targ,
+        :threshold_mult,
+        :targ_min,
+        :input_weight,
+        :weight_init_std,
+    )
+    blocks = ntuple(
+        index -> Evolution.DesignBlock(
+            coordinate_names[index],
+            (1,),
+            index:index,
+        ),
+        FALANDAYS_PARAM_DIM,
+    )
+    return Evolution.NodeDesignSpec(
+        FalandaysParams,
+        blocks,
+        pack_params,
+        # An evolved benchmark arm tests online plasticity. `learn_on` is not a
+        # genome coordinate, so reconstructed candidates must keep learning enabled.
+        coordinates -> unpack_params(FalandaysParams, coordinates; learn_on=true);
+        stability=:experimental,
+    )
+end
+
+_node_model_keyword(::Type{FalandaysParams}) = :params
+_node_model_required(::Type{FalandaysParams}) = false
+
 mutable struct RngNoise{R<:AbstractRNG}
     rng::R
     seed::Union{Nothing,Int}

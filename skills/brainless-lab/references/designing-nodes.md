@@ -102,18 +102,21 @@ Evolution needs a declared fixed design, not arbitrary struct fields:
 Do not place activations, learned within-rollout weights, spike buffers, or RNG position in
 the model coordinates. Do not place searchable design values only in a runtime snapshot.
 
-The public evolution operation currently supports two fixed designs:
+The public evolution operation supports any registered node whose `NodeSpec` declares a
+reviewed `Evolution.NodeDesignSpec`. The built-in fixed designs are:
 
+- `FalandaysParams`, used by `:falandays` and its registered variants;
 - `StructuredCompartmental`, registered as `:compartmental_structured`;
 - `DenseCompartmental`, registered as `:compartmental_dense`.
 
-Their `NodeDesignSpec` values fix the model type, coordinate schema, and reconstruction
-contract. A search changes coordinates within that design. It does not change topology,
-node count, body components, receptor ports, or effector ports.
+Each `NodeDesignSpec` fixes the model type, coordinate schema, and reconstruction contract.
+The Falandays design searches seven bounded coordinates and reconstructs candidates with
+online plasticity enabled. `learn_on` is not a model coordinate.
 
 Setting `genome_type` on another `NodeSpec` does not admit that node to the public
 `EvolutionPlan` path. A new design needs a reviewed typed design contract, portable model
-serialization, and record tests.
+serialisation, and record tests. A search changes coordinates within that design. It does
+not change topology, node count, body components, receptor ports, or effector ports.
 
 Continue to register ordinary node parameters for composition and sweep work. For example:
 
@@ -151,8 +154,8 @@ simulate(composition; ticks=300, seed=11)
 Resolve and run explicit `CompositionSpec` values on at least two port-compatible tasks.
 The node implementation must not change between them.
 
-Use an `EvolutionPlan` only when the registered node has one of the integrated fixed design
-contracts. Embed `BrainlessLab.Evolution.RunConfig` to declare the strategy, iteration
+Use an `EvolutionPlan` only when the registered node declares a reviewed fixed design
+contract. Embed `BrainlessLab.Evolution.RunConfig` to declare the strategy, iteration
 budget, search seed, measure, direction, seeded normal initialisation, and strategy options.
 
 All public strategies resolve through one typed registry. The current keys are `:sepcma`,

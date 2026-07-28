@@ -184,10 +184,7 @@ function evaluate(
     else
         requested_model
     end
-    if resolved.node.design !== nothing
-        resolved_model === nothing && throw(ArgumentError(
-            "node :$(resolved.node.id) requires an explicit node model",
-        ))
+    if resolved.node.design !== nothing && resolved_model !== nothing
         resolved_model isa resolved.node.design.model_type || throw(ArgumentError(
             "node :$(resolved.node.id) requires model type " *
             "$(resolved.node.design.model_type), got $(typeof(resolved_model))",

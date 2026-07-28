@@ -41,6 +41,7 @@ end
             :online_plasticity,
             :recurrent_weights,
             :homeostatic_target,
+            :model_design,
             :receptor_profile,
         ),
         :falandays_noisy => (
@@ -49,6 +50,7 @@ end
             :recurrent_weights,
             :homeostatic_target,
             :sensory_noise,
+            :model_design,
             :receptor_profile,
         ),
         :falandays_ablated => (
@@ -57,6 +59,7 @@ end
             :recurrent_weights,
             :homeostatic_target,
             :clamped_homeostatic_target,
+            :model_design,
             :receptor_profile,
         ),
         :falandays_extended => (
@@ -67,6 +70,7 @@ end
             :sensory_noise,
             :small_world_topology,
             :signed_weights,
+            :model_design,
             :receptor_profile,
         ),
         :falandays_hemispheric => (
@@ -75,6 +79,7 @@ end
             :recurrent_weights,
             :homeostatic_target,
             :hemispheric_topology,
+            :model_design,
         ),
         :falandays_oosawa => (
             :spiking,
@@ -82,6 +87,7 @@ end
             :recurrent_weights,
             :homeostatic_target,
             :endogenous_drive,
+            :model_design,
             :receptor_profile,
         ),
         :falandays_dendritic => (
@@ -90,6 +96,7 @@ end
             :recurrent_weights,
             :homeostatic_target,
             :dendritic_eligibility,
+            :model_design,
         ),
         :falandays_spatial => (
             :spiking,
@@ -97,6 +104,7 @@ end
             :recurrent_weights,
             :homeostatic_target,
             :spatial_topology,
+            :model_design,
         ),
         :falandays_delayed => (
             :spiking,
@@ -105,6 +113,7 @@ end
             :homeostatic_target,
             :spatial_topology,
             :conduction_delays,
+            :model_design,
         ),
         :sorn => (
             :spiking,

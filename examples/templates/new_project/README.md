@@ -148,9 +148,10 @@ section stay the same.
 The node's `:sweep` parameter set provides defaults. A plan can instead name explicit sweep
 axes or another registered parameter set. `genome_type` records the model-coordinate
 contract, but it does not by itself admit this example node to `EvolutionPlan`. Public
-fixed-design evolution currently requires a reviewed `Evolution.NodeDesignSpec`. Benchmark
-conditions reference registered nodes and tasks but remain task-specific; registering a
-component does not automatically qualify it for a benchmark.
+fixed-design evolution accepts any node that declares a reviewed
+`Evolution.NodeDesignSpec`. Benchmark conditions reference registered nodes and tasks but
+remain task-specific; registering a component does not automatically qualify it for a
+benchmark.
 
 ## Make It Your Own
 

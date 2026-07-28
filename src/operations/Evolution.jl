@@ -136,14 +136,9 @@ function validate(plan::EvolutionPlan, registry::RegistrySet)
     first_target = first(plan.training_targets)
     resolved = resolve_composition(first_target.composition, registry)
     node = resolved.node
-    node.id in (:compartmental_dense, :compartmental_structured) ||
-        throw(ArgumentError(
-            "experimental node-design search currently supports only " *
-            ":compartmental_dense and :compartmental_structured",
-        ))
     design = node.design
     design isa Evolution.NodeDesignSpec || throw(ArgumentError(
-        "node :$(node.id) does not declare an experimental NodeDesignSpec",
+        "node :$(node.id) declares no experimental NodeDesignSpec",
     ))
     for target in plan.training_targets
         _validate_evolution_target(target, node.id, "training")

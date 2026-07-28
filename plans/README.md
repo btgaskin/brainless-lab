@@ -56,9 +56,10 @@ population = 4
 reducer = "minimum"
 ```
 
-The public typed strategy registry contains `sepcma`, `nsga2`, and `cmame`. The integrated
-node designs are fixed `StructuredCompartmental` and `DenseCompartmental` designs. Search
-does not change topology, node count, body structure, or ports.
+The public typed strategy registry contains `sepcma`, `nsga2`, and `cmame`. Any registered
+node that declares a reviewed `Evolution.NodeDesignSpec` can use an evolution plan. The
+built-in fixed designs cover `FalandaysParams`, `StructuredCompartmental`, and
+`DenseCompartmental`. Search does not change topology, node count, body structure, or ports.
 
 Every evolution operation writes a standard full record. An interrupted record can resume
 in place from its last complete generation:

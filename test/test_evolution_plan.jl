@@ -90,14 +90,63 @@ end
         DEFAULT_REGISTRY,
     )
 
+    falandays_spec = BrainlessLab.node_spec(DEFAULT_REGISTRY, :falandays)
+    @test falandays_spec.design isa BrainlessLab.Evolution.NodeDesignSpec
+    @test falandays_spec.design.dimension == 7
+    @test getfield.(falandays_spec.design.blocks, :name) == (
+        :leak,
+        :lrate_wmat,
+        :lrate_targ,
+        :threshold_mult,
+        :targ_min,
+        :input_weight,
+        :weight_init_std,
+    )
+    falandays_model = FalandaysParams()
+    falandays_coordinates =
+        BrainlessLab.Evolution.encode(falandays_spec.design, falandays_model)
+    falandays_roundtrip =
+        BrainlessLab.Evolution.decode(falandays_spec.design, falandays_coordinates)
+    @test pack_params(falandays_roundtrip) ≈ falandays_coordinates
+    @test falandays_roundtrip.learn_on
+
     falandays = EvaluationTarget(
-        :legacy_parameter_search,
+        :falandays_parameter_search,
         BrainlessLab.default_composition(DEFAULT_REGISTRY, :falandays, :tracking),
         EvaluationSpec(horizon=1, aggregate=:mean),
     )
-    @test_throws ArgumentError validate(
-        EvolutionPlan(:unsupported_node, (falandays,); run=_tiny_run()),
-        DEFAULT_REGISTRY,
+    falandays_plan =
+        EvolutionPlan(:falandays_node, (falandays,); run=_tiny_run())
+    @test validate(falandays_plan, DEFAULT_REGISTRY) === falandays_plan
+    @test resolve(falandays_plan, DEFAULT_REGISTRY).node.id === :falandays
+    @test length(BrainlessLab.evaluate(falandays).trials) == 1
+    @test length(
+        BrainlessLab.evaluate(falandays; model=falandays_roundtrip).trials,
+    ) == 1
+
+    no_design = EvaluationTarget(
+        :sorn_parameter_search,
+        CompositionSpec(
+            :sorn_tracking,
+            :sorn,
+            :tracking;
+            n_nodes=8,
+        ),
+        EvaluationSpec(horizon=1, aggregate=:mean),
+    )
+    no_design_error = try
+        validate(
+            EvolutionPlan(:unsupported_node, (no_design,); run=_tiny_run()),
+            DEFAULT_REGISTRY,
+        )
+        nothing
+    catch error
+        error
+    end
+    @test no_design_error isa ArgumentError
+    @test occursin(
+        "node :sorn declares no experimental NodeDesignSpec",
+        sprint(showerror, no_design_error),
     )
 
     nsga = _tiny_run(

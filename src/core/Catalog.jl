@@ -49,6 +49,8 @@ function _generic_node_builder(
 end
 
 _node_design_spec(::Any) = nothing
+_node_model_keyword(::Any) = :genome
+_node_model_required(::Any) = true
 
 function _generic_registered_node_parameters(id::Symbol, genome)
     if genome === FalandaysParams
@@ -272,16 +274,23 @@ function _falandays_equations()
 end
 
 function _falandays_builder(context::NodeBuildContext, values)
-    params = FalandaysParams(
-        leak=values[:leak],
-        lrate_wmat=values[:lrate_wmat],
-        lrate_targ=values[:lrate_targ],
-        threshold_mult=values[:threshold_mult],
-        targ_min=values[:targ_min],
-        input_weight=values[:input_weight],
-        weight_init_std=values[:weight_init_std],
-        learn_on=values[:learn_on],
-    )
+    params = if context.model === nothing
+        FalandaysParams(
+            leak=values[:leak],
+            lrate_wmat=values[:lrate_wmat],
+            lrate_targ=values[:lrate_targ],
+            threshold_mult=values[:threshold_mult],
+            targ_min=values[:targ_min],
+            input_weight=values[:input_weight],
+            weight_init_std=values[:weight_init_std],
+            learn_on=values[:learn_on],
+        )
+    else
+        context.model isa FalandaysParams || throw(ArgumentError(
+            "node :falandays requires model type FalandaysParams, got $(typeof(context.model))",
+        ))
+        context.model
+    end
     options = Dict{Symbol,Any}(
         :params => params,
         :link_p => values[:link_p],
@@ -303,10 +312,12 @@ function _falandays_builder(context::NodeBuildContext, values)
 end
 
 function falandays_node_spec()
+    design = _node_design_spec(FalandaysParams)
     return NodeSpec(
         :falandays,
         _falandays_builder;
         genome_type=FalandaysParams,
+        design,
         stability=:reference,
         tags=(:reference,),
         capabilities=(
@@ -314,6 +325,7 @@ function falandays_node_spec()
             :online_plasticity,
             :recurrent_weights,
             :homeostatic_target,
+            :model_design,
             :receptor_profile,
         ),
         parameters=_falandays_parameters(),
@@ -342,13 +354,15 @@ function _generic_registered_node_spec(id::Symbol, constructor)
     end
     design = genome === nothing ? nothing : _node_design_spec(genome)
     capabilities = _generic_registered_node_capabilities(id, genome, design)
+    model_keyword =
+        design === nothing ? nothing : _node_model_keyword(genome)
     return NodeSpec(
         id,
         _generic_node_builder(
             id,
             constructor;
-            model_keyword=design === nothing ? nothing : :genome,
-            require_model=design !== nothing,
+            model_keyword,
+            require_model=design !== nothing && _node_model_required(genome),
         );
         genome_type=genome,
         design=design,

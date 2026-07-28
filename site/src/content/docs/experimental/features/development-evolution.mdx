@@ -1,6 +1,6 @@
 ---
 title: Fixed development and experimental node-model search
-description: Search fixed compartmental node designs, retain portable models, and resume work from complete generation boundaries.
+description: Search declared fixed node designs, retain portable models, and resume work from complete generation boundaries.
 experimental:
   family: evolution
   readiness: integrated
@@ -15,10 +15,13 @@ The public evolution interface searches coordinates for one fixed neural design.
 `BrainlessLab.Evolution.RunConfig` inside an `EvolutionPlan` to declare the search strategy,
 budget, random seed, measure, direction, initialisation, and strategy options.
 
-The integrated designs are `StructuredCompartmental` and `DenseCompartmental`. Their
-compartment structure and parameter schemas remain fixed during a search. Evolution does
-not add nodes, alter topology, change body components, or change receptor and effector
-ports.
+Any registered node that declares a reviewed `Evolution.NodeDesignSpec` can use this
+operation. The built-in designs cover `FalandaysParams`, `StructuredCompartmental`, and
+`DenseCompartmental`. The Falandays design searches seven bounded coordinates and keeps
+online plasticity enabled; `learn_on` is not a coordinate.
+
+Each design fixes its parameter schema during a search. Evolution does not add nodes, alter
+topology, change body components, or change receptor and effector ports.
 
 ## Search strategies
 

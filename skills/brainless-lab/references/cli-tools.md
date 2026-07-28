@@ -87,7 +87,7 @@ The executor adds the paired baseline. Validation checks the intervention stage 
 required node capabilities. An inapplicable intervention, unsupported stage, or unchanged
 composition is an error.
 
-Search one fixed compartmental design:
+Search one declared fixed node design:
 
 ```toml
 [evolve]
@@ -118,8 +118,10 @@ search-strategy registry. SepCMA writes the stable model role `selected`. NSGA-I
 ordered Pareto model IDs, and CMA-ME writes ordered archive-cell IDs. The multi-objective
 strategies do not select an implicit champion.
 
-The integrated designs are the fixed `StructuredCompartmental` and `DenseCompartmental`
-schemas. Search does not change topology, node count, body structure, or ports.
+Any registered node that declares a reviewed `Evolution.NodeDesignSpec` can use this
+operation. The built-in schemas cover `FalandaysParams`, `StructuredCompartmental`, and
+`DenseCompartmental`. Search does not change topology, node count, body structure, or ports.
+The Falandays schema keeps `learn_on=true` because its evolved arm retains online plasticity.
 
 An evolution operation writes a standard full record. If it stops after at least one
 complete generation, continue the same record to its original iteration budget:

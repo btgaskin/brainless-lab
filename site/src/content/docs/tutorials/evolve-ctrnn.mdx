@@ -81,6 +81,9 @@ The node key `:compartmental_structured` selects the fixed
 `StructuredCompartmental` design. Use `:compartmental_dense` when the declared question
 requires the fixed `DenseCompartmental` design.
 
+Other registered nodes can use `EvolutionPlan` when their `NodeSpec` declares a reviewed
+`Evolution.NodeDesignSpec`.
+
 The normal initialisation is explicit. `search_seed` controls the initial population and
 later search decisions. The target root seeds control evaluation trials.
 

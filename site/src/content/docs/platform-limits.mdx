@@ -88,9 +88,9 @@ body-body collision response, and species-specific vision.
 
 ## Evolution limits
 
-`EvolutionPlan` searches one registered node parameter set while node count and composition
-structure remain fixed. The included optimiser is experimental infrastructure. One run
-does not measure search variance.
+`EvolutionPlan` searches one registered node whose `NodeSpec` declares a reviewed
+`Evolution.NodeDesignSpec`. Node count and composition structure remain fixed. The included
+optimiser is experimental infrastructure. One run does not measure search variance.
 
 `DevelopmentSpec` varies bounded scalar paths on a fixed embodiment graph. It does not add
 or remove components, vary port count, encode runtime state, or schedule developmental

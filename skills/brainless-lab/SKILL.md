@@ -86,11 +86,11 @@ runner, or operation-specific protocol format.
 - `AblationPlan` compares an implicit baseline with registered interventions. Validation
   checks the intervention stage and required node capabilities. Inapplicable or unchanged
   interventions are errors, not silent no-ops.
-- `EvolutionPlan` searches one fixed `DenseCompartmental` or
-  `StructuredCompartmental` node design through the experimental
-  `BrainlessLab.Evolution` namespace. Search randomness is separate from evaluation
-  streams. SepCMA can evaluate its selected model on held-out targets. Pareto and archive
-  models move to a later `BenchmarkPlan`.
+- `EvolutionPlan` searches any node that declares a reviewed
+  `Evolution.NodeDesignSpec` through the experimental `BrainlessLab.Evolution` namespace.
+  Built-in designs include Falandays and the dense and structured compartmental models.
+  Search randomness is separate from evaluation streams. SepCMA can evaluate its selected
+  model on held-out targets. Pareto and archive models move to a later `BenchmarkPlan`.
 - `BenchmarkPlan` reports declared conditions within each task. A multi-condition case uses
   paired blocks and a declared baseline. A one-condition case can omit the baseline and
   report anchor-relative statistics without contrasts. It does not create a cross-task

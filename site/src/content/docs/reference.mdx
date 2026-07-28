@@ -198,10 +198,10 @@ The public strategy keys are `:sepcma`, `:nsga2`, and `:cmame`. One
 NSGA-II records ordered Pareto model IDs, and CMA-ME records ordered archive-cell IDs.
 Neither multi-objective strategy chooses an implicit champion.
 
-The integrated fixed node designs are `StructuredCompartmental` and
-`DenseCompartmental`, registered as `:compartmental_structured` and
-`:compartmental_dense`. Search changes model coordinates only. It does not evolve topology,
-node count, body structure, or ports.
+An `EvolutionPlan` accepts any registered node that declares a reviewed
+`Evolution.NodeDesignSpec`. The built-in designs cover `FalandaysParams`,
+`StructuredCompartmental`, and `DenseCompartmental`. Search changes model coordinates only.
+It does not evolve topology, node count, body structure, or ports.
 
 An interrupted run can continue from its last complete generation:
 
