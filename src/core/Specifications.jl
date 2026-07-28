@@ -368,6 +368,9 @@ const DEFAULT_SEED_STREAMS = (
     SeedStreamSpec(:world),
 )
 
+# Removed in 827d0bc: derived and recorded, but read by nothing.
+const _RETIRED_SEED_STREAMS = Set((:node_state, :body, :task, :mechanism))
+
 function _seed_streams(streams)
     source = streams isa Union{Symbol,AbstractString,SeedStreamSpec} ? (streams,) : streams
     result = Tuple(
@@ -378,17 +381,20 @@ function _seed_streams(streams)
     names = getfield.(result, :name)
     length(unique(names)) == length(names) ||
         throw(ArgumentError("evaluation seed stream names must be unique"))
-    # Reject streams nothing consumes. A declared stream is derived, realised and
-    # written into seeds.csv and the run record, so accepting an arbitrary name
-    # produces a ledger that advertises seed provenance with no mechanism behind
-    # it -- the reason :node_state, :body, :task and :mechanism were removed.
-    # Without this guard a plan could reintroduce them, or a typo could invent
-    # one, and the record would look richer than it is.
-    known = getfield.(DEFAULT_SEED_STREAMS, :name)
-    unknown = sort!(collect(setdiff(Set(names), Set(known))); by=string)
-    isempty(unknown) || throw(ArgumentError(
-        "evaluation declares seed stream(s) $(unknown) that nothing consumes; " *
-        "available streams are $(collect(known))",
+    # Custom stream names are allowed: `derive_seed` is name-derived and stable,
+    # so an extension that consumes its own stream can declare one. But the four
+    # streams removed in 827d0bc must not come back by accident. They were
+    # derived, realised and written into seeds.csv and every run record while
+    # nothing read them, so a record advertised seed provenance with no
+    # mechanism behind it. A plan could otherwise reintroduce them silently --
+    # the checked-in example plan still declared all six until this was caught.
+    retired = intersect(Set(names), _RETIRED_SEED_STREAMS)
+    isempty(retired) || throw(ArgumentError(
+        "evaluation declares retired seed stream(s) $(sort!(collect(retired); by=string)); " *
+        "they were removed because nothing consumed them, and declaring one " *
+        "records seed provenance that no mechanism backs. Consumed streams are " *
+        "$(collect(getfield.(DEFAULT_SEED_STREAMS, :name))); a genuinely new " *
+        "stream may use any other name.",
     ))
     return result
 end

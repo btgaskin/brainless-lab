@@ -325,7 +325,7 @@ const WALL_TASK = TaskSpec(
     status=:reference,
     tags=(:benchmark, :qualification, :core),
     options=WALL_TASK_OPTIONS,
-    floor=null_anchor(0.775625, "task=wall, null=null_random, score_key=nav_score, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
+    floor=null_anchor(0.81609374999999995, "task=wall, null=null_random, rate_reference=falandays, null_target_rate=0.34008828124999996, score_key=nav_score, sem=0.0120, sd=0.0677, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
     ceiling=analytic(1.0; note="nav_score max = collision-free navigation while moving (a true analytic optimum); untrained falandays ref measured ~0.013 << null 0.776, so the analytic optimum is the honest ceiling, not a reference agent"),
     score_key=:nav_score,
     descriptor_keys=[:collisions_window, :distance_window],
@@ -337,7 +337,7 @@ const TRACKING_TASK = TaskSpec(
     status=:reference,
     tags=(:benchmark, :qualification, :core),
     options=TRACKING_TASK_OPTIONS,
-    floor=analytic(0.0; note="E[cos]=0 chance"),
+    floor=analytic(0.0; note="E[cos]=0 chance; a 32-seed rate-matched null measures 0.0599 +/- 0.0691 (sd 0.3907), consistent with zero, so the analytic anchor stands"),
     ceiling=analytic(1.0; note="perfect heading alignment"),
     score_key=:track_score,
 )
@@ -348,7 +348,7 @@ const PONG_TASK = TaskSpec(
     status=:reference,
     tags=(:benchmark, :qualification, :core),
     options=PONG_TASK_OPTIONS,
-    floor=null_anchor(0.35317460317460314, "task=pong, null=null_random, score_key=hit_rate, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
+    floor=null_anchor(0.2704470119755446, "task=pong, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, score_key=hit_rate, sem=0.0137, sd=0.0778, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
@@ -359,7 +359,7 @@ const PONG_HITRATE_TASK = TaskSpec(
     status=:alias,
     tags=(:alias,),
     options=PONG_TASK_OPTIONS,
-    floor=null_anchor(0.35317460317460314, "task=pong_hitrate, null=null_random, score_key=hit_rate, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
+    floor=null_anchor(0.2704470119755446, "task=pong_hitrate, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, score_key=hit_rate, sem=0.0137, sd=0.0778, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
@@ -405,7 +405,7 @@ const CARTPOLE_SWINGUP_TASK = TaskSpec(
         score_kind=:mean_uprightness,
         obs_max=(20.0, 5.0, Float64(pi), 8.0),
     )),
-    floor=null_anchor(0.05026043382947809, "task=cartpole_swingup, null=null_random, score_key=mean_uprightness, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
+    floor=null_anchor(0.023001180092574576, "task=cartpole_swingup, null=null_random, rate_reference=falandays, null_target_rate=0.08925895833333375, score_key=mean_uprightness, sem=0.0018, sd=0.0104, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
     ceiling=analytic(1.0; note="perfect uprightness"),
     score_key=:mean_uprightness,
 )
@@ -507,7 +507,7 @@ const CARTPOLE_PLANK_HARD_TASK = _plank_cartpole_task(:hard)
 const CARTPOLE_PLANK_HARDEST_TASK = _plank_cartpole_task(:hardest)
 
 const FORAGE_FLOOR_ANCHOR =
-    null_anchor(0.45826637542592896, "task=forage, null=null_random, score_key=forage_score, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23")
+    null_anchor(0.45309936524964084, "task=forage, null=null_random, rate_reference=falandays, null_target_rate=0.4352481640624999, score_key=forage_score, sem=0.0037, sd=0.0212, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28")
 const FORAGE_CEILING_ANCHOR =
     analytic(1.0; note="agents on source")
 

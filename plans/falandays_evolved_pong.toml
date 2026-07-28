@@ -1,0 +1,82 @@
+format = "brainlesslab-plan"
+format_version = 2
+id = "falandays_evolved_pong"
+operation = "evolve"
+
+# Evolve the seven Falandays genome coordinates on Pong, freeze the selected
+# vector, and evaluate it held out. The result is registered as the
+# :falandays_evolved preset and ships as the comparison arm beside
+# :falandays_base in the core benchmark.
+#
+# Sizing rationale. The dominant weakness of a small search here is not the
+# generation count but the trials per candidate: per-seed Pong hit rates vary
+# widely on identical parameters, so a two-trial fitness estimate is mostly
+# seed noise and CMA-ES adapts its covariance to that noise. Six blocks per
+# evaluation roughly halves the fitness standard error. Population 24 is
+# generous against the CMA-ES default of ~9 for seven dimensions, which helps
+# escape the embodiment-specific local optima this landscape is known to have.
+#   60 iterations x 24 population x 6 blocks = 8,640 training rollouts.
+#
+# Initialisation is zero-centred, not seeded at the published Pong parameters.
+# Under the bounded genome bijections a zero coordinate is the midpoint of each
+# declared range, and scale 1.0 spreads the initial population across roughly
+# 90% of each range -- an unbiased search of the declared box. Model-centred
+# initialisation would require an existing evolution record to reference, which
+# is a resume mechanism rather than a way to state a starting point.
+#
+# Search runs at the full 7,200-tick Pong protocol rather than a shortened one,
+# so the selected vector is not tuned to a horizon it will never be scored on.
+
+[evolve]
+training = ["pong_training"]
+heldout = ["pong_heldout"]
+
+    [evolve.run]
+    direction = "maximise"
+    iterations = 60
+    measure = "normalized_score"
+    search_seed = "20260728"
+    strategy = "sepcma"
+
+        [evolve.run.initialisation]
+        centre = "zero"
+        kind = "normal"
+        scale = 1.0
+
+        [evolve.run.options]
+        population = 24
+        reducer = "mean"
+
+[[targets]]
+id = "pong_training"
+
+    [targets.composition]
+    preset = "falandays_pong"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 6
+    construction_scope = "trial"
+    horizon = 7200
+    reset = "full"
+    root_seed = 0x9101
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 1200
+
+[[targets]]
+id = "pong_heldout"
+
+    [targets.composition]
+    preset = "falandays_pong"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 200
+    construction_scope = "trial"
+    horizon = 7200
+    reset = "full"
+    root_seed = 0xA202
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 1200
