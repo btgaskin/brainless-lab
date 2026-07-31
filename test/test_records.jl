@@ -63,8 +63,9 @@ function _record_evolution_plan(; iterations=1)
 end
 
 @testset "evolution resumes from the last complete generation" begin
+    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
     plan = _record_evolution_plan(iterations=2)
-    resolved = resolve(plan, DEFAULT_REGISTRY)
+    resolved = resolve(plan, registry)
     directory = joinpath(mktempdir(), "resume-record")
     mkpath(directory)
     write_plan(joinpath(directory, "request.toml"), plan)
@@ -104,7 +105,7 @@ end
         "development",
         read(joinpath(directory, "seeds.csv"), String),
     )
-    resumed = BrainlessLab.Evolution.resume(directory)
+    resumed = BrainlessLab.Evolution.resume(directory; registry)
     @test resumed.directory == directory
     @test length(resumed.result.candidates) == 4
     @test sort(readdir(joinpath(directory, "checkpoints"))) == [
@@ -196,11 +197,16 @@ end
     @test resolved["operation_settings"]["rollouts"] == 1
 
     trials = read(joinpath(directory, "data", "trials.csv"), String)
+    task_metrics = read(joinpath(directory, "data", "task_metrics.csv"), String)
     seeds = read(joinpath(directory, "seeds.csv"), String)
     report = read(joinpath(directory, "report", "index.html"), String)
     summary_json = read(joinpath(directory, "summary", "summary.json"), String)
     @test occursin("raw_score", trials)
     @test occursin("normalized_bound", trials)
+    @test "window" in split(first(split(trials, '\n')), ',')
+    @test "window" in split(first(split(task_metrics, '\n')), ',')
+    @test only(result.trial_rows).window == 2
+    @test resolved["targets"][1]["effective_window"] == 2
     @test count(==('\n'), seeds) == 3
     @test startswith(
         seeds,
@@ -294,7 +300,8 @@ end
         ),
         EvaluationSpec(horizon=2, root_seed=919),
     )
-    batch = BrainlessLab.evaluate(target)
+    registry = BrainlessLabTestUtils.diagnostic_registry((:torus,))
+    batch = BrainlessLab.evaluate(target; registry)
     rows = BrainlessLab._append_seed_rows!(NamedTuple[], batch)
     @test length(rows) == 4
     @test Set(row.agent for row in rows) == Set((1, 2))
@@ -339,9 +346,11 @@ end
 
 
 @testset "evolution records retain candidate trials and seeds" begin
+    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
     plan = _record_evolution_plan()
     run = run_operation(
         plan;
+        registry,
         root=mktempdir(),
         id="evolution-record",
     )

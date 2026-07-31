@@ -55,6 +55,7 @@ const OBJECT_WORLD_EXAMPLE_TASK = TaskSpec(
 """Run the neutral physical example through `simulate`, returning a `SimResult`."""
 function run_object_world_task(;
     ticks::Integer=25,
+    window::Union{Nothing,Integer}=nothing,
     seed::Integer=7,
     n_nodes::Integer=80,
 )
@@ -62,6 +63,7 @@ function run_object_world_task(;
         OBJECT_WORLD_EXAMPLE_TASK;
         node=:falandays,
         ticks=ticks,
+        window=window,
         seed=seed,
         n_nodes=n_nodes,
         repair_masks=true,

@@ -140,7 +140,7 @@ n_nodes = 5
 [targets.evaluation]
 blocks = 1
 trials_per_block = 1
-horizon = 1
+horizon = 2000
 warmup = 0
 construction_scope = "trial"
 reset = "full"

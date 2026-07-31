@@ -79,7 +79,7 @@ end
 end
 
 @testset "NoisyInput delegates recording, inspection, and interventions" begin
-    sim = simulate(
+    sim = BrainlessLabTestUtils.diagnostic_simulate(
         :wall;
         node=:falandays_noisy,
         n_nodes=12,
@@ -92,7 +92,7 @@ end
     @test length(getchannel(sim.recorder, :spectral_radius)) == 3
     @test only(sim.config.networks) !== nothing
 
-    zeroed = BrainlessLab._build_ensemble(
+    zeroed = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :tracking,
         :falandays_noisy;
         ticks=2,
@@ -103,7 +103,7 @@ end
     zeroed_reservoir = only(zeroed.ensemble.agents).reservoir
     @test all(iszero, zeroed_reservoir.wmat)
 
-    scheduled = BrainlessLab._build_ensemble(
+    scheduled = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :tracking,
         :falandays_noisy;
         ticks=2,

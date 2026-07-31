@@ -83,6 +83,10 @@ counts are optional default metadata only; resolved body ports size reservoirs.
 Declare accepted setup keyword defaults in `options` so composition resolution
 can reject unknown keys and record the complete setup.
 
+`default_window` remains the environment-metric fallback. The independent
+`minimum_scored_ticks` field declares how many scored ticks a task objective
+needs before its value is meaningful.
+
 For the `TaskWorld` compatibility path, implement `sense(environment)`,
 `step!(environment, effectors)`, `metrics(environment, window)`,
 `reset!(environment)`, `n_receptors(::Type{Environment})`,
@@ -98,6 +102,7 @@ struct TaskSpec{S,E,O} <: AbstractTask
     n_effectors::Union{Nothing,Int}
     default_ticks::Int
     default_window::Int
+    minimum_scored_ticks::Int
     interaction_cycle::Union{Nothing,InteractionCycle}
     status::Symbol
     tags::Tuple{Vararg{Symbol}}
@@ -116,6 +121,7 @@ function TaskSpec(
     n_effectors::Integer=n_effectors(env_type),
     default_ticks::Integer=default_ticks(env_type),
     default_window::Integer=default_window(env_type),
+    minimum_scored_ticks::Integer=default_window,
     interaction_cycle::Union{Nothing,InteractionCycle}=nothing,
     status::Symbol=:stable,
     tags=(),
@@ -136,6 +142,7 @@ function TaskSpec(
         n_effectors=n_effectors,
         default_ticks=default_ticks,
         default_window=default_window,
+        minimum_scored_ticks=minimum_scored_ticks,
         interaction_cycle=interaction_cycle,
         status=status,
         tags=tags,
@@ -158,6 +165,7 @@ function TaskSpec(
     n_effectors=nothing,
     default_ticks::Integer=1000,
     default_window::Integer=default_ticks,
+    minimum_scored_ticks::Integer=default_window,
     interaction_cycle::Union{Nothing,InteractionCycle}=nothing,
     status::Symbol=:stable,
     tags=(),
@@ -194,6 +202,10 @@ function TaskSpec(
         analytic(1.0; note="default analytic ceiling"),
     )
     options_ = _option_defaults(options, "task :$(task_name)")
+    minimum_scored_ticks_ = Int(minimum_scored_ticks)
+    minimum_scored_ticks_ > 0 || throw(ArgumentError(
+        "task :$(task_name) minimum_scored_ticks must be positive",
+    ))
     return TaskSpec(
         task_name,
         setup,
@@ -202,6 +214,7 @@ function TaskSpec(
         n_effectors === nothing ? nothing : Int(n_effectors),
         Int(default_ticks),
         Int(default_window),
+        minimum_scored_ticks_,
         interaction_cycle,
         status,
         tags_,
@@ -212,6 +225,24 @@ function TaskSpec(
         score_key,
         Symbol.(collect(descriptor_keys)),
     )
+end
+
+function _validate_minimum_scored_ticks(
+    task::TaskSpec,
+    scored_ticks::Integer;
+    explicit_window::Bool=false,
+    typed_evaluation::Bool=false,
+)
+    scored_ticks_ = Int(scored_ticks)
+    explicit_window && return scored_ticks_
+    scored_ticks_ >= task.minimum_scored_ticks && return scored_ticks_
+    action = typed_evaluation ?
+        "Increase evaluation horizon or reduce warmup" :
+        "Increase ticks, or pass an explicit window to acknowledge a shorter diagnostic run"
+    throw(ArgumentError(
+        "task :$(task.name) scored interval is $(scored_ticks_) ticks, but " *
+        "minimum_scored_ticks is $(task.minimum_scored_ticks). $(action).",
+    ))
 end
 
 function Base.getproperty(task::TaskSpec, key::Symbol)
@@ -324,6 +355,7 @@ const WALL_TASK = TaskSpec(
     WallEnv;
     status=:reference,
     tags=(:benchmark, :qualification, :core),
+    minimum_scored_ticks=200,
     options=WALL_TASK_OPTIONS,
     floor=null_anchor(0.81609374999999995, "task=wall, null=null_random, rate_reference=falandays, null_target_rate=0.34008828124999996, score_key=nav_score, sem=0.0120, sd=0.0677, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
     ceiling=analytic(1.0; note="nav_score max = collision-free navigation while moving (a true analytic optimum); untrained falandays ref measured ~0.013 << null 0.776, so the analytic optimum is the honest ceiling, not a reference agent"),
@@ -336,6 +368,7 @@ const TRACKING_TASK = TaskSpec(
     TrackingEnv;
     status=:reference,
     tags=(:benchmark, :qualification, :core),
+    minimum_scored_ticks=2000,
     options=TRACKING_TASK_OPTIONS,
     floor=analytic(0.0; note="E[cos]=0 chance; a 32-seed rate-matched null measures 0.0599 +/- 0.0691 (sd 0.3907), consistent with zero, so the analytic anchor stands"),
     ceiling=analytic(1.0; note="perfect heading alignment"),
@@ -347,6 +380,7 @@ const PONG_TASK = TaskSpec(
     PongEnv;
     status=:reference,
     tags=(:benchmark, :qualification, :core),
+    minimum_scored_ticks=6000,
     options=PONG_TASK_OPTIONS,
     floor=null_anchor(0.2704470119755446, "task=pong, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, score_key=hit_rate, sem=0.0137, sd=0.0778, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
@@ -358,6 +392,7 @@ const PONG_HITRATE_TASK = TaskSpec(
     PongEnv;
     status=:alias,
     tags=(:alias,),
+    minimum_scored_ticks=6000,
     options=PONG_TASK_OPTIONS,
     floor=null_anchor(0.2704470119755446, "task=pong_hitrate, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, score_key=hit_rate, sem=0.0137, sd=0.0778, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),

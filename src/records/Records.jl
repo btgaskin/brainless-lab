@@ -312,6 +312,7 @@ function _record_task_metric_rows(trials)
         :condition,
         :block,
         :trial,
+        :window,
         :score_key,
         :raw_score,
         :normalized_score,
@@ -349,7 +350,7 @@ function _empty_table_columns(name::Symbol)
     )
     name === :candidate_trials && return (
         :phase, :iteration, :candidate, :condition, :block, :trial,
-        :seed_ledger_agents, :topology_seed, :world_seed, :initial_state, :score_key,
+        :window, :seed_ledger_agents, :topology_seed, :world_seed, :initial_state, :score_key,
         :raw_score, :normalized_score, :normalized_bound, :viable, :liveness,
     )
     name === :candidate_scores && return (
@@ -361,7 +362,7 @@ function _empty_table_columns(name::Symbol)
     name === :heldout && return (:target, :measure, :score, :trials)
     name === :heldout_trials && return (
         :phase, :heldout_target,
-        :condition, :block, :trial, :seed_ledger_agents, :topology_seed,
+        :condition, :block, :trial, :window, :seed_ledger_agents, :topology_seed,
         :world_seed, :initial_state, :score_key,
         :raw_score, :normalized_score, :normalized_bound, :viable, :liveness,
     )
@@ -553,6 +554,7 @@ function _resolved_target_document(batch::EvaluationBatch)
         "body_options" => _string_dict(resolved.body_options),
         "interaction_cycle" => _resolved_cycle_document(resolved.interaction_cycle),
         "evaluation" => _evaluation_document(target.evaluation),
+        "effective_window" => target.evaluation.horizon - target.evaluation.warmup,
     )
     resolved.body === nothing || (document["body"] = String(resolved.body.key))
     resolved.n_agents === nothing || (document["n_agents"] = resolved.n_agents)
@@ -575,6 +577,7 @@ function _resolved_target_document(
         "body_options" => _string_dict(resolved.body_options),
         "interaction_cycle" => _resolved_cycle_document(resolved.interaction_cycle),
         "evaluation" => _evaluation_document(target.evaluation),
+        "effective_window" => target.evaluation.horizon - target.evaluation.warmup,
     )
     resolved.body === nothing || (document["body"] = String(resolved.body.key))
     resolved.n_agents === nothing || (document["n_agents"] = resolved.n_agents)

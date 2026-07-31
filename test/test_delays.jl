@@ -271,8 +271,8 @@ end
     @test r1.connectome.maxdelay == r2.connectome.maxdelay
     @test r1.connectome.all_unit == r2.connectome.all_unit
 
-    sim_unit = simulate(:wall; node=:falandays_delayed, ticks=50, seed=1, conduction_velocity=Inf)
-    sim_hetero = simulate(:wall; node=:falandays_delayed, ticks=50, seed=1, conduction_velocity=0.05)
+    sim_unit = simulate(:wall; node=:falandays_delayed, ticks=50, window=50, seed=1, conduction_velocity=Inf)
+    sim_hetero = simulate(:wall; node=:falandays_delayed, ticks=50, window=50, seed=1, conduction_velocity=0.05)
     @test isfinite(Float64(sim_unit.metrics.score))
     @test isfinite(Float64(sim_hetero.metrics.score))
 end

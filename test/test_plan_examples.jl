@@ -18,6 +18,7 @@ using Test
 end
 
 @testset "a small plan reproduces byte-identical data and summaries" begin
+    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
     target = EvaluationTarget(
         :deterministic_tracking,
         CompositionSpec(
@@ -40,11 +41,13 @@ end
     )
     first = run_operation(
         plan;
+        registry,
         root=mktempdir(),
         id="first",
     )
     second = run_operation(
         plan;
+        registry,
         root=mktempdir(),
         id="second",
     )

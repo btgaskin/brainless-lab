@@ -27,7 +27,16 @@ end
         root_seed=91,
         aggregate=:none,
     )
-    batch = BrainlessLab.evaluate(EvaluationTarget(:tracking, composition, evaluation))
+    registry = RegistrySet()
+    register!(registry, node_spec(DEFAULT_REGISTRY, :null_random))
+    register!(
+        registry,
+        BrainlessLabTestUtils.task_with_minimum(:tracking, 1),
+    )
+    batch = BrainlessLab.evaluate(
+        EvaluationTarget(:tracking, composition, evaluation);
+        registry,
+    )
     rows = BrainlessLab.trial_table(batch)
     @test length(batch.trials) == 4
     @test length(rows) == 4
@@ -42,7 +51,32 @@ end
         composition,
         EvaluationSpec(horizon=4, reset=:body_environment),
     )
-    @test_throws ArgumentError BrainlessLab.evaluate(unsupported)
+    @test_throws ArgumentError BrainlessLab.evaluate(unsupported; registry)
+end
+
+@testset "typed evaluations reject starved scoring intervals" begin
+    composition = CompositionSpec(
+        :starved_pong,
+        :null_random,
+        :pong;
+        n_nodes=2,
+    )
+    target = EvaluationTarget(
+        :starved_pong,
+        composition,
+        EvaluationSpec(horizon=300, root_seed=12),
+    )
+    error = try
+        BrainlessLab.evaluate(target)
+        nothing
+    catch caught
+        caught
+    end
+    message = error === nothing ? "" : sprint(showerror, error)
+    @test error isa ArgumentError
+    @test occursin("task :pong", message)
+    @test occursin("300", message)
+    @test occursin("6000", message)
 end
 
 @testset "Plank evaluation records explicit starts under one fixed design" begin
@@ -60,7 +94,16 @@ end
         root_seed=101,
         aggregate=:mean,
     )
-    rows = BrainlessLab.trial_table(BrainlessLab.evaluate(EvaluationTarget(:plank_easy, composition, evaluation)))
+    registry = RegistrySet()
+    register!(registry, node_spec(DEFAULT_REGISTRY, :null_random))
+    register!(
+        registry,
+        BrainlessLabTestUtils.task_with_minimum(:cartpole_plank_easy, 1),
+    )
+    rows = BrainlessLab.trial_table(BrainlessLab.evaluate(
+        EvaluationTarget(:plank_easy, composition, evaluation);
+        registry,
+    ))
     @test length(rows) == 2
     @test rows[1].topology_seed == rows[2].topology_seed
     @test rows[1].initial_state isa NTuple{4,Float64}

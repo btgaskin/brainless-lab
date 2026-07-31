@@ -38,7 +38,7 @@ _stateless_bodies(n) = [
 end
 
 @testset "Signalling reservoir sizing via simulate" begin
-    setup = BrainlessLab._build_ensemble(
+    setup = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :forage,
         :falandays_base;
         ticks=3,
@@ -51,7 +51,7 @@ end
     )
     @test all(n_effectors(agent.reservoir) == 4 for agent in setup.ensemble.agents)
 
-    sim = simulate(
+    sim = BrainlessLabTestUtils.diagnostic_simulate(
         :forage;
         node=:falandays_base,
         ticks=4,
@@ -76,8 +76,8 @@ end
         sensory_noise=0.0,
         record=[:effectors],
     )
-    default_sim = simulate(:forage; base_kwargs...)
-    explicit_false = simulate(:forage; base_kwargs..., signalling=false)
+    default_sim = BrainlessLabTestUtils.diagnostic_simulate(:forage; base_kwargs...)
+    explicit_false = BrainlessLabTestUtils.diagnostic_simulate(:forage; base_kwargs..., signalling=false)
     default_effectors = getchannel(default_sim.recorder, :effectors)
     false_effectors = getchannel(explicit_false.recorder, :effectors)
     @test default_sim.config.environment.signalling == false
@@ -123,7 +123,7 @@ end
 end
 
 @testset "Signalling leaves non-forage torus untouched" begin
-    setup = BrainlessLab._build_ensemble(
+    setup = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :torus,
         :falandays_base;
         ticks=1,

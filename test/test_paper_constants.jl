@@ -118,14 +118,14 @@ end
     @test !(:falandays_node in variants())
 
     for task in (:wall, :tracking, :pong)
-        canonical = BrainlessLab._build_ensemble(
+        canonical = BrainlessLabTestUtils.diagnostic_build_ensemble(
             task,
             :falandays;
             ticks=1,
             seed=17,
             record=Symbol[],
         )
-        alias = BrainlessLab._build_ensemble(
+        alias = BrainlessLabTestUtils.diagnostic_build_ensemble(
             task,
             :falandays_base;
             ticks=1,
@@ -147,6 +147,7 @@ end
         :wall;
         node=:falandays,
         ticks=20,
+        window=20,
         seed=37,
         record=(:spikes, :rate, :poses),
     )
@@ -154,6 +155,7 @@ end
         :wall;
         node=:falandays_base,
         ticks=20,
+        window=20,
         seed=37,
         record=(:spikes, :rate, :poses),
     )
@@ -196,7 +198,7 @@ end
 @testset "simulate injects task-specific Falandays base defaults" begin
     for task in (:wall, :tracking, :pong)
         cfg = BrainlessLab.falandays_paper_config(task)
-        setup = BrainlessLab._build_ensemble(task, :falandays; ticks=1, seed=10, record=Symbol[])
+        setup = BrainlessLabTestUtils.diagnostic_build_ensemble(task, :falandays; ticks=1, seed=10, record=Symbol[])
         reservoir = setup.ensemble.agents[1].reservoir
         @test setup.n_nodes == cfg.nnodes
         @test reservoir.rectify == false
@@ -206,13 +208,13 @@ end
         @test maximum(reservoir.input_wmat) == cfg.input_amp
     end
 
-    wall_setup = BrainlessLab._build_ensemble(:wall, :falandays; ticks=1, seed=10, record=Symbol[])
+    wall_setup = BrainlessLabTestUtils.diagnostic_build_ensemble(:wall, :falandays; ticks=1, seed=10, record=Symbol[])
     wall_env = wall_setup.ensemble.environment
     @test wall_env isa BrainlessLab.WallEnv
     @test wall_env.sensory_noise == 0.0
     @test wall_env.clip_sensory_noise == true
 
-    noisy_wall = BrainlessLab._build_ensemble(
+    noisy_wall = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :wall,
         :falandays;
         ticks=1,
@@ -224,7 +226,7 @@ end
     @test noisy_wall.sensory_noise == 0.1
     @test noisy_wall.clip_sensory_noise == false
 
-    override = BrainlessLab._build_ensemble(
+    override = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :wall,
         :falandays;
         ticks=1,
@@ -240,7 +242,7 @@ end
     @test override_reservoir.params.input_weight == 1.5
     @test maximum(override_reservoir.input_wmat) == 1.5
 
-    low_input = BrainlessLab._build_ensemble(
+    low_input = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :tracking,
         :falandays;
         ticks=1,
@@ -248,7 +250,7 @@ end
         record=Symbol[],
         input_weight=0.5,
     ).ensemble.agents[1].reservoir
-    high_input = BrainlessLab._build_ensemble(
+    high_input = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :tracking,
         :falandays;
         ticks=1,
@@ -264,7 +266,7 @@ end
 end
 
 @testset "swarm Falandays compatibility is an explicit preset" begin
-    canonical = BrainlessLab._build_ensemble(
+    canonical = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :torus,
         :falandays;
         ticks=1,
@@ -273,7 +275,7 @@ end
         n_agents=2,
         n_nodes=24,
     )
-    preset = BrainlessLab._build_ensemble(
+    preset = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :torus,
         :falandays_swarm_legacy;
         ticks=1,
@@ -282,7 +284,7 @@ end
         n_agents=2,
         n_nodes=24,
     )
-    explicit = BrainlessLab._build_ensemble(
+    explicit = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :torus,
         :falandays;
         ticks=1,

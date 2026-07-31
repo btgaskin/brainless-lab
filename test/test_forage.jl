@@ -25,7 +25,7 @@ end
     @test :forage in tasks()
 
     for conspecific_vision in (true, false)
-        sim = simulate(
+        sim = BrainlessLabTestUtils.diagnostic_simulate(
             :forage;
             node=:falandays_base,
             n_agents=4,
@@ -46,7 +46,7 @@ end
         _test_forage_metrics(sim.metrics; ticks=20)
     end
 
-    oosawa = simulate(
+    oosawa = BrainlessLabTestUtils.diagnostic_simulate(
         :forage;
         node=:falandays_oosawa,
         n_agents=3,
@@ -62,7 +62,7 @@ end
 end
 
 @testset "Forage receptor banks and blind condition" begin
-    setup = BrainlessLab._build_ensemble(
+    setup = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :forage,
         :falandays_base;
         ticks=1,
@@ -125,8 +125,8 @@ end
         source_gain=1.0,
         record=(:poses,),
     )
-    implicit_default = simulate(:forage; kwargs...)
-    explicit_default = simulate(:forage; kwargs..., source_vision_range=nothing)
+    implicit_default = BrainlessLabTestUtils.diagnostic_simulate(:forage; kwargs...)
+    explicit_default = BrainlessLabTestUtils.diagnostic_simulate(:forage; kwargs..., source_vision_range=nothing)
     @test getchannel(implicit_default.recorder, :poses) == getchannel(explicit_default.recorder, :poses)
     @test implicit_default.metrics == explicit_default.metrics
     @test explicit_default.config.environment.source_vision_range === nothing
@@ -208,8 +208,8 @@ end
         conspecific_vision=true,
         record=Symbol[],
     )
-    a = simulate(:forage; kwargs...)
-    b = simulate(:forage; kwargs...)
+    a = BrainlessLabTestUtils.diagnostic_simulate(:forage; kwargs...)
+    b = BrainlessLabTestUtils.diagnostic_simulate(:forage; kwargs...)
     @test a.metrics.mean_distance_to_source == b.metrics.mean_distance_to_source
 end
 
@@ -219,7 +219,7 @@ end
           Set(name for name in fieldnames(BrainlessLab.SituatedConfig) if !(name in exclusions))
 
     effects = (BrainlessLab.Exposure(:social, 0.2),)
-    setup = BrainlessLab._build_ensemble(
+    setup = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :forage,
         :falandays_base;
         ticks=1,
@@ -243,7 +243,7 @@ end
     @test environment.config.conspecific_contact_radius == 0.0
     @test environment.config.conspecific_contact_effects == effects
 
-    no_bare = BrainlessLab._build_ensemble(
+    no_bare = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :torus,
         :falandays_base;
         ticks=1,
@@ -261,7 +261,7 @@ end
 
 @testset "situated contact provenance and task-layer errors" begin
     effects = (BrainlessLab.Exposure(:social, 0.2),)
-    sim = simulate(
+    sim = BrainlessLabTestUtils.diagnostic_simulate(
         :forage;
         node=:falandays_base,
         ticks=1,
@@ -287,7 +287,7 @@ end
     @test length(config.source_gains) == 2
 
     err = try
-        simulate(
+        BrainlessLabTestUtils.diagnostic_simulate(
             :wall;
             node=:falandays_base,
             ticks=1,

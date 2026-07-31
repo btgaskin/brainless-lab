@@ -128,10 +128,15 @@ function simulate(
     resolved = resolve_composition(composition, registry)
     tick_count = ticks === nothing ? resolved.task.default_ticks : Int(ticks)
     tick_count > 0 || throw(ArgumentError("simulation ticks must be positive"))
-    window_ = window === nothing ? min(tick_count, resolved.task.default_window) : Int(window)
+    window_ = window === nothing ? tick_count : Int(window)
     0 < window_ <= tick_count || throw(ArgumentError(
         "simulation window must lie in 1:ticks",
     ))
+    _validate_minimum_scored_ticks(
+        resolved.task,
+        tick_count;
+        explicit_window=window !== nothing,
+    )
     evaluation = EvaluationSpec(horizon=tick_count, root_seed=seed)
     setup = _build_composition(
         resolved,

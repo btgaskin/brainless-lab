@@ -278,7 +278,7 @@ end
 
 @testset "documented object-world TaskSpec example runs" begin
     include(joinpath(@__DIR__, "..", "examples", "embodiments", "object_world_task.jl"))
-    sim = run_object_world_task(ticks=3, seed=5)
+    sim = run_object_world_task(ticks=3, window=3, seed=5)
 
     @test sim isa SimResult
     @test sim.task === :object_world_example

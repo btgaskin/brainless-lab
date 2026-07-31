@@ -97,7 +97,7 @@ end
 
 @testset "Plank profiles execute through the standard simulation path" begin
     for task in tasks(tag=:plank_cartpole)
-        result = simulate(
+        result = BrainlessLabTestUtils.diagnostic_simulate(
             task;
             node=:falandays,
             n_nodes=20,
@@ -128,8 +128,14 @@ end
         n_nodes=8,
     )
     target = EvaluationTarget(:plank_easy, composition, protocol)
-    result = BrainlessLab.evaluate(target)
-    repeated = BrainlessLab.evaluate(target)
+    registry = RegistrySet()
+    register!(registry, node_spec(DEFAULT_REGISTRY, :null_random))
+    register!(
+        registry,
+        BrainlessLabTestUtils.task_with_minimum(:cartpole_plank_easy, 1),
+    )
+    result = BrainlessLab.evaluate(target; registry)
+    repeated = BrainlessLab.evaluate(target; registry)
     changed = BrainlessLab.evaluate(EvaluationTarget(
         :plank_easy,
         composition,
@@ -140,7 +146,7 @@ end
             construction_scope=:evaluation,
             root_seed=72,
         ),
-    ))
+    ); registry)
 
     @test result isa BrainlessLab.EvaluationBatch
     @test length(result.trials) == 3

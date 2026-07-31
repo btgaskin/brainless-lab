@@ -8,6 +8,71 @@ struct MyNodeParams <: NodeModel
     gain::Float64
 end
 
+@testset "short scored runs reject starvation" begin
+    error = try
+        simulate(
+            :pong;
+            node=:null_random,
+            n_nodes=2,
+            ticks=300,
+            seed=4,
+            record=(),
+        )
+        nothing
+    catch caught
+        caught
+    end
+    message = error === nothing ? "" : sprint(showerror, error)
+    @test error isa ArgumentError
+    @test occursin("task :pong", message)
+    @test occursin("300", message)
+    @test occursin("6000", message)
+
+    composition = CompositionSpec(
+        :starved_pong_convenience,
+        :null_random,
+        :pong;
+        n_nodes=2,
+    )
+    @test_throws ArgumentError simulate(
+        composition;
+        ticks=300,
+        seed=4,
+        record=(),
+    )
+end
+
+@testset "an explicit scoring-window override permits a diagnostic run" begin
+    sim = simulate(
+        :pong;
+        node=:null_random,
+        n_nodes=2,
+        ticks=300,
+        window=300,
+        seed=4,
+        record=(),
+    )
+    outcome = task_outcome(sim)
+    @test sim.config.window == 300
+    @test outcome.window == 300
+
+    composition = CompositionSpec(
+        :short_pong_diagnostic,
+        :null_random,
+        :pong;
+        n_nodes=2,
+    )
+    composition_sim = simulate(
+        composition;
+        ticks=300,
+        window=120,
+        seed=4,
+        record=(),
+    )
+    @test composition_sim.config.window == 120
+    @test task_outcome(composition_sim).window == 120
+end
+
 MyNodeParams() = MyNodeParams(1.0)
 
 paramdim(::Type{MyNodeParams}) = 1
@@ -105,7 +170,7 @@ end
 
     for sym in required_variants
         @test sym in variants()
-        sim = simulate(:wall; node=sym, ticks=60, seed=3)
+        sim = simulate(:wall; node=sym, ticks=60, window=60, seed=3)
         @test sim isa SimResult
         @test sim.task == :wall
         @test sim.node == sym
@@ -125,7 +190,7 @@ end
     direct = simulate(unregistered; node=:null_random, ticks=4, seed=9, record=Symbol[])
     @test direct.task == :unregistered_wall
 
-    swarm = simulate(:torus; node=:falandays, n_agents=3, ticks=40, seed=5)
+    swarm = simulate(:torus; node=:falandays, n_agents=3, ticks=40, window=40, seed=5)
     @test swarm isa SimResult
     @test swarm.task == :torus
     @test swarm.node == :falandays
@@ -164,7 +229,7 @@ end
         register_metric!(:custom_metric, _custom_metric)
         @test resolve_metric(:custom_metric) === _custom_metric
 
-        wall = simulate(:wall; node=:mynode, ticks=20, n_nodes=8)
+        wall = simulate(:wall; node=:mynode, ticks=20, window=20, n_nodes=8)
         @test wall isa SimResult
         @test wall.node == :mynode
         @test wall.task == :wall
@@ -183,6 +248,7 @@ end
             node=:mynode,
             body=:mybody,
             ticks=12,
+            window=12,
             n_nodes=8,
         )
         @test body_sim isa SimResult
@@ -192,6 +258,7 @@ end
             node=:falandays,
             drive=:mydrive,
             ticks=12,
+            window=12,
             n_nodes=8,
         )
         @test drive_sim isa SimResult
@@ -200,6 +267,7 @@ end
             :wall;
             node=:mynode,
             ticks=12,
+            window=12,
             n_nodes=8,
             metrics=[:custom_metric],
         )
@@ -214,6 +282,7 @@ end
             seed=2,
             N=8,
             ticks=12,
+            window=12,
             node_kwargs=(; params),
         )
         outcome = task_outcome(stamped)

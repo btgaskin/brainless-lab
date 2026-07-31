@@ -175,6 +175,11 @@ function evaluate(
         "must be exposed through a declared reset hook before using :$(evaluation.reset)",
     ))
     resolved = resolve_composition(target.composition, registry)
+    _validate_minimum_scored_ticks(
+        resolved.task,
+        evaluation.horizon - evaluation.warmup;
+        typed_evaluation=true,
+    )
     requested_model = model === nothing ? target.model : model
     resolved_model = if requested_model isa Evolution.ModelReference
         resolved.node.design === nothing && throw(ArgumentError(
@@ -224,6 +229,7 @@ function trial_row(trial::EvaluationTrial)
         condition=trial.condition,
         block=trial.block,
         trial=trial.trial,
+        window=Int(trial.simulation.config.window),
         seed_ledger_agents=length(trial.seeds),
         topology_seed=seed(:topology),
         world_seed=seed(:world),

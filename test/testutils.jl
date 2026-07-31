@@ -2,6 +2,57 @@ module BrainlessLabTestUtils
 
 using BrainlessLab
 
+function diagnostic_simulate(args...; ticks, window=nothing, kwargs...)
+    effective_window = window === nothing ? Int(ticks) : Int(window)
+    return simulate(
+        args...;
+        ticks=Int(ticks),
+        window=effective_window,
+        kwargs...,
+    )
+end
+
+function diagnostic_build_ensemble(args...; ticks, window=nothing, kwargs...)
+    effective_window = window === nothing ? Int(ticks) : Int(window)
+    return BrainlessLab._build_ensemble(
+        args...;
+        ticks=Int(ticks),
+        window=effective_window,
+        kwargs...,
+    )
+end
+
+function task_with_minimum(task_name::Symbol, minimum_scored_ticks::Integer)
+    task = BrainlessLab.task_spec(DEFAULT_REGISTRY, task_name)
+    return TaskSpec(
+        task.name,
+        task.setup;
+        env_type=task.env_type,
+        n_receptors=task.n_receptors,
+        n_effectors=task.n_effectors,
+        default_ticks=task.default_ticks,
+        default_window=task.default_window,
+        minimum_scored_ticks=minimum_scored_ticks,
+        interaction_cycle=task.interaction_cycle,
+        status=task.status,
+        tags=task.tags,
+        protocol=task.protocol,
+        options=task.options,
+        floor=task.floor,
+        ceiling=task.ceiling,
+        score_key=task.score_key,
+        descriptor_keys=task.descriptor_keys,
+    )
+end
+
+function diagnostic_registry(task_names=(:tracking, :pong))
+    registry = deepcopy(DEFAULT_REGISTRY)
+    for task_name in task_names
+        registry.tasks.entries[task_name] = task_with_minimum(task_name, 1)
+    end
+    return registry
+end
+
 function scalar(data, key::AbstractString)
     value = data[key]
     return value isa Number ? Float64(value) : Float64(only(value))
@@ -69,8 +120,8 @@ function operation_registry()
         ),
     )
     register!(registry, node)
-    for task in (:tracking, :pong)
-        register!(registry, BrainlessLab.task_spec(DEFAULT_REGISTRY, task))
+    for task_name in (:tracking, :pong)
+        register!(registry, task_with_minimum(task_name, 1))
     end
     register!(
         registry,

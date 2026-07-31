@@ -8,6 +8,7 @@ This example is a component smoke test, not an evidence-producing experiment.
 """
 function run_shoal_forage_quickstart(;
     ticks::Integer=25,
+    window::Integer=ticks,
     seed::Integer=23,
     n_nodes::Integer=40,
     n_agents::Integer=4,
@@ -16,6 +17,7 @@ function run_shoal_forage_quickstart(;
         :shoal_forage;
         node=:falandays,
         ticks=Int(ticks),
+        window=Int(window),
         seed=Int(seed),
         n_nodes=Int(n_nodes),
         n_agents=Int(n_agents),

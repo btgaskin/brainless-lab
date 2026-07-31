@@ -9,6 +9,7 @@ let
         node=:falandays,
         n_agents=2,
         ticks=400,
+        window=400,
         seed=7,
         record=[:spikes, :rate, :poses, :polarization, :milling],
     )

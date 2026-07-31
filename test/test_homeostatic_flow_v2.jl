@@ -49,14 +49,14 @@ end
     end
     @test all(a -> 0.0 <= a <= 1.0, r.a)
 
-    sim = simulate(:wall; node=:homeostatic_flow_v2, ticks=120, seed=0)
+    sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:homeostatic_flow_v2, ticks=120, seed=0)
     @test sim isa SimResult
 
-    sim_a = simulate(:wall; node=:homeostatic_flow_v2, ticks=80, seed=11)
-    sim_b = simulate(:wall; node=:homeostatic_flow_v2, ticks=80, seed=11)
+    sim_a = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:homeostatic_flow_v2, ticks=80, seed=11)
+    sim_b = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:homeostatic_flow_v2, ticks=80, seed=11)
     @test getchannel(sim_a.recorder, :spikes) == getchannel(sim_b.recorder, :spikes)
 
-    tracking = simulate(:tracking; node=:homeostatic_flow_v2, ticks=80, seed=2)
+    tracking = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:homeostatic_flow_v2, ticks=80, seed=2)
     @test tracking isa SimResult
 
     reservoir = BrainlessLab.HomeostaticFlowV2Reservoir(30, 2, 2; seed=3)
@@ -91,7 +91,7 @@ end
                 novelty_gate=novelty_gate,
                 output_mode=output_mode,
             )
-            sim = simulate(:wall; node=:homeostatic_flow_v2, ticks=20, seed=1, node_kwargs=kwargs)
+            sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:homeostatic_flow_v2, ticks=20, seed=1, node_kwargs=kwargs)
             @test sim isa SimResult
         end
     end

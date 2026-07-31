@@ -125,9 +125,9 @@ end
 
 @testset "Default motor: swarm + forage sims unchanged (no-op through the pipeline)" begin
     for task in (:torus, :forage)
-        base = simulate(task; node=:falandays_base, n_agents=6, n_nodes=40, ticks=50,
+        base = BrainlessLabTestUtils.diagnostic_simulate(task; node=:falandays_base, n_agents=6, n_nodes=40, ticks=50,
                         seed=7, record=(:poses,), metrics=(:polarization, :milling))
-        withm = simulate(task; node=:falandays_base, n_agents=6, n_nodes=40, ticks=50,
+        withm = BrainlessLabTestUtils.diagnostic_simulate(task; node=:falandays_base, n_agents=6, n_nodes=40, ticks=50,
                          seed=7, motor=BrainlessLab.KinematicMotor(), record=(:poses,),
                          metrics=(:polarization, :milling))
         @test getchannel(base.recorder, :poses) == getchannel(withm.recorder, :poses)
@@ -192,7 +192,7 @@ end
 @testset ":signed_differential + reverse changes swarm trajectories vs the default" begin
     common = (node=:falandays_base, n_agents=8, n_nodes=40, ticks=60, seed=11,
               record=(:poses,))
-    base = simulate(:torus; common..., motor=BrainlessLab.KinematicMotor())
-    rev = simulate(:torus; common..., motor=BrainlessLab.KinematicMotor(scheme=:signed_differential, allow_reverse=true))
+    base = BrainlessLabTestUtils.diagnostic_simulate(:torus; common..., motor=BrainlessLab.KinematicMotor())
+    rev = BrainlessLabTestUtils.diagnostic_simulate(:torus; common..., motor=BrainlessLab.KinematicMotor(scheme=:signed_differential, allow_reverse=true))
     @test getchannel(base.recorder, :poses) != getchannel(rev.recorder, :poses)
 end

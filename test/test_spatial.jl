@@ -13,7 +13,7 @@ using Test
     @test all(!r.recurrent_mask[i, i] for i in axes(r.recurrent_mask, 1))
     @test count(r.recurrent_mask) > 0
 
-    sim = simulate(:wall; node=:falandays_spatial, ticks=50, seed=1)
+    sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays_spatial, ticks=50, seed=1)
     @test isfinite(Float64(sim.metrics.score))
 
     space = BrainlessLab.MetricSpace(SVector(0.0, 0.0), SVector(1.0, 1.0))
@@ -70,7 +70,7 @@ end
     @test all(iszero, c_cross.input_wmat[left_receptors, left_nodes])
     @test all(iszero, c_cross.output_mask[left_nodes, left_effectors])
 
-    sim = simulate(:wall; node=:falandays_hemispheric, ticks=50, seed=1)
+    sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays_hemispheric, ticks=50, seed=1)
     @test isfinite(Float64(sim.metrics.score))
 
     ca = build_test_connectome(8, 4, 4; seed=23, callosum_density=0.5)
@@ -105,7 +105,7 @@ end
     @test length(c_spatial_eff.embedding.effector_anchor) == 2
     @test_throws ArgumentError BrainlessLab.build_spatial_connectome(24, 3, 2, rule, MersenneTwister(11); effector_wiring=:bogus)
 
-    sim = simulate(:wall; node=:falandays_spatial, ticks=30, seed=1,
+    sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays_spatial, ticks=30, seed=1,
         node_kwargs=(kernel=:power_law, d0=0.3, alpha=2.0, effector_wiring=:spatial))
     @test isfinite(Float64(sim.metrics.score))
 end
@@ -138,7 +138,7 @@ end
     @test_throws ArgumentError build_test_connectome(8, 4, 4; effector_wiring=:bogus)
 
     for cd in (0.0, 0.5, 1.0)
-        sim = simulate(:wall; node=:falandays_hemispheric, ticks=30, seed=1,
+        sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays_hemispheric, ticks=30, seed=1,
             node_kwargs=(kernel=:power_law, d0=0.3, alpha=1.5, effector_wiring=:spatial, callosum_density=cd))
         @test isfinite(Float64(sim.metrics.score))
     end

@@ -2,7 +2,7 @@ using BrainlessLab
 using Test
 
 @testset "Recording and Makie visualization extension" begin
-    sim = simulate(:wall; node=:falandays, ticks=60)
+    sim = simulate(:wall; node=:falandays, ticks=60, window=60)
     @test sim isa SimResult
     @test sim.task == :wall
     @test sim.node == :falandays
@@ -26,8 +26,8 @@ using Test
     rm(path; force=true)
 
     for short_sim in (
-        simulate(:wall; node=:falandays, n_nodes=30, ticks=8, seed=7, record=(:spikes, :rate, :poses)),
-        simulate(:forage; node=:falandays_base, n_agents=3, n_nodes=30, ticks=8, seed=7,
+        simulate(:wall; node=:falandays, n_nodes=30, ticks=8, window=8, seed=7, record=(:spikes, :rate, :poses)),
+        simulate(:forage; node=:falandays_base, n_agents=3, n_nodes=30, ticks=8, window=8, seed=7,
                  record=(:spikes, :rate, :poses, :polarization, :milling)),
     )
         @test visualize(short_sim; panels=[:raster, :rate, short_sim.task == :forage ? :swarm : :trajectory]) isa Makie.Figure

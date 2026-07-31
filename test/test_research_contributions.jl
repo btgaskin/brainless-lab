@@ -106,6 +106,7 @@ function _refresh_contribution_inventory!(directory)
 end
 
 function _make_contribution()
+    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
     research_root = mktempdir()
     directory = joinpath(
         research_root,
@@ -116,8 +117,18 @@ function _make_contribution()
     )
     mkpath(directory)
     experiment = _contribution_experiment()
-    submission = run_experiment(experiment; root=directory, id="submission")
-    replay = run_experiment(experiment; root=directory, id="replay")
+    submission = run_experiment(
+        experiment;
+        registry,
+        root=directory,
+        id="submission",
+    )
+    replay = run_experiment(
+        experiment;
+        registry,
+        root=directory,
+        id="replay",
+    )
     _patch_record_git!(submission.directory)
     _patch_record_git!(replay.directory)
     document = Dict{String,Any}(

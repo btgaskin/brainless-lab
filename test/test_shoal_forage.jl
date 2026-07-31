@@ -213,7 +213,7 @@ end
     @test sensitive.environment.relations[1].radius == 4.0
     @test sensitive.environment.relations[1].target_neighbors == 4.0
 
-    sim = simulate(
+    sim = BrainlessLabTestUtils.diagnostic_simulate(
         :shoal_forage;
         node=:falandays,
         ticks=2,
@@ -248,7 +248,7 @@ end
 end
 
 @testset "shoal forage quickstart" begin
-    sim = run_shoal_forage_quickstart(; ticks=2)
+    sim = run_shoal_forage_quickstart(; ticks=2, window=2)
     @test sim.task === :shoal_forage
     @test length(getchannel(sim.recorder, :poses)) == 2
     @test sim.config.agents[1].body.sensors[1].kind === :sector_vision

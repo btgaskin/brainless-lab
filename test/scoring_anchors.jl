@@ -49,7 +49,7 @@ end
 
 @testset "Task outcomes follow declared objectives" begin
     for (task, key) in ((:wall, :nav_score), (:tracking, :track_score), (:pong, :hit_rate))
-        sim = simulate(task; node=:null_random, ticks=12, seed=9, record=Symbol[])
+        sim = simulate(task; node=:null_random, ticks=12, window=12, seed=9, record=Symbol[])
         outcome = task_outcome(sim)
         @test outcome.key === key
         @test outcome.raw === Float64(getproperty(sim.metrics, key))
@@ -57,7 +57,7 @@ end
         @test outcome.normalized_bound in (:floor, :none, :ceiling)
     end
 
-    wall = simulate(:wall; node=:null_random, ticks=12, seed=10, record=Symbol[])
+    wall = simulate(:wall; node=:null_random, ticks=12, window=12, seed=10, record=Symbol[])
     @test task_outcome(wall).raw === Float64(wall.metrics.nav_score)
 
     torus = simulate(
@@ -66,6 +66,7 @@ end
         n_agents=3,
         n_nodes=8,
         ticks=8,
+        window=8,
         seed=3,
         record=Symbol[],
     )

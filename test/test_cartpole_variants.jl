@@ -79,7 +79,7 @@ end
 @testset "CartPole variants" begin
     @test :cartpole in tasks()
     @test BrainlessLab.make_env(:cartpole; rng=MersenneTwister(1)) isa BrainlessLab.CartPoleEnv
-    result = simulate(:cartpole; node=:falandays, ticks=20, seed=1, record=Symbol[])
+    result = simulate(:cartpole; node=:falandays, ticks=20, window=20, seed=1, record=Symbol[])
     @test result isa SimResult
     @test isfinite(Float64(result.metrics.score))
 
@@ -100,7 +100,7 @@ end
         _assert_swingup_oracle()
     end
 
-    swingup = simulate(:cartpole_swingup; node=:falandays, ticks=200, seed=4, record=Symbol[])
+    swingup = simulate(:cartpole_swingup; node=:falandays, ticks=200, window=200, seed=4, record=Symbol[])
     @test swingup isa SimResult
     @test swingup.task == :cartpole_swingup
     @test isfinite(Float64(swingup.metrics.score))

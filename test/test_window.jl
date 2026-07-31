@@ -46,8 +46,8 @@ end
 end
 
 @testset "substeps knob reaches simulate and changes behavior" begin
-    s1 = simulate(:wall; node=:falandays_base, seed=7, ticks=120, node_kwargs=(substeps=1,))
-    s5 = simulate(:wall; node=:falandays_base, seed=7, ticks=120, node_kwargs=(substeps=5,))
+    s1 = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays_base, seed=7, ticks=120, node_kwargs=(substeps=1,))
+    s5 = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays_base, seed=7, ticks=120, node_kwargs=(substeps=5,))
     @test isfinite(s1.metrics.score)
     @test isfinite(s5.metrics.score)
     @test s1.metrics.score != s5.metrics.score   # the knob does something

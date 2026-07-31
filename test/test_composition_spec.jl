@@ -19,6 +19,26 @@ using Test
     @test BrainlessLab.task_spec(DEFAULT_REGISTRY, :wall).status === :reference
     @test BrainlessLab.task_spec(DEFAULT_REGISTRY, :tracking).status === :reference
     @test BrainlessLab.task_spec(DEFAULT_REGISTRY, :pong).status === :reference
+    @test BrainlessLab.task_spec(DEFAULT_REGISTRY, :wall).minimum_scored_ticks == 200
+    @test BrainlessLab.task_spec(DEFAULT_REGISTRY, :tracking).minimum_scored_ticks == 2_000
+    @test BrainlessLab.task_spec(DEFAULT_REGISTRY, :pong).minimum_scored_ticks == 6_000
+    @test BrainlessLab.PONG_HITRATE_TASK.minimum_scored_ticks == 6_000
+    for task_name in (
+        :cartpole,
+        :cartpole_hard,
+        :cartpole_swingup,
+        :cartpole_long,
+        :cartpole_plank_easy,
+        :cartpole_plank_medium,
+        :cartpole_plank_hard,
+        :cartpole_plank_hardest,
+        :torus,
+        :forage,
+        :shoal_forage,
+    )
+        task = BrainlessLab.task_spec(DEFAULT_REGISTRY, task_name)
+        @test task.minimum_scored_ticks == task.default_window
+    end
     @test Set(tasks(DEFAULT_REGISTRY; tag=:benchmark)) == Set((:tracking, :pong, :wall))
     @test tasks(DEFAULT_REGISTRY; tag=:frontier) == [:cartpole_plank_easy]
     @test :branching_ratio_mr in analyses(DEFAULT_REGISTRY; task=:tracking)
@@ -143,8 +163,8 @@ end
             :repair_masks => false,
         ),
     )
-    first_run = simulate(composition; ticks=8, seed=19, record=())
-    second_run = simulate(composition; ticks=8, seed=19, record=())
+    first_run = simulate(composition; ticks=8, window=8, seed=19, record=())
+    second_run = simulate(composition; ticks=8, window=8, seed=19, record=())
     @test first_run.metrics == second_run.metrics
     @test first_run.config.composition === :tracking_smoke
     @test first_run.config.n_nodes == 12
@@ -164,7 +184,13 @@ end
             streams=(:topology, :world, :node_custom),
         ),
     )
-    custom_batch = BrainlessLab.evaluate(custom_target)
+    registry = RegistrySet()
+    register!(registry, node_spec(DEFAULT_REGISTRY, :falandays))
+    register!(
+        registry,
+        BrainlessLabTestUtils.task_with_minimum(:tracking, 1),
+    )
+    custom_batch = BrainlessLab.evaluate(custom_target; registry)
     @test propertynames(only(only(custom_batch.trials).seeds)) ==
         (:topology, :world, :node_custom)
 
@@ -173,5 +199,28 @@ end
         composition,
         EvaluationSpec(horizon=2, streams=(:world,)),
     )
-    @test_throws ArgumentError BrainlessLab.evaluate(missing_required)
+    @test_throws ArgumentError BrainlessLab.evaluate(missing_required; registry)
+end
+
+@testset "long convenience runs use the full scored interval" begin
+    symbol_run = simulate(
+        :tracking;
+        node=:null_random,
+        n_nodes=2,
+        ticks=2_000,
+        seed=7,
+        record=(),
+    )
+    composition = CompositionSpec(
+        :tracking_window_regression,
+        :null_random,
+        :tracking;
+        n_nodes=2,
+    )
+    composition_run = simulate(composition; ticks=2_000, seed=7, record=())
+
+    @test symbol_run.config.window == 2_000
+    @test composition_run.config.window == 2_000
+    @test task_outcome(symbol_run).window == 2_000
+    @test task_outcome(composition_run).window == 2_000
 end

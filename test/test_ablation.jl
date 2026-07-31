@@ -175,7 +175,7 @@ end
         end
     end
 
-    sim = simulate(:wall; node=:compartmental_structured, ticks=8, seed=11, ablation=:reset_dendrites)
+    sim = simulate(:wall; node=:compartmental_structured, ticks=8, window=8, seed=11, ablation=:reset_dendrites)
     @test sim isa SimResult
     @test resolve_ablation(:reset_dendrites) === BrainlessLab.ResetDendrites
     @test resolve_ablation(:no_soma_back) === BrainlessLab.NoSomaBack
@@ -204,6 +204,7 @@ end
                 :tracking;
                 node=:falandays,
                 ticks=1,
+                window=1,
                 seed=3,
                 ablation=:test_unhandled_ablation,
             )

@@ -58,9 +58,15 @@ end
 end
 
 @testset "an experiment executes its declared operations" begin
+    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
     experiment = _experiment_io_fixture()
     mktempdir() do root
-        run = run_experiment(experiment; root=root, id="experiment-run")
+        run = run_experiment(
+            experiment;
+            registry,
+            root=root,
+            id="experiment-run",
+        )
         @test length(run.results) == 1
         @test only(run.results) isa BrainlessLab.ProfileResult
         @test isfile(joinpath(run.directory, "experiment-run.toml"))

@@ -172,7 +172,7 @@ end
     @test keyword_spec.n_nodes == 20
     @test node_spec(DEFAULT_REGISTRY, :falandays_base).id === :falandays_base
     @test node_spec(DEFAULT_REGISTRY, :falandays_ablated).id === :falandays_ablated
-    @test simulate(keyword_spec; ticks=2, seed=5, record=()) isa SimResult
+    @test simulate(keyword_spec; ticks=2, window=2, seed=5, record=()) isa SimResult
 
     visual_error = try
         visualize(SimResult(nothing, NamedTuple(), :tracking, :falandays, NamedTuple()))

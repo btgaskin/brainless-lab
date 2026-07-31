@@ -7,6 +7,7 @@ using Test
         :wall;
         node=:falandays,
         ticks=24,
+        window=24,
         seed=11,
         n_nodes=12,
         record=[:spikes, :rate, :poses, :scene],

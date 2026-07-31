@@ -12,7 +12,7 @@ end
 
 # ╔═╡ 8f0a8b5e-7d03-4e42-8975-93df0978fe9d
 begin
-    ticks = 300
+    ticks = 2_000
     output_dir = joinpath(@__DIR__, "..", "output")
     mkpath(output_dir)
 end

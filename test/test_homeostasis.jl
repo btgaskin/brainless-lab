@@ -327,7 +327,7 @@ end
     @test BrainlessLab.make_env(task; rng=MersenneTwister(9)) isa BrainlessLab.WallEnv
     resolved = only(BrainlessLab.resolved_task_ports(task))
     @test (n_receptors(resolved), n_effectors(resolved)) == (3, 2)
-    sim = simulate(
+    sim = BrainlessLabTestUtils.diagnostic_simulate(
         task;
         node=:falandays_base,
         n_nodes=8,
@@ -353,7 +353,7 @@ end
         @test BrainlessLab.node_receptor_profile_keyword(
             :profile_aware_test,
         ) === :input_link_p
-        simulate(task; node=:profile_aware_test, n_nodes=8, ticks=1, seed=2)
+        BrainlessLabTestUtils.diagnostic_simulate(task; node=:profile_aware_test, n_nodes=8, ticks=1, seed=2)
         @test _RECEPTOR_PROFILE_CAPTURE[] == [0.1, 0.1, 1.0]
         @test_throws ArgumentError register_node!(
             :empty_profile_test,
@@ -369,10 +369,10 @@ end
 
     for node in (:falandays_noisy, :falandays_extended, :falandays_ablated)
         @test BrainlessLab.node_receptor_profile_keyword(node) === :input_link_p
-        @test simulate(task; node=node, n_nodes=8, ticks=1, seed=2) isa SimResult
+        @test BrainlessLabTestUtils.diagnostic_simulate(task; node=node, n_nodes=8, ticks=1, seed=2) isa SimResult
     end
     expected_profile = (0.1, 0.1, 1.0)
-    @test simulate(
+    @test BrainlessLabTestUtils.diagnostic_simulate(
         task;
         node=:falandays_noisy,
         n_nodes=8,
@@ -380,7 +380,7 @@ end
         seed=2,
         node_kwargs=(input_link_p=expected_profile,),
     ) isa SimResult
-    @test_throws ArgumentError simulate(
+    @test_throws ArgumentError BrainlessLabTestUtils.diagnostic_simulate(
         task;
         node=:falandays_noisy,
         n_nodes=8,
@@ -388,7 +388,7 @@ end
         seed=2,
         node_kwargs=(input_link_p=(0.1, 0.1, 0.5),),
     )
-    @test_throws ArgumentError simulate(task; node=:sorn, n_nodes=8, ticks=1)
+    @test_throws ArgumentError BrainlessLabTestUtils.diagnostic_simulate(task; node=:sorn, n_nodes=8, ticks=1)
 end
 
 @testset "Death keeps a stable slot and leaves the situated world" begin

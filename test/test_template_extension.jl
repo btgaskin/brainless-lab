@@ -26,7 +26,7 @@ end
     reservoir = ExternalTemplateNode.build_my_node(context, values)
     @test reservoir.params == model
 
-    sim = simulate(
+    sim = BrainlessLabTestUtils.diagnostic_simulate(
         CompositionSpec(
             :template_model_smoke,
             :my_node,

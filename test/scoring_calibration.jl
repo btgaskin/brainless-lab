@@ -49,7 +49,7 @@ end
     # A descriptor-only task declares no scalar objective, so it has no outcome.
     # This is the public contract; the former `_sim_score` wrapper that turned it
     # into a NaN CSV row was removed with the legacy sweep layer.
-    torus = simulate(:torus; node=:null_random, seed=2, ticks=20, n_agents=4, record=Symbol[])
+    torus = simulate(:torus; node=:null_random, seed=2, ticks=20, window=20, n_agents=4, record=Symbol[])
     @test task_outcome(torus) === nothing
 end
 

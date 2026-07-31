@@ -14,18 +14,18 @@ end
     params = unpack_params(BrainlessLab.SORNParams, raw)
     @test pack_params(params) ≈ raw
 
-    sim = simulate(:wall; node=:sorn, ticks=200, seed=0)
+    sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:sorn, ticks=200, seed=0)
     rates = _single_agent_rates(sim)
     mean_rate = sum(rates) / length(rates)
     @test 0.01 < mean_rate < 0.99
     @test any(>(0.0), rates)
     @test any(<(1.0), rates)
 
-    sim_a = simulate(:wall; node=:sorn, ticks=120, seed=11)
-    sim_b = simulate(:wall; node=:sorn, ticks=120, seed=11)
+    sim_a = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:sorn, ticks=120, seed=11)
+    sim_b = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:sorn, ticks=120, seed=11)
     @test getchannel(sim_a.recorder, :spikes) == getchannel(sim_b.recorder, :spikes)
 
-    tracking = simulate(:tracking; node=:sorn, ticks=80, seed=2)
+    tracking = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:sorn, ticks=80, seed=2)
     @test tracking isa SimResult
     @test !isempty(getchannel(tracking.recorder, :spikes))
 

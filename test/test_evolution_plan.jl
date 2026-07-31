@@ -37,6 +37,7 @@ function _tiny_run(;
 end
 
 @testset "typed node-design evolution plan" begin
+    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
     training = _tiny_ctrnn_target(:tracking_train; root_seed=101)
     heldout = _tiny_ctrnn_target(:tracking_heldout; root_seed=202)
     plan = EvolutionPlan(
@@ -46,8 +47,8 @@ end
         heldout_targets=(heldout,),
     )
 
-    @test validate(plan, DEFAULT_REGISTRY) === plan
-    resolved = resolve(plan, DEFAULT_REGISTRY)
+    @test validate(plan, registry) === plan
+    resolved = resolve(plan, registry)
     @test resolved isa BrainlessLab.ResolvedEvolutionPlan
     @test resolved.node.id === :compartmental_structured
     @test resolved.design.dimension == 220
@@ -79,6 +80,7 @@ end
 end
 
 @testset "evolution validation keeps the experimental boundary explicit" begin
+    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
     training = _tiny_ctrnn_target(:tracking_train; root_seed=303)
     no_scalar = _tiny_ctrnn_target(
         :tracking_no_aggregate;
@@ -87,10 +89,10 @@ end
     )
     @test_throws ArgumentError validate(
         EvolutionPlan(:no_scalar, (no_scalar,); run=_tiny_run()),
-        DEFAULT_REGISTRY,
+        registry,
     )
 
-    falandays_spec = BrainlessLab.node_spec(DEFAULT_REGISTRY, :falandays)
+    falandays_spec = BrainlessLab.node_spec(registry, :falandays)
     @test falandays_spec.design isa BrainlessLab.Evolution.NodeDesignSpec
     @test falandays_spec.design.dimension == 7
     @test getfield.(falandays_spec.design.blocks, :name) == (
@@ -112,16 +114,20 @@ end
 
     falandays = EvaluationTarget(
         :falandays_parameter_search,
-        BrainlessLab.default_composition(DEFAULT_REGISTRY, :falandays, :tracking),
+        BrainlessLab.default_composition(registry, :falandays, :tracking),
         EvaluationSpec(horizon=1, aggregate=:mean),
     )
     falandays_plan =
         EvolutionPlan(:falandays_node, (falandays,); run=_tiny_run())
-    @test validate(falandays_plan, DEFAULT_REGISTRY) === falandays_plan
-    @test resolve(falandays_plan, DEFAULT_REGISTRY).node.id === :falandays
-    @test length(BrainlessLab.evaluate(falandays).trials) == 1
+    @test validate(falandays_plan, registry) === falandays_plan
+    @test resolve(falandays_plan, registry).node.id === :falandays
+    @test length(BrainlessLab.evaluate(falandays; registry).trials) == 1
     @test length(
-        BrainlessLab.evaluate(falandays; model=falandays_roundtrip).trials,
+        BrainlessLab.evaluate(
+            falandays;
+            registry,
+            model=falandays_roundtrip,
+        ).trials,
     ) == 1
 
     no_design = EvaluationTarget(
@@ -137,7 +143,7 @@ end
     no_design_error = try
         validate(
             EvolutionPlan(:unsupported_node, (no_design,); run=_tiny_run()),
-            DEFAULT_REGISTRY,
+            registry,
         )
         nothing
     catch error
@@ -155,7 +161,7 @@ end
     )
     @test_throws ArgumentError validate(
         EvolutionPlan(:one_objective, (training,); run=nsga),
-        DEFAULT_REGISTRY,
+        registry,
     )
     second = _tiny_ctrnn_target(:tracking_second; root_seed=404)
     @test_throws ArgumentError validate(
@@ -167,6 +173,6 @@ end
                 _tiny_ctrnn_target(:heldout; root_seed=505),
             ),
         ),
-        DEFAULT_REGISTRY,
+        registry,
     )
 end

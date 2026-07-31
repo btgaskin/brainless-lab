@@ -19,7 +19,7 @@ end
     task_outcome(sim::SimResult)
 
 Return the outcome declared by the task as
-`(key, raw, normalized, normalized_bound)`. `normalized_bound` is `:floor`,
+`(key, raw, normalized, normalized_bound, window)`. `normalized_bound` is `:floor`,
 `:ceiling`, or `:none` and makes anchor censoring explicit. Return `nothing`
 when the task has no scalar objective. Legacy metric fields remain available
 as diagnostics but do not define the task outcome.
@@ -62,11 +62,15 @@ function task_outcome(sim::SimResult)
             "task :$(sim.task) outcome ceiling must be greater than its floor",
         ))
     end
+    hasproperty(sim.config, :window) || throw(ArgumentError(
+        "task :$(sim.task) outcome has no recorded scoring window",
+    ))
     return (
         key=key,
         raw=raw,
         normalized=normalized.value,
         normalized_bound=normalized.bound,
+        window=Int(sim.config.window),
     )
 end
 
@@ -1519,6 +1523,7 @@ function _simulation_config(
             status=task_spec.status,
             tags=task_spec.tags,
             protocol=task_spec.protocol,
+            minimum_scored_ticks=task_spec.minimum_scored_ticks,
         ) : nothing,
         outcome_contract=task_spec isa TaskSpec && task_spec.score_key !== nothing ? (
             key=task_spec.score_key,
@@ -1560,6 +1565,17 @@ function _build_ensemble(task_spec::TaskSpec, node::Symbol; ticks=nothing, seed=
     ablation_arg = haskey(options, :ablation) ? pop!(options, :ablation) : nothing
     interventions_arg = haskey(options, :interventions) ? pop!(options, :interventions) : nothing
     intervention_schedule = _resolve_intervention_schedule(interventions_arg)
+    tick_count = ticks === nothing ? task_spec.default_ticks : Int(ticks)
+    tick_count > 0 || throw(ArgumentError("simulation ticks must be positive"))
+    window = window_arg === nothing ? tick_count : Int(window_arg)
+    0 < window <= tick_count || throw(ArgumentError(
+        "simulation window must lie in 1:ticks",
+    ))
+    _validate_minimum_scored_ticks(
+        task_spec,
+        tick_count;
+        explicit_window=window_arg !== nothing,
+    )
 
     is_swarm = is_multiagent(task_spec.setup)
     if n_agents !== nothing && !is_swarm
@@ -1606,9 +1622,6 @@ function _build_ensemble(task_spec::TaskSpec, node::Symbol; ticks=nothing, seed=
         body=body,
         ablation=ablation_sym,
     )
-    tick_count = ticks === nothing ? task_spec.default_ticks : Int(ticks)
-    window = window_arg === nothing ? min(tick_count, task_spec.default_window) : Int(window_arg)
-
     return (
         ensemble=ensemble,
         recorder=recorder,
