@@ -1,15 +1,19 @@
 # Test suites
 
-BrainlessLab separates tests by the kind of proof they provide. The default
-gate is deliberately small. It checks interfaces, configuration, registries,
-documentation contracts, and package quality without running the full
-research stack.
+BrainlessLab separates tests by the kind of proof they provide. `Pkg.test()`
+runs every suite. The tiers exist to parallelise CI and to give a fast local
+loop, not to define what "tested" means: a partial run must never be able to
+report success as though it were a full one.
 
-Set `BRAINLESSLAB_TEST_SUITE` before `Pkg.test()`:
+Set `BRAINLESSLAB_TEST_SUITE` to opt into a single tier before `Pkg.test()`:
 
 ```bash
-# Default: fast contract and package checks.
+# Default: every suite, about fifteen minutes.
 julia --project=. -e 'using Pkg; Pkg.test()'
+
+# Fast local loop: interfaces, configuration, registries, documentation
+# contracts, and package quality, without the research stack.
+BRAINLESSLAB_TEST_SUITE=core julia --project=. -e 'using Pkg; Pkg.test()'
 
 # Runtime behaviours and component integration.
 BRAINLESSLAB_TEST_SUITE=runtime julia --project=. -e 'using Pkg; Pkg.test()'
