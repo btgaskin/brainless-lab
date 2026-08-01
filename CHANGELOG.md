@@ -72,6 +72,19 @@ This release is breaking. Scores computed with 0.2.0 do not carry over.
 - `Pkg.test()` runs every suite. It previously defaulted to `core`, 14 files of 72, and
   reported success. Opt into a single tier with `BRAINLESSLAB_TEST_SUITE=core`.
 
+### Packaging
+
+- `Manifest.toml` is no longer tracked. A dependency's manifest is ignored by a downstream
+  resolver, which reads only `Project.toml` and `[compat]`, so a committed manifest pinned
+  this repository's own CI to one resolution out of the range the package claims to
+  support. All eight dependencies and every test extra carry compat bounds, and CI already
+  deleted the manifest and re-resolved on every run.
+- Reproducibility is unaffected and was never carried by the manifest: each record stores
+  its Julia version, git revision, artifact inventory and SHA-256 checksums. That is
+  per-result provenance. A single tracked manifest drifts with the branch, so the one at
+  HEAD is not the one that produced an older record -- the same shape of false assurance
+  that made the version-one benchmark record unreproducible.
+
 ## 0.2.0 — 2026-07-22
 
 BrainlessLab 0.2.0 is an experimental research preview and the first typed research-platform release.
