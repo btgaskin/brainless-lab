@@ -167,6 +167,7 @@ jobs:
         id: resolved
         run: >-
           julia --project=test/visual -e 'using Pkg, SHA;
+          isempty(Pkg.Registry.reachable_registries()) && Pkg.Registry.add("General");
           Pkg.develop(path=pwd()); Pkg.resolve();
           manifest = joinpath("test", "visual", "Manifest.toml");
           open(ENV["GITHUB_OUTPUT"], "a") do io;
@@ -219,6 +220,7 @@ jobs:
         id: resolved
         run: >-
           julia --project=. -e 'using Pkg, SHA;
+          isempty(Pkg.Registry.reachable_registries()) && Pkg.Registry.add("General");
           rm("Manifest.toml"; force=true); Pkg.resolve();
           open(ENV["GITHUB_OUTPUT"], "a") do io;
           println(io, "manifest=", bytes2hex(SHA.sha256(read("Manifest.toml"))));
@@ -275,6 +277,7 @@ jobs:
         id: resolved
         run: >-
           julia --project=examples/templates/new_project -e 'using Pkg, SHA;
+          isempty(Pkg.Registry.reachable_registries()) && Pkg.Registry.add("General");
           Pkg.develop(path=pwd()); Pkg.resolve();
           manifest = joinpath("examples", "templates", "new_project", "Manifest.toml");
           open(ENV["GITHUB_OUTPUT"], "a") do io;
