@@ -706,14 +706,14 @@ function _accepted_catalogue_entry(
     )
 end
 
-function _pre_pipeline_entries(path::AbstractString)
+function _pre_pipeline_entries(
+    path::AbstractString;
+    repository_root::AbstractString=_record_repo_root(),
+)
     isfile(path) || return Dict{String,Any}[]
     document = TOML.parsefile(path)
     _require_document_keys(document, ("record",), "pre-pipeline registry")
     records = get(document, "record", Any[])
-    length(records) == 1 || throw(ArgumentError(
-        "pre-pipeline registry must contain only the Falandays core version-one record",
-    ))
     entries = Dict{String,Any}[]
     for entry in records
         _contribution_require_keys(
@@ -728,20 +728,35 @@ function _pre_pipeline_entries(path::AbstractString)
             ),
             "pre-pipeline record",
         )
-        identity = (
-            id="falandays-core-v1",
-            experiment_id="falandays-core",
-            experiment_version="1.0.0",
-            protocol_path="benchmarks/falandays-core/v1/benchmark.toml",
-            record_path="benchmarks/falandays-core/v1/record",
+        for key in (
+            "id", "experiment_id", "experiment_version", "title", "evidence_state", "note",
         )
-        all(
-            get(entry, String(name), nothing) == value
-            for (name, value) in pairs(identity)
-        ) || throw(ArgumentError(
-            "the Falandays core version-one record is the only pre-pipeline exception",
+            value = entry[key]
+            value isa AbstractString && !isempty(value) || throw(ArgumentError(
+                "pre-pipeline record $(key) must be a non-empty string",
+            ))
+        end
+        protocol_path = _contribution_relative_path(
+            entry["protocol_path"],
+            "pre-pipeline protocol path",
+        )
+        record_path = _contribution_relative_path(
+            entry["record_path"],
+            "pre-pipeline record path",
+        )
+        protocol = _contribution_child(
+            repository_root,
+            protocol_path,
+            "pre-pipeline protocol path",
+        )
+        isfile(protocol) || throw(ArgumentError(
+            "pre-pipeline protocol does not exist: $(protocol_path)",
         ))
-        record_root = joinpath(_record_repo_root(), entry["record_path"])
+        record_root = _contribution_child(
+            repository_root,
+            record_path,
+            "pre-pipeline record path",
+        )
         record = _validate_record_bundle(record_root)
         resolved = TOML.parsefile(joinpath(record_root, "resolved.toml"))
         operation = Dict{String,Any}(
@@ -750,14 +765,14 @@ function _pre_pipeline_entries(path::AbstractString)
             "targets" => get(resolved, "targets", Any[]),
             "settings" => get(resolved, "operation_settings", Dict{String,Any}()),
             "paths" => Dict{String,Any}(
-                "record" => entry["record_path"],
-                "request" => entry["record_path"] * "/request.toml",
-                "resolved" => entry["record_path"] * "/resolved.toml",
-                "seeds" => entry["record_path"] * "/seeds.csv",
-                "trials" => entry["record_path"] * "/data/trials.csv",
-                "task_metrics" => entry["record_path"] * "/data/task_metrics.csv",
-                "summary" => entry["record_path"] * "/summary/summary.json",
-                "report" => entry["record_path"] * "/report/index.html",
+                "record" => record_path,
+                "request" => record_path * "/request.toml",
+                "resolved" => record_path * "/resolved.toml",
+                "seeds" => record_path * "/seeds.csv",
+                "trials" => record_path * "/data/trials.csv",
+                "task_metrics" => record_path * "/data/task_metrics.csv",
+                "summary" => record_path * "/summary/summary.json",
+                "report" => record_path * "/report/index.html",
             ),
         )
         push!(entries, Dict{String,Any}(
@@ -770,8 +785,8 @@ function _pre_pipeline_entries(path::AbstractString)
             "note" => entry["note"],
             "source_sha" => record["git_sha"],
             "paths" => Dict{String,Any}(
-                "protocol" => entry["protocol_path"],
-                "record" => entry["record_path"],
+                "protocol" => protocol_path,
+                "record" => record_path,
             ),
             "runs" => [Dict{String,Any}(
                 "role" => "historical_record",
@@ -789,7 +804,11 @@ function research_catalogue(;
     repository::Union{Nothing,AbstractString},
     main_ref::Union{Nothing,AbstractString}=nothing,
 )
-    contributions = _pre_pipeline_entries(joinpath(root, "pre-pipeline.toml"))
+    repository_root = repository === nothing ? _record_repo_root() : repository
+    contributions = _pre_pipeline_entries(
+        joinpath(root, "pre-pipeline.toml");
+        repository_root,
+    )
     accepted_root = joinpath(root, "contributions")
     if isdir(accepted_root)
         for (experiment_root, versions, _) in walkdir(accepted_root)

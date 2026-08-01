@@ -294,27 +294,51 @@ end
     @test !occursin("\"outcome\"", first_json)
 end
 
-@testset "pre-pipeline compatibility is limited to Falandays core version one" begin
+@testset "pre-pipeline compatibility accepts a declared complete record" begin
+    fixture = _make_contribution()
+    submission = joinpath(fixture.directory, "submission")
+    record_directory = only(
+        joinpath(submission, "operations", name)
+        for name in readdir(joinpath(submission, "operations"))
+    )
+    protocol_path = only(
+        joinpath(submission, "protocol", "plans", name)
+        for name in readdir(joinpath(submission, "protocol", "plans"))
+    )
     root = mktempdir()
     open(joinpath(root, "pre-pipeline.toml"), "w") do io
         TOML.print(io, Dict(
             "record" => [Dict(
-                "id" => "future-bypass",
-                "experiment_id" => "future",
+                "id" => "historical-fixture",
+                "experiment_id" => "contribution-fixture",
                 "experiment_version" => "1.0.0",
-                "title" => "Future record",
+                "title" => "Historical fixture",
                 "evidence_state" => "exploratory",
-                "protocol_path" => "benchmarks/future/plan.toml",
-                "record_path" => "benchmarks/future/record",
-                "note" => "Not an approved exception.",
+                "protocol_path" => replace(relpath(protocol_path, fixture.root), '\\' => '/'),
+                "record_path" => replace(relpath(record_directory, fixture.root), '\\' => '/'),
+                "note" => "Complete record created before the current intake pipeline.",
             )],
         ); sorted=true)
     end
-    @test_throws ArgumentError BrainlessLab.research_catalogue(
+
+    catalogue = BrainlessLab.research_catalogue(
         ;
         root,
+        repository=fixture.root,
+    )
+    entry = only(catalogue["contributions"])
+    @test entry["id"] == "historical-fixture"
+    @test entry["admission"] == "pre-pipeline"
+    @test entry["source_sha"] == _CONTRIBUTION_SHA
+    @test only(entry["runs"])["role"] == "historical_record"
+    @test !only(entry["runs"])["independent_evidence"]
+
+    empty_catalogue = BrainlessLab.research_catalogue(
+        ;
+        root=mktempdir(),
         repository=nothing,
     )
+    @test isempty(empty_catalogue["contributions"])
 end
 
 @testset "contribution validation rejects changed and unsafe files" begin
