@@ -60,6 +60,5 @@ seed policy, exclusions, or operation. Do not edit an executed version in place.
 operation outputs under a records root or an immutable external archive; do not copy
 numerical claims into this directory by hand.
 
-The archived bespoke experiment runner is retained under
-`archive/2026-07-legacy-research/experiments/` for historical reproduction. It is not part
-of the current public workflow.
+The former bespoke experiment runner was removed before the 0.3.0 release. Git history
+retains it; it is not part of the current public workflow and should not be revived.

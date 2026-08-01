@@ -28,9 +28,9 @@ end
 function _usage(io=stdout)
     println(io, """
     Usage:
-      julia --project=. sweep/run.jl CONFIG.toml [--force] [--debug]
-      julia --project=. sweep/run.jl --list-axes --node falandays --task wall
-      julia --project=. sweep/run.jl ablate NODE TASK [--force] [--debug]
+      julia --project=. tools/sweep/run.jl CONFIG.toml [--force] [--debug]
+      julia --project=. tools/sweep/run.jl --list-axes --node falandays --task wall
+      julia --project=. tools/sweep/run.jl ablate NODE TASK [--force] [--debug]
 
     Rollouts run in parallel across Julia threads; the script re-launches
     itself with `-t auto` when started single-threaded. Opt out with

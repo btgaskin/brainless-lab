@@ -4,7 +4,7 @@ using BrainlessLab
 using Test
 using TOML
 
-include(joinpath(pkgdir(BrainlessLab), "calibration", "core_tasks.jl"))
+include(joinpath(pkgdir(BrainlessLab), "tools", "calibration", "core_tasks.jl"))
 
 @testset "core task calibration writes a traceable development artifact" begin
     output = mktempdir()

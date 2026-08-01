@@ -305,7 +305,7 @@ function main(args=ARGS)
     config_path = abspath(_argument_value(
         args,
         "--config",
-        joinpath(pkgdir(BrainlessLab), "configs", "core_task_calibration.toml"),
+        joinpath(pkgdir(BrainlessLab), "tools", "configs", "core_task_calibration.toml"),
     ))
     config = TOML.parsefile(config_path)
     calibration = config["calibration"]

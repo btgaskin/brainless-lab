@@ -214,10 +214,9 @@ executor, not a scientific claim.
 - `plans/examples/` contains small standalone plan examples.
 - `experiments/` contains current versioned `ExperimentSpec` bundles.
 - `records/` and other selected roots contain generated operation records.
-- `archive/2026-07-legacy-research/experiments/` preserves the former bespoke experiment
-  runner for historical work.
+- `tools/` holds the calibration harness and the sweep CLI driver.
 
-Do not extend the archived runner or add an operation-specific config schema. New repeated
+Do not revive the former bespoke experiment runner or add an operation-specific config schema. New repeated
 work uses typed plans and the standard record writer.
 
 ## Public run contributions
