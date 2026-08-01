@@ -11,13 +11,11 @@ examples/output/
 /demo/output/
 /demo/Manifest.toml
 /demo/runs/
-/bench/runs/
+/bench/
 /experiments/runs/
 /experiments/results/homeostatic_needs_v2/
 /records/
 /experiment-records/
-/bench/genomes/
-/bench/output/
 /profile/
 /examples/templates/new_project/output/
 /examples/templates/new_project/Manifest.toml

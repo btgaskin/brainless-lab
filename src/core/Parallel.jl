@@ -65,7 +65,7 @@ oversubscribe cores underneath `parallel_map`. Single-threaded sessions are
 left untouched so standalone linear algebra keeps BLAS's own threading.
 
 Returns `(julia_threads=…, blas_threads=…)`. Call once from a run
-entrypoint (sweep/bench/profile) before heavy work.
+entrypoint (sweep/profile/evolve) before heavy work.
 """
 function init_parallelism!(; verbose::Bool=false)
     if Threads.nthreads() > 1
