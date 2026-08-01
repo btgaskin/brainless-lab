@@ -6,8 +6,14 @@ function _test_calibrated_floor(measured)
     @test isfinite(measured.value)
 end
 
+# Each call pins ticks/window to the scored interval its shipped anchor was
+# measured over, which is also the interval the v2 core protocol runs:
+# wall 1000-800 = 200, pong 7200-1200 = 6000. Rate matching measures the
+# reference firing rate over the scoring window, so calibrating at a different
+# window measures a different anchor -- leaving these to `default_ticks` is how
+# the harness silently stopped reproducing its own recorded floors.
 @testset "Scoring calibration" begin
-    wall = BrainlessLab.calibrate_task(:wall; seeds=0:7)
+    wall = BrainlessLab.calibrate_task(:wall; seeds=0:7, ticks=1000, window=200)
     _test_calibrated_floor(wall.floor)
     @test wall.ceiling.value ≈ BrainlessLab.WALL_TASK.ceiling.value atol=1e-12
     @test wall.ceiling.kind == ANALYTIC
@@ -20,10 +26,17 @@ end
 
     tracking = BrainlessLab.calibrate_task(:tracking; seeds=0:7)
     _test_calibrated_floor(tracking.floor)
-    @test 0.05 < tracking.floor.value < 0.35
+    # Tracking's shipped floor is analytic 0.0 (E[cos] = 0 by symmetry), so the
+    # measured rate-matched null must be consistent with zero, not sit in some
+    # positive band. Five disjoint 8-seed blocks at the default 2000 scored ticks
+    # give mean 0.00215, sd 0.0167, range [-0.0224, 0.0225]; 0.1 is ~6 sd, loose
+    # enough not to flake and tight enough to catch a null that stops being one.
+    # The former 0.05 < x < 0.35 band encoded the noise of the old 200-tick
+    # window, where the same measurement was 0.0599 +/- 0.0691.
+    @test abs(tracking.floor.value) < 0.1
     @test tracking.ceiling.value == BrainlessLab.TRACKING_TASK.ceiling.value
 
-    pong = BrainlessLab.calibrate_task(:pong; seeds=0:7)
+    pong = BrainlessLab.calibrate_task(:pong; seeds=0:7, ticks=7200, window=6000)
     _test_calibrated_floor(pong.floor)
     @test pong.ceiling.value ≈ BrainlessLab.PONG_TASK.ceiling.value atol=1e-12
     @test BrainlessLab.PONG_TASK.ceiling.kind == ANALYTIC

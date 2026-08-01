@@ -187,7 +187,10 @@ n_receptors(::Type{<:TrackingEnv}) = 62
 n_receptors(env::TrackingEnv) = 2 * length(env.sensor_offsets_deg)
 n_effectors(::Type{<:TrackingEnv}) = 2
 n_effectors(::TrackingEnv) = n_effectors(TrackingEnv)
-default_ticks(::Type{<:TrackingEnv}) = 1000
+# 2000, not 1000: tracking scores mean(cos(error)) per tick, and the between-seed
+# spread only falls below the mean past ~2000 scored ticks. See the task's
+# minimum_scored_ticks, which a default run must be able to satisfy.
+default_ticks(::Type{<:TrackingEnv}) = 2000
 default_ticks(::TrackingEnv) = default_ticks(TrackingEnv)
 default_window(::Type{<:TrackingEnv}) = 200
 default_window(::TrackingEnv) = default_window(TrackingEnv)

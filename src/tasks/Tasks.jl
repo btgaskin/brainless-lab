@@ -206,6 +206,14 @@ function TaskSpec(
     minimum_scored_ticks_ > 0 || throw(ArgumentError(
         "task :$(task_name) minimum_scored_ticks must be positive",
     ))
+    # A task whose own default run cannot satisfy its own minimum makes the
+    # no-argument call an error, which is the silent-inconsistency class this
+    # minimum exists to remove. Reject it at registration.
+    Int(default_ticks) >= minimum_scored_ticks_ || throw(ArgumentError(
+        "task :$(task_name) default_ticks = $(Int(default_ticks)) is below its " *
+        "minimum_scored_ticks = $(minimum_scored_ticks_); a default run must be " *
+        "long enough to score",
+    ))
     return TaskSpec(
         task_name,
         setup,
@@ -357,7 +365,7 @@ const WALL_TASK = TaskSpec(
     tags=(:benchmark, :qualification, :core),
     minimum_scored_ticks=200,
     options=WALL_TASK_OPTIONS,
-    floor=null_anchor(0.81609374999999995, "task=wall, null=null_random, rate_reference=falandays, null_target_rate=0.34008828124999996, score_key=nav_score, sem=0.0120, sd=0.0677, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
+    floor=null_anchor(0.81609374999999995, "task=wall, null=null_random, rate_reference=falandays, null_target_rate=0.34008828124999996, score_key=nav_score, scored_ticks=200, sem=0.0120, sd=0.0677, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
     ceiling=analytic(1.0; note="nav_score max = collision-free navigation while moving (a true analytic optimum); untrained falandays ref measured ~0.013 << null 0.776, so the analytic optimum is the honest ceiling, not a reference agent"),
     score_key=:nav_score,
     descriptor_keys=[:collisions_window, :distance_window],
@@ -370,7 +378,7 @@ const TRACKING_TASK = TaskSpec(
     tags=(:benchmark, :qualification, :core),
     minimum_scored_ticks=2000,
     options=TRACKING_TASK_OPTIONS,
-    floor=analytic(0.0; note="E[cos]=0 chance; a 32-seed rate-matched null measures 0.0599 +/- 0.0691 (sd 0.3907), consistent with zero, so the analytic anchor stands"),
+    floor=analytic(0.0; note="E[cos]=0 chance; a rate-matched null over 40 seeds at scored_ticks=2000 measures 0.0022 (sd 0.0167 across five 8-seed blocks), consistent with zero, so the analytic anchor stands. The earlier 0.0599 +/- 0.0691 (sd 0.3907) figure was measured over a 200-tick window, where the estimator is dominated by sampling noise"),
     ceiling=analytic(1.0; note="perfect heading alignment"),
     score_key=:track_score,
 )
@@ -382,7 +390,7 @@ const PONG_TASK = TaskSpec(
     tags=(:benchmark, :qualification, :core),
     minimum_scored_ticks=6000,
     options=PONG_TASK_OPTIONS,
-    floor=null_anchor(0.2704470119755446, "task=pong, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, score_key=hit_rate, sem=0.0137, sd=0.0778, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
+    floor=null_anchor(0.2704470119755446, "task=pong, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, score_key=hit_rate, scored_ticks=6000, sem=0.0137, sd=0.0778, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
@@ -394,7 +402,7 @@ const PONG_HITRATE_TASK = TaskSpec(
     tags=(:alias,),
     minimum_scored_ticks=6000,
     options=PONG_TASK_OPTIONS,
-    floor=null_anchor(0.2704470119755446, "task=pong_hitrate, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, score_key=hit_rate, sem=0.0137, sd=0.0778, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
+    floor=null_anchor(0.2704470119755446, "task=pong_hitrate, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, score_key=hit_rate, scored_ticks=6000, sem=0.0137, sd=0.0778, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )

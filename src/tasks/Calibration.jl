@@ -36,10 +36,16 @@ function _calibration_provenance(
     null_target_rate,
     score_key,
     seed_values,
+    scored_ticks,
 )
+    # scored_ticks is load-bearing, not decoration: rate matching measures the
+    # reference firing rate over the scoring window, so an anchor measured over a
+    # different window is a different anchor. Recording it makes a stale anchor
+    # detectable instead of silent.
     return "task=$(_calibration_task_symbol(task_obj)), null=$(null), " *
            "rate_reference=$(rate_reference), null_target_rate=$(null_target_rate), " *
-           "score_key=$(score_key), rng=MersenneTwister, julia=$(VERSION), " *
+           "score_key=$(score_key), scored_ticks=$(scored_ticks), " *
+           "rng=MersenneTwister, julia=$(VERSION), " *
            "seeds $(_seed_summary(seed_values)), git $(_git_short_sha()), $(Dates.today())"
 end
 
@@ -183,6 +189,7 @@ function _measure_null_anchor(
 
     raw = Float64[]
     used_key = preferred_key
+    scored_ticks = 0
     task_sym = _calibration_task_symbol(task_obj)
     for seed in seed_values
         sim = simulate(
@@ -203,6 +210,7 @@ function _measure_null_anchor(
         )
         value, key = _calibration_raw_score(sim, preferred_key)
         used_key = key
+        scored_ticks = Int(sim.config.window)
         push!(raw, value)
     end
     provenance = _calibration_provenance(
@@ -212,6 +220,7 @@ function _measure_null_anchor(
         matched_rate,
         used_key,
         seed_values,
+        scored_ticks,
     )
     return null_anchor(_mean_float64(raw), provenance)
 end
