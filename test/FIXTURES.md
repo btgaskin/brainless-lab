@@ -39,15 +39,26 @@ build the replay, and that part works. But its `metric_score`, `metric_distance_
 anything**. `test/test_collective_single.jl` asserts shape, finiteness, and Julia-against-
 Julia consistency only.
 
-Enabling the comparison fails — with the environment initialised from the fixture's own
-recorded `env_draws` and the reservoir fully pinned: `score` and `distance_window` each
-deviate by exactly 1.0000000000000018 against a fixture value of 6.125, and `xy_path` by
-4.116, against a 1e-9 tolerance. `collisions_window` "passes" only because both sides are
-zero. Both implementations accumulate translation identically, so the definitions agree
-and the values do not; an exact 1.0 points at a convention difference rather than drift.
-The cause is unresolved, and the generator imports `crho` from a workspace outside this
-repository, so it cannot be regenerated here to bisect. The assertions are `@test_skip`
-with this reasoning recorded at the call site.
+The wall keys are **legacy** and are deliberately not compared. Commit `6552af5` re-based
+`WallBox` off `crho` and onto the Falandays authors' conventions, which differ in four
+places: sensor rays cast from the sensor point rather than the agent's centre, translation
+along the old heading before rotating, clamp-and-slide collision response crediting partial
+translation, and a post-collision turn taken from the new heading. The fixture predates that
+commit and was never regenerated, so its `metric_*`, `sensors` and `pose` keys describe the
+superseded conventions. Reimplementing `WallBox` with the first two switched back reproduces
+the fixture bit-exactly across all 120 ticks; the other two are unexercised because both
+sides record zero collisions.
+
+The previously recorded "deviation of exactly 1.0" was misleading twice over. It was
+measured from the default centre pose, not the fixture's `env_draws` as the note claimed,
+and effectors here are drawn from `{0, 0.25}`, so with no collisions the distance is always
+a multiple of 0.125 — landing on eight quanta is arithmetic coincidence, not a fencepost.
+The earlier claim that the fixture "cannot be regenerated here" was also wrong: the `crho`
+workspace is present alongside this repository and reproduces the fixture exactly.
+
+What the fixture does prove, and now asserts, is node-level cross-implementation parity
+independent of wall geometry: driving the pinned reservoir with the fixture's own recorded
+sensor currents reproduces its `spikes` and `effectors` to 1e-9.
 
 ### SepCMA parity boundary
 

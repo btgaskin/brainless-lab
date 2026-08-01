@@ -102,14 +102,6 @@ function _single_max_abs_dev(a, b)
     return maximum(abs.(av .- bv))
 end
 
-function _single_assert_metric(data, got, key::Symbol)
-    fixture_key = "metric_$(key)"
-    haskey(data, fixture_key) || error("fixture missing $fixture_key")
-    haskey(got, key) || error("environment metrics missing $key")
-    dev = abs(Float64(getproperty(got, key)) - _single_scalar(data, fixture_key))
-    @test dev <= COLLECTIVE_SINGLE_ATOL
-end
-
 @testset "Ensemble single-agent WallEnv smoke" begin
     path = _single_fixture_path()
     isfile(path) || error("missing fixture $path; run test/oracle/gen_single_agent_fixtures.py from the v0.2 directory")
@@ -149,42 +141,51 @@ end
     @test got_metrics.collisions_window >= 0
     @test size(got_metrics.xy_path, 1) == ticks
 
-    # UNRESOLVED CROSS-IMPLEMENTATION DISCREPANCY -- do not enable without reading this.
+    # The fixture's `metric_*`, `sensors` and `pose` keys are LEGACY. Do not
+    # compare the wall trajectory against them; it can never match, by design.
     #
-    # The fixture carries metric_score, metric_distance_window,
-    # metric_collisions_window and metric_xy_path from the v0.2 Python `crho`
-    # implementation, and `_single_assert_metric` / `_single_max_abs_dev` exist
-    # to compare against them. Both helpers were dead code from the outset, so
-    # the comparison had never actually run.
+    # Commit 6552af5 ("make :falandays_base + wall/tracking/pong worlds
+    # authors-faithful") deliberately re-based WallBox off the v0.2 Python
+    # `crho` implementation and onto the Falandays authors' conventions. Four
+    # differ, and they are recorded only in that commit message:
     #
-    # Enabling it fails, even with the environment initialised from the
-    # fixture's own recorded `env_draws` and the reservoir fully pinned from
-    # fixture masks, weights and parameters:
+    #   1. sensor rays cast from the sensor point on the agent's circle, not
+    #      from its centre  (Julia distance is shorter by r)
+    #   2. translate along the OLD heading, then rotate
+    #   3. clamp-and-slide collision response, crediting partial translation
+    #   4. post-collision heading turns +/-45 degrees from the new heading
     #
-    #   score            deviation 1.0000000000000018  (fixture 6.125)
-    #   distance_window  deviation 1.0000000000000018  (fixture 6.125)
-    #   collisions_window  passes -- but both sides are 0.0, so this agrees
-    #                      about nothing happening
-    #   xy_path          max deviation 4.115962750876231
-    #   tolerance        1e-9
+    # The fixture predates that commit and was never regenerated, so its wall
+    # keys describe the crho conventions. Reimplementing WallBox with (1) and
+    # (2) switched back reproduces the fixture bit-exactly across all 120 ticks
+    # on sensors, spikes, effectors, pose and xy_path; (3) and (4) are untested
+    # here because both sides record zero collisions.
     #
-    # Both implementations accumulate translation the same way
-    # (`self.distance += translation` in crho/env_wall.py; `distance_last` here),
-    # so the definitions agree and the values do not. A deviation of exactly 1.0
-    # suggests a convention difference (an offset or a radius), not drift. The
-    # cause is unresolved, and the generator imports `crho` from a sibling
-    # workspace that is not part of this repository, so the fixture cannot be
-    # regenerated here to bisect it.
+    # The previously recorded "deviation of exactly 1.0" was a red herring
+    # twice over: it was measured from the default centre pose rather than the
+    # fixture's `env_draws`, and effectors here are drawn from {0, 0.25}, so
+    # with no collisions the distance is always a multiple of 0.125 and landing
+    # on eight quanta is arithmetic coincidence, not a fencepost.
     #
-    # This file therefore validates SHAPE and INTERNAL CONSISTENCY only. It is
-    # not cross-implementation evidence, and test/FIXTURES.md says so. The
-    # genuinely independent evidence is test_falandays.jl, which replays the
-    # falandays.npz, falandays_oosawa.npz and falandays_dale.npz fixtures
-    # against acts, targets and spikes
-    # at 1e-9 and passes.
-    @test_skip _single_assert_metric(data, got_metrics, :score)
-    @test_skip _single_max_abs_dev(got_metrics.xy_path, data["metric_xy_path"]) <=
-               COLLECTIVE_SINGLE_ATOL
+    # What the fixture still proves is node-level parity, which is independent
+    # of wall geometry: driving the pinned reservoir with the fixture's OWN
+    # recorded sensor currents reproduces its spikes and effectors exactly.
+    @testset "Julia-Python node parity on recorded sensor currents" begin
+        replay = _single_reservoir(data)
+        fixture_sensors = _single_matrix(data, "sensors")
+        fixture_spikes = _single_matrix(data, "spikes")
+        fixture_effectors = _single_matrix(data, "effectors")
+        spike_dev = 0.0
+        effector_dev = 0.0
+        for t in 1:ticks
+            got_spikes = step!(replay, vec(fixture_sensors[t, :]))
+            got_eff = effectors(replay, got_spikes)
+            spike_dev = max(spike_dev, _single_max_abs_dev(got_spikes, fixture_spikes[t, :]))
+            effector_dev = max(effector_dev, _single_max_abs_dev(got_eff, fixture_effectors[t, :]))
+        end
+        @test spike_dev <= COLLECTIVE_SINGLE_ATOL
+        @test effector_dev <= COLLECTIVE_SINGLE_ATOL
+    end
 
     expected_live = BrainlessLab.liveness(rates, n_nodes, default_window(env))
 
