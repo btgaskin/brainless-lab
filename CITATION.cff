@@ -18,8 +18,8 @@ authors:
     family-names: Jackson
   - given-names: William
     family-names: O'Hearn
-version: 0.2.0
-date-released: "2026-07-22"
+version: 0.3.0
+date-released: "2026-08-01"
 license: MIT
 repository-code: "https://github.com/btgaskin/brainless-lab"
 url: "https://brainless-lab.pages.dev"

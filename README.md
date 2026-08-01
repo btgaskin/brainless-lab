@@ -22,7 +22,7 @@ BrainlessLab is not yet registered in Julia General.
 git clone https://github.com/btgaskin/brainless-lab.git
 cd brainless-lab
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
-julia --project=. -e 'using BrainlessLab; sim = simulate(:tracking; node=:falandays, ticks=300, seed=26); println(task_outcome(sim))'
+julia --project=. -e 'using BrainlessLab; sim = simulate(:tracking; node=:falandays, ticks=2_000, seed=26); println(task_outcome(sim))'
 ```
 
 The public guide provides four direct paths:

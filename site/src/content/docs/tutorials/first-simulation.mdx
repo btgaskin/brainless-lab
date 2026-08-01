@@ -21,7 +21,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 ```bash
 julia --project=. -e '
 using BrainlessLab
-sim = simulate(:tracking; node=:falandays, ticks=300, seed=26)
+sim = simulate(:tracking; node=:falandays, ticks=2_000, seed=26)
 println(task_outcome(sim))
 '
 ```
@@ -35,7 +35,12 @@ closed loop. It returns a `SimResult` in memory.
 
 - `key`, the task outcome name;
 - `raw`, the task-native value;
-- `normalized`, the value relative to that task's declared anchors.
+- `normalized`, the value relative to that task's declared anchors;
+- `window`, the number of ticks actually scored.
+
+Tracking declares `minimum_scored_ticks = 2000`, so a shorter run is rejected rather than
+scored over an interval too small to mean anything. Pass an explicit `window` to
+acknowledge a deliberately short diagnostic run.
 
 The command succeeds when Julia prints an outcome without an exception. One run can reveal
 a setup problem or an interesting trajectory. It cannot establish typical performance.
