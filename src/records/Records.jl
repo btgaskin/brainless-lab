@@ -89,6 +89,116 @@ function _write_csv(path::AbstractString, rows; columns=nothing)
     return String(path)
 end
 
+function _write_csv_atomic(path::AbstractString, rows; columns=nothing)
+    staging = joinpath(
+        dirname(path),
+        string(".", basename(path), ".staging-", string(time_ns(); base=16)),
+    )
+    try
+        _write_csv(staging, rows; columns)
+        mv(staging, path; force=true)
+    finally
+        ispath(staging) && rm(staging)
+    end
+    return String(path)
+end
+
+function _read_record_csv(path::AbstractString)
+    isfile(path) || throw(ArgumentError("evolution record is missing $(path)"))
+    text = read(path, String)
+    parsed = Vector{Vector{String}}()
+    fields = String[]
+    field = IOBuffer()
+    quoted = false
+    closed_quote = false
+    field_started = false
+    index = firstindex(text)
+    while index <= lastindex(text)
+        character = text[index]
+        if quoted
+            if character == '"'
+                following = nextind(text, index)
+                if following <= lastindex(text) && text[following] == '"'
+                    write(field, '"')
+                    index = following
+                else
+                    quoted = false
+                    closed_quote = true
+                end
+            else
+                write(field, character)
+            end
+        elseif character == '"'
+            field_started && throw(ArgumentError(
+                "CSV quote appears inside an unquoted field in $(path)",
+            ))
+            quoted = true
+            field_started = true
+        elseif character == ','
+            push!(fields, String(take!(field)))
+            field_started = false
+            closed_quote = false
+        elseif character == '\n'
+            push!(fields, String(take!(field)))
+            push!(parsed, fields)
+            fields = String[]
+            field_started = false
+            closed_quote = false
+        elseif character == '\r'
+            following = nextind(text, index)
+            if following > lastindex(text) || text[following] != '\n'
+                push!(fields, String(take!(field)))
+                push!(parsed, fields)
+                fields = String[]
+                field_started = false
+                closed_quote = false
+            end
+        else
+            closed_quote && throw(ArgumentError(
+                "CSV quoted field has trailing content in $(path)",
+            ))
+            write(field, character)
+            field_started = true
+        end
+        index = nextind(text, index)
+    end
+    quoted && throw(ArgumentError("CSV has an unterminated quoted field in $(path)"))
+    if field_started || closed_quote || !isempty(fields)
+        push!(fields, String(take!(field)))
+        push!(parsed, fields)
+    end
+    isempty(parsed) && throw(ArgumentError("evolution CSV is empty: $(path)"))
+    header_text = first(parsed)
+    any(isempty, header_text) && throw(ArgumentError(
+        "evolution CSV has an empty header in $(path)",
+    ))
+    header = Tuple(Symbol.(header_text))
+    length(unique(header)) == length(header) || throw(ArgumentError(
+        "evolution CSV has duplicate headers in $(path)",
+    ))
+    rows = NamedTuple[]
+    for values in Iterators.drop(parsed, 1)
+        length(values) == length(header) || throw(ArgumentError(
+            "evolution CSV row in $(path) has $(length(values)) fields; " *
+            "expected $(length(header))",
+        ))
+        push!(rows, NamedTuple{header}(Tuple(values)))
+    end
+    return rows
+end
+
+function _require_record_columns(rows, required, path::AbstractString)
+    names = isempty(rows) ? begin
+        text = readline(path)
+        Tuple(Symbol.(split(chomp(text), ',')))
+    end : propertynames(first(rows))
+    missing_columns = setdiff(collect(required), collect(names))
+    isempty(missing_columns) || throw(ArgumentError(
+        "evolution CSV $(path) is missing columns " * join(string.(missing_columns), ", "),
+    ))
+    return rows
+end
+
 function _record_json_escape(text::AbstractString)
     escaped = replace(String(text), '\\' => "\\\\", '"' => "\\\"")
     escaped = replace(escaped, '\n' => "\\n", '\r' => "\\r", '\t' => "\\t")
@@ -352,6 +462,7 @@ function _empty_table_columns(name::Symbol)
         :phase, :iteration, :candidate, :condition, :block, :trial,
         :window, :seed_ledger_agents, :topology_seed, :world_seed, :initial_state, :score_key,
         :raw_score, :normalized_score, :normalized_bound, :viable, :liveness,
+        :measure_value,
     )
     name === :candidate_scores && return (
         :iteration, :candidate, :target, :measure, :valid, :score,
@@ -727,17 +838,27 @@ function _write_record_contents(
         joinpath(directory, "data", "task_metrics.csv"),
         _record_task_metric_rows(primary),
     )
-    _write_csv(joinpath(directory, "seeds.csv"), _record_seed_rows(result))
+    if result isa EvolutionResult
+        _write_csv_atomic(
+            joinpath(directory, "seeds.csv"),
+            _record_seed_rows(result),
+        )
+    else
+        _write_csv(joinpath(directory, "seeds.csv"), _record_seed_rows(result))
+    end
 
     output = tables(result)
     for name in propertynames(output)
         name in (:trials, :task, :statistics, :contrasts) && continue
         rows = getproperty(output, name)
-        _write_csv(
-            joinpath(directory, _table_path(name)),
-            rows;
-            columns=isempty(rows) ? _empty_table_columns(name) : nothing,
-        )
+        path = joinpath(directory, _table_path(name))
+        columns = isempty(rows) ? _empty_table_columns(name) : nothing
+        if result isa EvolutionResult &&
+           name in (:candidates, :candidate_scores, :candidate_trials)
+            _write_csv_atomic(path, rows; columns)
+        else
+            _write_csv(path, rows; columns)
+        end
     end
     statistics = _record_statistics(result)
     contrasts = _record_contrasts(result)
@@ -956,7 +1077,11 @@ end
 function _partial_candidate_trials(candidates)
     rows = NamedTuple[]
     for candidate in candidates, evaluation in candidate.evaluations
-        for row in evaluation.trial_rows
+        length(evaluation.trial_rows) == length(evaluation.values) ||
+            throw(ArgumentError(
+                "evolution trial rows and measure values must have equal lengths",
+            ))
+        for (row, value) in zip(evaluation.trial_rows, evaluation.values)
             push!(rows, merge(
                 (
                     phase=:development,
@@ -964,10 +1089,24 @@ function _partial_candidate_trials(candidates)
                     candidate=candidate.id,
                 ),
                 row,
+                (measure_value=value,),
             ))
         end
     end
     return rows
+end
+
+function _partial_candidates(candidates)
+    return [
+        (
+            iteration=candidate.iteration,
+            candidate=candidate.id,
+            valid=candidate.valid,
+            coordinates=Tuple(candidate.coordinates),
+            scores=Tuple(_candidate_scores(candidate)),
+        )
+        for candidate in candidates
+    ]
 end
 
 function _partial_candidate_scores(candidates)
@@ -983,6 +1122,362 @@ function _partial_candidate_scores(candidates)
         ))
     end
     return rows
+end
+
+function _record_integer(text::AbstractString, context::AbstractString)
+    isempty(text) && throw(ArgumentError("$(context) must not be empty"))
+    value = tryparse(Int, text)
+    value === nothing && throw(ArgumentError("$(context) must be an integer"))
+    return value
+end
+
+function _record_uint64(text::AbstractString, context::AbstractString)
+    isempty(text) && throw(ArgumentError("$(context) must not be empty"))
+    value = tryparse(UInt64, text)
+    value === nothing && throw(ArgumentError("$(context) must be a UInt64"))
+    return value
+end
+
+function _record_bool(text::AbstractString, context::AbstractString)
+    text == "true" && return true
+    text == "false" && return false
+    throw(ArgumentError("$(context) must be true or false"))
+end
+
+function _record_float(text::AbstractString, context::AbstractString)
+    isempty(text) && return missing
+    value = tryparse(Float64, text)
+    value === nothing && throw(ArgumentError("$(context) must be a Float64"))
+    isfinite(value) || throw(ArgumentError("$(context) must be finite"))
+    return value
+end
+
+function _record_symbol(text::AbstractString, context::AbstractString)
+    isempty(text) && throw(ArgumentError("$(context) must not be empty"))
+    return Symbol(text)
+end
+
+function _record_optional_symbol(text::AbstractString)
+    return isempty(text) ? missing : Symbol(text)
+end
+
+function _record_optional_bool(text::AbstractString, context::AbstractString)
+    return isempty(text) ? missing : _record_bool(text, context)
+end
+
+function _record_optional_uint64(text::AbstractString, context::AbstractString)
+    return isempty(text) ? missing : _record_uint64(text, context)
+end
+
+_record_initial_state_value(value::Vector) =
+    Tuple(_record_initial_state_value(item) for item in value)
+_record_initial_state_value(value) = value
+
+function _record_initial_state(text::AbstractString, context::AbstractString)
+    isempty(text) && return missing
+    text == "nothing" && return nothing
+    value = try
+        TOML.parse("value = " * text)["value"]
+    catch error
+        throw(ArgumentError(
+            "$(context) is not a supported portable initial state: " *
+            sprint(showerror, error),
+        ))
+    end
+    return _record_initial_state_value(value)
+end
+
+function _record_coordinates(
+    text::AbstractString,
+    dimension::Integer,
+    context::AbstractString,
+)
+    value = try
+        TOML.parse("value = " * text)["value"]
+    catch error
+        throw(ArgumentError(
+            "$(context) is not a portable coordinate vector: " *
+            sprint(showerror, error),
+        ))
+    end
+    value isa AbstractVector || throw(ArgumentError(
+        "$(context) must be a coordinate vector",
+    ))
+    length(value) == dimension || throw(ArgumentError(
+        "$(context) has dimension $(length(value)); expected $(dimension)",
+    ))
+    all(item -> item isa Real && !(item isa Bool), value) ||
+        throw(ArgumentError("$(context) must contain only real values"))
+    coordinates = Float64.(value)
+    all(isfinite, coordinates) || throw(ArgumentError(
+        "$(context) must contain only finite values",
+    ))
+    return coordinates
+end
+
+function _restored_trial_row(row, context::AbstractString)
+    return (
+        condition=_record_symbol(row.condition, "$(context) condition"),
+        block=_record_integer(row.block, "$(context) block"),
+        trial=_record_integer(row.trial, "$(context) trial"),
+        window=_record_integer(row.window, "$(context) window"),
+        seed_ledger_agents=_record_integer(
+            row.seed_ledger_agents,
+            "$(context) seed_ledger_agents",
+        ),
+        topology_seed=_record_optional_uint64(
+            row.topology_seed,
+            "$(context) topology_seed",
+        ),
+        world_seed=_record_optional_uint64(
+            row.world_seed,
+            "$(context) world_seed",
+        ),
+        initial_state=_record_initial_state(
+            row.initial_state,
+            "$(context) initial_state",
+        ),
+        score_key=_record_optional_symbol(row.score_key),
+        raw_score=_record_float(row.raw_score, "$(context) raw_score"),
+        normalized_score=_record_float(
+            row.normalized_score,
+            "$(context) normalized_score",
+        ),
+        normalized_bound=_record_optional_symbol(row.normalized_bound),
+        viable=_record_optional_bool(row.viable, "$(context) viable"),
+        liveness=_record_optional_bool(row.liveness, "$(context) liveness"),
+    )
+end
+
+function _restore_evolution_candidates(
+    directory::AbstractString,
+    plan::EvolutionPlan,
+    completed_iteration::Integer,
+    committed_candidate_count::Integer,
+    dimension::Integer,
+)
+    data_directory = joinpath(directory, "data")
+    candidate_path = joinpath(data_directory, "candidates.csv")
+    score_path = joinpath(data_directory, "candidate_scores.csv")
+    trial_path = joinpath(data_directory, "candidate_trials.csv")
+    seed_path = joinpath(directory, "seeds.csv")
+
+    candidate_rows = _require_record_columns(
+        _read_record_csv(candidate_path),
+        (:iteration, :candidate, :valid, :coordinates, :scores),
+        candidate_path,
+    )
+    candidate_order = Tuple{Int,Int}[]
+    candidate_metadata = Dict{Tuple{Int,Int},NamedTuple}()
+    completed = Int(completed_iteration)
+    for row in candidate_rows
+        iteration = _record_integer(row.iteration, "candidate iteration")
+        iteration > completed && continue
+        1 <= iteration || throw(ArgumentError(
+            "candidate iteration must be positive",
+        ))
+        candidate = _record_integer(row.candidate, "candidate id")
+        key = (iteration, candidate)
+        haskey(candidate_metadata, key) && throw(ArgumentError(
+            "duplicate evolution candidate $(key)",
+        ))
+        candidate_metadata[key] = (
+            valid=_record_bool(row.valid, "candidate $(key) valid"),
+            coordinates=_record_coordinates(
+                row.coordinates,
+                dimension,
+                "candidate $(key) coordinates",
+            ),
+        )
+        push!(candidate_order, key)
+    end
+    length(candidate_order) == committed_candidate_count ||
+        throw(ArgumentError(
+            "checkpoint candidate count does not match the incremental candidate tables",
+        ))
+    any(key -> first(key) == completed, candidate_order) || throw(ArgumentError(
+        "incremental candidate tables do not contain the checkpoint generation",
+    ))
+
+    targets = Dict(target.id => target for target in plan.training_targets)
+    expected_target_order = Tuple(target.id for target in plan.training_targets)
+    score_rows = _require_record_columns(
+        _read_record_csv(score_path),
+        (:iteration, :candidate, :target, :measure, :valid, :score),
+        score_path,
+    )
+    evaluation_metadata = Dict{Tuple{Int,Int,Symbol},NamedTuple}()
+    evaluation_order = Dict(key => Symbol[] for key in candidate_order)
+    for row in score_rows
+        iteration = _record_integer(row.iteration, "candidate score iteration")
+        iteration > completed && continue
+        candidate = _record_integer(row.candidate, "candidate score id")
+        candidate_key = (iteration, candidate)
+        haskey(candidate_metadata, candidate_key) || throw(ArgumentError(
+            "candidate score references unknown candidate $(candidate_key)",
+        ))
+        target = _record_symbol(row.target, "candidate score target")
+        haskey(targets, target) || throw(ArgumentError(
+            "candidate score references unknown training target :$(target)",
+        ))
+        key = (iteration, candidate, target)
+        haskey(evaluation_metadata, key) && throw(ArgumentError(
+            "duplicate candidate score for $(key)",
+        ))
+        measure = _record_symbol(row.measure, "candidate score measure")
+        measure === plan.run.measure || throw(ArgumentError(
+            "candidate score measure :$(measure) does not match plan measure " *
+            ":$(plan.run.measure)",
+        ))
+        aggregate = _record_float(row.score, "candidate score $(key)")
+        valid = _record_bool(row.valid, "candidate score $(key) valid")
+        evaluation_metadata[key] = (
+            measure=measure,
+            aggregate=aggregate,
+            valid=valid,
+            trial_rows=NamedTuple[],
+            values=Union{Missing,Float64}[],
+            seed_rows=NamedTuple[],
+        )
+        push!(evaluation_order[candidate_key], target)
+    end
+
+    trial_columns = (
+        :phase, :iteration, :candidate, :condition, :block, :trial,
+        :window, :seed_ledger_agents, :topology_seed, :world_seed,
+        :initial_state, :score_key, :raw_score, :normalized_score,
+        :normalized_bound, :viable, :liveness, :measure_value,
+    )
+    trial_rows = _require_record_columns(
+        _read_record_csv(trial_path),
+        trial_columns,
+        trial_path,
+    )
+    for row in trial_rows
+        iteration = _record_integer(row.iteration, "candidate trial iteration")
+        iteration > completed && continue
+        row.phase == "development" || throw(ArgumentError(
+            "candidate trial phase must be development",
+        ))
+        candidate = _record_integer(row.candidate, "candidate trial id")
+        target = _record_symbol(row.condition, "candidate trial condition")
+        key = (iteration, candidate, target)
+        haskey(evaluation_metadata, key) || throw(ArgumentError(
+            "candidate trial references unknown evaluation $(key)",
+        ))
+        context = "candidate trial $(key) block $(row.block) trial $(row.trial)"
+        trial_row = _restored_trial_row(row, context)
+        push!(evaluation_metadata[key].trial_rows, trial_row)
+        push!(
+            evaluation_metadata[key].values,
+            _record_float(row.measure_value, "$(context) measure_value"),
+        )
+    end
+
+    seed_rows = _require_record_columns(
+        _read_record_csv(seed_path),
+        _SEED_ROW_NAMES,
+        seed_path,
+    )
+    for row in seed_rows
+        row.phase == "development" || continue
+        iteration = _record_integer(row.generation, "candidate seed generation")
+        iteration > completed && continue
+        candidate = _record_integer(row.individual, "candidate seed individual")
+        target = _record_symbol(row.condition, "candidate seed condition")
+        key = (iteration, candidate, target)
+        haskey(evaluation_metadata, key) || throw(ArgumentError(
+            "candidate seed references unknown evaluation $(key)",
+        ))
+        push!(evaluation_metadata[key].seed_rows, (
+            condition=target,
+            block=_record_integer(row.block, "candidate seed block"),
+            trial=_record_integer(row.trial, "candidate seed trial"),
+            agent=_record_integer(row.agent, "candidate seed agent"),
+            stream=_record_symbol(row.stream, "candidate seed stream"),
+            seed=_record_uint64(row.seed, "candidate seed"),
+        ))
+    end
+
+    restored = EvolutionCandidate[]
+    for candidate_key in candidate_order
+        Tuple(evaluation_order[candidate_key]) == expected_target_order ||
+            throw(ArgumentError(
+                "candidate $(candidate_key) evaluations do not match the plan target order",
+            ))
+        candidate_evaluations = EvolutionEvaluation[]
+        for target_id in expected_target_order
+            key = (candidate_key[1], candidate_key[2], target_id)
+            metadata = evaluation_metadata[key]
+            target = targets[target_id]
+            expected_trials =
+                target.evaluation.blocks * target.evaluation.trials_per_block
+            length(metadata.trial_rows) == expected_trials || throw(ArgumentError(
+                "candidate evaluation $(key) has $(length(metadata.trial_rows)) trials; " *
+                "expected $(expected_trials)",
+            ))
+            length(metadata.values) == length(metadata.trial_rows) ||
+                throw(ArgumentError(
+                    "candidate evaluation $(key) measure values do not match its trials",
+                ))
+            trial_ids = [
+                (row.block, row.trial)
+                for row in metadata.trial_rows
+            ]
+            expected_trial_ids = [
+                (block, trial)
+                for block in 1:target.evaluation.blocks
+                for trial in 1:target.evaluation.trials_per_block
+            ]
+            trial_ids == expected_trial_ids || throw(ArgumentError(
+                "candidate evaluation $(key) trials are incomplete or out of order",
+            ))
+            seed_ids = [
+                (row.block, row.trial, row.agent, row.stream)
+                for row in metadata.seed_rows
+            ]
+            streams = seed_stream_names(target.evaluation)
+            expected_seed_ids = [
+                (row.block, row.trial, agent, stream)
+                for row in metadata.trial_rows
+                for agent in 1:row.seed_ledger_agents
+                for stream in streams
+            ]
+            seed_ids == expected_seed_ids || throw(ArgumentError(
+                "candidate evaluation $(key) seeds are incomplete or out of order",
+            ))
+            aggregate = _evolution_aggregate(
+                metadata.values,
+                target.evaluation.aggregate,
+            )
+            isequal(aggregate, metadata.aggregate) || throw(ArgumentError(
+                "candidate evaluation $(key) aggregate does not match its trial values",
+            ))
+            candidate_valid = candidate_metadata[candidate_key].valid
+            metadata.valid == (candidate_valid && !ismissing(metadata.aggregate)) ||
+                throw(ArgumentError(
+                    "candidate evaluation $(key) validity is inconsistent",
+                ))
+            push!(candidate_evaluations, EvolutionEvaluation(
+                target_id,
+                metadata.measure,
+                copy(metadata.values),
+                metadata.aggregate,
+                nothing,
+                copy(metadata.trial_rows),
+                copy(metadata.seed_rows),
+            ))
+        end
+        metadata = candidate_metadata[candidate_key]
+        push!(restored, EvolutionCandidate(
+            candidate_key[1],
+            candidate_key[2],
+            copy(metadata.coordinates),
+            metadata.valid,
+            candidate_evaluations,
+        ))
+    end
+    return restored
 end
 
 function _write_incomplete_record_manifest(
@@ -1035,29 +1530,32 @@ end
 
 function _write_partial_evolution_state(
     directory::AbstractString,
-    plan::EvolutionPlan,
     candidates,
-    git,
 )
     mkpath(joinpath(directory, "data"))
-    _write_csv(
+    _write_csv_atomic(
+        joinpath(directory, "data", "candidates.csv"),
+        _partial_candidates(candidates);
+        columns=isempty(candidates) ?
+            _empty_table_columns(:candidates) : nothing,
+    )
+    _write_csv_atomic(
         joinpath(directory, "data", "candidate_trials.csv"),
         _partial_candidate_trials(candidates);
         columns=isempty(candidates) ?
             _empty_table_columns(:candidate_trials) : nothing,
     )
-    _write_csv(
+    _write_csv_atomic(
         joinpath(directory, "data", "candidate_scores.csv"),
         _partial_candidate_scores(candidates);
         columns=isempty(candidates) ?
             _empty_table_columns(:candidate_scores) : nothing,
     )
-    _write_csv(
+    _write_csv_atomic(
         joinpath(directory, "seeds.csv"),
         _evolution_seed_rows(candidates),
         columns=_SEED_ROW_NAMES,
     )
-    _write_incomplete_record_manifest(directory, plan, git)
     return directory
 end
 
@@ -1069,6 +1567,7 @@ function _evolution_checkpoint_callback(
     git,
 )
     return function (iteration, state, candidates)
+        _write_partial_evolution_state(directory, candidates)
         Evolution.write_checkpoint(
             directory;
             completed_iteration=iteration,
@@ -1076,18 +1575,10 @@ function _evolution_checkpoint_callback(
             resolution_digest=digests.resolution,
             provenance_digest=digests.provenance,
             strategy_key=strategy,
-            runner_document=Dict{String,Any}(
-                "strategy" => Evolution.snapshot(state),
-                "candidates" => _candidate_document.(candidates),
-            ),
+            strategy_snapshot=Evolution.snapshot(state),
             committed_candidate_count=length(candidates),
         )
-        _write_partial_evolution_state(
-            directory,
-            plan,
-            candidates,
-            git,
-        )
+        _write_incomplete_record_manifest(directory, plan, git)
     end
 end
 
@@ -1172,18 +1663,25 @@ function Evolution.resume(
         resolved.strategy,
         checkpoint.strategy_snapshot,
     )
-    candidates = EvolutionCandidate[
-        _restored_candidate(document)
-        for document in get(
-            checkpoint.runner_document,
-            "candidates",
-            Any[],
+    candidates = if haskey(checkpoint.runner_document, "candidates")
+        restored = EvolutionCandidate[
+            _restored_checkpoint_candidate(document)
+            for document in checkpoint.runner_document["candidates"]
+        ]
+        length(restored) == checkpoint.committed_candidate_count ||
+            throw(ArgumentError(
+                "checkpoint candidate count does not match its runner document",
+            ))
+        restored
+    else
+        _restore_evolution_candidates(
+            directory,
+            plan,
+            checkpoint.completed_iteration,
+            checkpoint.committed_candidate_count,
+            resolved.design.dimension,
         )
-    ]
-    length(candidates) == checkpoint.committed_candidate_count ||
-        throw(ArgumentError(
-            "checkpoint candidate count does not match its runner document",
-        ))
+    end
     _clear_evolution_markers(directory)
     _mark_incomplete(directory)
     callback = _evolution_checkpoint_callback(

@@ -530,6 +530,35 @@ function _evolution_checkpoint_name(completed_iteration::Integer)
     return string("generation-", lpad(Int(completed_iteration), 8, '0'))
 end
 
+const _EVOLUTION_CHECKPOINT_RETENTION = 2
+
+function _evolution_retain_checkpoints(
+    root::AbstractString;
+    keep::Integer=_EVOLUTION_CHECKPOINT_RETENTION,
+)
+    keep_ = Int(keep)
+    keep_ >= 1 || throw(ArgumentError(
+        "checkpoint retention must keep at least one generation",
+    ))
+    checkpoints = Pair{Int,String}[]
+    for name in readdir(root)
+        match_ = match(r"^generation-(\d{8})$", name)
+        match_ === nothing && continue
+        path = joinpath(root, name)
+        islink(path) && throw(ArgumentError(
+            "checkpoint generation directories must not be symbolic links",
+        ))
+        isdir(path) && isfile(joinpath(path, "DONE")) || continue
+        push!(checkpoints, parse(Int, only(match_.captures)) => path)
+    end
+    sort!(checkpoints; by=first)
+    remove_count = max(0, length(checkpoints) - keep_)
+    for (_, path) in Iterators.take(checkpoints, remove_count)
+        rm(path; recursive=true)
+    end
+    return root
+end
+
 function Evolution.write_checkpoint(
     record_directory::AbstractString;
     completed_iteration::Integer,
@@ -607,6 +636,7 @@ function Evolution.write_checkpoint(
         write(io, manifest_sha256, '\n')
     end
     mv(staging, final)
+    _evolution_retain_checkpoints(root)
     return final
 end
 

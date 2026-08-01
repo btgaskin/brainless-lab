@@ -308,27 +308,7 @@ function _evolution_rng(seed::UInt64, iteration::Integer)
     return Random.MersenneTwister(_seed_to_int(derived))
 end
 
-function _candidate_document(candidate::EvolutionCandidate)
-    return Dict{String,Any}(
-        "iteration" => candidate.iteration,
-        "id" => candidate.id,
-        "coordinates" => copy(candidate.coordinates),
-        "valid" => candidate.valid,
-        "evaluations" => [
-            Dict{String,Any}(
-                "target" => String(evaluation.target),
-                "measure" => String(evaluation.measure),
-                "values" => copy(evaluation.values),
-                "aggregate" => evaluation.aggregate,
-                "trial_rows" => copy(evaluation.trial_rows),
-                "seed_rows" => copy(evaluation.seed_rows),
-            )
-            for evaluation in candidate.evaluations
-        ],
-    )
-end
-
-function _restored_candidate(document::AbstractDict)
+function _restored_checkpoint_candidate(document::AbstractDict)
     evaluations = EvolutionEvaluation[
         EvolutionEvaluation(
             Symbol(entry["target"]),
@@ -562,7 +542,11 @@ function tables(result::EvolutionResult)
                 normalized_censored_fraction=censoring.normalized_censored_fraction,
                 normalized_censoring=censoring.normalized_censoring,
             ))
-            for row in evaluation.trial_rows
+            length(evaluation.trial_rows) == length(evaluation.values) ||
+                throw(ArgumentError(
+                    "evolution trial rows and measure values must have equal lengths",
+                ))
+            for (row, value) in zip(evaluation.trial_rows, evaluation.values)
                 push!(candidate_trials, merge(
                     (
                         phase=:development,
@@ -570,6 +554,7 @@ function tables(result::EvolutionResult)
                         candidate=candidate.id,
                     ),
                     row,
+                    (measure_value=value,),
                 ))
             end
         end

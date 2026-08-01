@@ -19,15 +19,21 @@ function _record_sweep_plan()
     )
 end
 
-function _record_evolution_plan(; iterations=1)
+function _record_evolution_plan(
+    ;
+    iterations=1,
+    task=:tracking,
+    node=:compartmental_structured,
+    measure=:normalized_score,
+)
     composition = CompositionSpec(
-        :record_structured_ctrnn,
-        :compartmental_structured,
-        :tracking;
+        Symbol("record_$(node)_$(task)"),
+        node,
+        task;
         n_nodes=2,
     )
     training = EvaluationTarget(
-        :tracking_development,
+        Symbol("$(task)_development"),
         composition,
         EvaluationSpec(
             horizon=1,
@@ -36,7 +42,7 @@ function _record_evolution_plan(; iterations=1)
         ),
     )
     confirmation = EvaluationTarget(
-        :tracking_confirmation,
+        Symbol("$(task)_confirmation"),
         composition,
         EvaluationSpec(
             horizon=1,
@@ -48,6 +54,7 @@ function _record_evolution_plan(; iterations=1)
         strategy=:sepcma,
         iterations=iterations,
         search_seed=606,
+        measure=measure,
         initialisation=BrainlessLab.Evolution.NormalInitialisation(
             centre=:zero,
             scale=0.1,
@@ -63,9 +70,15 @@ function _record_evolution_plan(; iterations=1)
 end
 
 @testset "evolution resumes from the last complete generation" begin
-    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
-    plan = _record_evolution_plan(iterations=2)
+    registry = BrainlessLabTestUtils.diagnostic_registry((:wall,))
+    plan = _record_evolution_plan(
+        iterations=4,
+        task=:wall,
+        node=:falandays,
+        measure=:distance_window,
+    )
     resolved = resolve(plan, registry)
+    uninterrupted = execute(resolved)
     directory = joinpath(mktempdir(), "resume-record")
     mkpath(directory)
     write_plan(joinpath(directory, "request.toml"), plan)
@@ -94,7 +107,7 @@ end
         resolved;
         checkpoint=(iteration, state, candidates) -> begin
             write_checkpoint(iteration, state, candidates)
-            iteration == 1 && error("simulated interruption")
+            iteration == 2 && error("simulated interruption")
         end,
     )
     @test TOML.parsefile(joinpath(directory, "record.toml"))[
@@ -105,13 +118,43 @@ end
         "development",
         read(joinpath(directory, "seeds.csv"), String),
     )
-    resumed = BrainlessLab.Evolution.resume(directory; registry)
-    @test resumed.directory == directory
-    @test length(resumed.result.candidates) == 4
+    @test "measure_value" in split(
+        first(split(
+            read(joinpath(directory, "data", "candidate_trials.csv"), String),
+            '\n',
+        )),
+        ',',
+    )
     @test sort(readdir(joinpath(directory, "checkpoints"))) == [
         "generation-00000001",
         "generation-00000002",
     ]
+    BrainlessLab._write_partial_evolution_state(
+        directory,
+        filter(candidate -> candidate.iteration <= 3, uninterrupted.candidates),
+    )
+    @test BrainlessLab.Evolution.latest_checkpoint(directory).completed_iteration == 2
+    resumed = BrainlessLab.Evolution.resume(directory; registry)
+    @test resumed.directory == directory
+    @test isequal(
+        BrainlessLab.tables(resumed.result),
+        BrainlessLab.tables(uninterrupted),
+    )
+    @test isequal(
+        BrainlessLab.summary(resumed.result),
+        BrainlessLab.summary(uninterrupted),
+    )
+    @test length(resumed.result.candidates) == 8
+    @test sort(readdir(joinpath(directory, "checkpoints"))) == [
+        "generation-00000003",
+        "generation-00000004",
+    ]
+    latest = BrainlessLab.Evolution.latest_checkpoint(directory)
+    @test Set(keys(latest.runner_document)) == Set(("strategy",))
+    @test !occursin(
+        "candidates",
+        read(joinpath(latest.path, "runner.toml"), String),
+    )
     @test isfile(joinpath(directory, "DONE"))
     @test !isfile(joinpath(directory, "INCOMPLETE"))
     @test !isfile(joinpath(directory, "FAILED"))
