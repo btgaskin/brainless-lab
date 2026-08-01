@@ -179,7 +179,8 @@ end
     # This file therefore validates SHAPE and INTERNAL CONSISTENCY only. It is
     # not cross-implementation evidence, and test/FIXTURES.md says so. The
     # genuinely independent evidence is test_falandays.jl, which replays the
-    # falandays_{base,oosawa,dale}.npz fixtures against acts, targets and spikes
+    # falandays.npz, falandays_oosawa.npz and falandays_dale.npz fixtures
+    # against acts, targets and spikes
     # at 1e-9 and passes.
     @test_skip _single_assert_metric(data, got_metrics, :score)
     @test_skip _single_max_abs_dev(got_metrics.xy_path, data["metric_xy_path"]) <=

@@ -172,13 +172,11 @@ _sim_rng(seed) = seed === nothing ? MersenneTwister() : MersenneTwister(Int(seed
 
 _default_node_count(node::Symbol) = get(_NODE_DEFAULT_N, node, 100)
 
-const _FALANDAYS_ALIASES = Set{Symbol}((:falandays, :falandays_base))
-
 _falandays_config_key(task::Symbol) = task === :pong_hitrate ? :pong : task
 _has_falandays_paper_config(task::Symbol) = haskey(FALANDAYS_PAPER_CONFIG, _falandays_config_key(task))
 
 function _default_node_count(node::Symbol, task::Symbol, is_swarm::Bool)
-    if !is_swarm && node in _FALANDAYS_ALIASES && _has_falandays_paper_config(task)
+    if !is_swarm && node === :falandays && _has_falandays_paper_config(task)
         return falandays_paper_config(_falandays_config_key(task)).nnodes
     end
     return _default_node_count(node)
@@ -408,7 +406,7 @@ function _apply_falandays_task_defaults!(
     node_kwargs::Dict{Symbol,Any},
     env_kwargs::Dict{Symbol,Any},
 )
-    (!is_swarm && node in _FALANDAYS_ALIASES && _has_falandays_paper_config(task)) || return nothing
+    (!is_swarm && node === :falandays && _has_falandays_paper_config(task)) || return nothing
 
     cfg = falandays_paper_config(_falandays_config_key(task))
     if !haskey(node_kwargs, :params)

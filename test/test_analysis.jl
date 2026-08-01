@@ -18,14 +18,14 @@ using Test
     @test with_zero.per_tick[2] == 2.0
     @test with_zero.sigma ≈ 2.0
 
-    sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays_base, ticks=60, seed=1)
+    sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays, ticks=60, seed=1)
     raw = getchannel(sim.recorder, :rate)
     br = BrainlessLab.branching_ratio(sim)
     @test length(br.per_tick) == length(raw) - 1
     @test isfinite(br.sigma)
     @test isfinite(br.sigma_ols)
 
-    swarm = BrainlessLabTestUtils.diagnostic_simulate(:torus; node=:falandays_base, ticks=70, seed=12, n_agents=4, n_nodes=12, record=(:spikes, :rate, :poses))
+    swarm = BrainlessLabTestUtils.diagnostic_simulate(:torus; node=:falandays, ticks=70, seed=12, n_agents=4, n_nodes=12, record=(:spikes, :rate, :poses))
     node_br = BrainlessLab.branching_ratio(swarm; level=:node)
     @test node_br.level == :node
     @test node_br.n_agents == 4
@@ -61,7 +61,7 @@ using Test
     @test agent_turn.agent_activity == [1.0, 2.0, 1.0]
     @test agent_turn.sigma != pooled_turn.sigma
 
-    single_swarm = BrainlessLabTestUtils.diagnostic_simulate(:torus; node=:falandays_base, ticks=60, seed=13, n_agents=1, n_nodes=12, record=(:spikes, :rate, :poses))
+    single_swarm = BrainlessLabTestUtils.diagnostic_simulate(:torus; node=:falandays, ticks=60, seed=13, n_agents=1, n_nodes=12, record=(:spikes, :rate, :poses))
     pooled_single = BrainlessLab.branching_ratio(single_swarm)
     node_single = BrainlessLab.branching_ratio(single_swarm; level=:node)
     agent_single = BrainlessLab.branching_ratio(single_swarm; level=:agent)
@@ -119,7 +119,7 @@ end
     @test abs(mr.m_mr - true_m) < 0.05
     @test abs(mr.m_mr - true_m) < abs(legacy.sigma - true_m)
 
-    swarm = BrainlessLabTestUtils.diagnostic_simulate(:torus; node=:falandays_base, ticks=90, seed=14, n_agents=3, n_nodes=10, record=(:spikes, :rate, :poses))
+    swarm = BrainlessLabTestUtils.diagnostic_simulate(:torus; node=:falandays, ticks=90, seed=14, n_agents=3, n_nodes=10, record=(:spikes, :rate, :poses))
     node_mr = BrainlessLab.branching_ratio_mr(swarm; kmax=4, level=:node)
     @test node_mr.level == :node
     @test node_mr.n_agents == 3
@@ -179,7 +179,7 @@ end
 
     forage = BrainlessLabTestUtils.diagnostic_simulate(
         :forage;
-        node=:falandays_base,
+        node=:falandays,
         ticks=140,
         seed=31,
         n_agents=5,
@@ -455,7 +455,7 @@ end
 end
 
 @testset "Avalanche statistics analysis" begin
-    sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays_base, ticks=80, seed=2, n_nodes=24, record=(:spikes,))
+    sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays, ticks=80, seed=2, n_nodes=24, record=(:spikes,))
     av = BrainlessLab.avalanches(sim)
     @test isfinite(Float64(av.n_avalanches))
     @test length(av.sizes) == av.n_avalanches
@@ -494,7 +494,7 @@ end
     @test interval_result.inter_event_intervals == [3, 3]
     @test interval_result.mean_inter_event_interval == 3.0
 
-    swarm = BrainlessLabTestUtils.diagnostic_simulate(:torus; node=:falandays_base, ticks=80, seed=15, n_agents=4, n_nodes=12, record=(:spikes, :rate, :poses))
+    swarm = BrainlessLabTestUtils.diagnostic_simulate(:torus; node=:falandays, ticks=80, seed=15, n_agents=4, n_nodes=12, record=(:spikes, :rate, :poses))
     node_av = BrainlessLab.avalanches(swarm; level=:node)
     @test node_av.level == :node
     @test node_av.n_agents == 4
@@ -532,7 +532,7 @@ end
 
     sim = BrainlessLabTestUtils.diagnostic_simulate(
         :torus;
-        node=:falandays_base,
+        node=:falandays,
         ticks=50,
         seed=3,
         n_agents=3,
@@ -593,7 +593,7 @@ end
     equal_sim = SimResult(equal_rec, (;), :synthetic, :synthetic, (;))
     @test all(iszero, node_target_error(equal_sim).per_node_error)
 
-    sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays_base, ticks=12, seed=1, n_nodes=16, record=(:acts, :targets))
+    sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays, ticks=12, seed=1, n_nodes=16, record=(:acts, :targets))
     target_error = node_target_error(sim)
     raw = getchannel(sim.recorder, :acts)
 
@@ -603,7 +603,7 @@ end
     @test all(x -> x >= 0.0, target_error.per_node_error)
     @test all(x -> x >= 0.0, target_error.mean_over_nodes)
 
-    missing_targets = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays_base, ticks=4, seed=1, n_nodes=8, record=(:acts,))
+    missing_targets = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays, ticks=4, seed=1, n_nodes=8, record=(:acts,))
     @test_throws ArgumentError node_target_error(missing_targets)
 
     @test resolve_analysis(:node_target_error) === node_target_error
@@ -615,7 +615,7 @@ end
     @test BrainlessLab._spectral_radius([2.0 0.0; 0.0 -3.0]) ≈ 3.0
     @test BrainlessLab._spectral_radius([0.0 2.0; 2.0 0.0]) ≈ 2.0
 
-    sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays_base, ticks=120, seed=1, record=(:spectral_radius,), every=10)
+    sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays, ticks=120, seed=1, record=(:spectral_radius,), every=10)
     sr = spectral_radius(sim)
     @test !isempty(sr.series)
     @test all(isfinite, sr.series)
@@ -624,14 +624,14 @@ end
     @test sr.rho isa Float64
     @test length(sr.distribution) == 1
 
-    swarm = BrainlessLabTestUtils.diagnostic_simulate(:torus; node=:falandays_base, ticks=30, seed=6, n_agents=3, n_nodes=10, record=(:spectral_radius,), every=10)
+    swarm = BrainlessLabTestUtils.diagnostic_simulate(:torus; node=:falandays, ticks=30, seed=6, n_agents=3, n_nodes=10, record=(:spectral_radius,), every=10)
     sr_swarm = spectral_radius(swarm)
     @test size(sr_swarm.series, 2) == 3
     @test length(sr_swarm.rho) == 3
     @test length(sr_swarm.distribution) == 3
     @test all(isfinite, sr_swarm.series)
 
-    sim2 = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays_base, ticks=20)
+    sim2 = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays, ticks=20)
     @test haskey(sim2.recorder, :spectral_radius) == false
     @test_throws ArgumentError spectral_radius(sim2)
 
@@ -719,7 +719,7 @@ end
 end
 
 @testset "Second-order level-aware signatures" begin
-    sim = BrainlessLabTestUtils.diagnostic_simulate(:torus; node=:falandays_base, ticks=70, seed=9, n_agents=4, n_nodes=12, record=(:spikes, :rate, :poses, :polarization))
+    sim = BrainlessLabTestUtils.diagnostic_simulate(:torus; node=:falandays, ticks=70, seed=9, n_agents=4, n_nodes=12, record=(:spikes, :rate, :poses, :polarization))
 
     node_sus = BrainlessLab.susceptibility(sim; level=:node)
     agent_sus = BrainlessLab.susceptibility(sim; level=:agent)
@@ -773,7 +773,7 @@ end
 @testset "Swarm regime and correlation length" begin
     valid_labels = (:polarized, :milling, :swarming, :static)
 
-    torus_sim = BrainlessLabTestUtils.diagnostic_simulate(:torus; node=:falandays_base, ticks=70, seed=10, n_agents=5, n_nodes=12, vision_range=15.0, record=(:poses, :polarization, :milling, :rate))
+    torus_sim = BrainlessLabTestUtils.diagnostic_simulate(:torus; node=:falandays, ticks=70, seed=10, n_agents=5, n_nodes=12, vision_range=15.0, record=(:poses, :polarization, :milling, :rate))
     torus_regime = BrainlessLab.swarm_regime(torus_sim)
     @test torus_regime.label in valid_labels
     @test isfinite(torus_regime.polarization)
@@ -791,7 +791,7 @@ end
     @test length(clusters_w.t_centers) == length(clusters_w.n_components)
     @test all(isfinite, clusters_w.mean_component_size)
 
-    forage_sim = BrainlessLabTestUtils.diagnostic_simulate(:forage; node=:falandays_base, ticks=70, seed=11, n_agents=5, n_nodes=12, vision_range=15.0, record=(:poses, :polarization, :milling, :rate))
+    forage_sim = BrainlessLabTestUtils.diagnostic_simulate(:forage; node=:falandays, ticks=70, seed=11, n_agents=5, n_nodes=12, vision_range=15.0, record=(:poses, :polarization, :milling, :rate))
     forage_regime = BrainlessLab.swarm_regime(forage_sim)
     @test forage_regime.label in valid_labels
     @test isfinite(forage_regime.polarization)
@@ -813,19 +813,19 @@ end
 end
 
 @testset "Task performance analyses" begin
-    wall_sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays_base, ticks=40, seed=1, record=(:rate, :poses))
+    wall_sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:falandays, ticks=40, seed=1, record=(:rate, :poses))
     wd = wall_distance(wall_sim)
     @test length(wd) == length(getchannel(wall_sim.recorder, :poses))
     @test all(isfinite, wd)
     @test all(x -> x >= 0.0, wd)
 
-    tracking_sim = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays_base, ticks=40, seed=1, record=(:rate, :scene))
+    tracking_sim = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays, ticks=40, seed=1, record=(:rate, :scene))
     he = heading_error(tracking_sim)
     @test length(he) == length(getchannel(tracking_sim.recorder, :scene))
     @test all(isfinite, he)
     @test all(x -> x >= 0.0, he)
 
-    pong_sim = BrainlessLabTestUtils.diagnostic_simulate(:pong; node=:falandays_base, ticks=40, seed=1, record=(:rate, :scene))
+    pong_sim = BrainlessLabTestUtils.diagnostic_simulate(:pong; node=:falandays, ticks=40, seed=1, record=(:rate, :scene))
     bpd = ball_paddle_distance(pong_sim)
     @test length(bpd) == length(getchannel(pong_sim.recorder, :scene))
     @test all(isfinite, bpd)

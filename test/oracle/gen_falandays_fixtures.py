@@ -138,7 +138,7 @@ def build_base(inputs):
         BASE_SEED,
     )
     data = _snapshot(reservoir, signed=False)
-    data.update(_run_case("base", reservoir, params, inputs, 0.0, 0.0, True))
+    data.update(_run_case("falandays", reservoir, params, inputs, 0.0, 0.0, True))
     return data
 
 
@@ -192,7 +192,7 @@ def build_dale(inputs):
 def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     builders = {
-        "base": build_base,
+        "falandays": build_base,
         "oosawa": build_oosawa,
         "dale": build_dale,
     }
@@ -200,7 +200,8 @@ def main():
     for name, builder in builders.items():
         inputs = _input_stream()
         data = builder(inputs)
-        out_path = OUT_DIR / f"falandays_{name}.npz"
+        filename = "falandays.npz" if name == "falandays" else f"falandays_{name}.npz"
+        out_path = OUT_DIR / filename
         np.savez(out_path, **data)
         print(
             f"{name}: wrote {out_path} "

@@ -16,7 +16,6 @@ using Test
         r"""docs_path\s*=\s*"docs/""",
         r"authors-faithful|authors faithful",
         r"\brun_sweep\b|whole compute surface",
-        r":falandays_base\b",
     )
     offenders = String[]
     for surface in surfaces

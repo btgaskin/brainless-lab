@@ -4,18 +4,18 @@ using Random
 
 @testset "mid-rollout interventions" begin
     @testset "no-op identity (nothing / empty schedule)" begin
-        s0 = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays_base, ticks=60, seed=0)
-        sn = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays_base, ticks=60, seed=0, interventions=nothing)
-        se = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays_base, ticks=60, seed=0, interventions=[])
+        s0 = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays, ticks=60, seed=0)
+        sn = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays, ticks=60, seed=0, interventions=nothing)
+        se = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays, ticks=60, seed=0, interventions=[])
         @test s0.metrics.score == sn.metrics.score
         @test s0.metrics.score == se.metrics.score
         @test s0.config.interventions == ()
     end
 
     @testset "freeze@1 == build-time ablation freeze_plasticity" begin
-        sf1 = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays_base, ticks=80, seed=0,
+        sf1 = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays, ticks=80, seed=0,
                        interventions=[(tick=1, verb=:freeze_plasticity)])
-        sab = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays_base, ticks=80, seed=0, ablation=:freeze_plasticity)
+        sab = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays, ticks=80, seed=0, ablation=:freeze_plasticity)
         @test sf1.metrics.score == sab.metrics.score
         @test sf1.config.interventions == ((1, :freeze_plasticity),)
     end
@@ -23,7 +23,7 @@ using Random
     @testset "freeze freezes recurrent weights and flips learn_on" begin
         setup = BrainlessLabTestUtils.diagnostic_build_ensemble(
             :tracking,
-            :falandays_base;
+            :falandays;
             ticks=80,
             seed=0,
             env_kwargs=(randomize_start=false,),
@@ -38,7 +38,7 @@ using Random
         # control: with learning on, recurrent weights DO change
         setup2 = BrainlessLabTestUtils.diagnostic_build_ensemble(
             :tracking,
-            :falandays_base;
+            :falandays;
             ticks=80,
             seed=0,
             env_kwargs=(randomize_start=false,),
@@ -50,21 +50,21 @@ using Random
     end
 
     @testset "schedule validation + entry forms" begin
-        @test_throws ArgumentError BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays_base, ticks=5,
+        @test_throws ArgumentError BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays, ticks=5,
                                             interventions=[(tick=2, verb=:bogus)])
-        @test_throws ArgumentError BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays_base, ticks=5,
+        @test_throws ArgumentError BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays, ticks=5,
                                             interventions=[(tick=0, verb=:freeze_plasticity)])
-        st = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays_base, ticks=20, seed=0,
+        st = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays, ticks=20, seed=0,
                       interventions=[(3, :clamp_target)])
         @test st.config.interventions == ((3, :clamp_target),)
-        sp = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays_base, ticks=20, seed=0,
+        sp = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays, ticks=20, seed=0,
                       interventions=[5 => :freeze_plasticity])
         @test sp.config.interventions == ((5, :freeze_plasticity),)
     end
 end
 
 @testset "tracking learning-dynamics analyses" begin
-    sim = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays_base, ticks=1200, seed=0,
+    sim = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays, ticks=1200, seed=0,
                    record=(:rate, :spikes, :scene, :percepts))
 
     @testset "object_in_view" begin
@@ -78,7 +78,7 @@ end
         end
         @test resolve_analysis(:object_in_view) === object_in_view
         @test BrainlessLab.analysis_meta(:object_in_view).task === :tracking
-        blind = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays_base, ticks=20, record=(:rate,))
+        blind = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays, ticks=20, record=(:rate,))
         @test_throws ArgumentError object_in_view(blind)
     end
 

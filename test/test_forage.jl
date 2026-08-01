@@ -27,7 +27,7 @@ end
     for conspecific_vision in (true, false)
         sim = BrainlessLabTestUtils.diagnostic_simulate(
             :forage;
-            node=:falandays_base,
+            node=:falandays,
             n_agents=4,
             n_nodes=40,
             ticks=20,
@@ -40,7 +40,7 @@ end
 
         @test sim isa SimResult
         @test sim.task == :forage
-        @test sim.node == :falandays_base
+        @test sim.node == :falandays
         @test sim.config.environment.kind == :forage
         @test sim.config.environment.conspecific_vision == conspecific_vision
         _test_forage_metrics(sim.metrics; ticks=20)
@@ -64,7 +64,7 @@ end
 @testset "Forage receptor banks and blind condition" begin
     setup = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :forage,
-        :falandays_base;
+        :falandays;
         ticks=1,
         seed=11,
         n_agents=2,
@@ -115,7 +115,7 @@ end
 
 @testset "Forage source vision range" begin
     kwargs = (
-        node=:falandays_base,
+        node=:falandays,
         n_agents=4,
         n_nodes=35,
         ticks=16,
@@ -198,7 +198,7 @@ end
 
 @testset "Forage seeded determinism" begin
     kwargs = (
-        node=:falandays_base,
+        node=:falandays,
         n_agents=5,
         n_nodes=35,
         ticks=18,
@@ -221,7 +221,7 @@ end
     effects = (BrainlessLab.Exposure(:social, 0.2),)
     setup = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :forage,
-        :falandays_base;
+        :falandays;
         ticks=1,
         seed=51,
         n_agents=2,
@@ -245,7 +245,7 @@ end
 
     no_bare = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :torus,
-        :falandays_base;
+        :falandays;
         ticks=1,
         seed=52,
         n_agents=2,
@@ -263,7 +263,7 @@ end
     effects = (BrainlessLab.Exposure(:social, 0.2),)
     sim = BrainlessLabTestUtils.diagnostic_simulate(
         :forage;
-        node=:falandays_base,
+        node=:falandays,
         ticks=1,
         seed=53,
         n_agents=2,
@@ -289,7 +289,7 @@ end
     err = try
         BrainlessLabTestUtils.diagnostic_simulate(
             :wall;
-            node=:falandays_base,
+            node=:falandays,
             ticks=1,
             n_nodes=10,
             record=Symbol[],

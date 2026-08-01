@@ -114,12 +114,6 @@ register_node!(
     receptor_profile_keyword=:input_link_p,
 )
 register_node!(
-    :falandays_base,
-    _falandays_native;
-    genome_type=FalandaysParams,
-    receptor_profile_keyword=:input_link_p,
-) # compatibility alias of :falandays
-register_node!(
     :falandays_swarm_legacy,
     _falandays_swarm_legacy_native;
     genome_type=FalandaysParams,

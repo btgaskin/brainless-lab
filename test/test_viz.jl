@@ -27,7 +27,7 @@ using Test
 
     for short_sim in (
         simulate(:wall; node=:falandays, n_nodes=30, ticks=8, window=8, seed=7, record=(:spikes, :rate, :poses)),
-        simulate(:forage; node=:falandays_base, n_agents=3, n_nodes=30, ticks=8, window=8, seed=7,
+        simulate(:forage; node=:falandays, n_agents=3, n_nodes=30, ticks=8, window=8, seed=7,
                  record=(:spikes, :rate, :poses, :polarization, :milling)),
     )
         @test visualize(short_sim; panels=[:raster, :rate, short_sim.task == :forage ? :swarm : :trajectory]) isa Makie.Figure
@@ -58,7 +58,7 @@ using Test
         rec,
         (;),
         :synthetic,
-        :falandays_base,
+        :falandays,
         (environment=(bounds=(0.0, 10.0, 0.0, 10.0),),),
     )
     @test BrainlessLab.swarmplot(physical_sim) isa Makie.Figure

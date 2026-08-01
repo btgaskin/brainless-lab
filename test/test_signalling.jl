@@ -40,7 +40,7 @@ end
 @testset "Signalling reservoir sizing via simulate" begin
     setup = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :forage,
-        :falandays_base;
+        :falandays;
         ticks=3,
         seed=5,
         n_agents=3,
@@ -53,7 +53,7 @@ end
 
     sim = BrainlessLabTestUtils.diagnostic_simulate(
         :forage;
-        node=:falandays_base,
+        node=:falandays,
         ticks=4,
         seed=5,
         n_agents=3,
@@ -68,7 +68,7 @@ end
     @test all(length(eff) == 4 for sample in signal_effectors for eff in sample)
 
     base_kwargs = (
-        node=:falandays_base,
+        node=:falandays,
         ticks=4,
         seed=6,
         n_agents=3,
@@ -125,7 +125,7 @@ end
 @testset "Signalling leaves non-forage torus untouched" begin
     setup = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :torus,
-        :falandays_base;
+        :falandays;
         ticks=1,
         seed=17,
         n_agents=3,

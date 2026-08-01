@@ -6,7 +6,8 @@ const FALANDAYS_ATOL = 1e-9
 const FALANDAYS_MARGIN_EPS = 1e-6
 
 function _falandays_fixture_path(name)
-    return joinpath(@__DIR__, "fixtures", "falandays_$(name).npz")
+    filename = name == "falandays" ? "falandays.npz" : "falandays_$(name).npz"
+    return joinpath(@__DIR__, "fixtures", filename)
 end
 
 function _scalar(data, key::AbstractString)
@@ -109,7 +110,7 @@ function _assert_replay(name)
 end
 
 @testset "Legacy v0.2 Falandays fixture parity" begin
-    for name in ("base", "oosawa", "dale")
+    for name in ("falandays", "oosawa", "dale")
         @testset "$name" begin
             _assert_replay(name)
         end

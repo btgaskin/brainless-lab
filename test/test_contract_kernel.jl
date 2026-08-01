@@ -36,7 +36,7 @@ end
 
 @testset "built-in node capabilities describe their mechanisms" begin
     expected = Dict(
-        :falandays_base => (
+        :falandays => (
             :spiking,
             :online_plasticity,
             :recurrent_weights,
@@ -164,13 +164,13 @@ end
     )
     keyword_spec = CompositionSpec(
         id=:valid_keyword,
-        node=:falandays_base,
+        node=:falandays,
         task=:tracking,
         body=:direct,
         n_nodes=20,
     )
     @test keyword_spec.n_nodes == 20
-    @test node_spec(DEFAULT_REGISTRY, :falandays_base).id === :falandays_base
+    @test node_spec(DEFAULT_REGISTRY, :falandays).id === :falandays
     @test node_spec(DEFAULT_REGISTRY, :falandays_ablated).id === :falandays_ablated
     @test simulate(keyword_spec; ticks=2, window=2, seed=5, record=()) isa SimResult
 

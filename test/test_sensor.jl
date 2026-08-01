@@ -46,9 +46,9 @@ end
 
 @testset "Default sensor: :torus + :forage sims reproduce the no-sensor run" begin
     for task in (:torus, :forage)
-        base = BrainlessLabTestUtils.diagnostic_simulate(task; node=:falandays_base, n_agents=6, n_nodes=40, ticks=50,
+        base = BrainlessLabTestUtils.diagnostic_simulate(task; node=:falandays, n_agents=6, n_nodes=40, ticks=50,
                         seed=7, record=(:poses,), metrics=(:polarization, :milling))
-        withs = BrainlessLabTestUtils.diagnostic_simulate(task; node=:falandays_base, n_agents=6, n_nodes=40, ticks=50,
+        withs = BrainlessLabTestUtils.diagnostic_simulate(task; node=:falandays, n_agents=6, n_nodes=40, ticks=50,
                          seed=7, sensor=BrainlessLab.BearingSensor(), record=(:poses,),
                          metrics=(:polarization, :milling))
         @test getchannel(base.recorder, :poses) == getchannel(withs.recorder, :poses)
@@ -75,7 +75,7 @@ end
     @test_throws ArgumentError BrainlessLab.sense_agents(positions[1], 0.3, positions, 1, r, torus, ang, :bogus, 0.0)
 
     # A :graded sensor forces the graded map through the full sim; default is binary.
-    common = (node=:falandays_base, n_agents=6, n_nodes=40, ticks=40, seed=7, record=(:poses,))
+    common = (node=:falandays, n_agents=6, n_nodes=40, ticks=40, seed=7, record=(:poses,))
     binary_sim = BrainlessLabTestUtils.diagnostic_simulate(:torus; common..., sensor=BrainlessLab.BearingSensor(encoding=:binary))
     graded_sim = BrainlessLabTestUtils.diagnostic_simulate(:torus; common..., sensor=BrainlessLab.BearingSensor(encoding=:graded))
     legacy_graded = BrainlessLabTestUtils.diagnostic_simulate(:torus; common..., sens_agent_dist=1)
@@ -125,7 +125,7 @@ end
     # single-eye spec also runs and matches its width.
     single = BrainlessLab.bearing_eyes(n_eyes=1, eye_offsets_deg=(0.0,), half_fov_deg=60.0, n_per_eye=21)
     @test BrainlessLab.n_sensors(single) == 21
-    sim = BrainlessLabTestUtils.diagnostic_simulate(:torus; node=:falandays_base, n_agents=6, n_nodes=40, ticks=30, seed=7,
+    sim = BrainlessLabTestUtils.diagnostic_simulate(:torus; node=:falandays, n_agents=6, n_nodes=40, ticks=30, seed=7,
                    sensor=single, record=Symbol[], metrics=(:polarization, :milling))
     @test isfinite(sim.metrics.polarization)
     @test isfinite(sim.metrics.milling)
@@ -133,7 +133,7 @@ end
     @test sim.config.environment.sensor.angles_deg == BL.angles_deg(single)
 
     # forage with a non-default sensor runs end-to-end.
-    simf = BrainlessLabTestUtils.diagnostic_simulate(:forage; node=:falandays_base, n_agents=6, n_nodes=40, ticks=30, seed=3,
+    simf = BrainlessLabTestUtils.diagnostic_simulate(:forage; node=:falandays, n_agents=6, n_nodes=40, ticks=30, seed=3,
                     sensor=s, record=Symbol[])
     @test isfinite(simf.metrics.forage_score)
     @test simf.config.environment.sensor.n_sensors == 30

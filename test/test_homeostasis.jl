@@ -329,7 +329,7 @@ end
     @test (n_receptors(resolved), n_effectors(resolved)) == (3, 2)
     sim = BrainlessLabTestUtils.diagnostic_simulate(
         task;
-        node=:falandays_base,
+        node=:falandays,
         n_nodes=8,
         ticks=3,
         seed=2,

@@ -14,7 +14,7 @@ matters for the `authors_*` files in particular, whose names describe what they 
 | Group | Produced by | What it establishes |
 | --- | --- | --- |
 | `authors_{wall,tracking,pong}.jld2` | `test/oracle/authors_falandays.jl` — a Julia transcription **in this repository** | Refactor regression: `src/nodes/Falandays.jl` still matches an independent transcription of the same equations, to 1e-9 |
-| `falandays_{base,dale,oosawa}.npz`, `compartmental_*`, `ablation_*`, `env_*` | `test/oracle/*.py`, against the `crho` Python package in the sibling `v0.2` workspace | Cross-language agreement between the Julia implementation and a prior independent Python implementation, verified to 1e-9 |
+| `falandays.npz`, `falandays_dale.npz`, `falandays_oosawa.npz`, `compartmental_*`, `ablation_*`, `env_*` | `test/oracle/*.py`, against the `crho` Python package in the sibling `v0.2` workspace | Cross-language agreement between the Julia implementation and a prior independent Python implementation, verified to 1e-9 |
 | `single_agent_wall.npz` | same generator | **Construction input only.** Its `metric_*` ground truth is *not* verified — see below |
 | `cma_sphere_trace.npz` | `test/oracle/gen_cma_trace.py`, using `pycma` | Injected-population parity for SepCMA mean and step-size updates, verified to 1e-12 |
 
