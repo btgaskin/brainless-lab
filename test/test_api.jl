@@ -160,7 +160,7 @@ end
 @testset "High-level API variants and tasks" begin
     required_variants = (
         :falandays,
-        :falandays_oosawa,
+        :sorn,
         :compartmental_dense,
         :compartmental_structured,
     )

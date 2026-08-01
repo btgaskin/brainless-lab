@@ -367,14 +367,10 @@ end
         delete!(BrainlessLab.NODES, :profile_aware_test)
     end
 
-    for node in (:falandays_noisy, :falandays_extended, :falandays_ablated)
-        @test BrainlessLab.node_receptor_profile_keyword(node) === :input_link_p
-        @test BrainlessLabTestUtils.diagnostic_simulate(task; node=node, n_nodes=8, ticks=1, seed=2) isa SimResult
-    end
     expected_profile = (0.1, 0.1, 1.0)
     @test BrainlessLabTestUtils.diagnostic_simulate(
         task;
-        node=:falandays_noisy,
+        node=:falandays,
         n_nodes=8,
         ticks=1,
         seed=2,
@@ -382,7 +378,7 @@ end
     ) isa SimResult
     @test_throws ArgumentError BrainlessLabTestUtils.diagnostic_simulate(
         task;
-        node=:falandays_noisy,
+        node=:falandays,
         n_nodes=8,
         ticks=1,
         seed=2,

@@ -70,7 +70,4 @@
     @test BrainlessLab.sigmoid(0.0) ≈ 0.5
     @test BrainlessLab.mapped_tau(-1000.0) >= BrainlessLab.TAU_MIN
     @test isfinite(BrainlessLab.mapped_tau(1000.0))
-
-    # The oracle suite owns the corresponding build-and-run check.
-    @test :falandays_extended in variants()
 end

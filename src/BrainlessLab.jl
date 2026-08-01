@@ -45,11 +45,7 @@ include("world/SectorVision.jl")
 include("world/Homeostasis.jl")
 include("nodes/SpikeHistory.jl")
 include("nodes/Falandays.jl")
-include("nodes/Dendritic.jl")
 include("nodes/SORN.jl")
-include("nodes/Spatial.jl")
-include("nodes/Delays.jl")
-include("nodes/NoisyInput.jl")
 include("nodes/Compartmental.jl")
 include("nodes/Wiring.jl")
 include("nodes/CompartmentalReservoir.jl")
@@ -113,40 +109,6 @@ register_node!(
     genome_type=FalandaysParams,
     receptor_profile_keyword=:input_link_p,
 )
-register_node!(
-    :falandays_swarm_legacy,
-    _falandays_swarm_legacy_native;
-    genome_type=FalandaysParams,
-    receptor_profile_keyword=:input_link_p,
-)
-register_node!(
-    :falandays_noisy,
-    _falandays_noisy_native;
-    genome_type=FalandaysParams,
-    receptor_profile_keyword=:input_link_p,
-)
-register_node!(
-    :falandays_extended,
-    _falandays_extended_native;
-    genome_type=FalandaysParams,
-    receptor_profile_keyword=:input_link_p,
-)
-register_node!(
-    :falandays_ablated,
-    _falandays_ablated_native;
-    genome_type=FalandaysParams,
-    receptor_profile_keyword=:input_link_p,
-)
-register_node!(:falandays_hemispheric, _falandays_hemispheric_native; genome_type=FalandaysParams)
-register_node!(
-    :falandays_oosawa,
-    _falandays_oosawa_native;
-    genome_type=FalandaysParams,
-    receptor_profile_keyword=:input_link_p,
-)
-register_node!(:falandays_dendritic, _falandays_dendritic_native; genome_type=FalandaysParams)
-register_node!(:falandays_spatial, _falandays_spatial_native; genome_type=FalandaysParams)
-register_node!(:falandays_delayed, _falandays_delayed_native; genome_type=FalandaysParams)
 register_node!(:sorn, _sorn_native; genome_type=SORNParams)
 register_node!(:compartmental_dense, _compartmental_dense_native; genome_type=DenseCompartmental)
 register_node!(:compartmental_structured, _compartmental_structured_native; genome_type=StructuredCompartmental)

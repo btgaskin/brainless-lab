@@ -44,77 +44,6 @@ end
             :model_design,
             :receptor_profile,
         ),
-        :falandays_noisy => (
-            :spiking,
-            :online_plasticity,
-            :recurrent_weights,
-            :homeostatic_target,
-            :sensory_noise,
-            :model_design,
-            :receptor_profile,
-        ),
-        :falandays_ablated => (
-            :spiking,
-            :online_plasticity,
-            :recurrent_weights,
-            :homeostatic_target,
-            :clamped_homeostatic_target,
-            :model_design,
-            :receptor_profile,
-        ),
-        :falandays_extended => (
-            :spiking,
-            :online_plasticity,
-            :recurrent_weights,
-            :homeostatic_target,
-            :sensory_noise,
-            :small_world_topology,
-            :signed_weights,
-            :model_design,
-            :receptor_profile,
-        ),
-        :falandays_hemispheric => (
-            :spiking,
-            :online_plasticity,
-            :recurrent_weights,
-            :homeostatic_target,
-            :hemispheric_topology,
-            :model_design,
-        ),
-        :falandays_oosawa => (
-            :spiking,
-            :online_plasticity,
-            :recurrent_weights,
-            :homeostatic_target,
-            :endogenous_drive,
-            :model_design,
-            :receptor_profile,
-        ),
-        :falandays_dendritic => (
-            :spiking,
-            :online_plasticity,
-            :recurrent_weights,
-            :homeostatic_target,
-            :dendritic_eligibility,
-            :model_design,
-        ),
-        :falandays_spatial => (
-            :spiking,
-            :online_plasticity,
-            :recurrent_weights,
-            :homeostatic_target,
-            :spatial_topology,
-            :model_design,
-        ),
-        :falandays_delayed => (
-            :spiking,
-            :online_plasticity,
-            :recurrent_weights,
-            :homeostatic_target,
-            :spatial_topology,
-            :conduction_delays,
-            :model_design,
-        ),
         :sorn => (
             :spiking,
             :online_plasticity,
@@ -171,7 +100,6 @@ end
     )
     @test keyword_spec.n_nodes == 20
     @test node_spec(DEFAULT_REGISTRY, :falandays).id === :falandays
-    @test node_spec(DEFAULT_REGISTRY, :falandays_ablated).id === :falandays_ablated
     @test simulate(keyword_spec; ticks=2, window=2, seed=5, record=()) isa SimResult
 
     visual_error = try
@@ -253,7 +181,7 @@ end
             expected=false,
         ),
         (
-            node=:falandays_spatial,
+            node=:falandays,
             ablation=:clamp_target,
             parameter=:lrate_targ,
             expected=0.0,

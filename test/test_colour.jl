@@ -146,7 +146,7 @@ end
 end
 
 @testset "Coloured simulate runs and segregation computes" begin
-    sim = simulate(:torus; node=:falandays_oosawa, n_agents=12, n_nodes=60, ticks=60, window=60, seed=1,
+    sim = simulate(:torus; node=:falandays, n_agents=12, n_nodes=60, ticks=60, window=60, seed=1,
                    space_size=30.0, vision_range=18.0, n_colours=3, colour_sensing=true,
                    record=[:poses], metrics=:segregation)
     @test sim isa SimResult
@@ -158,7 +158,7 @@ end
     @test -1.0 <= sim.metrics.assortativity <= 1.0
 
     # Colour-blind control (colours assigned, sensing off) is the natural null.
-    ctrl = simulate(:torus; node=:falandays_oosawa, n_agents=12, n_nodes=60, ticks=60, window=60, seed=1,
+    ctrl = simulate(:torus; node=:falandays, n_agents=12, n_nodes=60, ticks=60, window=60, seed=1,
                     space_size=30.0, vision_range=18.0, n_colours=3, colour_sensing=false,
                     record=[:poses], metrics=:segregation)
     @test ctrl.config.environment.colour_sensing == false

@@ -46,9 +46,9 @@ end
         _test_forage_metrics(sim.metrics; ticks=20)
     end
 
-    oosawa = BrainlessLabTestUtils.diagnostic_simulate(
+    alternative = BrainlessLabTestUtils.diagnostic_simulate(
         :forage;
-        node=:falandays_oosawa,
+        node=:sorn,
         n_agents=3,
         n_nodes=30,
         ticks=8,
@@ -57,8 +57,8 @@ end
         source_gain=1.0,
         record=Symbol[],
     )
-    @test oosawa.node == :falandays_oosawa
-    _test_forage_metrics(oosawa.metrics; ticks=8)
+    @test alternative.node == :sorn
+    _test_forage_metrics(alternative.metrics; ticks=8)
 end
 
 @testset "Forage receptor banks and blind condition" begin

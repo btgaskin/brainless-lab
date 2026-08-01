@@ -179,15 +179,12 @@ end
     )
 
     @test actual_exports == expected_exports
-    @test length(public_only) == 505
+    @test length(public_only) == 488
     @test all(name -> name in public_only, (
         :explore,
         :Evolution,
         :SORNReservoir,
         :CompartmentalReservoir,
-        :DendriticReservoir,
-        :SpatialConnectome,
-        :DelayedConnectome,
         :Embodiment,
         :SpectralCamera,
         :RegulatedPhysiology,

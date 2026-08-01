@@ -89,26 +89,6 @@ function _generic_registered_node_capabilities(id::Symbol, genome, design)
             capabilities,
             (:spiking, :online_plasticity, :recurrent_weights, :homeostatic_target),
         )
-        variant = if id === :falandays_noisy
-            (:sensory_noise,)
-        elseif id === :falandays_extended
-            (:sensory_noise, :small_world_topology, :signed_weights)
-        elseif id === :falandays_ablated
-            (:clamped_homeostatic_target,)
-        elseif id === :falandays_hemispheric
-            (:hemispheric_topology,)
-        elseif id === :falandays_oosawa
-            (:endogenous_drive,)
-        elseif id === :falandays_dendritic
-            (:dendritic_eligibility,)
-        elseif id === :falandays_spatial
-            (:spatial_topology,)
-        elseif id === :falandays_delayed
-            (:spatial_topology, :conduction_delays)
-        else
-            ()
-        end
-        append!(capabilities, variant)
     elseif id === :sorn
         append!(
             capabilities,
