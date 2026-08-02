@@ -177,57 +177,73 @@ function Evolution.write_models(
     path = joinpath(record_directory, "models")
     ispath(path) && throw(ArgumentError("model artifact path already exists: $(path)"))
     entries = _evolution_model_entries(models, design)
-    mkpath(path)
-    coordinates_path = joinpath(path, "coordinates.csv")
-    open(coordinates_path, "w") do io
-        println(io, "model_id,coordinate,value")
-        for entry in entries, coordinate in eachindex(entry.coordinates)
-            println(
-                io,
-                entry.model_id,
-                ',',
-                coordinate,
-                ',',
-                repr(entry.coordinates[coordinate]),
-            )
-        end
-    end
-    coordinates_sha256 = _evolution_sha256(coordinates_path)
-
-    index_path = joinpath(path, "models.csv")
-    open(index_path, "w") do io
-        println(io, "model_id,role,coordinate_count")
-        for entry in entries
-            println(io, entry.model_id, ',', entry.role, ',', length(entry.coordinates))
-        end
-    end
-    index_sha256 = _evolution_sha256(index_path)
-
-    schema_path = joinpath(path, "schema.toml")
-    document = Dict{String,Any}(
-        "format" => _EVOLUTION_MODEL_FORMAT,
-        "format_version" => _EVOLUTION_MODEL_FORMAT_VERSION,
-        "node" => String(node),
-        "model_index" => "models.csv",
-        "model_index_sha256" => index_sha256,
-        "coordinates" => "coordinates.csv",
-        "coordinates_sha256" => coordinates_sha256,
-        "design" => _evolution_design_document(design),
+    mkpath(record_directory)
+    normal_record = normpath(record_directory)
+    staging = joinpath(
+        dirname(normal_record),
+        string(
+            ".",
+            basename(normal_record),
+            "-models-staging-",
+            string(time_ns(); base=16),
+        ),
     )
-    open(schema_path, "w") do io
-        TOML.print(io, document; sorted=true)
-    end
-    schema_sha256 = _evolution_sha256(schema_path)
-    return [
-        Evolution.ModelReference(
-            portable_record,
-            entry.model_id,
-            node,
-            schema_sha256,
-            coordinates_sha256,
+    mkpath(staging)
+    try
+        coordinates_path = joinpath(staging, "coordinates.csv")
+        open(coordinates_path, "w") do io
+            println(io, "model_id,coordinate,value")
+            for entry in entries, coordinate in eachindex(entry.coordinates)
+                println(
+                    io,
+                    entry.model_id,
+                    ',',
+                    coordinate,
+                    ',',
+                    repr(entry.coordinates[coordinate]),
+                )
+            end
+        end
+        coordinates_sha256 = _evolution_sha256(coordinates_path)
+
+        index_path = joinpath(staging, "models.csv")
+        open(index_path, "w") do io
+            println(io, "model_id,role,coordinate_count")
+            for entry in entries
+                println(io, entry.model_id, ',', entry.role, ',', length(entry.coordinates))
+            end
+        end
+        index_sha256 = _evolution_sha256(index_path)
+
+        schema_path = joinpath(staging, "schema.toml")
+        document = Dict{String,Any}(
+            "format" => _EVOLUTION_MODEL_FORMAT,
+            "format_version" => _EVOLUTION_MODEL_FORMAT_VERSION,
+            "node" => String(node),
+            "model_index" => "models.csv",
+            "model_index_sha256" => index_sha256,
+            "coordinates" => "coordinates.csv",
+            "coordinates_sha256" => coordinates_sha256,
+            "design" => _evolution_design_document(design),
         )
-        for entry in entries
-    ]
+        open(schema_path, "w") do io
+            TOML.print(io, document; sorted=true)
+        end
+        schema_sha256 = _evolution_sha256(schema_path)
+        mv(staging, path)
+        return [
+            Evolution.ModelReference(
+                portable_record,
+                entry.model_id,
+                node,
+                schema_sha256,
+                coordinates_sha256,
+            )
+            for entry in entries
+        ]
+    finally
+        ispath(staging) && rm(staging; recursive=true)
+    end
 end
 
 function _evolution_split_csv_line(line::AbstractString, columns::Int, context)

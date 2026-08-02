@@ -77,6 +77,39 @@ end
     @test report.strategy === :sepcma
     @test report.models == ("selected",)
     @test only(report.heldout).target === :tracking_heldout
+
+    heldout_evaluation = only(result.heldout)
+    @test only(output.heldout_trials).measure_value ==
+          only(heldout_evaluation.values)
+    pop!(heldout_evaluation.values)
+    @test_throws ArgumentError BrainlessLab.tables(result)
+end
+
+@testset "minimisation convergence orients best and worst scores" begin
+    candidates = BrainlessLab.EvolutionCandidate[
+        BrainlessLab.EvolutionCandidate(
+            1,
+            id,
+            Float64[],
+            true,
+            BrainlessLab.EvolutionEvaluation[
+                BrainlessLab.EvolutionEvaluation(
+                    :target,
+                    :distance_window,
+                    Union{Missing,Float64}[score],
+                    score,
+                    nothing,
+                    NamedTuple[],
+                    NamedTuple[],
+                ),
+            ],
+        )
+        for (id, score) in enumerate((3.0, 1.0, 2.0))
+    ]
+    generation = only(BrainlessLab._convergence(candidates, 1, :minimise))
+    @test only(generation.score_best) == 1.0
+    @test only(generation.score_mean) == 2.0
+    @test only(generation.score_worst) == 3.0
 end
 
 @testset "evolution validation keeps the experimental boundary explicit" begin

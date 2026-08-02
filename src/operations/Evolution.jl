@@ -344,7 +344,11 @@ end
 function _convergence(
     candidates::Vector{EvolutionCandidate},
     n_targets::Integer,
+    direction::Symbol,
 )
+    direction in (:maximise, :minimise) || throw(ArgumentError(
+        "evolution direction must be :maximise or :minimise",
+    ))
     output = EvolutionGeneration[]
     iterations = sort!(unique(candidate.iteration for candidate in candidates))
     for iteration in iterations
@@ -367,9 +371,10 @@ function _convergence(
                 push!(mean_, missing)
                 push!(worst, missing)
             else
-                push!(best, maximum(scores))
+                score_minimum, score_maximum = extrema(scores)
+                push!(best, direction === :maximise ? score_maximum : score_minimum)
                 push!(mean_, sum(scores) / length(scores))
-                push!(worst, minimum(scores))
+                push!(worst, direction === :maximise ? score_minimum : score_maximum)
             end
         end
         push!(output, EvolutionGeneration(
@@ -490,7 +495,11 @@ function execute(
         state_,
         strategy_outcome,
         history,
-        _convergence(history, length(plan.plan.training_targets)),
+        _convergence(
+            history,
+            length(plan.plan.training_targets),
+            plan.run.direction,
+        ),
         models,
         Evolution.ModelReference[],
         heldout,
@@ -570,11 +579,18 @@ function tables(result::EvolutionResult)
         for model in result.models
     ]
     heldout_trials = NamedTuple[]
-    for evaluation in result.heldout, row in evaluation.trial_rows
-        push!(heldout_trials, merge(
-            (phase=:heldout, heldout_target=evaluation.target),
-            row,
-        ))
+    for evaluation in result.heldout
+        length(evaluation.trial_rows) == length(evaluation.values) ||
+            throw(ArgumentError(
+                "evolution trial rows and measure values must have equal lengths",
+            ))
+        for (row, value) in zip(evaluation.trial_rows, evaluation.values)
+            push!(heldout_trials, merge(
+                (phase=:heldout, heldout_target=evaluation.target),
+                row,
+                (measure_value=value,),
+            ))
+        end
     end
     heldout = [
         begin

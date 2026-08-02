@@ -21,6 +21,7 @@ record-id/
 ├── record.toml
 ├── request.toml
 ├── resolved.toml
+├── environment/Manifest.toml
 ├── seeds.csv
 ├── data/
 ├── summary/
@@ -30,14 +31,15 @@ record-id/
 ```
 
 `request.toml` preserves the submitted plan. `resolved.toml` records all defaults and
-settings that ran. `seeds.csv` is the realised seed ledger.
+settings that ran. `environment/Manifest.toml` preserves the exact dependency resolution.
+`seeds.csv` is the realised seed ledger.
 
 CSV files are the authoritative tables. `summary/summary.json` supports other tools. The
 HTML report presents the same typed result for a reader.
 
 `record.toml` stores the package and Julia versions, the Manifest SHA-256 digest, Git
-revision and state, artifact inventory, and artifact checksums. A failed write contains
-`FAILED` instead of `DONE`.
+revision and state, artifact inventory, and artifact checksums. The inventory includes the
+resolved Manifest and its checksum. A failed write contains `FAILED` instead of `DONE`.
 
 ## Public contribution records
 

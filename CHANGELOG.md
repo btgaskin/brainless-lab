@@ -79,11 +79,10 @@ This release is breaking. Scores computed with 0.2.0 do not carry over.
   this repository's own CI to one resolution out of the range the package claims to
   support. All eight dependencies and every test extra carry compat bounds, and CI already
   deleted the manifest and re-resolved on every run.
-- Reproducibility is unaffected and was never carried by the manifest: each record stores
-  its Julia version, git revision, artifact inventory and SHA-256 checksums. That is
-  per-result provenance. A single tracked manifest drifts with the branch, so the one at
-  HEAD is not the one that produced an older record -- the same shape of false assurance
-  that made the version-one benchmark record unreproducible.
+- Each record now stores its resolved dependency graph as
+  `environment/Manifest.toml`. The record inventory and checksums seal that file with the
+  other artifacts. A single tracked Manifest would drift with the branch, while the
+  per-record copy preserves the resolution that produced that result.
 
 ## 0.2.0 — 2026-07-22
 

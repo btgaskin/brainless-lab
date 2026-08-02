@@ -165,6 +165,7 @@ record-id/
 ├── record.toml
 ├── request.toml
 ├── resolved.toml
+├── environment/Manifest.toml
 ├── seeds.csv
 ├── data/trials.csv
 ├── data/task_metrics.csv
@@ -178,7 +179,8 @@ record-id/
 ```
 
 `request.toml` preserves the input plan. `resolved.toml` records all defaults and operation
-settings used by the executor. `record.toml` inventories generated files and their
+settings used by the executor. `environment/Manifest.toml` preserves the exact dependency
+resolution used by the executor. `record.toml` inventories generated files and their
 SHA-256 checksums. CSV tables are authoritative.
 
 If execution or record generation fails, the bundle contains `FAILED` instead of `DONE`.
