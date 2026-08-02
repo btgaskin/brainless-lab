@@ -26,6 +26,7 @@ function _record_evolution_plan(
     node=:compartmental_structured,
     measure=:normalized_score,
 )
+    horizon = task === :tracking ? 2000 : task === :pong ? 6000 : 200
     composition = CompositionSpec(
         Symbol("record_$(node)_$(task)"),
         node,
@@ -36,7 +37,7 @@ function _record_evolution_plan(
         Symbol("$(task)_development"),
         composition,
         EvaluationSpec(
-            horizon=1,
+            horizon=horizon,
             root_seed=404,
             aggregate=:mean,
         ),
@@ -45,7 +46,7 @@ function _record_evolution_plan(
         Symbol("$(task)_confirmation"),
         composition,
         EvaluationSpec(
-            horizon=1,
+            horizon=horizon,
             root_seed=505,
             aggregate=:mean,
         ),
@@ -129,6 +130,9 @@ end
         "generation-00000001",
         "generation-00000002",
     ]
+    partial_models = joinpath(directory, "models")
+    mkpath(partial_models)
+    write(joinpath(partial_models, "schema.toml"), "format = \"partial\"\n")
     BrainlessLab._write_partial_evolution_state(
         directory,
         filter(candidate -> candidate.iteration <= 3, uninterrupted.candidates),
@@ -144,6 +148,9 @@ end
         BrainlessLab.summary(resumed.result),
         BrainlessLab.summary(uninterrupted),
     )
+    resumed_tables = BrainlessLab.tables(resumed.result)
+    @test only(resumed_tables.heldout_trials).measure_value ==
+          only(only(resumed.result.heldout).values)
     @test length(resumed.result.candidates) == 8
     @test sort(readdir(joinpath(directory, "checkpoints"))) == [
         "generation-00000003",
@@ -158,6 +165,8 @@ end
     @test isfile(joinpath(directory, "DONE"))
     @test !isfile(joinpath(directory, "INCOMPLETE"))
     @test !isfile(joinpath(directory, "FAILED"))
+    @test Set(readdir(partial_models)) ==
+          Set(("schema.toml", "models.csv", "coordinates.csv"))
 end
 
 function _record_anchor_benchmark_plan()
@@ -190,6 +199,7 @@ end
         "record.toml",
         "request.toml",
         "resolved.toml",
+        "environment/Manifest.toml",
         "seeds.csv",
         "data/trials.csv",
         "data/task_metrics.csv",
@@ -210,14 +220,17 @@ end
     @test metadata["kind"] == "sweep"
     @test metadata["git_state"] in ("clean", "dirty", "unknown")
     @test metadata["git_sha"] != "unknown"
-    expected_manifest_digest = open(
-        joinpath(@__DIR__, "..", "Manifest.toml"),
-        "r",
-    ) do io
+    source_manifest = joinpath(@__DIR__, "..", "Manifest.toml")
+    recorded_manifest = joinpath(directory, "environment", "Manifest.toml")
+    @test read(recorded_manifest) == read(source_manifest)
+    expected_manifest_digest = open(source_manifest, "r") do io
         bytes2hex(SHA.sha256(io))
     end
     @test metadata["manifest_sha256"] == expected_manifest_digest
     @test Set(metadata["artifacts"]) == Set(keys(metadata["artifact_sha256"]))
+    @test "environment/Manifest.toml" in metadata["artifacts"]
+    @test metadata["artifact_sha256"]["environment/Manifest.toml"] ==
+          expected_manifest_digest
     @test "data/sweep_cells.csv" in metadata["artifacts"]
     for artifact in metadata["artifacts"]
         digest = open(joinpath(directory, artifact), "r") do io
@@ -389,8 +402,8 @@ end
 
 
 @testset "evolution records retain candidate trials and seeds" begin
-    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
-    plan = _record_evolution_plan()
+    registry = BrainlessLabTestUtils.diagnostic_registry((:wall,))
+    plan = _record_evolution_plan(task=:wall)
     run = run_operation(
         plan;
         registry,
@@ -414,6 +427,11 @@ end
     report = read(joinpath(directory, "report", "index.html"), String)
     @test occursin("development", seeds)
     @test occursin("heldout", seeds)
+    heldout_header = first(split(
+        read(joinpath(directory, "data", "heldout_trials.csv"), String),
+        '\n',
+    ))
+    @test "measure_value" in split(heldout_header, ',')
     @test occursin("Cells are development results, not confirmed optima", report)
 end
 

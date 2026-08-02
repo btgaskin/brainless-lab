@@ -113,6 +113,7 @@ record-id/
 ├── record.toml
 ├── request.toml
 ├── resolved.toml
+├── environment/Manifest.toml
 ├── seeds.csv
 ├── data/
 ├── summary/
@@ -123,6 +124,7 @@ record-id/
 
 `request.toml` preserves the plan. `resolved.toml` records node defaults, task and body
 options, interaction timing, evaluation settings, and operation-specific resolution.
+`environment/Manifest.toml` preserves the exact dependency resolution used for the run.
 `record.toml` inventories generated files and their SHA-256 checksums. CSV files are the
 authoritative tables; HTML is a readable report over those data.
 

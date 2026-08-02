@@ -4,6 +4,7 @@ using TOML
 
 const RECORD_FORMAT = "brainlesslab-record"
 const RECORD_FORMAT_VERSION = 1
+const _RECORD_MANIFEST_ARTIFACT = joinpath("environment", "Manifest.toml")
 
 operation_kind(::ProfilePlan) = :profile
 operation_kind(::SweepPlan) = :sweep
@@ -32,14 +33,41 @@ function _record_git()
         "unknown"
     end
     manifest_path = joinpath(root, "Manifest.toml")
-    manifest_sha256 = if isfile(manifest_path)
-        open(manifest_path, "r") do io
-            bytes2hex(SHA.sha256(io))
+    isfile(manifest_path) || throw(ArgumentError(
+        "recording requires a resolved Manifest.toml; run " *
+        "`julia --project=. -e 'using Pkg; Pkg.instantiate()'` first",
+    ))
+    manifest = read(manifest_path)
+    manifest_sha256 = bytes2hex(SHA.sha256(manifest))
+    return (;
+        sha,
+        state,
+        manifest_sha256,
+        manifest,
+    )
+end
+
+function _write_record_manifest(directory::AbstractString, git)
+    bytes2hex(SHA.sha256(git.manifest)) == git.manifest_sha256 ||
+        throw(ArgumentError("resolved manifest does not match its recorded digest"))
+    path = joinpath(directory, _RECORD_MANIFEST_ARTIFACT)
+    islink(path) && throw(ArgumentError(
+        "record manifest path must not be a symbolic link",
+    ))
+    mkpath(dirname(path))
+    staging = joinpath(
+        dirname(path),
+        string(".", basename(path), ".staging-", string(time_ns(); base=16)),
+    )
+    try
+        open(staging, "w") do io
+            write(io, git.manifest)
         end
-    else
-        "missing"
+        mv(staging, path; force=true)
+    finally
+        ispath(staging) && rm(staging)
     end
-    return (sha=sha, state=state, manifest_sha256=manifest_sha256)
+    return path
 end
 
 function _csv_escape(value)
@@ -815,6 +843,54 @@ function _resolved_document(
     )
 end
 
+function _write_or_reuse_evolution_models(
+    directory::AbstractString,
+    result::EvolutionResult,
+)
+    path = joinpath(directory, "models")
+    expected_ids = Set(model.model_id for model in result.models)
+    if islink(path)
+        throw(ArgumentError("model record models/ must not be a symbolic link"))
+    elseif ispath(path)
+        isdir(path) || throw(ArgumentError(
+            "model artifact path is not a directory: $(path)",
+        ))
+        references = try
+            index = _evolution_read_index(joinpath(path, "models.csv"))
+            Set(keys(index)) == expected_ids || throw(ArgumentError(
+                "model artifact index does not match the completed result",
+            ))
+            restored = [
+                Evolution.model_reference(directory, model.model_id)
+                for model in result.models
+            ]
+            all(reference -> reference.node === result.plan.node.id, restored) ||
+                throw(ArgumentError(
+                    "model artifact node does not match the completed result",
+                ))
+            restored
+        catch error
+            error isa InterruptException && rethrow()
+            nothing
+        end
+        references === nothing || return references
+        rm(path; recursive=true)
+    end
+    return Evolution.write_models(
+        directory,
+        result.plan.node.id,
+        result.plan.design,
+        [
+            (
+                model_id=model.model_id,
+                role=model.role,
+                model=model.model,
+            )
+            for model in result.models
+        ],
+    )
+end
+
 function _write_record_contents(
     directory::AbstractString,
     plan::AbstractOperationPlan,
@@ -826,6 +902,7 @@ function _write_record_contents(
     mkpath(joinpath(directory, "summary"))
     mkpath(joinpath(directory, "figures"))
     mkpath(joinpath(directory, "report"))
+    _write_record_manifest(directory, git)
 
     write_plan(joinpath(directory, "request.toml"), plan)
     open(joinpath(directory, "resolved.toml"), "w") do io
@@ -875,26 +952,7 @@ function _write_record_contents(
     _render_report(joinpath(directory, "report", "index.html"), plan, result, registry)
 
     if result isa EvolutionResult
-        references = if isdir(joinpath(directory, "models"))
-            [
-                Evolution.model_reference(directory, model.model_id)
-                for model in result.models
-            ]
-        else
-            Evolution.write_models(
-                directory,
-                result.plan.node.id,
-                result.plan.design,
-                [
-                    (
-                        model_id=model.model_id,
-                        role=model.role,
-                        model=model.model,
-                    )
-                    for model in result.models
-                ],
-            )
-        end
+        references = _write_or_reuse_evolution_models(directory, result)
         empty!(result.model_references)
         append!(result.model_references, references)
     end
@@ -1485,6 +1543,7 @@ function _write_incomplete_record_manifest(
     plan::EvolutionPlan,
     git,
 )
+    _write_record_manifest(directory, git)
     artifacts = String[]
     checksums = Dict{String,String}()
     for (root, _, files) in walkdir(directory), file in sort(files)
