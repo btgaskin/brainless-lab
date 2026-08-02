@@ -108,7 +108,8 @@ A plan is rejected when this interval falls below the task's `minimum_scored_tic
 block, or once per trial. See [Evaluation](/handbook/evaluation/).
 
 <strong id="reset-policy">reset policy</strong> — What is reset between trials. The policies are `:full`,
-`:body_environment`, and `:none`. See [Evaluation](/handbook/evaluation/).
+`:body_environment`, and `:none`. Generic operation plans currently support only `:full`.
+See [Evaluation](/handbook/evaluation/).
 
 <strong id="seed-stream">seed stream</strong> — A named random stream derived from the evaluation root seed. The default
 streams are `:topology` and `:world`; declare another only when an implementation consumes

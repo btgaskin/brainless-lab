@@ -118,6 +118,77 @@ end
     end
 end
 
+@testset "operation plans reject unsupported resets during validation" begin
+    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
+    evaluation = EvaluationSpec(
+        horizon=4,
+        reset=:none,
+        root_seed=19,
+        aggregate=:mean,
+    )
+    tracking = EvaluationTarget(
+        :retained_tracking,
+        CompositionSpec(
+            :retained_tracking,
+            :falandays,
+            :tracking;
+            n_nodes=8,
+        ),
+        evaluation,
+    )
+    evolution_target = EvaluationTarget(
+        :retained_tracking,
+        CompositionSpec(
+            :retained_tracking,
+            :compartmental_structured,
+            :tracking;
+            n_nodes=2,
+        ),
+        evaluation,
+    )
+    run = BrainlessLab.Evolution.RunConfig(
+        strategy=:sepcma,
+        iterations=1,
+        search_seed=23,
+        initialisation=BrainlessLab.Evolution.NormalInitialisation(
+            centre=:zero,
+            scale=0.1,
+        ),
+        options=(population=2, reducer=:mean,),
+    )
+    plans = (
+        ProfilePlan(:retained_profile, tracking; analyses=()),
+        SweepPlan(
+            :retained_sweep,
+            tracking;
+            axes=(BrainlessLab.SweepAxis(:leak, (0.25, 0.5)),),
+        ),
+        AblationPlan(
+            :retained_ablation,
+            tracking;
+            ablations=(:freeze_plasticity,),
+        ),
+        BenchmarkPlan(
+            :retained_benchmark,
+            (BrainlessLab.BenchmarkCasePlan(:tracking, (tracking,)),),
+        ),
+        EvolutionPlan(:retained_evolution, (evolution_target,); run),
+    )
+
+    for plan in plans, operation in (validate, resolve)
+        error = try
+            operation(plan, registry)
+            nothing
+        catch caught
+            caught
+        end
+        @test error isa ArgumentError
+        @test sprint(showerror, error) ==
+              "ArgumentError: operation plan target :retained_tracking must use " *
+              "reset=:full; generic evaluation does not support reset=:none"
+    end
+end
+
 @testset "evolution plans reject starved scored targets during validation" begin
     # validate(::EvolutionPlan) lives in src/operations/Evolution.jl rather than
     # alongside the other operation validators, so it was the one path where a

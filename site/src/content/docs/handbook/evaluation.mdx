@@ -34,7 +34,9 @@ Use blocks to pair declared conditions under shared nuisance randomisation. Use
 ## Construction and reset
 
 `construction_scope` controls whether topology is constructed once per evaluation, block,
-or trial. `reset` controls what is reset between trials.
+or trial. `reset` controls what is reset between trials. Generic operation plans currently
+support only `reset=:full`; `check` rejects `:body_environment` and `:none` before a run
+starts because their state-retention hooks are not implemented.
 
 `warmup` runs before recording and scoring. The scored duration is `horizon - warmup`.
 Choose both values from the task timescale, not from compute convenience alone.

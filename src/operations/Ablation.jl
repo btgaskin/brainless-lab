@@ -65,7 +65,7 @@ function validate(plan::AblationPlan, registry::RegistrySet)
             plan.target.composition,
         )
     end
-    return _validate_plan_scoring_intervals(plan, registry)
+    return _validate_plan_evaluations(plan, registry)
 end
 
 function _apply_composition_ablation(

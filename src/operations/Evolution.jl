@@ -95,9 +95,6 @@ function _validate_evolution_target(
     target.model === nothing || throw(ArgumentError(
         "$(label) target :$(target.id) must not pre-bind a model during search",
     ))
-    target.evaluation.reset === :full || throw(ArgumentError(
-        "$(label) target :$(target.id) must use reset=:full",
-    ))
     target.evaluation.aggregate === :none && throw(ArgumentError(
         "$(label) target :$(target.id) must declare a scalar aggregation policy",
     ))
@@ -159,10 +156,7 @@ function validate(plan::EvolutionPlan, registry::RegistrySet)
         ))
     end
     _resolved_run_config(plan.run, node, design)
-    # Every other operation validator calls this. Evolution's lives in a
-    # different file, so it was the one path where a plan whose scored interval
-    # falls below a task's minimum still validated and failed at execution.
-    _validate_plan_scoring_intervals(plan, registry)
+    _validate_plan_evaluations(plan, registry)
     return plan
 end
 

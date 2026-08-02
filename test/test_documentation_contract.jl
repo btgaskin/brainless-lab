@@ -121,6 +121,44 @@ target = "missing"
         @test !occursin("_require_document_keys", message)
     end
 
+    mktemp() do path, io
+        write(io, """
+format = "brainlesslab-plan"
+format_version = 2
+operation = "profile"
+id = "unsupported_reset"
+
+[[targets]]
+id = "wall"
+
+[targets.composition]
+id = "null_wall"
+node = "null_random"
+task = "wall"
+n_nodes = 5
+
+[targets.evaluation]
+horizon = 200
+reset = "none"
+
+[profile]
+target = "wall"
+analyses = []
+""")
+        flush(io)
+        errors = IOBuffer()
+        code = Base.invokelatest(
+            cli.cli_main,
+            ["check", path];
+            error_io=errors,
+        )
+        message = String(take!(errors))
+        @test code == 1
+        @test message ==
+              "error: ArgumentError: operation plan target :wall must use " *
+              "reset=:full; generic evaluation does not support reset=:none\n"
+    end
+
     mktemp() do plan_path, plan_io
         write(plan_io, """
 format = "brainlesslab-plan"

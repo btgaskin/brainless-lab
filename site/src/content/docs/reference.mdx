@@ -107,9 +107,11 @@ evaluation = EvaluationSpec(
 target = EvaluationTarget(:tracking, composition, evaluation)
 ```
 
-Allowed construction scopes are `:evaluation`, `:block`, and `:trial`. Reset policies are
-`:full`, `:body_environment`, and `:none`. Aggregation policies are `:none`, `:mean`,
-`:median`, `:sum`, `:minimum`, and `:maximum`.
+Allowed construction scopes are `:evaluation`, `:block`, and `:trial`. `EvaluationSpec`
+recognises the reset policies `:full`, `:body_environment`, and `:none`, but generic
+operation plans currently support only `:full`. Plan validation rejects the other two
+before execution. Aggregation policies are `:none`, `:mean`, `:median`, `:sum`, `:minimum`,
+and `:maximum`.
 
 Default named streams are `:topology` and `:world`. Use `SeedStreamSpec` to declare
 another stream only when an implementation consumes it. `derive_seed` derives a stable

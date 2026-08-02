@@ -333,16 +333,21 @@ function operation_targets(plan::BenchmarkPlan)
     return Tuple(targets)
 end
 
-"""Reject scored operation targets whose declared interval is below the task minimum."""
-function _validate_plan_scoring_intervals(
+"""Validate reset support and scored intervals for every operation target."""
+function _validate_plan_evaluations(
     plan::AbstractOperationPlan,
     registry::RegistrySet,
 )
     for target in operation_targets(plan)
+        evaluation = target.evaluation
+        evaluation.reset === :full || throw(ArgumentError(
+            "operation plan target :$(target.id) must use reset=:full; " *
+            "generic evaluation does not support reset=:$(evaluation.reset)",
+        ))
         task = task_spec(registry, target.composition.task)
         _validate_minimum_scored_ticks(
             task,
-            target.evaluation.horizon - target.evaluation.warmup;
+            evaluation.horizon - evaluation.warmup;
             typed_evaluation=true,
         )
     end
@@ -408,7 +413,7 @@ function validate(experiment::ExperimentSpec, registry::RegistrySet)
             ))
             push!(used, target.id)
         end
-        _validate_plan_scoring_intervals(operation, registry)
+        _validate_plan_evaluations(operation, registry)
         validate(operation, registry)
     end
     unused = sort!(collect(setdiff(Set(keys(conditions)), used)); by=string)

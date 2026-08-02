@@ -58,7 +58,7 @@ end
 
 function validate(plan::BenchmarkPlan, registry::RegistrySet)
     foreach(case -> _validate_benchmark_case(case, registry), plan.cases)
-    return _validate_plan_scoring_intervals(plan, registry)
+    return _validate_plan_evaluations(plan, registry)
 end
 
 function resolve(plan::BenchmarkPlan, registry::RegistrySet)

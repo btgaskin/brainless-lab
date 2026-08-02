@@ -179,11 +179,12 @@ Write `root_seed` as a decimal integer, a TOML hexadecimal integer such as `0x11
 quoted decimal string such as `"4294967296"`. Declare a stream beyond `topology` and
 `world` only when an implementation consumes it.
 
-Use `reset = "full"`. The other two policies pass `check`, but the current executor rejects
-them when the operation runs:
+Use `reset = "full"`. `EvaluationSpec` recognises the other two policies for the public
+schema, but generic operation plans do not implement their state-retention hooks. `check`
+therefore rejects them before simulation starts:
 
 ```text
-generic evaluation currently requires reset=:full; task-specific state retention must be exposed through a declared reset hook before using :none
+error: ArgumentError: operation plan target :tracking must use reset=:full; generic evaluation does not support reset=:none
 ```
 
 A misspelt field is an error, not a silent default:
