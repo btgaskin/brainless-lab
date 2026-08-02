@@ -33,7 +33,12 @@ const EXTERNAL_INPUTS = (
         "examples/shoal_forage_quickstart.jl",
     ),
     operations=("bin", "plans", "experiments", "research"),
-    oracle=("test/fixtures", "test/oracle", "calibration", "configs"),
+    oracle=(
+        "test/fixtures",
+        "test/oracle",
+        "tools/calibration",
+        "tools/configs",
+    ),
     legacy=(),
 )
 
@@ -48,6 +53,10 @@ function input_files(roots)
                 path = joinpath(directory, file)
                 isfile(path) && push!(paths, normpath(path))
             end
+        else
+            throw(ArgumentError(
+                "declared suite input does not exist: $(repr(relative_root))",
+            ))
         end
     end
     return sort!(unique(paths))

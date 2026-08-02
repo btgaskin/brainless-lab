@@ -71,9 +71,23 @@ jobs:
           println(io, "version=", VERSION);
           println(io, "image=", ENV["ImageOS"], "-", ENV["ImageVersion"]);
           end'
+      - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3
+        with:
+          delete-old-caches: false
+      - name: Resolve the suite environment
+        id: resolved
+        run: >-
+          julia --project=. -e 'using Pkg, SHA;
+          isempty(Pkg.Registry.reachable_registries()) && Pkg.Registry.add("General");
+          Pkg.resolve();
+          open(ENV["GITHUB_OUTPUT"], "a") do io;
+          println(io, "manifest=", bytes2hex(SHA.sha256(read("Manifest.toml"))));
+          end'
       - name: Compute exact suite input digest
         id: inputs
-        run: julia --project=. .github/scripts/suite-input-digest.jl "${{ matrix.suite }}"
+        run: >-
+          julia --project=. .github/scripts/suite-input-digest.jl
+          "${{ matrix.suite }}" --without-manifest
       - name: Cache exact suite proof
         id: proof
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
@@ -82,12 +96,9 @@ jobs:
           key: >-
             proof-${{ runner.os }}-${{ runner.arch }}-image-${{ steps.julia.outputs.image
             }}-julia-${{ steps.julia.outputs.version }}-threads-${{ matrix.threads
-            }}-${{ matrix.suite }}-${{ steps.inputs.outputs.digest }}
-      - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3
-        if: steps.proof.outputs.cache-hit != 'true'
-        with:
-          delete-old-caches: false
-      - name: Instantiate the pinned environment
+            }}-${{ matrix.suite }}-manifest-${{ steps.resolved.outputs.manifest
+            }}-${{ steps.inputs.outputs.digest }}
+      - name: Instantiate the resolved environment
         if: steps.proof.outputs.cache-hit != 'true'
         run: julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
       - name: Run the ${{ matrix.suite }} suite
@@ -118,9 +129,23 @@ jobs:
           println(io, "version=", VERSION);
           println(io, "image=", ENV["ImageOS"], "-", ENV["ImageVersion"]);
           end'
+      - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3
+        with:
+          delete-old-caches: false
+      - name: Resolve the legacy environment
+        id: resolved
+        run: >-
+          julia --project=. -e 'using Pkg, SHA;
+          isempty(Pkg.Registry.reachable_registries()) && Pkg.Registry.add("General");
+          Pkg.resolve();
+          open(ENV["GITHUB_OUTPUT"], "a") do io;
+          println(io, "manifest=", bytes2hex(SHA.sha256(read("Manifest.toml"))));
+          end'
       - name: Compute exact suite input digest
         id: inputs
-        run: julia --project=. .github/scripts/suite-input-digest.jl legacy
+        run: >-
+          julia --project=. .github/scripts/suite-input-digest.jl
+          legacy --without-manifest
       - name: Cache exact legacy proof
         id: proof
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
@@ -128,13 +153,9 @@ jobs:
           path: .ci-proof
           key: >-
             proof-${{ runner.os }}-${{ runner.arch }}-image-${{ steps.julia.outputs.image
-            }}-julia-${{ steps.julia.outputs.version }}-legacy-${{
-            steps.inputs.outputs.digest }}
-      - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3
-        if: steps.proof.outputs.cache-hit != 'true'
-        with:
-          delete-old-caches: false
-      - name: Instantiate the pinned environment
+            }}-julia-${{ steps.julia.outputs.version }}-legacy-manifest-${{
+            steps.resolved.outputs.manifest }}-${{ steps.inputs.outputs.digest }}
+      - name: Instantiate the resolved environment
         if: steps.proof.outputs.cache-hit != 'true'
         run: julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
       - name: Run the legacy suite
