@@ -159,6 +159,10 @@ function validate(plan::EvolutionPlan, registry::RegistrySet)
         ))
     end
     _resolved_run_config(plan.run, node, design)
+    # Every other operation validator calls this. Evolution's lives in a
+    # different file, so it was the one path where a plan whose scored interval
+    # falls below a task's minimum still validated and failed at execution.
+    _validate_plan_scoring_intervals(plan, registry)
     return plan
 end
 

@@ -118,6 +118,44 @@ end
     end
 end
 
+@testset "evolution plans reject starved scored targets during validation" begin
+    # validate(::EvolutionPlan) lives in src/operations/Evolution.jl rather than
+    # alongside the other operation validators, so it was the one path where a
+    # starved plan still validated and failed minutes into a run.
+    starved = EvaluationTarget(
+        :starved_evolution,
+        BrainlessLab.default_composition(DEFAULT_REGISTRY, :falandays, :tracking),
+        EvaluationSpec(horizon=120, warmup=20, root_seed=12),
+    )
+    plan = EvolutionPlan(
+        :starved_evolution_plan,
+        (starved,);
+        run=BrainlessLab.Evolution.RunConfig(
+            :sepcma,
+            1,
+            101,
+            :normalized_score,
+            :maximise,
+            BrainlessLab.Evolution.NormalInitialisation(centre=:zero, scale=0.1),
+            (population=2, reducer=:mean),
+        ),
+    )
+
+    for operation in (validate, resolve)
+        error = try
+            operation(plan, DEFAULT_REGISTRY)
+            nothing
+        catch caught
+            caught
+        end
+        message = error === nothing ? "" : sprint(showerror, error)
+        @test error isa ArgumentError
+        @test occursin("task :tracking", message)
+        @test occursin("100", message)
+        @test occursin("2000", message)
+    end
+end
+
 @testset "unscored tasks do not use an objective scoring minimum" begin
     task = BrainlessLab.task_spec(DEFAULT_REGISTRY, :torus)
     @test task.score_key === nothing
