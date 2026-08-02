@@ -107,9 +107,11 @@ export default defineConfig({
           label: 'Reference',
           items: [
             { label: 'API, plans, and CLI', slug: 'reference' },
+            { label: 'Plan file format', slug: 'reference/plan-format' },
             { label: 'Core catalogue', slug: 'reference/core-catalog' },
             { label: 'Analysis', slug: 'reference/analysis' },
             { label: 'Interfaces', slug: 'reference/interfaces' },
+            { label: 'Glossary', slug: 'glossary' },
           ],
         },
         {

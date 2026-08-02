@@ -3,8 +3,9 @@ title: Create a reproducible profile
 description: Validate and run a ProfilePlan, then inspect its standard record.
 ---
 
-A profile describes one composition across declared trials. Use it when one in-memory run
-is not enough and you need a portable result.
+A [profile](/glossary/#profile) describes one [composition](/glossary/#composition) across
+declared [trials](/glossary/#trial). Use it when one in-memory run is not enough and you
+need a portable result.
 
 ## Validate the plan
 
@@ -15,9 +16,10 @@ julia --project=. bin/brainlesslab.jl check \
   plans/examples/profile_tracking.toml
 ```
 
-`check` parses, validates, and resolves the plan without simulation. It rejects a scored
-target when `horizon - warmup` is below the task's `minimum_scored_ticks`. It should report
-a valid `profile` plan and its resolved target.
+`check` parses, validates, and resolves the [plan](/glossary/#operation-plan) without
+simulation. It rejects a scored [target](/glossary/#target) when `horizon - warmup` is
+below the task's `minimum_scored_ticks`. It should report a valid `profile` plan and its
+resolved target.
 
 ## Run the profile
 
@@ -31,15 +33,15 @@ Use the CSV files for analysis.
 
 ## Check the record
 
-A successful record contains `DONE`, not `FAILED`. Begin with:
+A successful [record](/glossary/#record) contains `DONE`, not `FAILED`. Begin with:
 
 - `request.toml` for the submitted plan;
 - `resolved.toml` for the values that ran;
-- `seeds.csv` for realised random streams;
+- `seeds.csv` for realised random [streams](/glossary/#seed-stream);
 - `data/trials.csv` for independent trial rows;
 - `record.toml` for provenance and checksums.
 
-The example uses one trial and Tracking's minimum scored interval to keep the run small.
+The example uses one trial and Tracking's minimum [scored interval](/glossary/#scored-interval) to keep the run small.
 Its output is exploratory software evidence, not a confirmed scientific result.
 
 Next, [compare conditions](/tutorials/compare-conditions/) under paired blocks.

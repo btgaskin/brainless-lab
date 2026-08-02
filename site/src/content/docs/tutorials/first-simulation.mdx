@@ -26,8 +26,9 @@ println(task_outcome(sim))
 '
 ```
 
-`simulate` creates a Falandays reservoir, couples it to the Tracking task, and runs one
-closed loop. It returns a `SimResult` in memory.
+`simulate` creates a Falandays [reservoir](/glossary/#reservoir), couples it to the
+Tracking [task](/glossary/#task), and runs one closed loop. It returns a `SimResult` in
+memory.
 
 ## Check the result
 
@@ -35,7 +36,7 @@ closed loop. It returns a `SimResult` in memory.
 
 - `key`, the task outcome name;
 - `raw`, the task-native value;
-- `normalized`, the value relative to that task's declared anchors;
+- `normalized`, the value relative to that task's declared [anchors](/glossary/#anchor);
 - `normalized_bound`, whether anchor normalisation was clipped at `:floor` or `:ceiling`,
   or remained within bounds as `:none`;
 - `window`, the number of ticks actually scored.

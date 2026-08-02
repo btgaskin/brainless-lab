@@ -49,6 +49,7 @@ measure = "normalized_score"
 direction = "maximise"
 
 [evolve.run.initialisation]
+kind = "normal"
 centre = "zero"
 scale = 0.25
 
