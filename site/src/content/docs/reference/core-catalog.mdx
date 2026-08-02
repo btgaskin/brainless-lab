@@ -23,6 +23,19 @@ select task-specific node counts and parameters.
 | Pong | `hit_rate` | calibrated `null_random` control | analytic interception maximum, `1.0` |
 | Wall | `nav_score` | calibrated `null_random` control | analytic collision-free movement maximum, `1.0` |
 
+Each task also declares how long a run must be before its outcome means anything. An
+evaluation whose scored interval falls below `minimum_scored_ticks` is rejected during
+plan validation, so check these before writing a horizon and warm-up.
+
+| Task | Default ticks | Minimum scored ticks | Why |
+| --- | --- | --- | --- |
+| Tracking | `2000` | `2000` | `track_score` averages one sample per tick, and the between-seed spread only falls below the mean past roughly this many scored ticks |
+| Pong | `7200` | `6000` | Pong emits about one ball event per 305 ticks, so a shorter interval scores too few events to estimate a hit rate |
+| Wall | `1000` | `200` | `nav_score` is a per-tick rate, so its estimate is stable early |
+
+The scored interval is `horizon - warmup`, not `horizon`. Pass an explicit `window` to
+acknowledge a deliberately short diagnostic run.
+
 The exact Pong floor and its provenance live in `TaskSpec`. Inspect them rather than
 copying a number into a new protocol:
 

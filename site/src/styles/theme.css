@@ -237,3 +237,24 @@
 #more {
   scroll-margin-top: 4rem;
 }
+
+/* Restore list markers inside prose.
+ *
+ * tailwind.css imports `tailwindcss/preflight.css`, whose reset sets
+ * `ol, ul, menu { list-style: none }`. Starlight's content styles never declare
+ * `list-style` at all, so there is nothing to win the cascade back -- every list
+ * on the site rendered without bullets or numbers. The nine-step ordered
+ * "Research sequence" on /handbook/experiments-evidence/, where the order is the
+ * entire point of the page, rendered unnumbered.
+ *
+ * `:not(:where(.not-content *))` follows Starlight's own convention so this
+ * applies to prose only and leaves component markup alone. */
+.sl-markdown-content :is(ul, ol):not(:where(.not-content *)) {
+  padding-inline-start: 1.25rem;
+}
+.sl-markdown-content ul:not(:where(.not-content *)) {
+  list-style: disc;
+}
+.sl-markdown-content ol:not(:where(.not-content *)) {
+  list-style: decimal;
+}

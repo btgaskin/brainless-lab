@@ -5,15 +5,9 @@ interface Props {
   family?: string;
 }
 
+import { familyLabels } from './familyLabels';
+
 const { family } = Astro.props;
-const familyLabels: Record<string, string> = {
-  reservoirs: 'Reservoirs',
-  embodiment: 'Embodiment',
-  'worlds-tasks': 'Worlds & tasks',
-  collectives: 'Collectives',
-  analyses: 'Analyses',
-  evolution: 'Evolution',
-};
 const allFeatures = (
   await getCollection('docs', ({ data }) => Boolean(data.experimental))
 ).sort((a, b) => a.data.title.localeCompare(b.data.title));
@@ -177,13 +171,21 @@ const routeFor = (id: string) => `/${id.replace(/\/index$/, '')}/`;
 
   .catalog-filters {
     display: grid;
-    grid-template-columns: minmax(14rem, 2fr) repeat(3, minmax(9rem, 1fr)) auto;
+    /* Track minimums totalled ~41rem plus gaps and padding, which exceeds the
+     * docs content column well before the 58rem viewport breakpoint below --
+     * so the trailing auto track (the Clear button) was pushed outside the
+     * rounded border. Let the tracks shrink and stack sooner. */
+    grid-template-columns: minmax(10rem, 2fr) repeat(3, minmax(7rem, 1fr)) auto;
     gap: 0.75rem;
     align-items: end;
     padding: 1rem;
     border: 1px solid var(--sl-color-gray-5);
     border-radius: 0.5rem;
     background: var(--sl-color-bg-nav);
+  }
+
+  .catalog-filters > * {
+    min-width: 0;
   }
 
   .catalog-filters label {
@@ -282,7 +284,7 @@ const routeFor = (id: string) => `/${id.replace(/\/index$/, '')}/`;
     text-align: center;
   }
 
-  @media (max-width: 58rem) {
+  @media (max-width: 72rem) {
     .catalog-filters {
       grid-template-columns: 1fr 1fr;
     }

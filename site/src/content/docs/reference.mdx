@@ -147,12 +147,37 @@ resolved = resolve(plan, DEFAULT_REGISTRY)
 write_plan("path/to/copy.toml", plan)
 ```
 
-Run the corresponding CLI:
+Run the corresponding CLI. `check` validates and resolves without executing; `run`
+executes and writes a record:
 
 ```bash
 julia --project=. bin/brainlesslab.jl check path/to/plan.toml
 julia -t auto --project=. bin/brainlesslab.jl run path/to/plan.toml --root records
 ```
+
+An experiment bundle is a directory of ordered plans rather than a single file, and has
+its own pair:
+
+```bash
+julia --project=. bin/brainlesslab.jl check-experiment path/to/protocol
+julia -t auto --project=. bin/brainlesslab.jl run-experiment path/to/protocol --root records
+```
+
+The contribution workflow described in [Research records](/research/) is driven by three
+further commands:
+
+```bash
+julia --project=. bin/brainlesslab.jl check-contribution DIR [--repository DIR] [--main-ref REF] [--base REF]
+julia --project=. bin/brainlesslab.jl compare-contribution DIR [--write]
+julia --project=. bin/brainlesslab.jl index-research [--root DIR] [--output FILE] [--repository DIR] [--main-ref REF]
+```
+
+Run the script with no arguments for the current usage text.
+
+New plans should declare `format_version = 2`. The checked-in `plans/examples/*.toml`
+files are `format_version = 1`, which does not accept an `[evolve]` section — copy one as
+a starting point for a profile, sweep, ablation or benchmark, but raise the version before
+adding an evolution run.
 
 See [Operations](/handbook/operations/) for the complete workflow.
 
