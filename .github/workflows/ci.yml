@@ -340,7 +340,7 @@ jobs:
         if: steps.proof.outputs.cache-hit != 'true'
         run: >-
           julia --project=examples/templates/new_project
-          examples/templates/new_project/run.jl --ticks 20 --n-nodes 12
+          examples/templates/new_project/run.jl --ticks 100 --n-nodes 12
           --out "${{ runner.temp }}/brainlesslab-template-smoke"
       - name: Mark the exact tool inputs as proven
         if: steps.proof.outputs.cache-hit != 'true'
