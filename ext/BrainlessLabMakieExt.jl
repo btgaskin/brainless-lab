@@ -1134,19 +1134,11 @@ function BL.explore(task::Symbol; node::Symbol=:falandays, kwargs...)
     return fig
 end
 
-for (name, fn) in (
-    :raster => BL.rasterplot,
-    :rate => BL.rateplot,
-    :trajectory => BL.trajectoryplot,
-    :swarm => BL.swarmplot,
-    :network => BL.networkplot,
-    :drift => BL.driftplot,
-    :fitness => BL.fitnessplot,
-    :visualize => BL.visualize,
-    :explore => BL.explore,
-    :replay => BL.replay,
-)
-    BL.register_view!(name, fn)
-end
+# The view registry already holds these keys. BrainlessLab registers each one
+# against the generic function (`function rasterplot end` and friends) at load,
+# and this extension supplies the methods, so the registered entry gains them
+# automatically. Re-registering here bound the identical function objects a
+# second time and threw "view registry key :raster is already registered",
+# which failed extension precompilation outright.
 
 end
