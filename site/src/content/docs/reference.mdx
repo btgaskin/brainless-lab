@@ -334,6 +334,38 @@ BrainlessLab.summary(result)
 The record writer stores authoritative CSV tables, a compact JSON summary, the submitted
 and resolved plans, provenance, checksums, and a generated HTML report.
 
+### Portable record structure
+
+Every completed operation writes this portable shape:
+
+```text
+record-id/
+├── record.toml
+├── request.toml
+├── resolved.toml
+├── environment/Manifest.toml
+├── seeds.csv
+├── data/trials.csv
+├── data/task_metrics.csv
+├── data/<operation tables>.csv
+├── summary/statistics.csv
+├── summary/contrasts.csv
+├── summary/summary.json
+├── report/index.html
+└── DONE
+```
+
+`record.toml` records provenance, the artifact inventory, and checksums. `request.toml`
+preserves the submitted plan, while `resolved.toml` records the settings that ran.
+`environment/Manifest.toml` fixes the dependency resolution, and `seeds.csv` records each
+realised random stream.
+
+`data/trials.csv` holds the independent trial rows. `data/task_metrics.csv` gives their
+task outcomes, while the remaining data tables depend on the operation. The statistics
+and contrasts files are benchmark artifacts, so a profile leaves both empty and writes its
+descriptive result to `summary/summary.json`. `report/index.html` presents the same typed
+result for a reader. `DONE` means generation completed; it does not establish evidence.
+
 ## Optional inspection hooks
 
 `network_snapshot(reservoir)` returns read-only network metadata when a node supports it.

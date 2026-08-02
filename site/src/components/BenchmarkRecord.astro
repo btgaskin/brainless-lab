@@ -12,6 +12,21 @@ interface Statistic {
   normalized_mean: number;
   normalized_ci_lower: number;
   normalized_ci_upper: number;
+  normalized_censoring: string;
+}
+
+interface ProfileSummary {
+  condition: string;
+  blocks: number;
+  trials: number;
+  raw_score_mean: number;
+  normalized_score_mean: number;
+  normalized_censoring: string;
+}
+
+interface BenchmarkSummary {
+  statistics: Statistic[];
+  contrasts: unknown[];
 }
 
 interface Props {
@@ -36,51 +51,113 @@ if (!repositoryRoot) {
 
 const summary = JSON.parse(
   readFileSync(resolve(repositoryRoot, recordPath, 'summary', 'summary.json'), 'utf8'),
-) as { statistics: Statistic[]; contrasts: unknown[] };
+) as ProfileSummary | BenchmarkSummary;
 const record = readFileSync(resolve(repositoryRoot, recordPath, 'record.toml'), 'utf8');
 const field = (name: string) =>
   record.match(new RegExp(`^${name} = "([^"]+)"$`, 'm'))?.[1] ?? 'unknown';
+const kind = field('kind');
+if (kind !== 'profile' && kind !== 'benchmark') {
+  throw new Error(`unsupported example record kind: ${kind}`);
+}
+const profile = kind === 'profile' ? (summary as ProfileSummary) : null;
+const benchmark = kind === 'benchmark' ? (summary as BenchmarkSummary) : null;
+const statistics = readFileSync(
+  resolve(repositoryRoot, recordPath, 'summary', 'statistics.csv'),
+  'utf8',
+);
+const statisticsRows = statistics.trim() === '' ? 0 : statistics.trim().split('\n').length - 1;
+const headingId = `${kind}-example-record`;
 const format = (value: number) => value.toFixed(3);
 ---
 
-<section class="benchmark-record" aria-labelledby="benchmark-results">
-  <h2 id="benchmark-results">Recorded result</h2>
+<section class="benchmark-record" aria-labelledby={headingId}>
+  <h2 id={headingId}>Example {kind} record</h2>
   <p>
-    Generated with Julia {field('julia_version')} from clean commit{' '}
-    <code>{field('git_sha').slice(0, 7)}</code>. Values and intervals below are read from
-    the committed machine-readable summary during the site build.
+    This dummy fixture illustrates the record format. It establishes nothing about
+    performance. The values below are read from its machine-readable summary during the
+    site build.
   </p>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Task</th>
-          <th>Blocks</th>
-          <th>Raw mean [95% CI]</th>
-          <th>Normalised mean [95% CI]</th>
-        </tr>
-      </thead>
-      <tbody>
-        {summary.statistics.map((row) => (
+  {
+    profile ? (
+      <div class="table-wrap">
+        <table>
+          <thead>
           <tr>
-            <th>{row.case}</th>
-            <td>{row.n}</td>
-            <td>
-              {format(row.raw_mean)} [{format(row.raw_ci_lower)}, {format(row.raw_ci_upper)}]
-            </td>
-            <td>
-              {format(row.normalized_mean)} [{format(row.normalized_ci_lower)},{' '}
-              {format(row.normalized_ci_upper)}]
-            </td>
+            <th>Condition</th>
+            <th>Blocks</th>
+            <th>Trials</th>
+            <th>Raw mean</th>
+            <th>Normalised mean</th>
+            <th>Anchor censoring</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-  <p>
-    The record contains {summary.contrasts.length} condition contrasts because this protocol
-    declares no comparator. Tracking and Pong scores remain separate task outcomes.
-  </p>
+          </thead>
+          <tbody>
+            <tr>
+              <th>{profile.condition}</th>
+              <td>{profile.blocks}</td>
+              <td>{profile.trials}</td>
+              <td>{format(profile.raw_score_mean)}</td>
+              <td>{format(profile.normalized_score_mean)}</td>
+              <td>{profile.normalized_censoring}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    ) : null
+  }
+  {
+    benchmark ? (
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Condition</th>
+              <th>Blocks</th>
+              <th>Raw mean [95% CI]</th>
+              <th>Normalised mean [95% CI]</th>
+              <th>Anchor censoring</th>
+            </tr>
+          </thead>
+          <tbody>
+            {benchmark.statistics.map((row) => (
+              <tr>
+                <th>{row.case}</th>
+                <td>{row.condition}</td>
+                <td>{row.n}</td>
+                <td>
+                  {format(row.raw_mean)} [{format(row.raw_ci_lower)}, {format(row.raw_ci_upper)}]
+                </td>
+                <td>
+                  {format(row.normalized_mean)} [{format(row.normalized_ci_lower)},{' '}
+                  {format(row.normalized_ci_upper)}]
+                </td>
+                <td>{row.normalized_censoring}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : null
+  }
+  {
+    profile ? (
+      <p>
+        <code>summary/statistics.csv</code> contains {statisticsRows} rows because statistics
+        and contrasts are benchmark artifacts. Profile results remain visible in{' '}
+        <code>data/trials.csv</code> and <code>summary/summary.json</code>.
+      </p>
+    ) : null
+  }
+  {
+    benchmark ? (
+      <p>
+        <code>summary/statistics.csv</code> contains {statisticsRows} row. The record contains{' '}
+        {benchmark.contrasts.length} contrasts because this anchor-only benchmark declares no
+        comparator.
+      </p>
+    ) : null
+  }
 </section>
 
 <style>

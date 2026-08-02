@@ -1,0 +1,28 @@
+format = "brainlesslab-plan"
+format_version = 2
+id = "documentation_example"
+operation = "benchmark"
+
+[[benchmark.cases]]
+conditions = ["example_wall"]
+id = "wall"
+
+[[targets]]
+id = "example_wall"
+
+    [targets.composition]
+    id = "example_wall"
+    n_nodes = 24
+    node = "null_random"
+    task = "wall"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 2
+    construction_scope = "trial"
+    horizon = 220
+    reset = "full"
+    root_seed = 0x07
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 20

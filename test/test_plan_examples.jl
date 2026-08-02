@@ -73,3 +73,33 @@ end
               read(joinpath(second.directory, path))
     end
 end
+
+@testset "generated documentation records match committed fixtures" begin
+    repository = normpath(joinpath(@__DIR__, ".."))
+    expected = joinpath(
+        repository,
+        "site",
+        "src",
+        "fixtures",
+        "example-record",
+    )
+    generator = joinpath(repository, "tools", "docs", "generate_example_records.jl")
+
+    function fixture_files(root)
+        return sort!([
+            replace(relpath(joinpath(directory, file), root), '\\' => '/')
+            for (directory, _, files) in walkdir(root)
+            for file in files
+        ])
+    end
+
+    mktempdir() do temporary
+        actual = joinpath(temporary, "example-record")
+        run(`$(Base.julia_cmd()) --threads=1 --project=$(repository) $(generator) --output $(actual)`)
+        paths = fixture_files(expected)
+        @test paths == fixture_files(actual)
+        for path in paths
+            @test read(joinpath(expected, path)) == read(joinpath(actual, path))
+        end
+    end
+end
