@@ -12,8 +12,8 @@ preset = "falandays_tracking"
 
 [targets.evaluation]
 blocks = 1
-trials_per_block = 2
-horizon = 120
+trials_per_block = 1
+horizon = 2020
 warmup = 20
 construction_scope = "trial"
 reset = "full"

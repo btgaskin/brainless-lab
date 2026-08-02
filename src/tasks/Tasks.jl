@@ -242,6 +242,7 @@ function _validate_minimum_scored_ticks(
     typed_evaluation::Bool=false,
 )
     scored_ticks_ = Int(scored_ticks)
+    task.score_key === nothing && return scored_ticks_
     explicit_window && return scored_ticks_
     scored_ticks_ >= task.minimum_scored_ticks && return scored_ticks_
     action = typed_evaluation ?

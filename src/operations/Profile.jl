@@ -179,10 +179,11 @@ function validate(plan::ProfilePlan, registry::RegistrySet)
     resolve_composition(plan.target.composition, registry)
     specs = _resolve_profile_analyses(plan, registry)
     _profile_record_channels(specs)
-    return plan
+    return _validate_plan_scoring_intervals(plan, registry)
 end
 
 function resolve(plan::ProfilePlan, registry::RegistrySet)
+    validate(plan, registry)
     composition = resolve_composition(plan.target.composition, registry)
     specs = _resolve_profile_analyses(plan, registry)
     channels = _profile_record_channels(specs)

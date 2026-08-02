@@ -73,9 +73,10 @@ julia -t auto --project=. bin/brainlesslab.jl run \
   plans/examples/profile_tracking.toml --root records
 ```
 
-`check` parses, validates, and resolves without simulation. `run` executes the plan and
-writes one standard record. Do not introduce another YAML schema, bespoke callback
-runner, or operation-specific protocol format.
+`check` parses, validates, and resolves without simulation. It rejects a scored target when
+`horizon - warmup` is below the task's `minimum_scored_ticks`. `run` executes the plan and
+writes one standard record. Do not introduce another YAML schema, bespoke callback runner,
+or operation-specific protocol format.
 
 ## Use the five operations precisely
 

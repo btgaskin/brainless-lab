@@ -333,6 +333,22 @@ function operation_targets(plan::BenchmarkPlan)
     return Tuple(targets)
 end
 
+"""Reject scored operation targets whose declared interval is below the task minimum."""
+function _validate_plan_scoring_intervals(
+    plan::AbstractOperationPlan,
+    registry::RegistrySet,
+)
+    for target in operation_targets(plan)
+        task = task_spec(registry, target.composition.task)
+        _validate_minimum_scored_ticks(
+            task,
+            target.evaluation.horizon - target.evaluation.warmup;
+            typed_evaluation=true,
+        )
+    end
+    return plan
+end
+
 const ExperimentRegistry = Registry{Tuple{Symbol,VersionNumber},ExperimentSpec}
 const DEFAULT_EXPERIMENTS = ExperimentRegistry(:experiments)
 
@@ -392,6 +408,7 @@ function validate(experiment::ExperimentSpec, registry::RegistrySet)
             ))
             push!(used, target.id)
         end
+        _validate_plan_scoring_intervals(operation, registry)
         validate(operation, registry)
     end
     unused = sort!(collect(setdiff(Set(keys(conditions)), used)); by=string)

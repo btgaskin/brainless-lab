@@ -51,7 +51,7 @@ function validate(plan::SweepPlan, registry::RegistrySet)
     resolved = resolve_composition(plan.target.composition, registry)
     axes = _sweep_axes(plan, resolved.node)
     _validate_sweep_axes(axes, resolved.node)
-    return plan
+    return _validate_plan_scoring_intervals(plan, registry)
 end
 
 function _factorial_parameter_cells(axes::Tuple)

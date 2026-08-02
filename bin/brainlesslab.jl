@@ -130,6 +130,7 @@ function main(args=ARGS)
 
     isfile(source_path) || throw(ArgumentError("plan does not exist: $(source_path)"))
     plan = read_plan(source_path)
+    BrainlessLab._validate_plan_scoring_intervals(plan, DEFAULT_REGISTRY)
     resolved = resolve(plan, DEFAULT_REGISTRY)
 
     if command == "check"

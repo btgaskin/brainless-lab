@@ -7,8 +7,10 @@ julia --project=. bin/brainlesslab.jl check PLAN.toml
 julia -t auto --project=. bin/brainlesslab.jl run PLAN.toml --root records
 ```
 
-`check` parses, validates, and resolves the plan without simulation. `run` calls
-`run_operation` and writes one standard record.
+`check` parses, validates, and resolves the plan without simulation. A scored target fails
+this check when `horizon - warmup` is below its task's `minimum_scored_ticks`. `run` calls
+`run_operation` and writes one standard record. Tasks without a scalar outcome do not use
+the objective minimum.
 
 ## Plan envelope
 

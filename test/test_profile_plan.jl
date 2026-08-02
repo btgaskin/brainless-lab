@@ -27,8 +27,7 @@ function _profile_tracking_target(; blocks=1, trials=2, horizon=8)
 end
 
 @testset "profile resolves registry contracts once" begin
-    registry = RegistrySet()
-    BrainlessLab.register_builtins!(registry)
+    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
     target = _profile_tracking_target()
 
     defaults = ProfilePlan(:tracking_defaults, target)

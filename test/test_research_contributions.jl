@@ -5,7 +5,7 @@ using Test
 
 const _CONTRIBUTION_SHA = repeat("a", 40)
 
-function _contribution_experiment(; horizon=2)
+function _contribution_experiment(; horizon=2_000)
     target = EvaluationTarget(
         :tracking,
         CompositionSpec(
@@ -180,7 +180,7 @@ end
     run(Cmd(`git config user.email tests@example.invalid`; dir=repository))
     run(Cmd(`git config user.name "BrainlessLab tests"`; dir=repository))
     experiment_path = joinpath(repository, "experiments", "examples", "contribution-fixture")
-    write_experiment(experiment_path, _contribution_experiment(; horizon=3))
+    write_experiment(experiment_path, _contribution_experiment(; horizon=2_001))
     run(Cmd(`git add experiments`; dir=repository))
     run(Cmd(`git commit -qm protocol`; dir=repository))
     source_sha = readchomp(Cmd(`git rev-parse HEAD`; dir=repository))
@@ -224,7 +224,7 @@ end
         for name in readdir(joinpath(experiment_path, "plans"))
     )
     plan = TOML.parsefile(plan_path)
-    plan["targets"][1]["evaluation"]["horizon"] = 3
+    plan["targets"][1]["evaluation"]["horizon"] = 2_001
     open(plan_path, "w") do io
         TOML.print(io, plan; sorted=true)
     end
@@ -585,7 +585,7 @@ end
         for name in readdir(joinpath(protocol, "replay", "protocol", "plans"))
     )
     plan = TOML.parsefile(plan_path)
-    plan["targets"][1]["evaluation"]["horizon"] = 3
+    plan["targets"][1]["evaluation"]["horizon"] = 2_001
     open(plan_path, "w") do io
         TOML.print(io, plan; sorted=true)
     end

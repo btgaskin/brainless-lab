@@ -26,8 +26,9 @@ julia -t auto --project=. bin/brainlesslab.jl run \
   plans/examples/profile_tracking.toml --root records
 ```
 
-Files under `plans/examples/` are small executable checks. They demonstrate plan syntax
-and validation, not benchmark evidence.
+Files under `plans/examples/` use small replication budgets and the minimum scored interval
+declared by each task. They demonstrate plan syntax and validation, not benchmark evidence.
+`check` rejects a scored target when `horizon - warmup` is below that task minimum.
 
 ## Evolution plans
 
