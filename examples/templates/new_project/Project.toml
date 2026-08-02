@@ -1,7 +1,8 @@
-name = "BrainlessLabNewProject"
-uuid = "cc9b7197-1280-4e1d-b401-0b0abf36c2c7"
-authors = ["Summer Institute Group"]
-version = "0.1.0"
+# A script environment, not a package: run.jl, my_node.jl, my_task.jl and
+# my_metric.jl are included directly (`julia --project=. run.jl`). Declaring
+# name/uuid/version here made Julia treat it as a package and look for
+# src/BrainlessLabNewProject.jl, so Pkg.precompile() failed with
+# "Missing source file for ... BrainlessLabNewProject".
 
 [deps]
 BrainlessLab = "d12add44-1e3e-4161-9a99-c2121a2f0f38"
