@@ -79,6 +79,69 @@ end
     @test occursin("6000", message)
 end
 
+@testset "operation plans reject starved scored targets during validation" begin
+    tracking = EvaluationTarget(
+        :starved_tracking,
+        BrainlessLab.default_composition(DEFAULT_REGISTRY, :falandays, :tracking),
+        EvaluationSpec(horizon=120, warmup=20, root_seed=12),
+    )
+    plans = (
+        ProfilePlan(:starved_profile, tracking; analyses=(:heading_error,)),
+        SweepPlan(
+            :starved_sweep,
+            tracking;
+            axes=(BrainlessLab.SweepAxis(:leak, (0.25, 0.5)),),
+        ),
+        AblationPlan(
+            :starved_ablation,
+            tracking;
+            ablations=(:freeze_plasticity,),
+        ),
+        BenchmarkPlan(
+            :starved_benchmark,
+            (BrainlessLab.BenchmarkCasePlan(:tracking, (tracking,)),),
+        ),
+    )
+
+    for plan in plans, operation in (validate, resolve)
+        error = try
+            operation(plan, DEFAULT_REGISTRY)
+            nothing
+        catch caught
+            caught
+        end
+        message = error === nothing ? "" : sprint(showerror, error)
+        @test error isa ArgumentError
+        @test occursin("task :tracking", message)
+        @test occursin("100", message)
+        @test occursin("2000", message)
+    end
+end
+
+@testset "unscored tasks do not use an objective scoring minimum" begin
+    task = BrainlessLab.task_spec(DEFAULT_REGISTRY, :torus)
+    @test task.score_key === nothing
+    @test task.minimum_scored_ticks > 2
+
+    target = EvaluationTarget(
+        :short_torus_profile,
+        CompositionSpec(
+            :short_torus_profile,
+            :null_random,
+            :torus;
+            n_nodes=4,
+        ),
+        EvaluationSpec(horizon=2, root_seed=19),
+    )
+    plan = ProfilePlan(:short_torus_profile, target; analyses=())
+    @test validate(plan, DEFAULT_REGISTRY) === plan
+    resolved = resolve(plan, DEFAULT_REGISTRY)
+    @test resolved isa BrainlessLab.ResolvedProfilePlan
+    result = execute(resolved)
+    @test result.batch.resolved.task.score_key === nothing
+    @test all(ismissing(row.raw_score) for row in result.task_rows)
+end
+
 @testset "Plank evaluation records explicit starts under one fixed design" begin
     composition = CompositionSpec(
         :plank_easy_smoke,
@@ -203,7 +266,12 @@ end
     @test experiment.version == v"1.0.0"
     @test experiment.evidence_state === :exploratory
     registry = BrainlessLab.ExperimentRegistry(:test_experiments)
-    @test BrainlessLab.register_experiment!(registry, experiment) === experiment
+    validation_registry = BrainlessLabTestUtils.diagnostic_registry((:tracking, :pong))
+    @test BrainlessLab.register_experiment!(
+        registry,
+        experiment;
+        registry=validation_registry,
+    ) === experiment
     @test BrainlessLab.experiment_spec(
         :falandays_cross_task,
         v"1.0.0";

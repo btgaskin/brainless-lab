@@ -134,7 +134,8 @@ end
     path = tempname() * ".toml"
     write_plan(path, plan)
     parsed = read_plan(path)
-    resolved = resolve(parsed, DEFAULT_REGISTRY)
+    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
+    resolved = resolve(parsed, registry)
     @test resolved.composition.task_options[:sensory_gain] == 1.5
     @test resolved.composition.task_options[:movement_amp] == 10.0
     @test resolved.composition.task_options[:theta0] === nothing

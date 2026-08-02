@@ -167,6 +167,7 @@ end
 
 @testset "canonical ablations resolve for declared node capabilities" begin
     evaluation = EvaluationSpec(horizon=2)
+    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
     cases = (
         (
             node=:sorn,
@@ -200,7 +201,7 @@ end
             target;
             ablations=(case.ablation,),
         )
-        resolved = resolve(plan, DEFAULT_REGISTRY)
+        resolved = resolve(plan, registry)
         @test resolved.cases[2].target.composition.parameters[case.parameter] ==
               case.expected
     end

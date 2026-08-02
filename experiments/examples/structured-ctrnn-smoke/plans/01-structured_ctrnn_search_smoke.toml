@@ -20,7 +20,7 @@ training = ["tracking_development"]
         scale = 0.25
 
         [evolve.run.options]
-        population = 4
+        population = 2
         reducer = "minimum"
 
 [[targets]]
@@ -36,7 +36,7 @@ id = "tracking_development"
     aggregate = "mean"
     blocks = 1
     construction_scope = "trial"
-    horizon = 2
+    horizon = 2000
     reset = "full"
     root_seed = 0x1101
     streams = ["topology", "world"]
@@ -55,7 +55,7 @@ id = "tracking_heldout"
     aggregate = "mean"
     blocks = 1
     construction_scope = "trial"
-    horizon = 2
+    horizon = 2000
     reset = "full"
     root_seed = 0x2201
     streams = ["topology", "world"]

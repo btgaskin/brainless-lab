@@ -15,8 +15,9 @@ julia --project=. bin/brainlesslab.jl check \
   plans/examples/profile_tracking.toml
 ```
 
-`check` parses, validates, and resolves the plan without simulation. It should report a
-valid `profile` plan and its resolved target.
+`check` parses, validates, and resolves the plan without simulation. It rejects a scored
+target when `horizon - warmup` is below the task's `minimum_scored_ticks`. It should report
+a valid `profile` plan and its resolved target.
 
 ## Run the profile
 
@@ -38,8 +39,8 @@ A successful record contains `DONE`, not `FAILED`. Begin with:
 - `data/trials.csv` for independent trial rows;
 - `record.toml` for provenance and checksums.
 
-The example uses a small budget to teach the workflow. Its output is exploratory software
-evidence, not a confirmed scientific result.
+The example uses one trial and Tracking's minimum scored interval to keep the run small.
+Its output is exploratory software evidence, not a confirmed scientific result.
 
 Next, [compare conditions](/tutorials/compare-conditions/) under paired blocks.
 

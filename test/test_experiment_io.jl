@@ -34,9 +34,10 @@ end
 
 @testset "version-one experiments round trip" begin
     experiment = _experiment_io_fixture()
+    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
     mktempdir() do root
         directory = joinpath(root, "experiment")
-        @test write_experiment(directory, experiment) == directory
+        @test write_experiment(directory, experiment; registry) == directory
         @test isfile(joinpath(directory, "experiment.toml"))
         @test isfile(joinpath(
             directory,
@@ -44,7 +45,7 @@ end
             "01-profile_tracking_null.toml",
         ))
 
-        parsed = read_experiment(directory)
+        parsed = read_experiment(directory; registry)
         @test parsed.id === experiment.id
         @test parsed.version == experiment.version
         @test parsed.evidence_state === :planned
@@ -53,7 +54,7 @@ end
             only(parsed.operations),
         )[1].composition.interaction_cycle ==
             BrainlessLab.FixedRateCycle(2)
-        @test_throws ArgumentError write_experiment(directory, experiment)
+        @test_throws ArgumentError write_experiment(directory, experiment; registry)
     end
 end
 
