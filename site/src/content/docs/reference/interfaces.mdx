@@ -76,13 +76,14 @@ A registered body constructor declares accepted option defaults in its
 `ImplementationSpec`. Composition resolution records those defaults and rejects unknown
 `body_options` before construction.
 
-`Embodiment` composes six registered component families:
+`Embodiment` composes seven registered component families:
 
 | Family | Responsibility |
 | --- | --- |
 | geometry | footprint and geometric bounds |
 | sensor | physical sampling |
 | encoder | raw sensor values to receptor ports |
+| readout | reservoir activity to effector values |
 | actuator | effector values to a typed command |
 | dynamics | command and motion state to new motion state |
 | physiology | internal feedback, effects, and viability |

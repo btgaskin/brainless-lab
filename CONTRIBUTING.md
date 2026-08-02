@@ -102,21 +102,21 @@ generation do not accept evidence automatically.
 Accepted records are immutable. Correct an interpretation with an annotation or superseding
 protocol. Do not rewrite a published record.
 
-The committed Falandays benchmark predates this pipeline. The catalogue marks it as
-`pre-pipeline` compatibility material, not as a retrospectively accepted contribution.
+The catalogue can include an explicit `pre-pipeline` compatibility entry for older material.
+Such an entry is not a retrospectively accepted contribution.
 
 ## Tests
 
-Run the small contract gate first:
+Run the fast Core contract tier first:
 
 ```bash
-julia --project=. -e 'using Pkg; Pkg.test()'
+BRAINLESSLAB_TEST_SUITE=core julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
 Then select the gates that match the change from [test/README.md](test/README.md).
 Runtime, operation, scientific-oracle, legacy-compatibility, and visual tests
-run independently. Do not use the monolithic `all` gate as the ordinary local
-workflow.
+run independently. Bare `Pkg.test()` runs every suite and takes about fifteen minutes,
+so do not use it as the ordinary local loop.
 
 Site:
 

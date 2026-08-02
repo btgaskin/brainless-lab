@@ -31,9 +31,9 @@ Use the same registered node design as the saved model:
 
 ```julia
 composition = CompositionSpec(
-    :structured_ctrnn_tracking_benchmark,
+    :structured_ctrnn_wall_benchmark,
     :compartmental_structured,
-    :tracking;
+    :wall;
     n_nodes=60,
 )
 
@@ -55,7 +55,7 @@ condition = EvaluationTarget(
     model=model,
 )
 
-case = BrainlessLab.BenchmarkCasePlan(:tracking, (condition,))
+case = BrainlessLab.BenchmarkCasePlan(:wall, (condition,))
 plan = BenchmarkPlan(:saved_structured_ctrnn_benchmark, (case,))
 
 write_plan("plans/saved_structured_ctrnn_benchmark.toml", plan)
@@ -64,6 +64,10 @@ write_plan("plans/saved_structured_ctrnn_benchmark.toml", plan)
 The example has one condition, so it reports condition statistics without a contrast. Add a
 declared baseline condition when the scientific question requires a comparison. Conditions
 in one benchmark case must use the same block structure and paired root seed.
+
+The saved model was developed on Wall in the preceding tutorial. This protocol scores 800
+ticks after warm-up, which exceeds Wall's 200-scored-tick minimum. Wall remains a floor-check;
+the benchmark demonstrates portable model evaluation rather than broad competence.
 
 Use evaluation seeds that were not used for search, selection, or a variance pilot.
 

@@ -8,13 +8,16 @@ Use `cli-tools.md` when a question requires repeated trials or a portable record
 ```julia
 using BrainlessLab
 
-sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11)
+sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11, window=1000)
 task_outcome(sim)
 ```
 
 The symbol form constructs a registered task and node, runs one closed loop, and returns a
 `SimResult`. It is useful for diagnostics and exploration. Reusable work should construct
 a `CompositionSpec`; repeated evaluation should use an operation plan.
+
+The explicit `window` acknowledges that the example is shorter than Tracking's ordinary
+2,000-scored-tick minimum. It is a diagnostic, not a study protocol.
 
 A `SimResult` contains:
 
@@ -169,7 +172,7 @@ environment:
 ```julia
 using BrainlessLab, CairoMakie
 
-sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11)
+sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11, window=1000)
 fig = visualize(sim; panels=[:raster, :rate, :trajectory])
 save("tracking.png", fig)
 ```

@@ -66,5 +66,6 @@ Accepted contribution directories are append-only. Correct a scientific protocol
 creating a new experiment version. Correct an accepted record by adding a new
 contribution with a clear review trail.
 
-The Falandays core benchmark predates this pipeline. `pre-pipeline.toml` keeps it visible
-without describing it as contributor-maintainer reproduction.
+The catalogue can include an explicit `pre-pipeline` compatibility record for older material.
+That record must have indexed metadata and must not be described as contributor-maintainer
+reproduction.

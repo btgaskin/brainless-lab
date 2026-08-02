@@ -58,9 +58,12 @@ Use `simulate` for one diagnostic run:
 ```julia
 using BrainlessLab
 
-sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11)
+sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11, window=1000)
 task_outcome(sim)
 ```
+
+The explicit `window` acknowledges a deliberately short diagnostic. Use at least 2,000
+scored ticks for ordinary Tracking evaluation.
 
 The symbol form is a convenient façade. Construct a `CompositionSpec` when reusable work
 must record node count, parameters, body, task options, and interaction timing.
@@ -149,8 +152,8 @@ Aim for at most 1 MiB of text-only files per contribution; 5 MiB is the hard lim
 Files above 5 MiB are not accepted by this Git-native pipeline. Large datasets remain out
 of scope.
 
-The committed Falandays benchmark is `pre-pipeline` compatibility material. Do not describe it
-as accepted through the contribution process.
+The catalogue can include an explicit `pre-pipeline` compatibility entry for older material.
+Such an entry does not imply acceptance through the contribution process.
 
 ## Keep reference and experimental claims narrow
 
@@ -222,11 +225,15 @@ apparent collective structure.
 
 ## Verify changes
 
-For architecture or behaviour changes, run focused tests before the full package suite:
+Run the narrowest affected tier during iteration. The fast Core tier covers documentation and
+contract changes:
 
 ```bash
-julia --project=. -e 'using Pkg; Pkg.test()'
+BRAINLESSLAB_TEST_SUITE=core julia --project=. -e 'using Pkg; Pkg.test()'
 ```
+
+Bare `Pkg.test()` runs every suite and takes about fifteen minutes. Use the tier guidance in
+`test/README.md` to select additional gates for the change.
 
 Build the locked site after guide or skill edits:
 

@@ -6,18 +6,22 @@ description: Define repeated trials, random streams, construction, reset, warm-u
 `EvaluationSpec` is the outer repetition protocol for every operation. It is separate from
 neural frames and world ticks.
 
+For a Tracking target, one valid protocol is:
+
 ```julia
 evaluation = EvaluationSpec(
     blocks=20,
     trials_per_block=1,
-    horizon=1000,
-    warmup=800,
+    horizon=2200,
+    warmup=200,
     construction_scope=:trial,
     reset=:full,
     root_seed=51001,
     aggregate=:mean,
 )
 ```
+
+This protocol scores 2,000 ticks after warm-up, which meets Tracking's declared minimum.
 
 ## Independent units
 

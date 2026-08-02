@@ -105,7 +105,7 @@ the model coordinates. Do not place searchable design values only in a runtime s
 The public evolution operation supports any registered node whose `NodeSpec` declares a
 reviewed `Evolution.NodeDesignSpec`. The built-in fixed designs are:
 
-- `FalandaysParams`, used by `:falandays` and its registered variants;
+- `FalandaysParams`, used by the registered `:falandays` node;
 - `StructuredCompartmental`, registered as `:compartmental_structured`;
 - `DenseCompartmental`, registered as `:compartmental_dense`.
 
@@ -148,8 +148,11 @@ composition = CompositionSpec(
     n_nodes=200,
 )
 
-simulate(composition; ticks=300, seed=11)
+simulate(composition; ticks=300, seed=11, window=300)
 ```
+
+The explicit `window` marks this as a short implementation diagnostic. Use the task's
+declared minimum scored interval for ordinary evaluation.
 
 Resolve and run explicit `CompositionSpec` values on at least two port-compatible tasks.
 The node implementation must not change between them.

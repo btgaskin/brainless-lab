@@ -30,7 +30,7 @@ begin
 end
 
 # ╔═╡ 7b2e9dc9-7828-43ef-bb04-c41155e47f93
-md"Slider stub: replace `ticks = 300` with a PlutoUI `@bind ticks Slider(...)` cell when PlutoUI is available."
+md"Slider stub: replace `ticks = 2_000` with a PlutoUI `@bind ticks Slider(...)` cell when PlutoUI is available. Keep Tracking at 2,000 ticks or more unless the call also passes an explicit diagnostic `window`."
 
 # ╔═╡ Cell order:
 # ╠═0c8d80de-8c08-4ef8-bb4e-fec13fd473df

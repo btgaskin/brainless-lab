@@ -18,14 +18,14 @@ Save this Julia file as `make_structured_ctrnn_plan.jl`:
 using BrainlessLab
 
 composition = CompositionSpec(
-    :structured_ctrnn_tracking,
+    :structured_ctrnn_wall,
     :compartmental_structured,
-    :tracking;
+    :wall;
     n_nodes=60,
 )
 
 training = EvaluationTarget(
-    :tracking_development,
+    :wall_development,
     composition,
     EvaluationSpec(
         blocks=1,
@@ -40,7 +40,7 @@ training = EvaluationTarget(
 )
 
 heldout = EvaluationTarget(
-    :tracking_heldout,
+    :wall_heldout,
     composition,
     EvaluationSpec(
         blocks=1,
@@ -86,6 +86,10 @@ Other registered nodes can use `EvolutionPlan` when their `NodeSpec` declares a 
 
 The normal initialisation is explicit. `search_seed` controls the initial population and
 later search decisions. The target root seeds control evaluation trials.
+
+This workflow uses Wall because its 200-scored-tick minimum fits the existing 240-tick
+horizon and 40-tick warm-up. Wall is a near-ceiling floor-check, so this smoke-budget
+search demonstrates the operation contract rather than a meaningful optimisation claim.
 
 ## Validate and run
 

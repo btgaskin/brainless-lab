@@ -145,8 +145,8 @@ not accept larger files, and large datasets remain out of scope.
 A study that needs an external large-data archive can still satisfy the broader promotion
 requirements, but the current Git-native intake does not accept that contribution.
 
-The Falandays benchmark committed before this process remains explicitly `pre-pipeline`. Its
-compatibility entry must not imply retrospective acceptance.
+The catalogue can carry an explicit `pre-pipeline` compatibility entry for older material.
+Such an entry must not imply retrospective acceptance.
 
 The public guide is `site/src/content/docs/handbook/experiments-evidence.mdx`. Current protocol bundles
 live under `experiments/`; generated operation records live under the selected records

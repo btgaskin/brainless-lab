@@ -89,14 +89,15 @@ described in [`test/FIXTURES.md`](test/FIXTURES.md).
 
 ## Development
 
-Run the small contract gate during ordinary development:
+Run the fast Core contract tier during ordinary development:
 
 ```bash
-julia --project=. -e 'using Pkg; Pkg.test()'
+BRAINLESSLAB_TEST_SUITE=core julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-Then run the applicable runtime, operations, scientific-oracle, or visual
-gate described in [test/README.md](test/README.md). Build the site separately:
+Bare `Pkg.test()` runs every suite and takes about fifteen minutes. Select additional
+runtime, operations, scientific-oracle, legacy, or visual gates from
+[test/README.md](test/README.md). Build the site separately:
 
 ```bash
 cd site

@@ -36,6 +36,8 @@ closed loop. It returns a `SimResult` in memory.
 - `key`, the task outcome name;
 - `raw`, the task-native value;
 - `normalized`, the value relative to that task's declared anchors;
+- `normalized_bound`, whether anchor normalisation was clipped at `:floor` or `:ceiling`,
+  or remained within bounds as `:none`;
 - `window`, the number of ticks actually scored.
 
 Tracking declares `minimum_scored_ticks = 2000`, so a shorter run is rejected rather than

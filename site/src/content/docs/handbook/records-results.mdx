@@ -7,12 +7,15 @@ description: Read SimResult in memory and inspect the portable record written by
 node identifiers, and a resolved configuration snapshot.
 
 ```julia
-sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11)
+sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11, window=1000)
 outcome = task_outcome(sim)
 ```
 
 Use one simulation for diagnosis and exploration. Use an operation plan when the result
 needs repeated trials and a durable record.
+
+The explicit `window` acknowledges that this run is shorter than Tracking's ordinary
+2,000-scored-tick minimum. Treat its outcome as a short diagnostic, not study evidence.
 
 ## Standard record
 
