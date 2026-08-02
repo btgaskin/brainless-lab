@@ -354,7 +354,10 @@ function read_plan(path::AbstractString; registry::RegistrySet=DEFAULT_REGISTRY)
     elseif operation === :sweep
         _require_document_keys(section, ("target", "axes", "mode", "max_rollouts"), "sweep")
         axes = Tuple(
-            SweepAxis(Symbol(axis["parameter"]), Tuple(axis["values"]))
+            begin
+                _require_document_keys(axis, ("parameter", "values"), "sweep axis")
+                SweepAxis(Symbol(axis["parameter"]), Tuple(axis["values"]))
+            end
             for axis in get(section, "axes", Any[])
         )
         return SweepPlan(

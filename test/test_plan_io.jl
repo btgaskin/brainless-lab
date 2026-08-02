@@ -1,5 +1,6 @@
 using BrainlessLab
 using Test
+using TOML
 
 function _io_target(id, task)
     return EvaluationTarget(
@@ -15,6 +16,43 @@ function _io_target(id, task)
             aggregate=:none,
         ),
     )
+end
+
+function _io_evolution_plan()
+    target = EvaluationTarget(
+        :ctrnn_tracking,
+        CompositionSpec(
+            :ctrnn_tracking,
+            :compartmental_structured,
+            :tracking;
+            n_nodes=2,
+        ),
+        EvaluationSpec(horizon=1, aggregate=:mean),
+    )
+    run = BrainlessLab.Evolution.RunConfig(
+        strategy=:sepcma,
+        iterations=2,
+        search_seed=44,
+        initialisation=BrainlessLab.Evolution.NormalInitialisation(
+            centre=:zero,
+            scale=0.1,
+        ),
+        options=(population=4, reducer=:mean,),
+    )
+    return EvolutionPlan(:evolve, (target,); run)
+end
+
+function _read_plan_error(document)
+    path = tempname() * ".toml"
+    open(path, "w") do io
+        TOML.print(io, document; sorted=true)
+    end
+    return try
+        read_plan(path)
+        nothing
+    catch caught
+        caught
+    end
 end
 
 @testset "version-two TOML plan round trips" begin
@@ -179,4 +217,114 @@ target = "missing"
 """)
     end
     @test_throws ArgumentError read_plan(path)
+end
+
+@testset "plan parser rejects unknown nested keys" begin
+    run_document = BrainlessLab.plan_document(_io_evolution_plan())
+    run_document["evolve"]["run"]["bogus_run_key"] = 7
+    run_error = _read_plan_error(run_document)
+    @test run_error isa ArgumentError
+    @test sprint(showerror, run_error) ==
+          "ArgumentError: unknown evolution run keys: bogus_run_key"
+
+    initialisation_document = BrainlessLab.plan_document(_io_evolution_plan())
+    initialisation_document["evolve"]["run"]["initialisation"][
+        "bogus_initialisation_key"
+    ] = 7
+    initialisation_error = _read_plan_error(initialisation_document)
+    @test initialisation_error isa ArgumentError
+    @test sprint(showerror, initialisation_error) ==
+          "ArgumentError: unknown evolution run initialisation keys: " *
+          "bogus_initialisation_key"
+
+    sweep = SweepPlan(
+        :sweep,
+        _io_target(:tracking, :tracking);
+        axes=(BrainlessLab.SweepAxis(:leak, (0.1, 0.5)),),
+    )
+    sweep_document = BrainlessLab.plan_document(sweep)
+    only(sweep_document["sweep"]["axes"])["bogus_axis_key"] = 7
+    sweep_error = _read_plan_error(sweep_document)
+    @test sweep_error isa ArgumentError
+    @test sprint(showerror, sweep_error) ==
+          "ArgumentError: unknown sweep axis keys: bogus_axis_key"
+
+    reference = BrainlessLab.Evolution.ModelReference(
+        "records/example",
+        "selected",
+        :compartmental_structured,
+        repeat("a", 64),
+        repeat("b", 64),
+    )
+    model_target = EvaluationTarget(
+        :saved_model,
+        CompositionSpec(
+            :saved_model,
+            :compartmental_structured,
+            :tracking;
+            n_nodes=2,
+        ),
+        EvaluationSpec(horizon=1),
+        model=reference,
+    )
+    model_document = BrainlessLab.plan_document(ProfilePlan(:saved_model, model_target))
+    only(model_document["targets"])["model"]["bogus_model_key"] = 7
+    model_error = _read_plan_error(model_document)
+    @test model_error isa ArgumentError
+    @test sprint(showerror, model_error) ==
+          "ArgumentError: unknown model reference keys: bogus_model_key"
+end
+
+@testset "other plan tables retain strict key validation" begin
+    target = _io_target(:tracking, :tracking)
+    plans = (
+        ("profile", ProfilePlan(:profile, target)),
+        (
+            "sweep",
+            SweepPlan(
+                :sweep,
+                target;
+                axes=(BrainlessLab.SweepAxis(:leak, (0.1, 0.5)),),
+            ),
+        ),
+        (
+            "ablate",
+            AblationPlan(:ablate, target; ablations=(:freeze_plasticity,)),
+        ),
+        (
+            "benchmark",
+            BenchmarkPlan(
+                :benchmark,
+                (BrainlessLab.BenchmarkCasePlan(:tracking, (target,)),),
+            ),
+        ),
+        ("evolve", _io_evolution_plan()),
+    )
+    for (section, plan) in plans
+        document = BrainlessLab.plan_document(plan)
+        document[section]["bogus_operation_key"] = 7
+        error = _read_plan_error(document)
+        @test error isa ArgumentError
+        @test sprint(showerror, error) ==
+              "ArgumentError: unknown $(section) keys: bogus_operation_key"
+    end
+
+    options_document = BrainlessLab.plan_document(_io_evolution_plan())
+    options_document["evolve"]["run"]["options"]["bogus_option_key"] = 7
+    options_error = _read_plan_error(options_document)
+    @test options_error isa ArgumentError
+    @test sprint(showerror, options_error) ==
+          "ArgumentError: unknown :sepcma options: :bogus_option_key"
+
+    for (table, context) in (
+        ("composition", "composition"),
+        ("evaluation", "evaluation"),
+    )
+        document = BrainlessLab.plan_document(ProfilePlan(:profile, target))
+        document["targets"][1][table]["bogus_target_key"] = 7
+        error = _read_plan_error(document)
+        @test error isa ArgumentError
+        @test sprint(showerror, error) ==
+              "ArgumentError: unknown $(context) keys: bogus_target_key"
+    end
 end

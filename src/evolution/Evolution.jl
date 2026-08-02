@@ -1746,6 +1746,19 @@ function _optional_document_value(
     return default
 end
 
+function _require_document_keys(
+    document::AbstractDict,
+    allowed,
+    context::AbstractString,
+)
+    provided = Set(String(key) for key in keys(document))
+    unknown = sort!(collect(setdiff(provided, Set(String.(allowed)))))
+    isempty(unknown) || throw(ArgumentError(
+        "unknown $(context) keys: $(join(unknown, ", "))",
+    ))
+    return document
+end
+
 function model_reference_document(reference::ModelReference)
     return Dict{String,Any}(
         "path" => reference.path,
@@ -1757,6 +1770,11 @@ function model_reference_document(reference::ModelReference)
 end
 
 function parse_model_reference(document::AbstractDict)
+    _require_document_keys(
+        document,
+        ("path", "model_id", "node", "schema_sha256", "coordinates_sha256"),
+        "model reference",
+    )
     return ModelReference(
         String(_document_value(document, "path")),
         String(_document_value(document, "model_id")),
@@ -1783,6 +1801,11 @@ function _initialisation_document(initialisation::NormalInitialisation)
 end
 
 function _parse_initialisation(document::AbstractDict)
+    _require_document_keys(
+        document,
+        ("kind", "centre", "scale", "reference", "coordinates"),
+        "evolution run initialisation",
+    )
     String(_document_value(document, "kind")) == "normal" ||
         throw(ArgumentError("unknown search initialisation kind"))
     centre = Symbol(_document_value(document, "centre"))
@@ -1852,6 +1875,19 @@ function run_config_document(config::RunConfig)
 end
 
 function parse_run_config(document::AbstractDict)
+    _require_document_keys(
+        document,
+        (
+            "strategy",
+            "iterations",
+            "search_seed",
+            "measure",
+            "direction",
+            "initialisation",
+            "options",
+        ),
+        "evolution run",
+    )
     strategy = Symbol(_document_value(document, "strategy"))
     seed_value = _document_value(document, "search_seed")
     search_seed = seed_value isa Integer ?

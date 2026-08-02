@@ -441,8 +441,12 @@ accepts a `coordinates` array. Omitting `kind` fails with `document is missing "
 - `cmame` accepts `bins`, `emitters`, `emitter_population`, `patience`, and
   `quality_reducer`, and requires `quality_reducer`.
 
-`[evolve.run]` is the one table that ignores an unrecognised key. Check its spelling by
-eye. `[evolve.run.options]` does reject an option that its strategy does not allow.
+`[evolve.run]`, its initialisation table, and each strategy's options table reject
+unrecognised keys. For example, `bogus_run_key = 7` fails during `check` with:
+
+```text
+error: ArgumentError: unknown evolution run keys: bogus_run_key
+```
 
 The target's node must declare a reviewed `Evolution.NodeDesignSpec`. Search changes model
 coordinates only. It does not change topology, node count, body structure, or ports.
