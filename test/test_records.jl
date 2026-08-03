@@ -138,6 +138,32 @@ end
         filter(candidate -> candidate.iteration <= 3, uninterrupted.candidates),
     )
     @test BrainlessLab.Evolution.latest_checkpoint(directory).completed_iteration == 2
+
+    request_path = joinpath(directory, "request.toml")
+    tampered_request = TOML.parsefile(request_path)
+    training_id = String(only(plan.training_targets).id)
+    training_document = only(filter(
+        target -> target["id"] == training_id,
+        tampered_request["targets"],
+    ))
+    @test training_document["id"] == training_id
+    training_document["evaluation"]["root_seed"] += 1
+    open(request_path, "w") do io
+        TOML.print(io, tampered_request; sorted=true)
+    end
+    resume_error = try
+        BrainlessLab.Evolution.resume(directory; registry)
+        nothing
+    catch caught
+        caught
+    end
+    @test resume_error isa ArgumentError
+    @test occursin(
+        "checkpoint resolution digest mismatch",
+        sprint(showerror, resume_error),
+    )
+    write_plan(request_path, plan)
+
     resumed = BrainlessLab.Evolution.resume(directory; registry)
     @test resumed.directory == directory
     @test isequal(

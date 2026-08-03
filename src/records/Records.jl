@@ -711,6 +711,8 @@ function _resolved_target_document(batch::EvaluationBatch)
     )
     resolved.body === nothing || (document["body"] = String(resolved.body.key))
     resolved.n_agents === nothing || (document["n_agents"] = resolved.n_agents)
+    target.model === nothing ||
+        (document["model"] = Evolution.model_reference_document(target.model))
     return document
 end
 
@@ -734,6 +736,8 @@ function _resolved_target_document(
     )
     resolved.body === nothing || (document["body"] = String(resolved.body.key))
     resolved.n_agents === nothing || (document["n_agents"] = resolved.n_agents)
+    target.model === nothing ||
+        (document["model"] = Evolution.model_reference_document(target.model))
     return document
 end
 
@@ -1086,8 +1090,14 @@ function _evolution_operation_digests(
             )
             for block in resolved.design.blocks
         ),
-        training_targets=Tuple(target.id for target in plan.training_targets),
-        heldout_targets=Tuple(target.id for target in plan.heldout_targets),
+        training_targets=Tuple(
+            _resolved_target_document(target, resolved.registry)
+            for target in plan.training_targets
+        ),
+        heldout_targets=Tuple(
+            _resolved_target_document(target, resolved.registry)
+            for target in plan.heldout_targets
+        ),
     ))
     provenance_digest = _evolution_digest((
         git_sha=git.sha,
