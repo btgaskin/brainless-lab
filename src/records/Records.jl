@@ -20,6 +20,20 @@ end
 
 _record_repo_root() = normpath(joinpath(@__DIR__, "..", ".."))
 
+function _record_manifest_path()
+    project_path = Base.active_project()
+    project_path === nothing && throw(ArgumentError(
+        "recording requires an active Julia project with a resolved Manifest.toml; " *
+        "start Julia with `--project=PATH` and run `using Pkg; Pkg.instantiate()` first",
+    ))
+    manifest_path = joinpath(dirname(project_path), "Manifest.toml")
+    isfile(manifest_path) || throw(ArgumentError(
+        "recording requires the active project's resolved Manifest.toml; run " *
+        "`julia --project=$(dirname(project_path)) -e 'using Pkg; Pkg.instantiate()'` first",
+    ))
+    return manifest_path
+end
+
 function _record_git()
     root = _record_repo_root()
     sha = try
@@ -32,11 +46,7 @@ function _record_git()
     catch
         "unknown"
     end
-    manifest_path = joinpath(root, "Manifest.toml")
-    isfile(manifest_path) || throw(ArgumentError(
-        "recording requires a resolved Manifest.toml; run " *
-        "`julia --project=. -e 'using Pkg; Pkg.instantiate()'` first",
-    ))
+    manifest_path = _record_manifest_path()
     manifest = read(manifest_path)
     manifest_sha256 = bytes2hex(SHA.sha256(manifest))
     return (;

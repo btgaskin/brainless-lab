@@ -220,7 +220,7 @@ end
     @test metadata["kind"] == "sweep"
     @test metadata["git_state"] in ("clean", "dirty", "unknown")
     @test metadata["git_sha"] != "unknown"
-    source_manifest = joinpath(@__DIR__, "..", "Manifest.toml")
+    source_manifest = joinpath(dirname(Base.active_project()), "Manifest.toml")
     recorded_manifest = joinpath(directory, "environment", "Manifest.toml")
     @test read(recorded_manifest) == read(source_manifest)
     expected_manifest_digest = open(source_manifest, "r") do io
@@ -276,7 +276,10 @@ end
     @test occursin("Student-t interval over censored values is not a calibrated interval", report)
     @test startswith(summary_json, "{")
 
-    for path in expected
+    # The sealed manifest is copied byte-for-byte and may contain an absolute
+    # path when Pkg.test or Pkg.develop supplies a path dependency. Generated
+    # record artifacts must still remain free of host paths.
+    for path in filter(!=("environment/Manifest.toml"), expected)
         content = read(joinpath(directory, path), String)
         @test !occursin("/private/tmp", content)
         @test !occursin("/Users/", content)
@@ -310,6 +313,58 @@ end
         id="mismatched",
     )
     @test !ispath(joinpath(root, "mismatched"))
+end
+
+@testset "records seal the active downstream project manifest" begin
+    registry = operation_registry()
+    plan = _record_sweep_plan()
+    result = execute(resolve(plan, registry))
+    downstream = mktempdir()
+    project_path = joinpath(downstream, "Project.toml")
+    manifest_path = joinpath(downstream, "Manifest.toml")
+    write(
+        project_path,
+        "[deps]\nBrainlessLab = \"d12add44-1e3e-4161-9a99-c2121a2f0f38\"\n",
+    )
+    manifest = """
+    # Downstream-project manifest sentinel.
+    julia_version = "$(VERSION)"
+    manifest_format = "2.0"
+    project_hash = "downstream-recording-regression"
+    """
+    write(manifest_path, manifest)
+
+    previous_project = Base.active_project()
+    try
+        Base.set_active_project(project_path)
+        directory = write_record(
+            plan,
+            result;
+            registry,
+            root=mktempdir(),
+            id="downstream-record",
+        )
+        recorded_manifest = joinpath(directory, "environment", "Manifest.toml")
+        @test read(recorded_manifest, String) == manifest
+
+        rm(manifest_path)
+        error = try
+            write_record(
+                plan,
+                result;
+                registry,
+                root=mktempdir(),
+                id="missing-manifest",
+            )
+            nothing
+        catch caught
+            caught
+        end
+        @test error isa ArgumentError
+        @test occursin("active project's resolved Manifest.toml", sprint(showerror, error))
+    finally
+        Base.set_active_project(previous_project)
+    end
 end
 
 @testset "record CSV keeps heterogeneous fields" begin
