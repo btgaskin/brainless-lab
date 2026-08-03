@@ -13,8 +13,10 @@ experimental:
 
 `TaskSpec` and `task_outcome(sim)` are stable Core contracts: a task names its setup,
 rollout defaults, optional primary metric, and anchors, and the result exposes that declared
-key with task-native and normalized values. This feature record tracks the extended task
-implementations, calibration utilities, and control settings composed through that
+key with its task-native value. A measured anchor also declares the `scored_ticks` interval
+where its normalised value is valid. A different scoring window keeps the raw value and
+withholds normalisation with an explicit status. This feature record tracks the extended
+task implementations, calibration utilities, and control settings composed through that
 interface.
 
 Calibration and outcome definitions operationalise behaviour. They do not validate the named

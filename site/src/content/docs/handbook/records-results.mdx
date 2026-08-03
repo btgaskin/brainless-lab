@@ -17,6 +17,12 @@ needs repeated trials and a durable record.
 The explicit `window` acknowledges that this run is shorter than Tracking's ordinary
 2,000-scored-tick minimum. Treat its outcome as a short diagnostic, not study evidence.
 
+The raw outcome always uses the recorded scoring window. A measured anchor applies only at
+the `scored_ticks` interval used to measure it. If the intervals differ, `normalized` and
+`normalized_bound` are `missing`. Check `normalization_status` and
+`anchor_scored_ticks` before reporting a normalised value. Analytic anchors are
+window-invariant.
+
 ## Standard record
 
 ```text
@@ -61,7 +67,8 @@ must not exceed 5 MiB.
 A complete record proves that generation finished and preserves the result. It does not
 promote exploratory work to confirmed evidence.
 
-Always report the outcome key, raw and normalised values, independent units, horizon,
-warm-up, construction, reset, seed policy, failed trials, and relevant controls.
+Always report the outcome key, raw value, normalised value when available, normalisation
+status, scoring window, independent units, horizon, warm-up, construction, reset, seed
+policy, failed trials, and relevant controls.
 
 <p class="bl-source">Source: <code>src/core/Recorder.jl</code>, <code>src/records/Records.jl</code>.</p>

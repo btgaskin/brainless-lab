@@ -465,6 +465,8 @@ function _record_task_metric_rows(trials)
         :raw_score,
         :normalized_score,
         :normalized_bound,
+        :normalization_status,
+        :anchor_scored_ticks,
         :viable,
         :liveness,
     )
@@ -499,7 +501,8 @@ function _empty_table_columns(name::Symbol)
     name === :candidate_trials && return (
         :phase, :iteration, :candidate, :condition, :block, :trial,
         :window, :seed_ledger_agents, :topology_seed, :world_seed, :initial_state, :score_key,
-        :raw_score, :normalized_score, :normalized_bound, :viable, :liveness,
+        :raw_score, :normalized_score, :normalized_bound, :normalization_status,
+        :anchor_scored_ticks, :viable, :liveness,
         :measure_value,
     )
     name === :candidate_scores && return (
@@ -513,7 +516,8 @@ function _empty_table_columns(name::Symbol)
         :phase, :heldout_target,
         :condition, :block, :trial, :window, :seed_ledger_agents, :topology_seed,
         :world_seed, :initial_state, :score_key,
-        :raw_score, :normalized_score, :normalized_bound, :viable, :liveness,
+        :raw_score, :normalized_score, :normalized_bound, :normalization_status,
+        :anchor_scored_ticks, :viable, :liveness,
     )
     name === :contrasts && return (
         :case, :condition, :baseline, :n, :raw_difference, :raw_ci_lower,
@@ -1237,6 +1241,10 @@ function _record_optional_uint64(text::AbstractString, context::AbstractString)
     return isempty(text) ? missing : _record_uint64(text, context)
 end
 
+function _record_optional_integer(text::AbstractString, context::AbstractString)
+    return isempty(text) ? missing : _record_integer(text, context)
+end
+
 _record_initial_state_value(value::Vector) =
     Tuple(_record_initial_state_value(item) for item in value)
 _record_initial_state_value(value) = value
@@ -1312,6 +1320,11 @@ function _restored_trial_row(row, context::AbstractString)
             "$(context) normalized_score",
         ),
         normalized_bound=_record_optional_symbol(row.normalized_bound),
+        normalization_status=_record_optional_symbol(row.normalization_status),
+        anchor_scored_ticks=_record_optional_integer(
+            row.anchor_scored_ticks,
+            "$(context) anchor_scored_ticks",
+        ),
         viable=_record_optional_bool(row.viable, "$(context) viable"),
         liveness=_record_optional_bool(row.liveness, "$(context) liveness"),
     )
@@ -1414,7 +1427,8 @@ function _restore_evolution_candidates(
         :phase, :iteration, :candidate, :condition, :block, :trial,
         :window, :seed_ledger_agents, :topology_seed, :world_seed,
         :initial_state, :score_key, :raw_score, :normalized_score,
-        :normalized_bound, :viable, :liveness, :measure_value,
+        :normalized_bound, :normalization_status, :anchor_scored_ticks,
+        :viable, :liveness, :measure_value,
     )
     trial_rows = _require_record_columns(
         _read_record_csv(trial_path),

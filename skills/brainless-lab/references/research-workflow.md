@@ -91,7 +91,7 @@ For task performance, report:
 
 - outcome key;
 - raw score;
-- normalised score when used;
+- normalised score when available, its status, and the scored interval;
 - blocks and trials per block;
 - construction scope and reset;
 - horizon and warm-up;

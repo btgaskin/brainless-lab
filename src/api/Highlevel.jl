@@ -19,10 +19,12 @@ end
     task_outcome(sim::SimResult)
 
 Return the outcome declared by the task as
-`(key, raw, normalized, normalized_bound, window)`. `normalized_bound` is `:floor`,
-`:ceiling`, or `:none` and makes anchor censoring explicit. Return `nothing`
-when the task has no scalar objective. Legacy metric fields remain available
-as diagnostics but do not define the task outcome.
+`(key, raw, normalized, normalized_bound, normalization_status,
+anchor_scored_ticks, window)`. A measured anchor only produces a normalised
+value when `window` matches its declared `anchor_scored_ticks`; otherwise the
+normalised fields are `missing` and `normalization_status` explains why. Return
+`nothing` when the task has no scalar objective. Legacy metric fields remain
+available as diagnostics but do not define the task outcome.
 """
 function task_outcome(sim::SimResult)
     contract = if hasproperty(sim.config, :outcome_contract)
@@ -43,6 +45,7 @@ function task_outcome(sim::SimResult)
             key=task.score_key,
             floor=score_floor(task),
             ceiling=score_ceiling(task),
+            anchor_scored_ticks=_anchor_scored_ticks(task.floor, task.ceiling),
         )
     end
     contract === nothing && return nothing
@@ -54,23 +57,35 @@ function task_outcome(sim::SimResult)
     raw = Float64(getproperty(sim.metrics, key))
     floor = Float64(contract.floor)
     ceiling = Float64(contract.ceiling)
-    normalized = try
-        _normalized_anchor_result(raw, floor, ceiling, "task :$(sim.task)")
-    catch error
-        error isa ArgumentError || rethrow()
-        throw(ArgumentError(
-            "task :$(sim.task) outcome ceiling must be greater than its floor",
-        ))
-    end
     hasproperty(sim.config, :window) || throw(ArgumentError(
         "task :$(sim.task) outcome has no recorded scoring window",
     ))
+    window = Int(sim.config.window)
+    anchor_scored_ticks = hasproperty(contract, :anchor_scored_ticks) ?
+        contract.anchor_scored_ticks : nothing
+    normalization_status =
+        anchor_scored_ticks === nothing || window == anchor_scored_ticks ?
+        :available : :anchor_window_mismatch
+    normalized = if normalization_status === :available
+        try
+            _normalized_anchor_result(raw, floor, ceiling, "task :$(sim.task)")
+        catch error
+            error isa ArgumentError || rethrow()
+            throw(ArgumentError(
+                "task :$(sim.task) outcome ceiling must be greater than its floor",
+            ))
+        end
+    else
+        nothing
+    end
     return (
         key=key,
         raw=raw,
-        normalized=normalized.value,
-        normalized_bound=normalized.bound,
-        window=Int(sim.config.window),
+        normalized=normalized === nothing ? missing : normalized.value,
+        normalized_bound=normalized === nothing ? missing : normalized.bound,
+        normalization_status,
+        anchor_scored_ticks,
+        window,
     )
 end
 
@@ -1316,6 +1331,7 @@ function _simulation_config(
             key=task_spec.score_key,
             floor=score_floor(task_spec),
             ceiling=score_ceiling(task_spec),
+            anchor_scored_ticks=_anchor_scored_ticks(task_spec.floor, task_spec.ceiling),
         ) : nothing,
     )
 end

@@ -259,6 +259,8 @@ end
     summary_json = read(joinpath(directory, "summary", "summary.json"), String)
     @test occursin("raw_score", trials)
     @test occursin("normalized_bound", trials)
+    @test occursin("normalization_status", trials)
+    @test occursin("anchor_scored_ticks", trials)
     @test "window" in split(first(split(trials, '\n')), ',')
     @test "window" in split(first(split(task_metrics, '\n')), ',')
     @test only(result.trial_rows).window == 2

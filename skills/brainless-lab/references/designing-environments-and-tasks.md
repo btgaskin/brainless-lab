@@ -193,12 +193,13 @@ standardised `SimResult`, rollout defaults, and optional scoring.
 are runtime truth. Use `score_key=nothing` when the task is characterised by multiple
 collective/ecological measures rather than one objective.
 
-`task_outcome(sim)` returns `(key, raw, normalized)` from the
-task contract recorded in the result, and returns `nothing` when `score_key=nothing`.
-Legacy metric fields remain diagnostics. The `normalized` value maps the task's raw outcome
-between its own floor and ceiling, clamped to `[0,1]`. Prefer measured null anchors with
-provenance over guessed zero floors. A saturated value is outside the anchors, not
-physically equal to another task's result.
+`task_outcome(sim)` returns the key, raw outcome, normalised value and normalisation
+status from the task contract recorded in the result. It returns `nothing` when
+`score_key=nothing`. Legacy metric fields remain diagnostics. A measured anchor declares
+the `scored_ticks` interval where it applies. If the result uses a different window, the
+normalised value is `missing` and the raw outcome remains available. Analytic anchors are
+window-invariant. Prefer measured null anchors with provenance over guessed zero floors. A
+saturated value is outside the anchors, not physically equal to another task's result.
 
 Put a registered task, node, body, and interaction cycle into `CompositionSpec`. Put
 blocks, trials, horizon, warm-up, reset, construction scope, and root seed into

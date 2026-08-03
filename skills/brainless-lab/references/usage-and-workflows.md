@@ -81,14 +81,18 @@ When the task declares a scalar outcome, the result contains:
 
 - `key`: the task's outcome name;
 - `raw`: the task-specific value;
-- `normalized`: the value mapped between the task's declared anchors.
+- `normalized`: the value mapped between the task's declared anchors, or `missing`;
+- `normalization_status`: whether the anchor applies to this scoring window;
+- `anchor_scored_ticks`: the interval declared by a window-specific measured anchor;
+- `window`: the interval used for the raw outcome.
 
 The function returns `nothing` when the task has no scalar outcome. Other fields under
 `sim.metrics` are diagnostics unless the `TaskSpec` declares them as the outcome.
 
-Raw outcomes are not comparable across tasks. Normalisation places values within each
-task's anchors but does not make the measured capacities identical. Keep Tracking, Pong,
-Wall, CartPole, and ecological outcomes separate.
+Raw outcomes are not comparable across tasks. A measured anchor permits normalisation only
+when `window` matches `anchor_scored_ticks`. Analytic anchors are window-invariant.
+Normalisation does not make the measured capacities identical. Keep Tracking, Pong, Wall,
+CartPole, and ecological outcomes separate.
 
 ## Record the channels an analysis needs
 

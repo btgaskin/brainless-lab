@@ -288,7 +288,9 @@ end
         outcome = task_outcome(stamped)
         @test stamped.node == :mynode
         @test stamped.config.networks[1].gain == params.gain
-        @test isfinite(outcome.normalized)
+        @test ismissing(outcome.normalized)
+        @test outcome.normalization_status === :anchor_window_mismatch
+        @test outcome.anchor_scored_ticks == 200
     finally
         delete!(BrainlessLab.METRICS, :custom_metric)
         delete!(BrainlessLab.DRIVES, :mydrive)

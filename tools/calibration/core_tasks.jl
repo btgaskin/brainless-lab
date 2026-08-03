@@ -81,9 +81,14 @@ function _reference_rollout(task::Symbol, seed::Integer, ticks::Integer)
     opportunities =
         task === :pong ? Int(result.hits + result.misses) :
         Int(ticks)
+    anchor_scored_ticks = task_spec.floor.scored_ticks === nothing ?
+        task_spec.ceiling.scored_ticks : task_spec.floor.scored_ticks
+    normalized =
+        anchor_scored_ticks === nothing || anchor_scored_ticks == Int(ticks) ?
+        normalized_score(task_spec, raw; window=ticks) : missing
     return (
         raw=raw,
-        normalized=normalized_score(task_spec, raw),
+        normalized,
         opportunities=opportunities,
     )
 end
@@ -238,14 +243,21 @@ function _write_report(
         println(io, "- Configuration: `$(config_path)`")
         println(io, "- Generated: $(Dates.now(Dates.UTC))")
         println(io)
-        println(io, "| Task | Condition | Mean normalized outcome | Mean opportunities |")
-        println(io, "| --- | --- | ---: | ---: |")
+        println(io, "| Task | Condition | Mean raw outcome | Mean normalised outcome | Mean opportunities |")
+        println(io, "| --- | --- | ---: | ---: | ---: |")
         for task in CORE_TASKS, condition in CORE_CONDITIONS
             selected = filter(row -> row.task === task && row.condition === condition, rows)
+            normalized = Float64[
+                row.normalized for row in selected if !ismissing(row.normalized)
+            ]
+            normalized_display = isempty(normalized) ?
+                "not available" : string(round(mean(normalized); digits=4))
             println(
                 io,
                 "| `:$(task)` | `:$(condition)` | ",
-                round(mean(row.normalized for row in selected); digits=4),
+                round(mean(row.raw for row in selected); digits=4),
+                " | ",
+                normalized_display,
                 " | ",
                 round(mean(row.opportunities for row in selected); digits=2),
                 " |",
@@ -258,7 +270,7 @@ function _write_report(
             interval = intervals[task]
             println(
                 io,
-                "- `:$(task)` reference minus random: mean ",
+                "- `:$(task)` reference minus random raw outcome: mean ",
                 round(interval.mean; digits=4),
                 ", paired bootstrap 95% interval [",
                 round(interval.lower; digits=4),
@@ -357,12 +369,12 @@ function main(args=ARGS)
 
     intervals = Dict{Symbol,NamedTuple}()
     for task in CORE_TASKS
-        reference = [
-            row.normalized for row in rows
+        reference = Float64[
+            row.raw for row in rows
             if row.task === task && row.condition === :reference
         ]
-        random = [
-            row.normalized for row in rows
+        random = Float64[
+            row.raw for row in rows
             if row.task === task && row.condition === :random
         ]
         intervals[task] = _paired_bootstrap_interval(

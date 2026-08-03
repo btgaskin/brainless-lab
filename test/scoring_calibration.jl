@@ -23,6 +23,7 @@ end
     @test occursin("null_target_rate=", wall.floor.provenance)
     @test occursin("rng=MersenneTwister", wall.floor.provenance)
     @test occursin("julia=$(VERSION)", wall.floor.provenance)
+    @test wall.floor.scored_ticks == 200
 
     tracking = BrainlessLab.calibrate_task(:tracking; seeds=0:7)
     _test_calibrated_floor(tracking.floor)
@@ -40,6 +41,7 @@ end
     _test_calibrated_floor(pong.floor)
     @test pong.ceiling.value ≈ BrainlessLab.PONG_TASK.ceiling.value atol=1e-12
     @test BrainlessLab.PONG_TASK.ceiling.kind == ANALYTIC
+    @test pong.floor.scored_ticks == 6000
 
     pong_hitrate = BrainlessLab.calibrate_task(:pong_hitrate; seeds=0:7)
     _test_calibrated_floor(pong_hitrate.floor)

@@ -4,11 +4,33 @@ struct ScoreAnchor
     value::Float64
     kind::AnchorKind
     provenance::String
+    scored_ticks::Union{Nothing,Int}
+
+    function ScoreAnchor(value, kind, provenance, scored_ticks=nothing)
+        scored_ticks_ = scored_ticks === nothing ? nothing : Int(scored_ticks)
+        scored_ticks_ === nothing || scored_ticks_ > 0 || throw(ArgumentError(
+            "anchor scored_ticks must be positive",
+        ))
+        kind == ANALYTIC && scored_ticks_ !== nothing && throw(ArgumentError(
+            "analytic anchors are window-invariant and must not declare scored_ticks",
+        ))
+        return new(Float64(value), kind, String(provenance), scored_ticks_)
+    end
 end
 
 analytic(v; note="") = ScoreAnchor(Float64(v), ANALYTIC, String(note))
-null_anchor(v, prov) = ScoreAnchor(Float64(v), NULL_MEASURED, String(prov))
-reference_anchor(v, prov) = ScoreAnchor(Float64(v), REFERENCE_MEASURED, String(prov))
+null_anchor(v, prov; scored_ticks=nothing) =
+    ScoreAnchor(Float64(v), NULL_MEASURED, String(prov), scored_ticks)
+reference_anchor(v, prov; scored_ticks=nothing) =
+    ScoreAnchor(Float64(v), REFERENCE_MEASURED, String(prov), scored_ticks)
+
+function _anchor_scored_ticks(floor::ScoreAnchor, ceiling::ScoreAnchor)
+    windows = unique(filter(!isnothing, (floor.scored_ticks, ceiling.scored_ticks)))
+    length(windows) <= 1 || throw(ArgumentError(
+        "measured score anchors must use the same scored_ticks interval",
+    ))
+    return isempty(windows) ? nothing : only(windows)
+end
 
 function _normalized_anchor_result(
     raw_score::Real,

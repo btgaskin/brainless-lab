@@ -201,6 +201,7 @@ function TaskSpec(
         score_ceiling,
         analytic(1.0; note="default analytic ceiling"),
     )
+    _anchor_scored_ticks(floor_anchor, ceiling_anchor)
     options_ = _option_defaults(options, "task :$(task_name)")
     minimum_scored_ticks_ = Int(minimum_scored_ticks)
     minimum_scored_ticks_ > 0 || throw(ArgumentError(
@@ -366,7 +367,7 @@ const WALL_TASK = TaskSpec(
     tags=(:benchmark, :qualification, :core),
     minimum_scored_ticks=200,
     options=WALL_TASK_OPTIONS,
-    floor=null_anchor(0.81609374999999995, "task=wall, null=null_random, rate_reference=falandays, null_target_rate=0.34008828124999996, score_key=nav_score, scored_ticks=200, sem=0.0120, sd=0.0677, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
+    floor=null_anchor(0.81609374999999995, "task=wall, null=null_random, rate_reference=falandays, null_target_rate=0.34008828124999996, score_key=nav_score, scored_ticks=200, sem=0.0120, sd=0.0677, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"; scored_ticks=200),
     ceiling=analytic(1.0; note="nav_score max = collision-free navigation while moving (a true analytic optimum); untrained falandays ref measured ~0.013 << null 0.776, so the analytic optimum is the honest ceiling, not a reference agent"),
     score_key=:nav_score,
     descriptor_keys=[:collisions_window, :distance_window],
@@ -391,7 +392,7 @@ const PONG_TASK = TaskSpec(
     tags=(:benchmark, :qualification, :core),
     minimum_scored_ticks=6000,
     options=PONG_TASK_OPTIONS,
-    floor=null_anchor(0.2704470119755446, "task=pong, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, score_key=hit_rate, scored_ticks=6000, sem=0.0137, sd=0.0778, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
+    floor=null_anchor(0.2704470119755446, "task=pong, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, score_key=hit_rate, scored_ticks=6000, sem=0.0137, sd=0.0778, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"; scored_ticks=6000),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
@@ -403,7 +404,7 @@ const PONG_HITRATE_TASK = TaskSpec(
     tags=(:alias,),
     minimum_scored_ticks=6000,
     options=PONG_TASK_OPTIONS,
-    floor=null_anchor(0.2704470119755446, "task=pong_hitrate, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, score_key=hit_rate, scored_ticks=6000, sem=0.0137, sd=0.0778, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
+    floor=null_anchor(0.2704470119755446, "task=pong_hitrate, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, score_key=hit_rate, scored_ticks=6000, sem=0.0137, sd=0.0778, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"; scored_ticks=6000),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
@@ -579,16 +580,28 @@ make_env(task::TaskSpec, rng; kwargs...) = make_env(task; rng=rng, kwargs...)
 make_env(task_name::Union{Symbol,AbstractString}; kwargs...) = make_env(resolve_task(task_name); kwargs...)
 
 """
-    normalized_score(task, raw_score)
+    normalized_score(task, raw_score; window=nothing)
 
 Map a raw task score between its declared floor and ceiling. Values at or
 beyond an anchor are clamped to `[0, 1]`. Aggregated results must therefore
 report how many observations hit each bound. A Student-t interval over these
-censored values is descriptive; it is not a calibrated interval.
+censored values is descriptive; it is not a calibrated interval. A measured
+anchor with `scored_ticks` requires a matching `window`.
 """
-function normalized_score(task::TaskSpec, raw_score::Real)
+function normalized_score(task::TaskSpec, raw_score::Real; window=nothing)
+    anchor_scored_ticks = _anchor_scored_ticks(task.floor, task.ceiling)
+    if anchor_scored_ticks !== nothing
+        window === nothing && throw(ArgumentError(
+            "normalizing task :$(task.name) requires window=$(anchor_scored_ticks), " *
+            "the interval used to measure its anchor",
+        ))
+        Int(window) == anchor_scored_ticks || throw(ArgumentError(
+            "cannot normalize task :$(task.name) over window=$(Int(window)); its " *
+            "measured anchor applies at scored_ticks=$(anchor_scored_ticks)",
+        ))
+    end
     return _normalized_anchor_score(raw_score, task.floor, task.ceiling, "task $(task.name)")
 end
 
-normalized_score(task_name::Union{Symbol,AbstractString}, raw_score::Real) =
-    normalized_score(resolve_task(task_name), raw_score)
+normalized_score(task_name::Union{Symbol,AbstractString}, raw_score::Real; kwargs...) =
+    normalized_score(resolve_task(task_name), raw_score; kwargs...)

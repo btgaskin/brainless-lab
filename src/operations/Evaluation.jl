@@ -238,6 +238,9 @@ function trial_row(trial::EvaluationTrial)
         raw_score=outcome === nothing ? missing : outcome.raw,
         normalized_score=outcome === nothing ? missing : outcome.normalized,
         normalized_bound=outcome === nothing ? missing : outcome.normalized_bound,
+        normalization_status=outcome === nothing ? missing : outcome.normalization_status,
+        anchor_scored_ticks=outcome === nothing || outcome.anchor_scored_ticks === nothing ?
+            missing : outcome.anchor_scored_ticks,
         viable=_trial_viability(trial.simulation.metrics),
         liveness=_trial_liveness(trial.simulation.metrics),
     )

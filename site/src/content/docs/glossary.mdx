@@ -158,7 +158,8 @@ coordinates evolution may change for one node. See [API, plans, and CLI](/refere
 ## Scoring and evidence
 
 <strong id="anchor">anchor</strong> — A declared reference point for a task outcome. Each anchor carries a value, a
-kind, and its provenance. See [Core catalogue](/reference/core-catalog/).
+kind, and its provenance. A measured anchor also declares its scored interval when that
+interval affects the measurement. See [Core catalogue](/reference/core-catalog/).
 
 <strong id="floor">floor</strong> — The lower anchor of a task. It is an analytic chance level or a calibrated null
 control. See [Core catalogue](/reference/core-catalog/).
@@ -166,8 +167,9 @@ control. See [Core catalogue](/reference/core-catalog/).
 <strong id="ceiling">ceiling</strong> — The upper anchor of a task. It is an analytic maximum or a measured
 reference. See [Core catalogue](/reference/core-catalog/).
 
-<strong id="normalised-score">normalised score</strong> — The task-declared anchor transformation of a raw outcome. It is
-useful within one task, and it is not a common competence scale. See
+<strong id="normalised-score">normalised score</strong> — The task-declared anchor transformation of a raw outcome. A
+measured anchor can transform only a raw outcome measured over the same scored interval. A
+normalised score is useful within one task, and it is not a common competence scale. See
 [Core catalogue](/reference/core-catalog/).
 
 <strong id="evidence-state">evidence state</strong> — The status of an experiment protocol: planned, exploratory, tuned,

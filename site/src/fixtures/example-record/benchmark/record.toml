@@ -13,10 +13,10 @@ package_version = "0.3.0"
 threads = 1
 
 [artifact_sha256]
-"data/task_metrics.csv" = "25c717a759a7497f346df13e626360e56ee794ef4413a03197a85995a214e255"
-"data/trials.csv" = "2054540fa6a24b44f480162784a64f1309226cebd5b27cfb427f2537ba2a7d2d"
+"data/task_metrics.csv" = "cabd1d201c8b85216d4aed57e818993b005c24a3c8a794bcde718e6c730c010e"
+"data/trials.csv" = "5fe70ced045bdaf0c43c225b6a474aa71d85308d61c39513a45dc9ab3fd9a2e5"
 "environment/Manifest.toml" = "0b4f8b91c2ca81164b84136626acbb5f38adabc1b19f42cc0495b194d745f543"
-"report/index.html" = "49cc5f7f20a19f439d204154e994fc6e920ee0db8991cead297e5dd8ab9d71db"
+"report/index.html" = "3b3366e06e887aa12ee8ed1dff40cc8675a48ac7532f66f65bb355a44a12928e"
 "request.toml" = "086e471eb0dce5ea3c439c6a35b48bdbee0cdd374ca02b3588a90fdfde694852"
 "resolved.toml" = "4f1dd19b60b848bd285f3ea37fccfdfe036989a33dd8883dd40dc9e030626f53"
 "seeds.csv" = "cd47acdd17e6d33a8a79200aa77026ba71a61842faa105f939770b055d7daf74"

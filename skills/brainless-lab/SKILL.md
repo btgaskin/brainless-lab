@@ -216,8 +216,10 @@ ablation, model baseline, and oracle policies answer different questions. Exact 
 a regression control, not a causal null.
 
 Use `task_outcome(sim)` for the declared task result. Report its key, raw score, normalised
-score when used, blocks, trials, construction scope, reset, horizon, warm-up, and seed
-policy. Normalised Tracking, Pong, and Wall scores remain different quantities.
+score when available, normalisation status, scoring window, blocks, trials, construction
+scope, reset, horizon, warm-up, and seed policy. A measured anchor applies only at its
+declared `scored_ticks`; analytic anchors are window-invariant. Normalised Tracking, Pong,
+and Wall scores remain different quantities.
 
 Treat criticality and information measures as estimator-dependent analyses. State their
 nulls, assumptions, and finite-sample limits. Shared environmental drive can produce

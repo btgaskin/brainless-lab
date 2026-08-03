@@ -222,7 +222,7 @@ function _measure_null_anchor(
         seed_values,
         scored_ticks,
     )
-    return null_anchor(_mean_float64(raw), provenance)
+    return null_anchor(_mean_float64(raw), provenance; scored_ticks)
 end
 
 function _reference_from_namedtuple(reference, default_model)
@@ -255,6 +255,7 @@ function _measure_reference_anchor(
     model === nothing || (ref_node_kwargs[:params] = model)
     raw = Float64[]
     used_key = task_spec.score_key
+    scored_ticks = 0
     task_sym = _calibration_task_symbol(task_spec)
     for seed in seed_values
         sim = simulate(
@@ -275,10 +276,11 @@ function _measure_reference_anchor(
         )
         value, key = _calibration_raw_score(sim, task_spec.score_key)
         used_key = key
+        scored_ticks = Int(sim.config.window)
         push!(raw, value)
     end
-    provenance = "reference=$(model_sym), score_key=$(used_key), seeds $(_seed_summary(seed_values)), git $(_git_short_sha()), $(Dates.today())"
-    return reference_anchor(_mean_float64(raw), provenance)
+    provenance = "reference=$(model_sym), score_key=$(used_key), scored_ticks=$(scored_ticks), seeds $(_seed_summary(seed_values)), git $(_git_short_sha()), $(Dates.today())"
+    return reference_anchor(_mean_float64(raw), provenance; scored_ticks)
 end
 
 function _calibrated_ceiling(
