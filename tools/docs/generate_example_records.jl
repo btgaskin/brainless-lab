@@ -57,7 +57,10 @@ end
 
 function _generate_fixture!(operation::Symbol, plan::AbstractString, output::AbstractString)
     record_root = mktempdir()
-    julia = Base.julia_cmd()
+    # Base.julia_cmd() inherits flags from its parent process. Pkg.test() enables
+    # --check-bounds=yes, which changes the final floating-point bits of this run.
+    # Start the current Julia executable with one explicit flag set instead.
+    julia = joinpath(Sys.BINDIR, Base.julia_exename())
     cli = joinpath(REPOSITORY, "bin", "brainlesslab.jl")
     command = `$(julia) --threads=1 --project=$(REPOSITORY) $(cli) run $(plan) --root $(record_root)`
     record = _record_directory(read(command, String))
