@@ -155,6 +155,48 @@ end
     @test occursin("null_target_rate=$(matched_rate)", calibrated.floor.provenance)
 end
 
+@testset "Calibration matches the task-specific reference width" begin
+    seed = 1
+    ticks = 80
+    window = 40
+    canonical = simulate(
+        :wall;
+        node=:falandays,
+        seed,
+        ticks,
+        window,
+        record=(:rate,),
+    )
+    @test canonical.config.n_nodes == 200
+    matched_rate = BrainlessLab._calibration_window_rate(canonical)
+
+    calibrated = BrainlessLab.calibrate_task(
+        :wall;
+        seeds=seed:seed,
+        ticks,
+        window,
+    )
+    explicit_null = simulate(
+        :wall;
+        node=:null_random,
+        seed,
+        ticks,
+        window,
+        N=canonical.config.n_nodes,
+        record=Symbol[],
+        node_kwargs=(target_rate=matched_rate,),
+    )
+
+    @test calibrated.floor.value == explicit_null.metrics.nav_score
+    @test occursin("n_nodes=200", calibrated.floor.provenance)
+    @test BrainlessLab._resolve_calibration_n_nodes(
+        BrainlessLab.PONG_TASK,
+        nothing,
+        NamedTuple(),
+        NamedTuple(),
+    ) == 500
+end
+
 @testset "Calibration diagnostics stay visible" begin
     diagnostic_task = TaskSpec(
         :diagnostic_reference,

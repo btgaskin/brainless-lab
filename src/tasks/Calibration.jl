@@ -34,6 +34,7 @@ function _calibration_provenance(
     null,
     rate_reference,
     null_target_rate,
+    n_nodes,
     score_key,
     seed_values,
     scored_ticks,
@@ -44,6 +45,7 @@ function _calibration_provenance(
     # detectable instead of silent.
     return "task=$(_calibration_task_symbol(task_obj)), null=$(null), " *
            "rate_reference=$(rate_reference), null_target_rate=$(null_target_rate), " *
+           "n_nodes=$(Int(n_nodes)), " *
            "score_key=$(score_key), scored_ticks=$(scored_ticks), " *
            "rng=MersenneTwister, julia=$(VERSION), " *
            "seeds $(_seed_summary(seed_values)), git $(_git_short_sha()), $(Dates.today())"
@@ -88,6 +90,23 @@ end
 function _calibration_task_symbol(task_obj)
     task_obj isa TaskSpec && return task_obj.name
     return Symbol(task_obj)
+end
+
+function _resolve_calibration_n_nodes(task_obj, N, node_kwargs, kwargs)
+    top_level = _merge_kwdicts(kwargs)
+    node_options = _merge_kwdicts(node_kwargs)
+    n_nodes = if haskey(top_level, :n_nodes)
+        Int(top_level[:n_nodes])
+    elseif N !== nothing
+        Int(N)
+    elseif haskey(node_options, :n_nodes)
+        Int(node_options[:n_nodes])
+    else
+        is_swarm = task_obj isa TaskSpec && is_multiagent(task_obj.setup)
+        _default_node_count(:falandays, _calibration_task_symbol(task_obj), is_swarm)
+    end
+    n_nodes >= 1 || throw(ArgumentError("calibration n_nodes must be at least one"))
+    return n_nodes
 end
 
 function _calibration_score_key(metrics_nt, preferred::Symbol)
@@ -218,6 +237,7 @@ function _measure_null_anchor(
         null,
         rate_reference,
         matched_rate,
+        N,
         used_key,
         seed_values,
         scored_ticks,
@@ -279,7 +299,7 @@ function _measure_reference_anchor(
         scored_ticks = Int(sim.config.window)
         push!(raw, value)
     end
-    provenance = "reference=$(model_sym), score_key=$(used_key), scored_ticks=$(scored_ticks), seeds $(_seed_summary(seed_values)), git $(_git_short_sha()), $(Dates.today())"
+    provenance = "reference=$(model_sym), n_nodes=$(Int(N)), score_key=$(used_key), scored_ticks=$(scored_ticks), seeds $(_seed_summary(seed_values)), git $(_git_short_sha()), $(Dates.today())"
     return reference_anchor(_mean_float64(raw), provenance; scored_ticks)
 end
 
@@ -332,10 +352,10 @@ end
     calibrate_task(task; null=:null_random, reference=nothing, seeds=0:7, kw...)
 
 Measure the canonical `:falandays` spike rate on the task protocol, use that
-rate to construct the input-independent null, and return `(floor, ceiling)`
-anchors. Reference ceilings are measured only when `reference` is supplied;
-otherwise existing non-analytic ceilings are retagged as legacy observed bests
-pending reference-genome calibration.
+rate to construct an input-independent null with the same resolved reservoir
+width, and return `(floor, ceiling)` anchors. Reference ceilings are measured
+only when `reference` is supplied; otherwise existing non-analytic ceilings are
+retagged as legacy observed bests pending reference-genome calibration.
 """
 function calibrate_task(
     task;
@@ -354,6 +374,7 @@ function calibrate_task(
 )
     task_obj = resolve_task(task)
     seed_values = _seed_vector(seeds)
+    calibration_n_nodes = _resolve_calibration_n_nodes(task_obj, N, node_kwargs, kwargs)
 
     if task_obj isa TaskSpec
         floor = _measure_null_anchor(
@@ -363,7 +384,7 @@ function calibrate_task(
             null=Symbol(null),
             ticks=ticks,
             window=window,
-            N=N,
+            N=calibration_n_nodes,
             n_agents=n_agents,
             record=record,
             node_kwargs=node_kwargs,
@@ -377,7 +398,7 @@ function calibrate_task(
             reference_model=reference_model,
             ticks=ticks,
             window=window,
-            N=N,
+            N=calibration_n_nodes,
             node_kwargs=node_kwargs,
             env_kwargs=env_kwargs,
             kwargs=kwargs,
@@ -392,7 +413,7 @@ function calibrate_task(
             null=Symbol(null),
             ticks=ticks,
             window=window,
-            N=N,
+            N=calibration_n_nodes,
             n_agents=n_agents,
             record=record,
             node_kwargs=node_kwargs,
