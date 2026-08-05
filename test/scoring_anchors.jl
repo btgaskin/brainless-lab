@@ -132,9 +132,9 @@ end
 end
 
 @testset "Measured anchors apply only to their scored interval" begin
-    @test BrainlessLab.WALL_TASK.floor.value == 0.81609374999999995
+    @test BrainlessLab.WALL_TASK.floor.value == 0.8106249999999999
     @test BrainlessLab.WALL_TASK.floor.scored_ticks == 200
-    @test BrainlessLab.PONG_TASK.floor.value == 0.2704470119755446
+    @test BrainlessLab.PONG_TASK.floor.value == 0.23673837560386476
     @test BrainlessLab.PONG_TASK.floor.scored_ticks == 6000
     @test normalized_score(:pong, 0.5; window=6000) isa Float64
     @test_throws ArgumentError normalized_score(:pong, 0.5; window=7200)

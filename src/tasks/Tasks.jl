@@ -367,7 +367,7 @@ const WALL_TASK = TaskSpec(
     tags=(:benchmark, :qualification, :core),
     minimum_scored_ticks=200,
     options=WALL_TASK_OPTIONS,
-    floor=null_anchor(0.81609374999999995, "task=wall, null=null_random, rate_reference=falandays, null_target_rate=0.34008828124999996, score_key=nav_score, scored_ticks=200, sem=0.0120, sd=0.0677, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"; scored_ticks=200),
+    floor=null_anchor(0.8106249999999999, "task=wall, null=null_random, rate_reference=falandays, null_target_rate=0.34008828124999996, n_nodes=200, score_key=nav_score, scored_ticks=200, sem=0.0084, sd=0.0477, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git ca09082, 2026-08-05"; scored_ticks=200),
     ceiling=analytic(1.0; note="nav_score max = collision-free navigation while moving (a true analytic optimum); untrained falandays ref measured ~0.013 << null 0.776, so the analytic optimum is the honest ceiling, not a reference agent"),
     score_key=:nav_score,
     descriptor_keys=[:collisions_window, :distance_window],
@@ -392,7 +392,7 @@ const PONG_TASK = TaskSpec(
     tags=(:benchmark, :qualification, :core),
     minimum_scored_ticks=6000,
     options=PONG_TASK_OPTIONS,
-    floor=null_anchor(0.2704470119755446, "task=pong, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, score_key=hit_rate, scored_ticks=6000, sem=0.0137, sd=0.0778, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"; scored_ticks=6000),
+    floor=null_anchor(0.23673837560386476, "task=pong, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, n_nodes=500, score_key=hit_rate, scored_ticks=6000, sem=0.0141, sd=0.0798, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git ca09082, 2026-08-05"; scored_ticks=6000),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
@@ -404,7 +404,7 @@ const PONG_HITRATE_TASK = TaskSpec(
     tags=(:alias,),
     minimum_scored_ticks=6000,
     options=PONG_TASK_OPTIONS,
-    floor=null_anchor(0.2704470119755446, "task=pong_hitrate, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, score_key=hit_rate, scored_ticks=6000, sem=0.0137, sd=0.0778, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"; scored_ticks=6000),
+    floor=null_anchor(0.23673837560386476, "task=pong_hitrate, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, n_nodes=500, score_key=hit_rate, scored_ticks=6000, sem=0.0141, sd=0.0798, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git ca09082, 2026-08-05"; scored_ticks=6000),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
