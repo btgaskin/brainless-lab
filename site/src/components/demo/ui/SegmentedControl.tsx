@@ -12,7 +12,8 @@ export function SegmentedControl<T extends string>({ options, value, onChange }:
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
-          className={`rounded-[4px] px-2 py-1 font-mono text-[11px] transition-colors active:translate-y-px ${
+          aria-pressed={opt.value === value}
+          className={`rounded-[4px] px-2 py-1 font-mono text-[11px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-teal active:translate-y-px ${
             opt.value === value ? 'bg-card text-ink' : 'text-ink-muted'
           }`}
           style={opt.value === value ? { boxShadow: 'inset 0 0 0 1px #2f6f5e55' } : undefined}

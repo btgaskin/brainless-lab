@@ -1,17 +1,7 @@
 import { DEFAULT_PARAMS, type FalandaysParams, type TaskName } from './types';
+import { CANONICAL_CORE_V2 } from './canonical';
 
-/**
- * Confirmed against the actual numpy reference (neural-cognition/v0 and
- * v0.2's crho/falandays.py), which BrainlessLab.jl was built to be
- * bit-exact with: `wmat -= d * lrate_wmat` with `lrate_wmat: float = 0.1`
- * as its own default. (An earlier version of this file offered a "Paper vs.
- * Repo" toggle that also swapped lrateWmat between 1.0/0.1, on the wrong
- * assumption that the paper's literal rule was undamped — the paper's
- * equation 5 lost its numeric coefficient in a copy/paste, same as the
- * connection-probability symbols, and the gap was filled with an assumption
- * instead of being left unknown. That toggle is gone; this is the one set
- * of base params, editable directly via the sliders.)
- */
+/** Shared fallback before a registered task preset is applied. */
 export const BASE_PARAMS: FalandaysParams = { ...DEFAULT_PARAMS };
 
 export interface TaskTuning {
@@ -35,6 +25,17 @@ const PLANK_CARTPOLE_TUNING: TaskTuning = {
   weightInitMode: 'excitatory',
 };
 
+function coreTuning(task: 'wall' | 'tracking' | 'pong'): TaskTuning {
+  const params = CANONICAL_CORE_V2[task].params;
+  return {
+    inputWeight: params.inputWeight,
+    N: params.N,
+    lrateWmat: params.lrateWmat,
+    lrateTarg: params.lrateTarg,
+    weightInitMode: params.weightInitMode,
+  };
+}
+
 /**
  * Per-task tuning, mostly mirrored from src/api/paper_config.jl, which is backed by
  * the authors' original Julia task scripts — NOT the numpy reference's defaults:
@@ -45,14 +46,8 @@ const PLANK_CARTPOLE_TUNING: TaskTuning = {
  *   "our homeostatic network (N=200) would produce movement patterns" (wall)
  *
  * plus "Plink=.1" for input/recurrent/output connectivity in every case
- * study, confirming the linkP=0.1 default. The numpy reference
- * (neural-cognition/v0(.2)) instead uses one uniform default_N=1000 across
- * every task — that's a deliberate choice for *its own* large-scale
- * statistical benchmarking (500 seeds per condition), not a reproduction of
- * the paper's per-task N. Since this demo is framed around the published
- * paper, the paper's numbers are what drive it here, except for lrateWmat:
- * the live demo starts all three tasks at 0.20 so the weight slider has a
- * calmer shared default while staying directly editable.
+ * study. The core values match the registered falandays_* compositions used
+ * by the version 2 benchmark plan.
  *
  * Applied as the starting value when switching tasks; both inputWeight and N
  * remain freely editable from there via the sliders. Effector gains
@@ -60,9 +55,9 @@ const PLANK_CARTPOLE_TUNING: TaskTuning = {
  * they live in each task module, not here.
  */
 export const TASK_TUNING: Record<TaskName, TaskTuning> = {
-  wall: { inputWeight: 4.0, N: 200, lrateWmat: 0.2, lrateTarg: 0.01, weightInitMode: 'excitatory' },
-  tracking: { inputWeight: 0.75, N: 200, lrateWmat: 0.2, lrateTarg: 0.01, weightInitMode: 'excitatory' },
-  pong: { inputWeight: 2.75, N: 500, lrateWmat: 0.2, lrateTarg: 0.1, weightInitMode: 'pongMixed' },
+  wall: coreTuning('wall'),
+  tracking: coreTuning('tracking'),
+  pong: coreTuning('pong'),
   cartpole_plank_easy: PLANK_CARTPOLE_TUNING,
   cartpole_plank_medium: PLANK_CARTPOLE_TUNING,
   cartpole_plank_hard: PLANK_CARTPOLE_TUNING,

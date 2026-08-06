@@ -1,6 +1,6 @@
 import { Rng } from './rng';
 import { bernoulliMask, initWeights } from './wiring';
-import type { FalandaysParams, ReservoirSnapshot } from './types';
+import type { FalandaysParams } from './types';
 
 /**
  * TypeScript port of the Falandays et al. homeostatic leaky-integrate-and-fire
@@ -28,7 +28,6 @@ export class FalandaysReservoir {
   private prevSpikes: Float64Array;
   private errors: Float64Array;
   private wmat: Float64Array;
-  private readonly wmat0: Float64Array;
   private readonly recurrentMask: Uint8Array;
   private readonly inputMask: Uint8Array;
   private readonly outputMask: Uint8Array;
@@ -54,8 +53,7 @@ export class FalandaysReservoir {
     this.inputMask = bernoulliMask(nReceptors, n, params.linkP, rng, false);
     this.outputMask = bernoulliMask(n, nEffectors, params.linkP, rng, false);
 
-    this.wmat0 = initWeights(this.recurrentMask, n, params, rng);
-    this.wmat = this.wmat0.slice();
+    this.wmat = initWeights(this.recurrentMask, n, params, rng);
 
     this.acts = new Float64Array(n);
     this.targets = new Float64Array(n).fill(1.0);
@@ -68,14 +66,8 @@ export class FalandaysReservoir {
     this.spikingNeighborCountBuf = new Float64Array(n);
   }
 
-  reset(): void {
-    this.wmat.set(this.wmat0);
-    this.acts.fill(0);
-    this.targets.fill(1.0);
-    this.spikes.fill(0);
-    this.prevSpikes.fill(0);
-    this.errors.fill(0);
-    this.tick = 0;
+  get currentTick(): number {
+    return this.tick;
   }
 
   step(receptors: ArrayLike<number>): Float64Array {
@@ -169,20 +161,4 @@ export class FalandaysReservoir {
     return out;
   }
 
-  snapshot(): ReservoirSnapshot {
-    return {
-      nNodes: this.nNodes,
-      nReceptors: this.nReceptors,
-      nEffectors: this.nEffectors,
-      tick: this.tick,
-      acts: this.acts.slice(),
-      targets: this.targets.slice(),
-      spikes: this.spikes.slice(),
-      errors: this.errors.slice(),
-      wmat: this.wmat.slice(),
-      recurrentMask: this.recurrentMask,
-      outputMask: this.outputMask,
-      effectorOutputs: this.effectorOutputs(),
-    };
-  }
 }

@@ -70,6 +70,7 @@ export default defineConfig({
       customCss: ['./src/styles/tailwind.css', 'katex/dist/katex.min.css', './src/styles/theme.css'],
       components: {
         Head: './src/components/Head.astro',
+        Hero: './src/components/LandingHero.astro',
         PageTitle: './src/components/PageTitle.astro',
       },
       social: {

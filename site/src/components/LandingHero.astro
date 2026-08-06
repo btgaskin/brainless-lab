@@ -1,0 +1,34 @@
+---
+import { LinkButton } from '@astrojs/starlight/components';
+import FalandaysDemo from './FalandaysDemo';
+
+const { data } = Astro.locals.starlightRoute.entry;
+const { title = data.title, tagline, actions = [] } = data.hero || {};
+---
+
+<section class="bl-landing-stage" aria-labelledby="_top">
+  <div class="hero">
+    <div class="sl-flex stack">
+      <div class="sl-flex copy">
+        <h1 id="_top" data-page-title set:html={title} />
+        {tagline && <div class="tagline" set:html={tagline} />}
+      </div>
+      {
+        actions.length > 0 && (
+          <div class="sl-flex actions">
+            {actions.map(
+              ({ attrs: { class: className, ...attrs } = {}, icon, link: href, text, variant }) => (
+                <LinkButton {href} {variant} icon={icon?.name} class:list={[className]} {...attrs}>
+                  {text}
+                  {icon?.html && <Fragment set:html={icon.html} />}
+                </LinkButton>
+              ),
+            )}
+          </div>
+        )
+      }
+    </div>
+  </div>
+
+  <FalandaysDemo client:load />
+</section>

@@ -7,23 +7,16 @@ export interface FalandaysParams {
    * that's the reference codebase's own choice for its large-scale
    * statistical benchmarking, not the paper's per-task values; wrong
    * reference point for a demo framed around the published paper.) This
-   * default is just the fallback before a task is selected. Now that the
-   * demo doesn't render individual nodes/edges (no per-node canvas graph —
-   * see components/explainer/ for the static, non-live architecture
-   * schematic instead), there's no rendering-cost reason to cap N low; it's
-   * plain O(N^2) array math, cheap at this scale regardless.
+   * default is just the fallback before a task is selected. The demo does
+   * not render individual nodes or edges, but its O(N^2) reservoir update
+   * still makes very large interactive values progressively slower.
    */
   N: number;
   /** Fraction of activation retained is (1-leak) each tick. Paper/repo default 0.25. */
   leak: number;
   /**
-   * Recurrent-weight learning-rate damping. Confirmed against the actual
-   * numpy reference (neural-cognition/v0(.2)/crho/falandays.py) — its own
-   * default is lrateWmat=0.1, same as the Julia repo (Axes.jl:70). There is
-   * no undamped "paper" variant of this rule; the paper's equation 5 lost
-   * its numeric coefficient in a copy/paste (same as the connection
-   * probabilities) and an earlier version of this file wrongly assumed it
-   * meant lrateWmat=1.0. See presets.ts's BASE_PARAMS comment.
+   * Recurrent-weight learning rate. The canonical Wall, Tracking, and Pong
+   * compositions use 1.0, as recorded in src/api/paper_config.jl.
    */
   lrateWmat: number;
   /** Target homeostasis learning rate. Paper/repo default 0.01. */
@@ -54,7 +47,7 @@ export interface FalandaysParams {
 export const DEFAULT_PARAMS: FalandaysParams = {
   N: 200,
   leak: 0.25,
-  lrateWmat: 0.1,
+  lrateWmat: 1.0,
   lrateTarg: 0.01,
   thresholdMult: 2.0,
   targetFloor: 1.0,
@@ -67,30 +60,15 @@ export const DEFAULT_PARAMS: FalandaysParams = {
   learnTargets: true,
 };
 
-export interface ReservoirSnapshot {
-  nNodes: number;
-  nReceptors: number;
-  nEffectors: number;
-  tick: number;
-  acts: Float64Array;
-  targets: Float64Array;
-  spikes: Float64Array;
-  errors: Float64Array;
-  /** Row-major nNodes x nNodes, `wmat[i*nNodes+j]` = weight from node i (presynaptic) to node j. */
-  wmat: Float64Array;
-  recurrentMask: Uint8Array;
-  /** Row-major nNodes x nEffectors. */
-  outputMask: Uint8Array;
-  effectorOutputs: number[];
-}
-
 export type PlankCartPoleTaskName =
   | 'cartpole_plank_easy'
   | 'cartpole_plank_medium'
   | 'cartpole_plank_hard'
   | 'cartpole_plank_hardest';
 
-export type TaskName = 'wall' | 'tracking' | 'pong' | PlankCartPoleTaskName;
+export type CoreTaskName = 'wall' | 'tracking' | 'pong';
+
+export type TaskName = CoreTaskName | PlankCartPoleTaskName;
 
 export interface TaskEnv<Snapshot = unknown> {
   readonly nReceptors: number;

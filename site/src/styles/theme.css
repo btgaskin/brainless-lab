@@ -84,10 +84,25 @@
   margin-inline: auto;
 }
 
+/* The hero and live demonstration form one structural first-viewport stage.
+   Lower Markdown remains outside this box, so the fold does not depend on a
+   tuned pixel height or on one device class. */
+.bl-landing-stage {
+  display: grid;
+  align-content: center;
+  gap: clamp(0.75rem, 2dvh, 1.35rem);
+  min-block-size: calc(100vh - var(--sl-nav-height));
+  min-block-size: calc(100dvh - var(--sl-nav-height));
+  padding-block: 0.75rem 1.5rem;
+}
+
 /* Compact, left-aligned hero (overrides Starlight's tall centered default). */
 [data-has-hero] .hero {
   grid-template-columns: 1fr;
   padding-block: 1rem 2.5rem;
+}
+.bl-landing-stage .hero {
+  padding-block: 0;
 }
 /* Two-column masthead: the h1 spans the left; the tagline and the "Read the docs"
    link stack in the right column, so the link nestles directly under the tagline.
@@ -159,6 +174,50 @@
   border-color: var(--bl-teal-ink);
   background: var(--bl-teal-ink);
   color: #fff;
+}
+
+/* Core demonstration layout. The settings panel is progressive disclosure on
+   narrow or short screens, and becomes a fixed side column only when both
+   dimensions can support it. */
+.bl-demo-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.bl-demo-canvas {
+  position: relative;
+  height: clamp(12rem, 38dvh, 20rem);
+}
+.bl-demo-settings {
+  display: none;
+}
+.bl-demo-settings[data-open='true'] {
+  display: block;
+}
+
+@media (min-width: 50rem) and (min-height: 48rem) {
+  .bl-demo-body {
+    grid-template-columns: minmax(0, 1fr) 14.5rem;
+  }
+  .bl-demo-canvas {
+    aspect-ratio: 3 / 2;
+    height: auto;
+  }
+  .bl-demo-details-toggle {
+    display: none;
+  }
+  .bl-demo-settings,
+  .bl-demo-settings[data-open='true'] {
+    display: block;
+    overflow-y: auto;
+    border-top: 0;
+    border-left: 1px solid var(--bl-grid);
+  }
+}
+
+@media (max-height: 48rem) {
+  .bl-landing-stage {
+    align-content: start;
+  }
 }
 
 /* Demo range inputs: hairline track + teal thumb (appearance-none needs an

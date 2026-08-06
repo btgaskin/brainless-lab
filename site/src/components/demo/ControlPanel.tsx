@@ -3,7 +3,9 @@ import type { FalandaysParams } from '../../simulation/types';
 
 export interface ControlPanelProps {
   params: FalandaysParams;
+  isCanonical: boolean;
   onParamsChange: (params: FalandaysParams) => void;
+  onRestoreCanonical: () => void;
 }
 
 function Chip({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
@@ -30,12 +32,24 @@ function Chip({ label, checked, onChange }: { label: string; checked: boolean; o
  * keeps this column short enough to fit beside the canvas without clipping.
  * Same palette as the rest of the site (src/viz/Style.jl: paper/ink/teal/amber).
  */
-export function ControlPanel({ params, onParamsChange }: ControlPanelProps) {
+export function ControlPanel({ params, isCanonical, onParamsChange, onRestoreCanonical }: ControlPanelProps) {
   const set = <K extends keyof FalandaysParams>(key: K, value: FalandaysParams[K]) =>
     onParamsChange({ ...params, [key]: value });
 
   return (
     <div className="flex flex-col gap-2 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-[9px] uppercase tracking-wide text-ink-muted">Reservoir settings</span>
+        <button
+          type="button"
+          disabled={isCanonical}
+          onClick={onRestoreCanonical}
+          className="text-[10px] text-teal-ink underline decoration-grid underline-offset-2 transition-colors hover:text-teal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal disabled:cursor-default disabled:no-underline disabled:opacity-40"
+        >
+          Restore canonical
+        </button>
+      </div>
+
       <div className="flex flex-col gap-1.5">
         <Slider label="target floor" value={params.targetFloor} min={0.2} max={3} step={0.05} format={fmt2} onChange={(v) => set('targetFloor', v)} />
         <Slider label="leak" value={params.leak} min={0} max={0.9} step={0.01} format={fmt2} onChange={(v) => set('leak', v)} />
@@ -65,15 +79,11 @@ export function ControlPanel({ params, onParamsChange }: ControlPanelProps) {
 
       <div className="h-px bg-grid" />
 
-      {/* Attribution footnote for the landing demo — kept light and unobtrusive. */}
       <p className="text-[10px] font-light leading-relaxed text-ink-muted">
-        Untrained homeostatic spiking neurons after Falandays&nbsp;et&nbsp;al. (2024), adapting
-        online. The lab asks why this model works.{' '}
-        <a href="/handbook/nodes-reservoirs/" className="text-teal-ink underline underline-offset-2 hover:text-teal">
-          Falandays node&nbsp;→
+        Canonical v2 setup in a browser reimplementation; illustrative, not benchmark evidence.{' '}
+        <a href="/benchmarks/falandays-core-v2/" className="text-teal-ink underline underline-offset-2 hover:text-teal">
+          Protocol&nbsp;→
         </a>
-        <br />
-        TypeScript port for interaction; not the fixture-validated Julia implementation.
       </p>
     </div>
   );
