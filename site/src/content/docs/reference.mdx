@@ -6,10 +6,14 @@ description: Discover registered implementations and inspect the current composi
 This page lists the stable entry points for current platform work. Query the registries
 instead of copying a static list of built-in names.
 
+`using BrainlessLab` imports the core single-agent workflow and extension contracts.
+Supported experimental and lower-level interfaces remain available as
+`BrainlessLab.name`, but do not enter the caller's namespace.
+
 ## Discover registered items
 
-`DEFAULT_REGISTRY` contains nodes, tasks, bodies, analyses, optimisers, ablations, and named
-composition presets.
+`DEFAULT_REGISTRY` contains nodes, tasks, bodies, analyses, search strategies, ablations,
+and named composition presets.
 
 ```julia
 using BrainlessLab
@@ -19,31 +23,32 @@ tasks(DEFAULT_REGISTRY)
 tasks(DEFAULT_REGISTRY; tag=:benchmark)
 analyses(DEFAULT_REGISTRY; task=:tracking)
 ablations(DEFAULT_REGISTRY)
-compositions(DEFAULT_REGISTRY)
+BrainlessLab.compositions(DEFAULT_REGISTRY)
+BrainlessLab.Evolution.search_strategies(DEFAULT_REGISTRY)
 ```
 
 Resolve one descriptor:
 
 ```julia
 node = node_spec(DEFAULT_REGISTRY, :falandays)
-task = task_spec(DEFAULT_REGISTRY, :tracking)
-preset = composition_spec(DEFAULT_REGISTRY, :falandays_tracking)
+task = BrainlessLab.task_spec(DEFAULT_REGISTRY, :tracking)
+preset = BrainlessLab.composition_spec(DEFAULT_REGISTRY, :falandays_tracking)
 ```
 
 Other typed registries are available as fields of `DEFAULT_REGISTRY`:
 
 ```julia
 sort!(collect(keys(DEFAULT_REGISTRY.bodies)); by=string)
-sort!(collect(keys(DEFAULT_REGISTRY.optimizers)); by=string)
+BrainlessLab.Evolution.search_strategy(DEFAULT_REGISTRY, :sepcma)
 ```
 
 The configured embodiment component catalogue is separate:
 
 ```julia
-components()
-components(family=:sensor)
-component_info(:sensor, :spectral_camera)
-readiness()
+BrainlessLab.components()
+BrainlessLab.components(family=:sensor)
+BrainlessLab.component_info(:sensor, :spectral_camera)
+BrainlessLab.readiness()
 ```
 
 Component readiness describes software integration. It does not establish scientific
@@ -62,7 +67,7 @@ composition = CompositionSpec(
     parameters=Dict(:leak => 0.25),
 )
 
-resolved = resolve_composition(composition, DEFAULT_REGISTRY)
+resolved = BrainlessLab.resolve_composition(composition, DEFAULT_REGISTRY)
 ```
 
 Fields:
@@ -102,13 +107,15 @@ evaluation = EvaluationSpec(
 target = EvaluationTarget(:tracking, composition, evaluation)
 ```
 
-Allowed construction scopes are `:evaluation`, `:block`, and `:trial`. Reset policies are
-`:full`, `:body_environment`, and `:none`. Aggregation policies are `:none`, `:mean`,
-`:median`, `:sum`, `:minimum`, and `:maximum`.
+Allowed construction scopes are `:evaluation`, `:block`, and `:trial`. `EvaluationSpec`
+recognises the reset policies `:full`, `:body_environment`, and `:none`, but generic
+operation plans currently support only `:full`. Plan validation rejects the other two
+before execution. Aggregation policies are `:none`, `:mean`, `:median`, `:sum`, `:minimum`,
+and `:maximum`.
 
-Default named streams are `:topology`, `:node_state`, `:world`, `:body`, `:task`, and
-`:mechanism`. Use `SeedStreamSpec` to declare another stream and `derive_seed` to derive a
-stable seed.
+Default named streams are `:topology` and `:world`. Use `SeedStreamSpec` to declare
+another stream only when an implementation consumes it. `derive_seed` derives a stable
+seed from the declared stream and its coordinates.
 
 ## Operation plans
 
@@ -116,12 +123,14 @@ All plan files use:
 
 ```toml
 format = "brainlesslab-plan"
-format_version = 1
+format_version = 2
 operation = "profile"
 id = "my_plan"
 ```
 
 They then contain one or more `[[targets]]` tables and one operation section.
+Version 1 remains readable for non-evolution plans. The current writer emits version 2,
+and the public evolution schema requires version 2.
 
 | Operation | Type | Section |
 | --- | --- | --- |
@@ -140,14 +149,110 @@ resolved = resolve(plan, DEFAULT_REGISTRY)
 write_plan("path/to/copy.toml", plan)
 ```
 
-Run the corresponding CLI:
+Run the corresponding CLI. `check` validates and resolves without executing; `run`
+executes and writes a record:
 
 ```bash
 julia --project=. bin/brainlesslab.jl check path/to/plan.toml
 julia -t auto --project=. bin/brainlesslab.jl run path/to/plan.toml --root records
 ```
 
-See [Operations and records](/core/operations-records/) for the complete workflow.
+An experiment bundle is a directory of ordered plans rather than a single file, and has
+its own pair:
+
+```bash
+julia --project=. bin/brainlesslab.jl check-experiment path/to/protocol
+julia -t auto --project=. bin/brainlesslab.jl run-experiment path/to/protocol --root records
+```
+
+The contribution workflow described in [Research records](/research/) is driven by three
+further commands:
+
+```bash
+julia --project=. bin/brainlesslab.jl check-contribution DIR [--repository DIR] [--main-ref REF] [--base REF]
+julia --project=. bin/brainlesslab.jl compare-contribution DIR [--write]
+julia --project=. bin/brainlesslab.jl index-research [--root DIR] [--output FILE] [--repository DIR] [--main-ref REF]
+```
+
+Run the script with no arguments for the current usage text.
+
+New plans should declare `format_version = 2`. The checked-in `plans/examples/*.toml`
+files are `format_version = 1`, which does not accept an `[evolve]` section — copy one as
+a starting point for a profile, sweep, ablation or benchmark, but raise the version before
+adding an evolution run.
+
+See [Operations](/handbook/operations/) for the complete workflow.
+
+## Evolution search
+
+`EvolutionPlan` embeds one `BrainlessLab.Evolution.RunConfig`. The run configuration
+declares the complete search contract:
+
+```julia
+run = BrainlessLab.Evolution.RunConfig(;
+    strategy=:sepcma,
+    iterations=2,
+    search_seed=0x2a,
+    measure=:normalized_score,
+    direction=:maximise,
+    initialisation=BrainlessLab.Evolution.NormalInitialisation(
+        centre=:zero,
+        scale=0.25,
+    ),
+    options=(population=4, reducer=:minimum,),
+)
+
+plan = EvolutionPlan(
+    :structured_ctrnn_search,
+    (training_target,);
+    run=run,
+    heldout_targets=(heldout_target,),
+)
+```
+
+| Field | Meaning |
+| --- | --- |
+| `strategy` | registered typed search strategy |
+| `iterations` | complete generation budget |
+| `search_seed` | random seed for initialisation and search decisions |
+| `measure` | score measure read from each declared training target |
+| `direction` | optimisation direction declared by the strategy contract |
+| `initialisation` | explicit distribution for initial search coordinates |
+| `options` | strategy-specific typed options |
+
+The public strategy keys are `:sepcma`, `:nsga2`, and `:cmame`. One
+`search_strategies` registry resolves all three. SepCMA records the model role `selected`.
+NSGA-II records ordered Pareto model IDs, and CMA-ME records ordered archive-cell IDs.
+Neither multi-objective strategy chooses an implicit champion.
+
+An `EvolutionPlan` accepts any registered node that declares a reviewed
+`Evolution.NodeDesignSpec`. The built-in designs cover `FalandaysParams`,
+`StructuredCompartmental`, and `DenseCompartmental`. Search changes model coordinates only.
+It does not evolve topology, node count, body structure, or ports.
+
+An interrupted run can continue from its last complete generation:
+
+```julia
+continued = BrainlessLab.Evolution.resume(record_directory; registry=DEFAULT_REGISTRY)
+```
+
+Resume validates and updates the same record directory. It continues to the original
+`run.iterations` and returns the same `(result=result, directory=directory)` shape as
+`run_operation`.
+
+Load one recorded model by stable role:
+
+```julia
+model = BrainlessLab.Evolution.model_reference(record_directory, "selected")
+target = EvaluationTarget(:saved_model, composition, evaluation; model=model)
+```
+
+Use the target in a later `BenchmarkPlan`. The model reference remains attached to the
+recorded model instead of copying coordinates into another protocol.
+
+See [Evolve a structured CTRNN](/tutorials/evolve-ctrnn/) for the complete path. Evolution
+is experimental software. A completed search and selected model do not establish a
+scientific claim.
 
 ## ExperimentSpec
 
@@ -172,9 +277,9 @@ Allowed evidence states are `:planned`, `:exploratory`, `:tuned`, `:frozen`, `:c
 ```julia
 write_experiment("experiments/my-experiment", experiment)
 loaded = read_experiment("experiments/my-experiment")
-register_experiment!(loaded)
-experiments()
-experiment_spec(:my_experiment, v"1.0.0")
+BrainlessLab.register_experiment!(loaded)
+BrainlessLab.experiments()
+BrainlessLab.experiment_spec(:my_experiment, v"1.0.0")
 ```
 
 Repeated condition names must have identical definitions in every operation. Declared
@@ -200,10 +305,10 @@ range = 10.0
 Use:
 
 ```julia
-config = read_embodiment_config(path)
-canonical_embodiment_toml(config)
-write_embodiment_config(output_path, config)
-body = materialize_embodiment(config)
+config = BrainlessLab.read_embodiment_config(path)
+BrainlessLab.canonical_embodiment_toml(config)
+BrainlessLab.write_embodiment_config(output_path, config)
+body = BrainlessLab.materialize_embodiment(config)
 ```
 
 Component IDs must be unique and cannot contain `.`. Unknown keys and parameters fail
@@ -224,17 +329,49 @@ the anchor values and provenance.
 Typed operation results support:
 
 ```julia
-tables(result)
-summary(result)
+BrainlessLab.tables(result)
+BrainlessLab.summary(result)
 ```
 
 The record writer stores authoritative CSV tables, a compact JSON summary, the submitted
 and resolved plans, provenance, checksums, and a generated HTML report.
 
+### Portable record structure
+
+Every completed operation writes this portable shape:
+
+```text
+record-id/
+├── record.toml
+├── request.toml
+├── resolved.toml
+├── environment/Manifest.toml
+├── seeds.csv
+├── data/trials.csv
+├── data/task_metrics.csv
+├── data/<operation tables>.csv
+├── summary/statistics.csv
+├── summary/contrasts.csv
+├── summary/summary.json
+├── report/index.html
+└── DONE
+```
+
+`record.toml` records provenance, the artifact inventory, and checksums. `request.toml`
+preserves the submitted plan, while `resolved.toml` records the settings that ran.
+`environment/Manifest.toml` fixes the dependency resolution, and `seeds.csv` records each
+realised random stream.
+
+`data/trials.csv` holds the independent trial rows. `data/task_metrics.csv` gives their
+task outcomes, while the remaining data tables depend on the operation. The statistics
+and contrasts files are benchmark artifacts, so a profile leaves both empty and writes its
+descriptive result to `summary/summary.json`. `report/index.html` presents the same typed
+result for a reader. `DONE` means generation completed; it does not establish evidence.
+
 ## Optional inspection hooks
 
 `network_snapshot(reservoir)` returns read-only network metadata when a node supports it.
 `component_state(body)` returns state keyed by stable component IDs. These hooks support
-recording and visualisation; they are not parameter genomes or replay snapshots.
+recording and visualisation; they are not model coordinates or replay snapshots.
 
 <p class="bl-source">Source: <code>src/core/Composition.jl</code>, <code>src/core/Specifications.jl</code>, <code>src/operations/Plans.jl</code>, <code>src/records/PlanIO.jl</code>, <code>src/records/ExperimentIO.jl</code>.</p>

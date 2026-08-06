@@ -1,11 +1,54 @@
+# The canonical BrainlessLab node. Implements the homeostatic spiking reservoir
+# published in:
+#
+#   Falandays, J. Benjamin; Yoshimi, Jeffrey; Warren, William H.; Spivey,
+#   Michael J. "A potential mechanism for Gibsonian resonance: behavioral
+#   entrainment emerges from local homeostasis in an unsupervised reservoir
+#   network." Cognitive Neurodynamics 18(4), 1811-1834 (2024).
+#   https://doi.org/10.1007/s11571-023-09988-2
+#
+# This is an independent reimplementation from the published model and the
+# authors' public Julia source
+# (https://github.com/bfalandays/ReservoirModel_followups). No upstream code is
+# vendored or redistributed; that repository carries no licence file. Per-task
+# constants and their line-level provenance are recorded in
+# `src/api/paper_config.jl`, and the reference fixtures are described in
+# `test/FIXTURES.md`.
+#
+# Each unit integrates sensory and recurrent input, spikes above a local target,
+# and adapts that target and its active incoming weights during behaviour. There
+# is no task-loss backpropagation and no fitted readout.
+
 using Random
+using LinearAlgebra: mul!
 
 const FALANDAYS_PARAM_DIM = 7
 const _DEFAULT_SHARED_INPUT_WEIGHT = 1.875
+const FALANDAYS_PARAM_RANGES = (
+    leak=(0.0, 1.0),
+    lrate_wmat=(0.0, 1.5),
+    lrate_targ=(0.0, 0.25),
+    threshold_mult=(0.25, 4.0),
+    targ_min=(0.05, 5.0),
+    input_weight=(0.0, 16.0),
+    weight_init_std=(0.0, 4.0),
+)
 
+"""
+    FalandaysParams(; ...)
+
+Shared parameters for the Falandays reservoir. The authors define task-specific
+constants in separate Julia scripts rather than through a shared parameter
+constructor. `lrate_wmat=1.0` matches their wall, tracking, and Pong scripts.
+
+`input_weight=1.875` is a BrainlessLab convenience for tasks without a paper
+configuration; it is not a value from the authors' source. Use the registered
+`:falandays_tracking` and `:falandays_pong` composition presets, or
+`falandays_paper_config(:wall)`, for the authors' task-specific input gains.
+"""
 Base.@kwdef struct FalandaysParams <: NodeModel
     leak::Float64 = 0.25
-    lrate_wmat::Float64 = 0.1
+    lrate_wmat::Float64 = 1.0
     lrate_targ::Float64 = 0.01
     threshold_mult::Float64 = 2.0
     targ_min::Float64 = 1.0
@@ -32,35 +75,129 @@ function _inverse_softplus(y)
     return log(expm1(y))
 end
 
-function unpack_params(::Type{FalandaysParams}, raw::AbstractVector{<:Real})::FalandaysParams
+_falandays_range(raw::Real, range) =
+    range[1] + (range[2] - range[1]) * _sigmoid_clipped(raw)
+
+# Reject out-of-range values rather than packing them. `_inverse_sigmoid`
+# clamps its argument, so without this guard a parameter above the declared
+# ceiling would pack to a large finite coordinate and decode back as the
+# ceiling itself -- silent corruption in exactly the machinery that exists to
+# prevent it.
+function _falandays_invrange(value::Real, range, name::Symbol=:parameter)
+    v = Float64(value)
+    lo, hi = range
+    lo <= v <= hi || throw(ArgumentError(
+        "Falandays $(name) = $(v) is outside its genome range [$(lo), $(hi)]; " *
+        "packing would silently clamp it to the nearest bound",
+    ))
+    return _inverse_sigmoid((v - lo) / (hi - lo))
+end
+
+"""
+    unpack_params(FalandaysParams, raw; learn_on)
+    unpack_params(params::FalandaysParams, raw)
+
+Reconstruct the seven evolvable Falandays coordinates. `learn_on` is not a
+genome coordinate: type-based reconstruction must state it explicitly, while
+instance-based reconstruction preserves the source parameter set's value.
+
+Every coordinate uses a bounded sigmoid bijection. The physical ranges are:
+`leak ∈ (0, 1)`, `lrate_wmat ∈ (0, 1.5)`, `lrate_targ ∈ (0, 0.25)`,
+`threshold_mult ∈ (0.25, 4)`, `targ_min ∈ (0.05, 5)`,
+`input_weight ∈ (0, 16)`, and `weight_init_std ∈ (0, 4)`. These bounds contain
+the registered sweep grids and the published task values, including the
+collective input amplitude of 12.5, while preventing unbounded optimiser
+coordinates from becoming unbounded physical learning rates or scales.
+"""
+function unpack_params(
+    ::Type{FalandaysParams},
+    raw::AbstractVector{<:Real};
+    learn_on::Bool,
+)::FalandaysParams
     length(raw) == FALANDAYS_PARAM_DIM ||
         throw(ArgumentError("expected raw vector of length $(FALANDAYS_PARAM_DIM), got $(length(raw))"))
 
     return FalandaysParams(
-        leak=_sigmoid_clipped(raw[1]),
-        lrate_wmat=softplus(Float64(raw[2])),
-        lrate_targ=softplus(Float64(raw[3])),
-        threshold_mult=0.1 + softplus(Float64(raw[4])),
-        targ_min=0.1 + softplus(Float64(raw[5])),
-        input_weight=softplus(Float64(raw[6])),
-        weight_init_std=softplus(Float64(raw[7])),
-        learn_on=true,
+        leak=_falandays_range(raw[1], FALANDAYS_PARAM_RANGES.leak),
+        lrate_wmat=_falandays_range(raw[2], FALANDAYS_PARAM_RANGES.lrate_wmat),
+        lrate_targ=_falandays_range(raw[3], FALANDAYS_PARAM_RANGES.lrate_targ),
+        threshold_mult=_falandays_range(
+            raw[4],
+            FALANDAYS_PARAM_RANGES.threshold_mult,
+        ),
+        targ_min=_falandays_range(raw[5], FALANDAYS_PARAM_RANGES.targ_min),
+        input_weight=_falandays_range(
+            raw[6],
+            FALANDAYS_PARAM_RANGES.input_weight,
+        ),
+        weight_init_std=_falandays_range(
+            raw[7],
+            FALANDAYS_PARAM_RANGES.weight_init_std,
+        ),
+        learn_on=learn_on,
     )
 end
 
+unpack_params(p::FalandaysParams, raw::AbstractVector{<:Real}) =
+    unpack_params(FalandaysParams, raw; learn_on=p.learn_on)
+
 function pack_params(p::FalandaysParams)
     return Float64[
-        _inverse_sigmoid(p.leak),
-        _inverse_softplus(p.lrate_wmat),
-        _inverse_softplus(p.lrate_targ),
-        _inverse_softplus(p.threshold_mult - 0.1),
-        _inverse_softplus(p.targ_min - 0.1),
-        _inverse_softplus(p.input_weight),
-        _inverse_softplus(p.weight_init_std),
+        _falandays_invrange(p.leak, FALANDAYS_PARAM_RANGES.leak, :leak),
+        _falandays_invrange(p.lrate_wmat, FALANDAYS_PARAM_RANGES.lrate_wmat, :lrate_wmat),
+        _falandays_invrange(p.lrate_targ, FALANDAYS_PARAM_RANGES.lrate_targ, :lrate_targ),
+        _falandays_invrange(
+            p.threshold_mult,
+            FALANDAYS_PARAM_RANGES.threshold_mult,
+            :threshold_mult,
+        ),
+        _falandays_invrange(p.targ_min, FALANDAYS_PARAM_RANGES.targ_min, :targ_min),
+        _falandays_invrange(
+            p.input_weight,
+            FALANDAYS_PARAM_RANGES.input_weight,
+            :input_weight,
+        ),
+        _falandays_invrange(
+            p.weight_init_std,
+            FALANDAYS_PARAM_RANGES.weight_init_std,
+            :weight_init_std,
+        ),
     ]
 end
 
 pack_params(::Type{FalandaysParams}) = pack_params(FalandaysParams())
+
+function _node_design_spec(::Type{FalandaysParams})
+    coordinate_names = (
+        :leak,
+        :lrate_wmat,
+        :lrate_targ,
+        :threshold_mult,
+        :targ_min,
+        :input_weight,
+        :weight_init_std,
+    )
+    blocks = ntuple(
+        index -> Evolution.DesignBlock(
+            coordinate_names[index],
+            (1,),
+            index:index,
+        ),
+        FALANDAYS_PARAM_DIM,
+    )
+    return Evolution.NodeDesignSpec(
+        FalandaysParams,
+        blocks,
+        pack_params,
+        # An evolved benchmark arm tests online plasticity. `learn_on` is not a
+        # genome coordinate, so reconstructed candidates must keep learning enabled.
+        coordinates -> unpack_params(FalandaysParams, coordinates; learn_on=true);
+        stability=:experimental,
+    )
+end
+
+_node_model_keyword(::Type{FalandaysParams}) = :params
+_node_model_required(::Type{FalandaysParams}) = false
 
 mutable struct RngNoise{R<:AbstractRNG}
     rng::R
@@ -134,6 +271,11 @@ function next_noise!(source::RngNoise, n::Integer)
     return randn(source.rng, Int(n))
 end
 
+function next_noise!(source::RngNoise, buffer::AbstractVector{Float64})
+    randn!(source.rng, buffer)
+    return buffer
+end
+
 function next_noise!(source::RecordedNoise, n::Integer)
     n = Int(n)
     size(source.draws, 2) == n ||
@@ -144,6 +286,19 @@ function next_noise!(source::RecordedNoise, n::Integer)
     noise = copy(vec(@view source.draws[source.idx, :]))
     source.idx += 1
     return noise
+end
+
+function next_noise!(source::RecordedNoise, buffer::AbstractVector{Float64})
+    size(source.draws, 2) == length(buffer) ||
+        throw(DimensionMismatch(
+            "recorded noise width $(size(source.draws, 2)) does not match requested length $(length(buffer))",
+        ))
+    source.idx <= size(source.draws, 1) ||
+        throw(BoundsError(source.draws, (source.idx, :)))
+
+    copyto!(buffer, @view source.draws[source.idx, :])
+    source.idx += 1
+    return buffer
 end
 
 function reset_noise!(source::RngNoise)
@@ -223,7 +378,31 @@ mutable struct FalandaysNodeState{NS}
     spikes::Vector{Float64}
     errors::Vector{Float64}
     prev_spikes::Vector{Float64}
+    input_current::Vector{Float64}
+    recurrent_current::Vector{Float64}
+    signed_prev::Vector{Float64}
+    noise_buffer::Vector{Float64}
+    counts::Vector{Float64}
     noise::NS
+end
+
+function FalandaysNodeState(acts, targets, spikes, errors, prev_spikes, noise)
+    n = length(acts)
+    all(length(buffer) == n for buffer in (targets, spikes, errors, prev_spikes)) ||
+        throw(DimensionMismatch("Falandays node-state vectors must have equal lengths"))
+    return FalandaysNodeState(
+        acts,
+        targets,
+        spikes,
+        errors,
+        prev_spikes,
+        zeros(Float64, n),
+        zeros(Float64, n),
+        zeros(Float64, n),
+        zeros(Float64, n),
+        zeros(Float64, n),
+        noise,
+    )
 end
 
 function learn_connectome!(
@@ -233,14 +412,52 @@ function learn_connectome!(
     ns::FalandaysNodeState,
     params,
 )
-    return learn!(sign, cs.wmat, ns.targets, ns.errors, c.recurrent_mask, ns.prev_spikes, params)
+    return learn!(
+        sign,
+        cs.wmat,
+        ns.targets,
+        ns.errors,
+        c.recurrent_mask,
+        ns.prev_spikes,
+        params,
+        ns.counts,
+    )
+end
+
+function recurrent_input!(
+    output::Vector{Float64},
+    ::FalandaysConnectome,
+    ::UnsignedAxis,
+    ::FalandaysConnState,
+    wmat::Matrix{Float64},
+    prev_spikes::Vector{Float64},
+    signed_prev::Vector{Float64},
+)
+    mul!(output, transpose(wmat), prev_spikes)
+    return output
+end
+
+function recurrent_input!(
+    output::Vector{Float64},
+    ::FalandaysConnectome,
+    axis::Dale,
+    ::FalandaysConnState,
+    wmat::Matrix{Float64},
+    prev_spikes::Vector{Float64},
+    signed_prev::Vector{Float64},
+)
+    @inbounds for i in eachindex(prev_spikes)
+        signed_prev[i] = prev_spikes[i] * axis.sign[i]
+    end
+    mul!(output, transpose(wmat), signed_prev)
+    return output
 end
 
 const FalandaysReservoir = ReservoirInstance{<:FalandaysModel, <:FalandaysConnectome, <:FalandaysConnState}
 
-# The Falandays family learns online (homeostatic weight + target updates each
-# tick), so it declares OnlinePlasticity — the base default is NoPlasticity.
-plasticity(::FalandaysReservoir) = OnlinePlasticity()
+# The instance's learn_on switch controls both homeostatic learning loops.
+plasticity(r::FalandaysReservoir) =
+    r.params.learn_on ? OnlinePlasticity() : NoPlasticity()
 
 # Falandays stays a single-tick map (SteppedWindow, the default); the framework
 # runs `step!` `substeps` times per env step and mean-reduces. `substeps=1`
@@ -277,7 +494,8 @@ function Base.getproperty(r::FalandaysReservoir, s::Symbol)
 end
 
 _as_falandays_params(p::FalandaysParams) = p
-_as_falandays_params(raw::AbstractVector{<:Real}) = unpack_params(FalandaysParams, raw)
+_as_falandays_params(raw::AbstractVector{<:Real}) =
+    unpack_params(FalandaysParams, raw; learn_on=true)
 
 function _float_matrix(x, name::AbstractString)
     ndims(x) == 2 || throw(ArgumentError("$name must be a matrix"))
@@ -300,7 +518,7 @@ function _bitmatrix(x, name::AbstractString)
     return mask
 end
 
-function _normalize_axis(axis::Unsigned, n::Integer)
+function _normalize_axis(axis::UnsignedAxis, n::Integer)
     return axis
 end
 
@@ -318,12 +536,12 @@ function _normalize_axis(sign::AbstractVector{<:Real}, n::Integer)
 
     s = Int.(sign)
     if all(==(1), s)
-        return Unsigned()
+        return UnsignedAxis()
     end
     return Dale(s)
 end
 
-function _native_axis(axis::Unsigned, n::Integer, rng::AbstractRNG, inhibitory_frac::Real)
+function _native_axis(axis::UnsignedAxis, n::Integer, rng::AbstractRNG, inhibitory_frac::Real)
     return axis
 end
 
@@ -337,7 +555,7 @@ end
 
 function _native_axis(sign::Symbol, n::Integer, rng::AbstractRNG, inhibitory_frac::Real)
     if sign == :unsigned
-        return Unsigned()
+        return UnsignedAxis()
     elseif sign == :dale
         return Dale(dale_signs(n, inhibitory_frac, rng))
     end
@@ -358,7 +576,7 @@ end
 function FalandaysReservoir(;
     params=FalandaysParams(),
     drive=NoDrive(),
-    sign=Unsigned(),
+    sign=UnsignedAxis(),
     recurrent_mask,
     input_wmat,
     output_mask,
@@ -382,7 +600,7 @@ function FalandaysReservoir(;
     wmat = copy(wmat0)
     wmat0_copy = copy(wmat0)
     acts = zeros(Float64, n_nodes)
-    targets = ones(Float64, n_nodes)
+    targets = fill(params.targ_min, n_nodes)
     spikes = zeros(Float64, n_nodes)
     errors = zeros(Float64, n_nodes)
     prev_spikes = zeros(Float64, n_nodes)
@@ -505,7 +723,7 @@ function FalandaysReservoir(
     link_p::Real=0.1,
     input_link_p=nothing,
     drive=NoDrive(),
-    sign=Unsigned(),
+    sign=UnsignedAxis(),
     rectify=nothing,
     noise_source=nothing,
     topology=nothing,
@@ -606,14 +824,31 @@ function step!(
     n = length(ns.acts)
     copyto!(ns.prev_spikes, ns.spikes)
 
-    input_current = vec(transpose(receptor_currents) * c.input_wmat)
-    recurrent_current = recurrent_input(c, m.sign, cs, ns.prev_spikes)
+    mul!(ns.input_current, transpose(c.input_wmat), receptor_currents)
+    recurrent_input!(
+        ns.recurrent_current,
+        c,
+        m.sign,
+        cs,
+        cs.wmat,
+        ns.prev_spikes,
+        ns.signed_prev,
+    )
 
     @inbounds for i in 1:n
-        ns.acts[i] = ns.acts[i] * (1.0 - params.leak) + input_current[i] + recurrent_current[i]
+        ns.acts[i] =
+            ns.acts[i] * (1.0 - params.leak) +
+            ns.input_current[i] +
+            ns.recurrent_current[i]
     end
 
-    apply_drive!(m.drive, ns.acts, ns.targets, params, next_noise!(ns.noise, n))
+    apply_drive!(
+        m.drive,
+        ns.acts,
+        ns.targets,
+        params,
+        next_noise!(ns.noise, ns.noise_buffer),
+    )
 
     if m.rectify
         @inbounds for i in 1:n
@@ -633,6 +868,13 @@ function step!(
     end
 
     params.learn_on && learn_connectome!(c, m.sign, cs, ns, params)
+    all(isfinite, ns.acts) &&
+        all(isfinite, ns.targets) &&
+        all(isfinite, ns.errors) ||
+        throw(DomainError(
+            nothing,
+            "Falandays reservoir state diverged to a non-finite value",
+        ))
 
     return copy(ns.spikes)
 end
@@ -665,7 +907,7 @@ function reset!(r::FalandaysReservoir)
     cs.wmat .= c.wmat0
     cs.history === nothing || reset_history!(cs.history)
     fill!(ns.acts, 0.0)
-    fill!(ns.targets, 1.0)
+    fill!(ns.targets, r.params.targ_min)
     fill!(ns.spikes, 0.0)
     fill!(ns.errors, 0.0)
     fill!(ns.prev_spikes, 0.0)
@@ -713,16 +955,4 @@ function load_state!(r::FalandaysReservoir, state)
     end
 
     return r
-end
-
-# Convenience constructor for the Oosawa variant. `noise_gain` defaults to 0.8 —
-# the same active preset as the registered `:falandays_oosawa` node
-# (`_falandays_oosawa_native`) — so the variant means one thing however it is
-# built. Pass `noise_gain=0.0` explicitly for an inert (NoDrive-equivalent) drive.
-function falandays_oosawa(args...; membrane_noise::Real=0.0, noise_gain::Real=0.8, kwargs...)
-    return FalandaysReservoir(
-        args...;
-        drive=OosawaDrive(membrane_noise=Float64(membrane_noise), noise_gain=Float64(noise_gain)),
-        kwargs...,
-    )
 end

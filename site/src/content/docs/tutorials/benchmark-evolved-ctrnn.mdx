@@ -1,0 +1,97 @@
+---
+title: Benchmark an evolved CTRNN
+description: Load the selected model by portable reference and evaluate it with a later BenchmarkPlan.
+---
+
+Use this path after a SepCMA continuous-time recurrent neural network (CTRNN) record has
+completed. The benchmark names the saved model explicitly and evaluates it under a later
+protocol.
+
+Do not copy coordinates into a new plan. A portable model reference retains the recorded
+model identity and its record location.
+
+## Create the model reference
+
+SepCMA writes one model role named `selected`:
+
+```julia
+using BrainlessLab
+
+evolution_record = "records/RECORD_ID"
+model = BrainlessLab.Evolution.model_reference(evolution_record, "selected")
+```
+
+NSGA-II and CMA-ME do not create an implicit champion. For those strategies, choose an
+explicit ordered model ID, such as `pareto-0001` or `cell-0001`, after inspecting the
+development record.
+
+## Build a frozen evaluation target
+
+Use the same registered node design as the saved model:
+
+```julia
+composition = CompositionSpec(
+    :structured_ctrnn_wall_benchmark,
+    :compartmental_structured,
+    :wall;
+    n_nodes=60,
+)
+
+evaluation = EvaluationSpec(
+    blocks=20,
+    trials_per_block=1,
+    horizon=1000,
+    warmup=200,
+    construction_scope=:trial,
+    reset=:full,
+    root_seed=0x3301,
+    aggregate=:mean,
+)
+
+condition = EvaluationTarget(
+    :saved_structured_ctrnn,
+    composition,
+    evaluation;
+    model=model,
+)
+
+case = BrainlessLab.BenchmarkCasePlan(:wall, (condition,))
+plan = BenchmarkPlan(:saved_structured_ctrnn_benchmark, (case,))
+
+write_plan("plans/saved_structured_ctrnn_benchmark.toml", plan)
+```
+
+The example has one condition, so it reports condition statistics without a contrast. Add a
+declared baseline condition when the scientific question requires a comparison. Conditions
+in one benchmark case must use the same block structure and paired root seed.
+
+The saved model was developed on Wall in the preceding tutorial. This protocol scores 800
+ticks after warm-up, which exceeds Wall's 200-scored-tick minimum. Wall remains a floor-check;
+the benchmark demonstrates portable model evaluation rather than broad competence.
+
+Use evaluation seeds that were not used for search, selection, or a variance pilot.
+
+## Validate and run
+
+```bash
+julia --project=. bin/brainlesslab.jl check \
+  plans/saved_structured_ctrnn_benchmark.toml
+
+julia -t auto --project=. bin/brainlesslab.jl run \
+  plans/saved_structured_ctrnn_benchmark.toml --root records
+```
+
+A successful benchmark record contains `DONE`, authoritative trial tables, summary
+statistics, the portable model reference, realised seeds, provenance, and checksums.
+
+## Interpret the record
+
+The benchmark measures the named model under the declared task and evaluation protocol.
+It does not establish optimality, biological fidelity, cognition, or performance on another
+task.
+
+One benchmark run is not automatically confirmed evidence. Use an `ExperimentSpec`, an
+appropriate control, independent randomised blocks, and the evidence ladder when the work
+supports a scientific claim.
+
+<p class="bl-source">Source: <code>src/evolution/Evolution.jl</code>, <code>src/operations/Benchmark.jl</code>, <code>src/records/Records.jl</code>.</p>

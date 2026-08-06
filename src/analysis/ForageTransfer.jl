@@ -1,24 +1,3 @@
-# EXPERIMENTAL forage information-transfer measures.
-#
-# For an informed-subset foraging swarm, a subset of "lookout" agents can see
-# the source (source_gain > 0) and the rest are blind "followers"
-# (source_gain = 0, same 128-receptor shape). The question is whether the source
-# direction the lookouts hold is transmitted to the followers via vision.
-#
-#   forage_alignment    — Vanni "C": mean cos(heading - bearing-to-source) over a
-#                         chosen agent subset. This is a PER-AGENT time average,
-#                         so it is (near-)invariant under per-agent circular
-#                         shifts -- its correct control is a DIFFERENCE OF
-#                         CONDITIONS (vision-on minus vision-off), NOT
-#                         `crossshift_null`.
-#   lookout_follower_te — directed transfer entropy from lookout turning to
-#                         follower turning. This IS a cross-agent measure, so the
-#                         circular-shift null (`crossshift_null`) is the right
-#                         gate: pass `s -> lookout_follower_te(s; ...).te`.
-#
-# Both are experimental. See notes/criticality-and-information (Vanni/Grigolini,
-# lookout->flock transmission) and designing-analyses.md (null discipline).
-
 function _forage_source_and_torus(sim::SimResult, name::Symbol)
     hasproperty(sim.config, :environment) ||
         throw(ArgumentError("$(name) needs sim.config.environment (a :forage run)"))
@@ -66,7 +45,9 @@ dispersal transient).
 
 This is a per-agent time average, so it is (near-)invariant under per-agent
 circular shifts -- read it as a DIFFERENCE OF CONDITIONS (vision-on minus
-vision-off), not against `crossshift_null`.
+vision-off), not against `crossshift_null`. The intended control gives followers
+the same receptor shape but zero source gain. Alignment does not by itself show
+that information passed from lookouts to followers.
 """
 function forage_alignment(sim::SimResult; subset=nothing, window=nothing)
     xs, ys, headings = _te_pose_matrices(getchannel(sim.recorder, :poses), :forage_alignment)
@@ -113,6 +94,9 @@ past. `lookouts`/`followers = nothing` infers the split from
 This IS a cross-agent measure, so validate it with `crossshift_null`
 (`s -> lookout_follower_te(s; lookouts=…, followers=…).te`): the null should
 collapse it toward 0 if the apparent flow is shared drive rather than coupling.
+The underlying plug-in estimator reads `0.674` bits on independent data at
+`N=500` with `bins=8`, or 22% of its 3-bit dynamic range. Treat small positive
+values as estimator bias until a matched null establishes otherwise.
 """
 function lookout_follower_te(sim::SimResult; lookouts=nothing, followers=nothing, bins=2, lag=1)
     _, _, headings = _te_pose_matrices(getchannel(sim.recorder, :poses), :lookout_follower_te)

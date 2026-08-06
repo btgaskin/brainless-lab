@@ -84,19 +84,7 @@ _encoder_component_config(encoder::BilateralContrastEncoder) = (
     epsilon=encoder.encoder.epsilon,
 )
 
-function portspec(camera::SpectralCamera)
-    P = NamedTuple{(:mount, :ray_angle),Tuple{Mount2D,Float64}}
-    receptors = Vector{Port{P}}(undef, n_camera_channels(camera) * n_camera_rays(camera))
-    index = 1
-    for channel in camera.channels, (ray, angle) in enumerate(camera.ray_angles)
-        placement = (mount=camera.mount, ray_angle=angle)
-        receptors[index] = Port(Symbol(channel, :_ray_, ray), placement)
-        index += 1
-    end
-    return PortSpec(length(receptors), 0, receptors, Port{NoPlacement}[])
-end
-
-n_receptors(camera::SpectralCamera) = n_camera_channels(camera) * n_camera_rays(camera)
+n_receptors(camera::SpectralCamera) = n_receptors(camera.port_spec)
 n_effectors(::SpectralCamera) = 0
 ports(camera::SpectralCamera) = ports(portspec(camera))
 
@@ -113,6 +101,9 @@ function encode!(camera::SpectralCamera, sample)
 end
 
 component_state(::SpectralCamera) = NamedTuple()
+
+_sensory_source_config(::ConspecificSource) = :conspecific
+_sensory_source_config(source::ObjectSource) = source_name(source)
 
 _sensor_component_config(sensor::SectorVision) = (
     kind=:sector_vision,
@@ -764,7 +755,7 @@ function _builtin_component_descriptor(
     conformance_path::AbstractString,
     example_path::AbstractString,
     readiness::Symbol=:integrated,
-    docs_path::AbstractString="site/src/content/docs/contracts.mdx",
+    docs_path::AbstractString="site/src/content/docs/reference/interfaces.mdx",
     core_tests=(),
 )
     return ComponentDescriptor(
@@ -783,7 +774,7 @@ function _builtin_component_descriptor(
 end
 
 function _register_builtin_component_catalog!()
-    core_docs = "site/src/content/docs/core/embodiment.mdx"
+    core_docs = "site/src/content/docs/handbook/bodies-interaction.mdx"
     robot_example = "examples/embodiments/differential_robot.toml"
     shoal_example = "examples/shoal_forage_quickstart.jl"
     robot_tests = (:core_differential_robot_roundtrip, :core_object_world_runtime)
@@ -858,7 +849,7 @@ function _register_builtin_component_catalog!()
             conformance=:sector_vision_contract,
             conformance_path="test/test_shoal_forage.jl",
             example_path=shoal_example,
-            docs_path="site/src/content/docs/experimental/embodiment.mdx",
+            docs_path="site/src/content/docs/experimental/features/embodiment-physiology.mdx",
         ),
         _builtin_component_descriptor(
             :sensor, :field_probe, _resolve_field_probe;
@@ -935,7 +926,7 @@ function _register_builtin_component_catalog!()
             conformance=:antagonistic_turn_actuator_contract,
             conformance_path="test/test_shoal_forage.jl",
             example_path=shoal_example,
-            docs_path="site/src/content/docs/experimental/embodiment.mdx",
+            docs_path="site/src/content/docs/experimental/features/embodiment-physiology.mdx",
         ),
         _builtin_component_descriptor(
             :actuator, :differential_drive, _resolve_differential_actuator;

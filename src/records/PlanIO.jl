@@ -1,13 +1,38 @@
 using TOML
 
 const PLAN_FORMAT = "brainlesslab-plan"
-const PLAN_FORMAT_VERSION = 1
+const PLAN_FORMAT_VERSION = 2
+const _READABLE_PLAN_FORMAT_VERSIONS = (1, PLAN_FORMAT_VERSION)
+const _NOTHING_TOML_KEY = "__brainlesslab_nothing__"
 
+_plan_toml_value(::Nothing) = Dict{String,Any}(_NOTHING_TOML_KEY => true)
 _plan_toml_value(value::Symbol) = String(value)
 _plan_toml_value(value::Tuple) = [_plan_toml_value(item) for item in value]
 _plan_toml_value(value::AbstractVector) = [_plan_toml_value(item) for item in value]
+_plan_toml_value(value::NamedTuple) = Dict(
+    String(name) => _plan_toml_value(getproperty(value, name))
+    for name in propertynames(value)
+)
+_plan_toml_value(value::AbstractDict) = Dict(
+    String(key) => _plan_toml_value(item)
+    for (key, item) in pairs(value)
+)
 _plan_toml_value(value::UInt64) = value <= UInt64(typemax(Int64)) ? Int64(value) : string(value)
 _plan_toml_value(value) = value
+
+function _parse_plan_toml_value(value::AbstractDict)
+    if length(value) == 1 && get(value, _NOTHING_TOML_KEY, false) === true
+        return nothing
+    end
+    return Dict(
+        key => _parse_plan_toml_value(item)
+        for (key, item) in pairs(value)
+    )
+end
+
+_parse_plan_toml_value(value::AbstractVector) =
+    [_parse_plan_toml_value(item) for item in value]
+_parse_plan_toml_value(value) = value
 
 function _interaction_cycle_document(cycle::FixedRateCycle)
     return Dict{String,Any}(
@@ -76,11 +101,14 @@ function _evaluation_document(evaluation::EvaluationSpec)
 end
 
 function _target_document(target::EvaluationTarget)
-    return Dict{String,Any}(
+    document = Dict{String,Any}(
         "id" => String(target.id),
         "composition" => _composition_document(target.composition),
         "evaluation" => _evaluation_document(target.evaluation),
     )
+    target.model === nothing ||
+        (document["model"] = Evolution.model_reference_document(target.model))
+    return document
 end
 
 function _base_plan_document(plan, operation::Symbol, targets)
@@ -130,17 +158,12 @@ function plan_document(plan::AblationPlan)
 end
 
 function plan_document(plan::EvolutionPlan)
-    targets = (plan.training, plan.heldout_targets...)
+    targets = (plan.training_targets..., plan.heldout_targets...)
     document = _base_plan_document(plan, :evolve, targets)
     document["evolve"] = Dict{String,Any}(
-        "training" => String(plan.training.id),
+        "training" => String[String(target.id) for target in plan.training_targets],
         "heldout" => String[String(target.id) for target in plan.heldout_targets],
-        "optimizer" => String(plan.optimizer),
-        "parameter_set" => String(plan.parameter_set),
-        "objective" => String(plan.objective),
-        "generations" => plan.generations,
-        "popsize" => plan.popsize,
-        "sigma0" => plan.sigma0,
+        "run" => Evolution.run_config_document(plan.run),
     )
     return document
 end
@@ -156,11 +179,15 @@ function plan_document(plan::BenchmarkPlan)
     document = _base_plan_document(plan, :benchmark, Tuple(targets))
     document["benchmark"] = Dict{String,Any}(
         "cases" => [
-            Dict{String,Any}(
-                "id" => String(case.id),
-                "conditions" => String[String(target.id) for target in case.conditions],
-                "baseline" => String(case.baseline),
-            )
+            begin
+                case_document = Dict{String,Any}(
+                    "id" => String(case.id),
+                    "conditions" => String[String(target.id) for target in case.conditions],
+                )
+                case.baseline === nothing ||
+                    (case_document["baseline"] = String(case.baseline))
+                case_document
+            end
             for case in plan.cases
         ],
     )
@@ -181,15 +208,15 @@ function _parse_composition(document, registry::RegistrySet)
         "composition",
     )
     parameters = Dict{Symbol,Any}(
-        Symbol(key) => value
+        Symbol(key) => _parse_plan_toml_value(value)
         for (key, value) in get(document, "parameters", Dict{String,Any}())
     )
     task_options = Dict{Symbol,Any}(
-        Symbol(key) => value
+        Symbol(key) => _parse_plan_toml_value(value)
         for (key, value) in get(document, "task_options", Dict{String,Any}())
     )
     body_options = Dict{Symbol,Any}(
-        Symbol(key) => value
+        Symbol(key) => _parse_plan_toml_value(value)
         for (key, value) in get(document, "body_options", Dict{String,Any}())
     )
     node_id = haskey(document, "preset") ?
@@ -268,7 +295,7 @@ end
 function _parse_targets(document, registry::RegistrySet)
     targets = Dict{Symbol,EvaluationTarget}()
     for entry in document
-        _require_document_keys(entry, ("id", "composition", "evaluation"), "target")
+        _require_document_keys(entry, ("id", "composition", "evaluation", "model"), "target")
         for key in ("id", "composition", "evaluation")
             haskey(entry, key) || throw(ArgumentError("target requires $(key)"))
         end
@@ -278,6 +305,8 @@ function _parse_targets(document, registry::RegistrySet)
             id,
             _parse_composition(entry["composition"], registry),
             _parse_evaluation(entry["evaluation"]),
+            model=haskey(entry, "model") ?
+                Evolution.parse_model_reference(entry["model"]) : nothing,
         )
     end
     isempty(targets) && throw(ArgumentError("plan requires at least one target"))
@@ -295,8 +324,10 @@ function read_plan(path::AbstractString; registry::RegistrySet=DEFAULT_REGISTRY)
     get(document, "format", nothing) == PLAN_FORMAT || throw(ArgumentError(
         "plan format must be $(repr(PLAN_FORMAT))",
     ))
-    get(document, "format_version", nothing) == PLAN_FORMAT_VERSION || throw(ArgumentError(
-        "plan format_version must be $(PLAN_FORMAT_VERSION)",
+    format_version = get(document, "format_version", nothing)
+    format_version in _READABLE_PLAN_FORMAT_VERSIONS || throw(ArgumentError(
+        "plan format_version must be one of " *
+        join(_READABLE_PLAN_FORMAT_VERSIONS, ", "),
     ))
     haskey(document, "operation") || throw(ArgumentError("plan requires operation"))
     haskey(document, "id") || throw(ArgumentError("plan requires id"))
@@ -323,7 +354,10 @@ function read_plan(path::AbstractString; registry::RegistrySet=DEFAULT_REGISTRY)
     elseif operation === :sweep
         _require_document_keys(section, ("target", "axes", "mode", "max_rollouts"), "sweep")
         axes = Tuple(
-            SweepAxis(Symbol(axis["parameter"]), Tuple(axis["values"]))
+            begin
+                _require_document_keys(axis, ("parameter", "values"), "sweep axis")
+                SweepAxis(Symbol(axis["parameter"]), Tuple(axis["values"]))
+            end
             for axis in get(section, "axes", Any[])
         )
         return SweepPlan(
@@ -341,30 +375,34 @@ function read_plan(path::AbstractString; registry::RegistrySet=DEFAULT_REGISTRY)
             ablations=Symbol.(section["ablations"]),
         )
     elseif operation === :evolve
+        format_version == PLAN_FORMAT_VERSION || throw(ArgumentError(
+            "legacy evolution plans are not supported; rewrite the plan with " *
+            "Evolution.RunConfig and format_version=$(PLAN_FORMAT_VERSION)",
+        ))
         _require_document_keys(
             section,
-            ("training", "heldout", "optimizer", "parameter_set", "objective", "generations", "popsize", "sigma0"),
+            ("training", "heldout", "run"),
             "evolve",
         )
+        haskey(section, "training") ||
+            throw(ArgumentError("evolve requires training target ids"))
+        haskey(section, "run") ||
+            throw(ArgumentError("evolve requires [evolve.run]"))
         return EvolutionPlan(
             id,
-            _target(targets, section["training"]);
+            Tuple(_target(targets, name) for name in section["training"]);
+            run=Evolution.parse_run_config(section["run"]),
             heldout_targets=Tuple(_target(targets, name) for name in get(section, "heldout", String[])),
-            optimizer=Symbol(get(section, "optimizer", "sepcma")),
-            parameter_set=Symbol(get(section, "parameter_set", "evolve")),
-            objective=Symbol(get(section, "objective", "normalized_score")),
-            generations=get(section, "generations", 50),
-            popsize=get(section, "popsize", 64),
-            sigma0=get(section, "sigma0", 0.5),
         )
     elseif operation === :benchmark
         _require_document_keys(section, ("cases",), "benchmark")
         cases = Tuple(begin
             _require_document_keys(case, ("id", "conditions", "baseline"), "benchmark case")
+            baseline = get(case, "baseline", nothing)
             BenchmarkCasePlan(
                 Symbol(case["id"]),
                 Tuple(_target(targets, name) for name in case["conditions"]);
-                baseline=Symbol(case["baseline"]),
+                baseline=baseline === nothing ? nothing : Symbol(baseline),
             )
         end for case in section["cases"])
         return BenchmarkPlan(id, cases)

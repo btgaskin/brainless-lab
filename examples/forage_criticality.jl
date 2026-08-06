@@ -33,20 +33,20 @@ let
 
     kmax = 4
     scalar = Dict{String,Float64}(
-        "sigma_mr_node" => branching_ratio_mr(sim; level=:node, kmax=kmax).m_mr,
-        "susceptibility_node" => susceptibility(sim; level=:node).susceptibility,
-        "susceptibility_agent" => susceptibility(sim; level=:agent).susceptibility,
-        "correlation_length" => correlation_length(sim),
-        "cluster_largest_component_frac" => contact_graph_clusters(sim).largest_component_frac_mean,
+        "sigma_mr_node" => BrainlessLab.branching_ratio_mr(sim; level=:node, kmax=kmax).m_mr,
+        "susceptibility_node" => BrainlessLab.susceptibility(sim; level=:node).susceptibility,
+        "susceptibility_agent" => BrainlessLab.susceptibility(sim; level=:agent).susceptibility,
+        "correlation_length" => BrainlessLab.correlation_length(sim),
+        "cluster_largest_component_frac" => BrainlessLab.contact_graph_clusters(sim).largest_component_frac_mean,
         "dist_to_source" => sim.metrics.mean_distance_to_source,
     )
     for spec in specs
-        scalar["sigma_mr_agent__$(spec.id)"] = branching_ratio_mr(sim; level=:agent, kmax=kmax, observable=spec).m_mr
+        scalar["sigma_mr_agent__$(spec.id)"] = BrainlessLab.branching_ratio_mr(sim; level=:agent, kmax=kmax, observable=spec).m_mr
     end
 
-    null = crossshift_null(
+    null = BrainlessLab.crossshift_null(
         sim,
-        s -> susceptibility(s; level=:agent).susceptibility;
+        s -> BrainlessLab.susceptibility(s; level=:agent).susceptibility;
         n_shifts=5,
         rng=MersenneTwister(123),
     )
@@ -55,8 +55,8 @@ let
         println(io, join(("susceptibility_agent", null.real, null.null_mean, null.null_std, null.ratio, 5), ","))
     end
 
-    centers, m_node, _, _ = branching_ratio_mr_windowed(sim; level=:node, window=24, stride=12, kmax=kmax)
-    _, m_agent, _, _ = branching_ratio_mr_windowed(sim; level=:agent, window=24, stride=12, kmax=kmax, observable=specs[end])
+    centers, m_node, _, _ = BrainlessLab.branching_ratio_mr_windowed(sim; level=:node, window=24, stride=12, kmax=kmax)
+    _, m_agent, _, _ = BrainlessLab.branching_ratio_mr_windowed(sim; level=:agent, window=24, stride=12, kmax=kmax, observable=specs[end])
     dist = distance_to_source(sim)
 
     fig = Figure(size=(800, 520))

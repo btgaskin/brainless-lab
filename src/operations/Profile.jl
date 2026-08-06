@@ -79,6 +79,12 @@ struct ProfileSummary{A<:Tuple,H<:Tuple,S<:Vector{ProfileAnalysisSummary}}
     record_channels::H
     raw_score_mean::Union{Missing,Float64}
     normalized_score_mean::Union{Missing,Float64}
+    normalized_n::Int
+    normalized_floor_count::Int
+    normalized_ceiling_count::Int
+    normalized_censored_count::Int
+    normalized_censored_fraction::Union{Missing,Float64}
+    normalized_censoring::Union{Missing,String}
     analysis_statistics::S
 end
 
@@ -173,10 +179,11 @@ function validate(plan::ProfilePlan, registry::RegistrySet)
     resolve_composition(plan.target.composition, registry)
     specs = _resolve_profile_analyses(plan, registry)
     _profile_record_channels(specs)
-    return plan
+    return _validate_plan_evaluations(plan, registry)
 end
 
 function resolve(plan::ProfilePlan, registry::RegistrySet)
+    validate(plan, registry)
     composition = resolve_composition(plan.target.composition, registry)
     specs = _resolve_profile_analyses(plan, registry)
     channels = _profile_record_channels(specs)
@@ -367,6 +374,7 @@ function _profile_summary(
     analysis_rows::Vector{ProfileAnalysisRow},
 )
     evaluation = plan.plan.target.evaluation
+    censoring = _normalized_censoring_summary(task_rows)
     return ProfileSummary(
         plan.plan.id,
         plan.plan.target.id,
@@ -376,6 +384,12 @@ function _profile_summary(
         plan.record_channels,
         _profile_optional_mean(task_rows, :raw_score),
         _profile_optional_mean(task_rows, :normalized_score),
+        censoring.normalized_n,
+        censoring.normalized_floor_count,
+        censoring.normalized_ceiling_count,
+        censoring.normalized_censored_count,
+        censoring.normalized_censored_fraction,
+        censoring.normalized_censoring,
         _profile_analysis_summaries(analysis_rows),
     )
 end

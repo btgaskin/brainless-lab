@@ -32,12 +32,13 @@ function _hfr2_port_health(node_kwargs; n_nodes=120, n_receptors=3, n_effectors=
 end
 
 @testset "HomeostaticFlowV2 reservoir" begin
+    @test :homeostatic_flow ∉ variants()
     @test :homeostatic_flow_v2 in variants()
-    @test genome_type(:homeostatic_flow_v2) === HomeostaticFlowV2Params
-    @test paramdim(HomeostaticFlowV2Params) == length(pack_params(HomeostaticFlowV2Params()))
+    @test BrainlessLab.genome_type(:homeostatic_flow_v2) === BrainlessLab.HomeostaticFlowV2Params
+    @test paramdim(BrainlessLab.HomeostaticFlowV2Params) == length(pack_params(BrainlessLab.HomeostaticFlowV2Params()))
 
-    raw = pack_params(HomeostaticFlowV2Params())
-    params = unpack_params(HomeostaticFlowV2Params, raw)
+    raw = pack_params(BrainlessLab.HomeostaticFlowV2Params())
+    params = unpack_params(BrainlessLab.HomeostaticFlowV2Params, raw)
     @test pack_params(params) ≈ raw
 
     # nonnegative internal activity -- the change that motivated this node --
@@ -48,14 +49,14 @@ end
     end
     @test all(a -> 0.0 <= a <= 1.0, r.a)
 
-    sim = simulate(:wall; node=:homeostatic_flow_v2, ticks=120, seed=0)
+    sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:homeostatic_flow_v2, ticks=120, seed=0)
     @test sim isa SimResult
 
-    sim_a = simulate(:wall; node=:homeostatic_flow_v2, ticks=80, seed=11)
-    sim_b = simulate(:wall; node=:homeostatic_flow_v2, ticks=80, seed=11)
+    sim_a = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:homeostatic_flow_v2, ticks=80, seed=11)
+    sim_b = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:homeostatic_flow_v2, ticks=80, seed=11)
     @test getchannel(sim_a.recorder, :spikes) == getchannel(sim_b.recorder, :spikes)
 
-    tracking = simulate(:tracking; node=:homeostatic_flow_v2, ticks=80, seed=2)
+    tracking = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:homeostatic_flow_v2, ticks=80, seed=2)
     @test tracking isa SimResult
 
     reservoir = BrainlessLab.HomeostaticFlowV2Reservoir(30, 2, 2; seed=3)
@@ -90,7 +91,7 @@ end
                 novelty_gate=novelty_gate,
                 output_mode=output_mode,
             )
-            sim = simulate(:wall; node=:homeostatic_flow_v2, ticks=20, seed=1, node_kwargs=kwargs)
+            sim = BrainlessLabTestUtils.diagnostic_simulate(:wall; node=:homeostatic_flow_v2, ticks=20, seed=1, node_kwargs=kwargs)
             @test sim isa SimResult
         end
     end

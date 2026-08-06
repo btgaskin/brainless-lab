@@ -1,0 +1,511 @@
+---
+title: Plan file format
+description: Write a brainlesslab-plan TOML file — header keys, targets, composition, evaluation, and the section for each operation.
+---
+
+An operation plan is a strict TOML file. It combines one or more named evaluation targets
+with one research operation. Use this page when you write a plan by hand, or when you read
+a plan that someone else wrote.
+
+This page describes the file contents. The commands that validate and run a plan are on
+[API, plans, and CLI](/reference/). The reader rejects an unknown key in the header, in a
+target, and in the composition, evaluation, and operation tables. A misspelt field
+therefore fails before any simulation starts.
+
+## A complete plan
+
+The file below is a valid profile plan. Every comment is optional.
+
+```toml
+# Header. All four keys are required.
+format = "brainlesslab-plan"
+format_version = 2
+operation = "profile"
+id = "tracking_leak_profile"
+
+# One named target. The operation section refers to a target by this id.
+[[targets]]
+id = "tracking"
+
+# What runs: node, task, body, node count, and parameter overrides.
+[targets.composition]
+id = "falandays_tracking_profile"
+preset = "falandays_tracking"
+
+[targets.composition.parameters]
+leak = 0.25
+
+# How often it runs: blocks, trials, horizon, warm-up, seeds, aggregation.
+# The scored interval is 2200 - 200 = 2000 ticks, which meets Tracking's minimum.
+[targets.evaluation]
+blocks = 2
+trials_per_block = 1
+horizon = 2200
+warmup = 200
+construction_scope = "trial"
+reset = "full"
+root_seed = 51001
+streams = ["topology", "world"]
+aggregate = "mean"
+
+# The operation section. Its name must match the `operation` key.
+[profile]
+target = "tracking"
+analyses = ["branching_ratio_mr", "node_target_error"]
+record_every = 1
+```
+
+Save it as `my-profile.toml` and validate it:
+
+```bash
+julia --project=. bin/brainlesslab.jl check my-profile.toml
+```
+
+`check` prints the plan id, the operation, the resolved targets, and the resolved plan type:
+
+```text
+valid plan: tracking_leak_profile
+operation: profile
+targets: tracking
+resolved: ResolvedProfilePlan
+```
+
+The repository also holds four committed plans under `plans/examples/`. They use small
+replication budgets and each task's minimum scored interval. They demonstrate plan syntax,
+not benchmark evidence.
+
+## Header keys
+
+The four header keys come before any table.
+
+| Key | Value |
+| --- | --- |
+| `format` | always `"brainlesslab-plan"` |
+| `format_version` | `1` or `2` |
+| `operation` | `"profile"`, `"sweep"`, `"ablate"`, `"evolve"`, or `"benchmark"` |
+| `id` | stable name for this plan; the record carries it |
+
+A plan holds exactly one operation section, and that section's table name must equal
+`operation`. An `operation = "ablate"` plan therefore needs an `[ablate]` table.
+
+## Targets
+
+Each `[[targets]]` table declares one evaluation target: one composition under one
+evaluation protocol. A plan needs at least one target, and target ids must be unique.
+
+```toml
+[[targets]]
+id = "tracking"
+```
+
+A target requires `id`, a `[targets.composition]` table, and a `[targets.evaluation]`
+table. It accepts an optional `[targets.model]` table.
+
+Operation sections never restate a composition. They name a target by its id.
+
+## The `[targets.composition]` table
+
+A composition has two forms. Use the preset form when a registered preset already resolves
+the node, task, and node count.
+
+```toml
+[targets.composition]
+id = "falandays_tracking_profile"
+preset = "falandays_tracking"
+```
+
+`preset` names a registered composition preset. Query the current set with
+`BrainlessLab.compositions(DEFAULT_REGISTRY)`. A preset cannot appear beside `node`,
+`task`, `n_nodes`, `body`, or `n_agents`, because the preset already supplies them. The
+`parameters`, `task_options`, and `body_options` sub-tables merge over the preset's own
+values.
+
+Use the inline form when no preset matches. The inline form requires `id`, `node`, `task`,
+and `n_nodes`.
+
+```toml
+[targets.composition]
+id = "tracking_inline"
+node = "falandays"
+task = "tracking"
+n_nodes = 200
+
+[targets.composition.parameters]
+leak = 0.25
+
+[targets.composition.task_options]
+sensory_gain = 1.0
+randomize_start = true
+
+[targets.composition.interaction_cycle]
+kind = "fixed_rate"
+neural_frames = 1
+```
+
+| Key | Required | Meaning |
+| --- | --- | --- |
+| `id` | inline form | stable name for this composition |
+| `preset` | preset form | registered composition preset |
+| `node` | inline form | registered node key |
+| `task` | inline form | registered task key |
+| `n_nodes` | inline form | node count per reservoir |
+| `body` | no | registered body key |
+| `n_agents` | no | task population override |
+| `parameters` | no | sub-table of node parameter overrides |
+| `task_options` | no | sub-table of task setup options |
+| `body_options` | no | sub-table of registered body options |
+| `interaction_cycle` | no | sub-table with `kind = "fixed_rate"` and `neural_frames` |
+
+## The `[targets.evaluation]` table
+
+The evaluation table declares the outer repetition protocol. `horizon` is the only required
+field; every other field has a default.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `blocks` | `1` | number of blocks; must be positive |
+| `trials_per_block` | `1` | trials inside one block; must be positive |
+| `horizon` | required | world ticks in one trial; must be positive |
+| `warmup` | `0` | leading ticks that run before recording and scoring; must be below `horizon` |
+| `construction_scope` | `"trial"` | `"evaluation"`, `"block"`, or `"trial"` |
+| `reset` | `"full"` | `"full"`, `"body_environment"`, or `"none"` |
+| `root_seed` | `0` | non-negative integer that seeds every declared stream |
+| `streams` | `["topology", "world"]` | declared seed stream names |
+| `aggregate` | `"mean"` | `"none"`, `"mean"`, `"median"`, `"sum"`, `"minimum"`, or `"maximum"` |
+
+One trial runs `horizon` ticks. An evaluation runs `blocks × trials_per_block` trials.
+
+Write `root_seed` as a decimal integer, a TOML hexadecimal integer such as `0x1101`, or a
+quoted decimal string such as `"4294967296"`. Declare a stream beyond `topology` and
+`world` only when an implementation consumes it.
+
+Use `reset = "full"`. `EvaluationSpec` recognises the other two policies for the public
+schema, but generic operation plans do not implement their state-retention hooks. `check`
+therefore rejects them before simulation starts:
+
+```text
+error: ArgumentError: operation plan target :tracking must use reset=:full; generic evaluation does not support reset=:none
+```
+
+A misspelt field is an error, not a silent default:
+
+```text
+error: ArgumentError: unknown evaluation keys: warmups
+```
+
+## Two traps
+
+Both traps below reject the plan during `check`, before any simulation runs.
+
+**The scored interval is `horizon - warmup`, not `horizon`.** Each task declares a
+`minimum_scored_ticks` value, and a plan whose scored interval falls below it is rejected:
+
+```text
+error: ArgumentError: task :tracking scored interval is 1800 ticks, but minimum_scored_ticks is 2000. Increase evaluation horizon or reduce warmup.
+```
+
+The current minimums are 2000 ticks for Tracking, 6000 for Pong, and 200 for Wall. Read the
+[Core catalogue](/reference/core-catalog/) for each task's default ticks and the reason for
+its minimum.
+
+**A `format_version = 1` plan cannot contain an `[evolve]` section.** Every checked-in
+example under `plans/examples/` is still version 1, so a plan copied from there needs its
+version raised before an evolution run:
+
+```text
+error: ArgumentError: legacy evolution plans are not supported; rewrite the plan with Evolution.RunConfig and format_version=2
+```
+
+Declare `format_version = 2` in a new plan. The reader still accepts version 1 for
+profile, sweep, ablation, and benchmark plans, and the writer emits version 2.
+
+## Profile
+
+A profile runs declared analyses over the raw trials of one target.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `target` | required | target id to profile |
+| `analyses` | `[]` | registered analysis keys |
+| `record_every` | `1` | recorder stride in ticks; must be positive |
+
+Query the analyses available for a task with `analyses(DEFAULT_REGISTRY; task=:tracking)`.
+
+`plans/examples/profile_tracking.toml`:
+
+```toml
+format = "brainlesslab-plan"
+format_version = 1
+operation = "profile"
+id = "profile_tracking_example"
+
+[[targets]]
+id = "tracking"
+
+[targets.composition]
+id = "falandays_tracking_profile"
+preset = "falandays_tracking"
+
+[targets.evaluation]
+blocks = 1
+trials_per_block = 1
+horizon = 2020
+warmup = 20
+construction_scope = "trial"
+reset = "full"
+root_seed = 1101
+aggregate = "mean"
+
+[profile]
+target = "tracking"
+analyses = ["branching_ratio_mr", "node_target_error"]
+record_every = 1
+```
+
+## Sweep
+
+A sweep evaluates one target across declared parameter cells.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `target` | required | target id to sweep |
+| `mode` | `"factorial"` | `"factorial"` or `"one_at_a_time"` |
+| `max_rollouts` | `10000` | rollout budget; must be positive |
+
+Each `[[sweep.axes]]` table declares one `parameter` and its `values`. Axis parameters must
+be declared parameters of the target's node, and each axis needs unique values. Validation
+checks every value against that parameter's own validator.
+
+`plans/examples/sweep_tracking.toml`:
+
+```toml
+format = "brainlesslab-plan"
+format_version = 1
+operation = "sweep"
+id = "sweep_tracking_example"
+
+[[targets]]
+id = "tracking"
+
+[targets.composition]
+id = "falandays_tracking_sweep"
+preset = "falandays_tracking"
+
+[targets.evaluation]
+blocks = 1
+trials_per_block = 1
+horizon = 2020
+warmup = 20
+construction_scope = "trial"
+reset = "full"
+root_seed = 1201
+aggregate = "mean"
+
+[sweep]
+target = "tracking"
+mode = "factorial"
+max_rollouts = 8
+
+[[sweep.axes]]
+parameter = "leak"
+values = [0.25, 0.5]
+
+[[sweep.axes]]
+parameter = "lrate_wmat"
+values = [0.35, 1.0]
+```
+
+## Ablate
+
+An ablation compares registered interventions against an implicit baseline case.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `target` | required | target id to ablate |
+| `ablations` | required | registered ablation keys |
+
+The id `baseline` is reserved for the implicit baseline, so it cannot appear in
+`ablations`. Validation rejects an ablation whose required capabilities the target's node
+does not declare. List the registered keys with `ablations(DEFAULT_REGISTRY)`.
+
+`plans/examples/ablate_tracking.toml`:
+
+```toml
+format = "brainlesslab-plan"
+format_version = 1
+operation = "ablate"
+id = "ablate_tracking_example"
+
+[[targets]]
+id = "tracking"
+
+[targets.composition]
+id = "falandays_tracking_ablation"
+preset = "falandays_tracking"
+
+[targets.evaluation]
+blocks = 1
+trials_per_block = 1
+horizon = 2020
+warmup = 20
+construction_scope = "trial"
+reset = "full"
+root_seed = 1301
+aggregate = "mean"
+
+[ablate]
+target = "tracking"
+ablations = ["freeze_plasticity", "clamp_target"]
+```
+
+## Benchmark
+
+A benchmark reports task-specific statistics, and paired contrasts inside each case.
+
+The `[benchmark]` table holds one or more `[[benchmark.cases]]` tables.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `id` | required | stable case name |
+| `conditions` | required | target ids compared in this case |
+| `baseline` | none | condition id used as the paired reference |
+
+A case with more than one condition must declare a `baseline`, and the baseline must be one
+of its conditions. A case with exactly one condition omits `baseline` and reports that
+condition's intervals with an empty contrasts table.
+
+Every condition in one case must use the same task, and the same blocks, trials, horizon,
+warm-up, construction scope, reset, root seed, streams, and aggregation. The task must also
+declare a scalar outcome.
+
+`plans/examples/benchmark_core.toml` declares six targets and three cases. Its
+`[benchmark]` section is:
+
+```toml
+[benchmark]
+
+[[benchmark.cases]]
+id = "wall"
+conditions = ["wall_falandays", "wall_random"]
+baseline = "wall_random"
+
+[[benchmark.cases]]
+id = "tracking"
+conditions = ["tracking_falandays", "tracking_random"]
+baseline = "tracking_random"
+
+[[benchmark.cases]]
+id = "pong"
+conditions = ["pong_falandays", "pong_random"]
+baseline = "pong_random"
+```
+
+Each `null_random` condition in that file uses the inline composition form, because no
+preset exists for a control node.
+
+## Evolve
+
+An evolution plan searches model coordinates on training targets. It requires
+`format_version = 2`.
+
+The `[evolve]` table names targets by id.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `training` | required | target ids used for search and selection |
+| `heldout` | `[]` | target ids evaluated after selection |
+| `run` | required | the `[evolve.run]` table |
+
+Held-out targets are available only for the scalar `sepcma` strategy. Training and held-out
+ids must be disjoint.
+
+`[evolve.run]` declares the complete search contract.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `strategy` | required | `"sepcma"`, `"nsga2"`, or `"cmame"` |
+| `iterations` | required | generation budget |
+| `search_seed` | required | seed for initialisation and search decisions |
+| `measure` | `"normalized_score"` | score measure read from each training target |
+| `direction` | `"maximise"` | `"maximise"` or `"minimise"` |
+| `initialisation` | required | the `[evolve.run.initialisation]` table |
+| `options` | `{}` | the `[evolve.run.options]` table |
+
+`[evolve.run.initialisation]` requires `kind = "normal"`, a `centre` of `"zero"` or
+`"model"`, and a positive `scale`. A `"model"` centre also needs a `reference` table, and
+accepts a `coordinates` array. Omitting `kind` fails with `document is missing "kind"`.
+
+`[evolve.run.options]` is strategy-specific:
+
+- `sepcma` accepts `population` and `reducer`, and requires `reducer`;
+- `nsga2` accepts `population`, `bound_scale`, `pc`, `eta_c`, `pm`, and `eta_m`;
+- `cmame` accepts `bins`, `emitters`, `emitter_population`, `patience`, and
+  `quality_reducer`, and requires `quality_reducer`.
+
+`[evolve.run]`, its initialisation table, and each strategy's options table reject
+unrecognised keys. For example, `bogus_run_key = 7` fails during `check` with:
+
+```text
+error: ArgumentError: unknown evolution run keys: bogus_run_key
+```
+
+The target's node must declare a reviewed `Evolution.NodeDesignSpec`. Search changes model
+coordinates only. It does not change topology, node count, body structure, or ports.
+
+`experiments/examples/structured-ctrnn-smoke/plans/01-structured_ctrnn_search_smoke.toml`
+declares two targets on `compartmental_structured`. Its `[evolve]` section is:
+
+```toml
+[evolve]
+heldout = ["tracking_heldout"]
+training = ["tracking_development"]
+
+    [evolve.run]
+    direction = "maximise"
+    iterations = 1
+    measure = "normalized_score"
+    search_seed = "42"
+    strategy = "sepcma"
+
+        [evolve.run.initialisation]
+        centre = "zero"
+        kind = "normal"
+        scale = 0.25
+
+        [evolve.run.options]
+        population = 2
+        reducer = "minimum"
+```
+
+The indentation and the key order come from `write_plan`, which sorts keys and nests
+sub-tables. TOML ignores both, so a hand-written plan may use any order.
+
+Evolution is experimental software. A completed search and a selected model do not
+establish a scientific claim.
+
+## The `[targets.model]` table
+
+A target may name one model recorded by an earlier evolution run. The table has five
+required keys.
+
+| Key | Meaning |
+| --- | --- |
+| `path` | record directory that holds the model |
+| `model_id` | stable model role or ordered id, such as `selected` |
+| `node` | registered node key the model belongs to |
+| `schema_sha256` | digest of the design schema |
+| `coordinates_sha256` | digest of the model coordinates |
+
+Do not write the two digests by hand. Build the reference with
+`BrainlessLab.Evolution.model_reference`, attach it to an `EvaluationTarget`, and emit the
+plan with `write_plan`. [Benchmark an evolved CTRNN](/tutorials/benchmark-evolved-ctrnn/)
+shows the complete path.
+
+## Related pages
+
+- [API, plans, and CLI](/reference/) for `check`, `run`, and the Julia plan functions.
+- [Operations](/handbook/operations/) to choose between the five operations.
+- [Evaluation](/handbook/evaluation/) for the meaning of blocks, trials, and seeds.
+- [Core catalogue](/reference/core-catalog/) for task outcomes, anchors, and minimums.
+
+<p class="bl-source">Source: <code>src/records/PlanIO.jl</code>, <code>src/operations/Plans.jl</code>, <code>src/core/Specifications.jl</code>, <code>src/tasks/Tasks.jl</code>, <code>src/evolution/Evolution.jl</code>.</p>

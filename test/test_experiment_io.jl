@@ -9,7 +9,7 @@ function _experiment_io_fixture()
             :null_random,
             :tracking;
             n_nodes=8,
-            interaction_cycle=FixedRateCycle(2),
+            interaction_cycle=BrainlessLab.FixedRateCycle(2),
         ),
         EvaluationSpec(
             blocks=1,
@@ -34,53 +34,68 @@ end
 
 @testset "version-one experiments round trip" begin
     experiment = _experiment_io_fixture()
-    directory = tempname()
-    @test write_experiment(directory, experiment) == directory
-    @test isfile(joinpath(directory, "experiment.toml"))
-    @test isfile(joinpath(directory, "plans", "01-profile_tracking_null.toml"))
+    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
+    mktempdir() do root
+        directory = joinpath(root, "experiment")
+        @test write_experiment(directory, experiment; registry) == directory
+        @test isfile(joinpath(directory, "experiment.toml"))
+        @test isfile(joinpath(
+            directory,
+            "plans",
+            "01-profile_tracking_null.toml",
+        ))
 
-    parsed = read_experiment(directory)
-    @test parsed.id === experiment.id
-    @test parsed.version == experiment.version
-    @test parsed.evidence_state === :planned
-    @test parsed.metadata.programme == "core_demo"
-    @test operation_targets(only(parsed.operations))[1].composition.interaction_cycle ==
-        FixedRateCycle(2)
-    @test_throws ArgumentError write_experiment(directory, experiment)
+        parsed = read_experiment(directory; registry)
+        @test parsed.id === experiment.id
+        @test parsed.version == experiment.version
+        @test parsed.evidence_state === :planned
+        @test parsed.metadata.programme == "core_demo"
+        @test BrainlessLab.operation_targets(
+            only(parsed.operations),
+        )[1].composition.interaction_cycle ==
+            BrainlessLab.FixedRateCycle(2)
+        @test_throws ArgumentError write_experiment(directory, experiment; registry)
+    end
 end
 
 @testset "an experiment executes its declared operations" begin
+    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
     experiment = _experiment_io_fixture()
-    root = mktempdir()
-    run = run_experiment(experiment; root=root, id="experiment-run")
-    @test length(run.results) == 1
-    @test only(run.results) isa ProfileResult
-    @test isfile(joinpath(run.directory, "experiment-run.toml"))
-    @test isfile(joinpath(run.directory, "DONE"))
-    @test isfile(joinpath(run.directory, only(run.records), "DONE"))
+    mktempdir() do root
+        run = run_experiment(
+            experiment;
+            registry,
+            root=root,
+            id="experiment-run",
+        )
+        @test length(run.results) == 1
+        @test only(run.results) isa BrainlessLab.ProfileResult
+        @test isfile(joinpath(run.directory, "experiment-run.toml"))
+        @test isfile(joinpath(run.directory, "DONE"))
+        @test isfile(joinpath(run.directory, only(run.records), "DONE"))
+    end
 end
 
-@testset "checked reciprocal evolution experiment is planned and valid" begin
+@testset "checked fixed-design evolution experiment is planned and valid" begin
     directory = normpath(joinpath(
         @__DIR__,
         "..",
         "experiments",
         "examples",
-        "falandays-cross-task-smoke",
+        "structured-ctrnn-smoke",
     ))
     experiment = read_experiment(directory)
-    @test experiment.id === :falandays_cross_task_smoke
+    @test experiment.id === :structured_ctrnn_smoke
     @test experiment.evidence_state === :planned
-    @test length(experiment.operations) == 2
+    @test length(experiment.operations) == 1
     @test all(operation -> operation isa EvolutionPlan, experiment.operations)
     @test Set(condition.id for condition in experiment.conditions) == Set((
         :tracking_development,
-        :tracking_confirmation,
-        :pong_heldout,
-        :pong_development,
-        :pong_confirmation,
         :tracking_heldout,
     ))
-    @test all(operation -> length(operation.heldout_targets) == 2, experiment.operations)
+    operation = only(experiment.operations)
+    @test only(operation.training_targets).composition.node === :compartmental_structured
+    @test length(operation.heldout_targets) == 1
+    @test operation.run.strategy === :sepcma
     @test validate(experiment, DEFAULT_REGISTRY) === experiment
 end

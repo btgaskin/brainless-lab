@@ -390,9 +390,6 @@ function record_state!(channels::Dict{Symbol,Vector{Any}}, r::CompartmentalReser
     return channels
 end
 
-record_state!(channels::Dict{Symbol,Vector{Any}}, w::NoisyInput) =
-    record_state!(channels, getfield(w, :inner))
-
 _record_active(rec) = rec isa Recorder && !isempty(rec.enabled)
 _record_sample(rec::Recorder) = rem(rec.tick, rec.every) == 0
 _record_wants(rec::Recorder, channel::Symbol) = channel in rec.enabled
@@ -487,8 +484,6 @@ end
 
 _spectral_radius_payload(::Reservoir) = nothing
 _spectral_radius_payload(r::FalandaysReservoir) = _spectral_radius(r)
-_spectral_radius_payload(w::NoisyInput) =
-    _spectral_radius_payload(getfield(w, :inner))
 
 function _record_spectral!(rec::Recorder, c::Ensemble)
     # The eigendecomposition behind each payload is the single most expensive
@@ -641,12 +636,6 @@ function readout(m::Motor, r::FalandaysReservoir, spikes)
     end
     return effectors(r, spikes)
 end
-
-# Wrapped Falandays variants (:falandays_noisy / :falandays_extended) are
-# NoisyInput{<:Reservoir} wrappers, not FalandaysReservoir; delegate the readout to
-# the inner reservoir so the graded schemes work across the whole Falandays family
-# (mirrors NoisyInput's transparent effectors/getproperty forwarding).
-readout(m::Motor, w::NoisyInput, spikes) = readout(m, getfield(w, :inner), spikes)
 
 function _run_interaction!(agent::Agent, percept)
     reservoir = agent.reservoir

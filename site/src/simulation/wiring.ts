@@ -9,11 +9,15 @@ import type { FalandaysParams } from './types';
  */
 export function bernoulliMask(rows: number, cols: number, p: number, rng: Rng, excludeSelfLoops = false): Uint8Array {
   const mask = new Uint8Array(rows * cols);
-  for (let i = 0; i < rows; i++) {
-    for (let j = 0; j < cols; j++) {
-      if (excludeSelfLoops && i === j) continue;
+  // Julia fills matrices column-first and consumes diagonal draws before
+  // clearing recurrent self-loops. Preserve that construction order here.
+  for (let j = 0; j < cols; j++) {
+    for (let i = 0; i < rows; i++) {
       if (rng.uniform() < p) mask[i * cols + j] = 1;
     }
+  }
+  if (excludeSelfLoops && rows === cols) {
+    for (let i = 0; i < rows; i++) mask[i * cols + i] = 0;
   }
   return mask;
 }
@@ -62,17 +66,33 @@ export function initWeights(
   rng: Rng,
 ): Float64Array {
   const w = new Float64Array(nNodes * nNodes);
-  for (let i = 0; i < nNodes; i++) {
+  if (params.weightInitMode === 'pongMixed') {
+    const inhibitory = new Uint8Array(nNodes * nNodes);
+    const negativeWeights = new Float64Array(nNodes * nNodes);
     for (let j = 0; j < nNodes; j++) {
-      const idx = i * nNodes + j;
-      if (!recurrentMask[idx]) continue;
-      if (params.weightInitMode === 'excitatory') {
-        w[idx] = params.inputWeight + 0.1 * rng.gaussian();
-      } else if (params.weightInitMode === 'pongMixed') {
-        w[idx] = rng.uniform() < 0.25 ? -1.0 + 0.1 * rng.gaussian() : 0.2 * rng.gaussian();
-      } else {
-        w[idx] = params.weightInitStd * rng.gaussian();
+      for (let i = 0; i < nNodes; i++) inhibitory[i * nNodes + j] = rng.uniform() < 0.25 ? 1 : 0;
+    }
+    for (let j = 0; j < nNodes; j++) {
+      for (let i = 0; i < nNodes; i++) negativeWeights[i * nNodes + j] = -1.0 + 0.1 * rng.gaussian();
+    }
+    for (let j = 0; j < nNodes; j++) {
+      for (let i = 0; i < nNodes; i++) {
+        const idx = i * nNodes + j;
+        const nearZero = 0.2 * rng.gaussian();
+        if (recurrentMask[idx]) w[idx] = inhibitory[idx] ? negativeWeights[idx] : nearZero;
       }
+    }
+    return w;
+  }
+
+  for (let j = 0; j < nNodes; j++) {
+    for (let i = 0; i < nNodes; i++) {
+      const idx = i * nNodes + j;
+      const gaussian = rng.gaussian();
+      if (!recurrentMask[idx]) continue;
+      w[idx] = params.weightInitMode === 'excitatory'
+        ? params.inputWeight + 0.1 * gaussian
+        : params.weightInitStd * gaussian;
     }
   }
   return w;

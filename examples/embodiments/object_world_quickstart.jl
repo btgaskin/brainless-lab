@@ -9,17 +9,17 @@ function run_object_world_quickstart(; ticks::Integer=25, seed::Integer=7)
         "embodiments",
         "differential_robot.toml",
     )
-    body = materialize_embodiment(read_embodiment_config(preset))
+    body = BrainlessLab.materialize_embodiment(BrainlessLab.read_embodiment_config(preset))
 
-    beacon = ObjectType(
+    beacon = BrainlessLab.ObjectType(
         :beacon;
         radius=0.45,
-        appearance=rgb_appearance((1.0, 0.15, 0.02)),
+        appearance=BrainlessLab.rgb_appearance((1.0, 0.15, 0.02)),
     )
-    world = ObjectWorld(
-        WalledArena(12.0),
-        [MotionState2D(position=(2.0, 6.0), heading=0.0)];
-        populations=(ObjectPopulation(beacon, [(7.0, 6.0)]),),
+    world = BrainlessLab.ObjectWorld(
+        BrainlessLab.WalledArena(12.0),
+        [BrainlessLab.MotionState2D(position=(2.0, 6.0), heading=0.0)];
+        populations=(BrainlessLab.ObjectPopulation(beacon, [(7.0, 6.0)]),),
         rng=MersenneTwister(seed),
     )
 
@@ -31,16 +31,16 @@ function run_object_world_quickstart(; ticks::Integer=25, seed::Integer=7)
         repair_masks=true,
     )
     recorder = Recorder(enabled=(:poses, :receptors, :objects, :components))
-    ensemble = Ensemble(
-        [Agent(reservoir, body)],
+    ensemble = BrainlessLab.Ensemble(
+        [BrainlessLab.Agent(reservoir, body)],
         world;
-        ids=[EntityID(101)],
+        ids=[BrainlessLab.EntityID(101)],
         recorder=recorder,
     )
     for _ in 1:Int(ticks)
         step!(ensemble)
     end
-    return (ensemble=ensemble, recorder=recorder, objects=object_snapshot(world))
+    return (ensemble=ensemble, recorder=recorder, objects=BrainlessLab.object_snapshot(world))
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__

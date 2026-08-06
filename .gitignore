@@ -6,20 +6,26 @@ deps/build.log
 /docs/build/
 /test/Project.toml
 /test/Manifest.toml
+/test/visual/Manifest.toml
 examples/output/
 /demo/output/
 /demo/Manifest.toml
 /demo/runs/
-/bench/runs/
+/bench/
+/Manifest.toml
 /experiments/runs/
 /experiments/results/homeostatic_needs_v2/
-/bench/genomes/
-/bench/output/
+/records/
+/experiment-records/
+/profile/
 /examples/templates/new_project/output/
 /examples/templates/new_project/Manifest.toml
 
 # Local working notes, not part of the public contribution
 /reviews/
+/.wrangler/
+/.claude/
+/.codex/
 /site/node_modules/
 /site/dist/
 

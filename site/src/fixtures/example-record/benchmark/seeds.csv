@@ -1,0 +1,5 @@
+phase,case,cell,ablation,heldout_target,generation,individual,condition,block,trial,agent,stream,seed
+,wall,,,,,,example_wall,1,1,1,topology,12630397287789020879
+,wall,,,,,,example_wall,1,1,1,world,4387990057960926623
+,wall,,,,,,example_wall,2,1,1,topology,4295349147392259026
+,wall,,,,,,example_wall,2,1,1,world,13428650614681696593

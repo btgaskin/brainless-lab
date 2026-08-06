@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: '17 5 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -14,91 +16,395 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  package:
-    name: Julia ${{ matrix.julia-version }} / ${{ matrix.os }}
+  test:
+    name: ${{ matrix.suite }} / Julia ${{ matrix.julia-version }} / ${{ matrix.os }} / ${{ matrix.threads }} thread(s)
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 75
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-14, windows-2022]
-        julia-version: ['1.10.11', '1']
+        include:
+          - suite: core
+            os: ubuntu-22.04
+            julia-version: '1.11'
+            threads: 1
+          - suite: core
+            os: ubuntu-22.04
+            julia-version: '1'
+            threads: 1
+          - suite: core
+            os: macos-14
+            julia-version: '1.11'
+            threads: 1
+          - suite: core
+            os: windows-2022
+            julia-version: '1.11'
+            threads: 1
+          - suite: runtime
+            os: ubuntu-22.04
+            julia-version: '1.11'
+            threads: 1
+          - suite: runtime
+            os: ubuntu-22.04
+            julia-version: '1.11'
+            threads: 4
+          - suite: operations
+            os: ubuntu-22.04
+            julia-version: '1.11'
+            threads: 1
+          - suite: oracle
+            os: ubuntu-22.04
+            julia-version: '1.11'
+            threads: 1
+    env:
+      BRAINLESSLAB_TEST_SUITE: ${{ matrix.suite }}
+      BRAINLESSLAB_EXPECT_THREADS: ${{ matrix.threads }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3
         with:
           version: ${{ matrix.julia-version }}
+      - name: Read the resolved Julia version
+        id: julia
+        run: >-
+          julia -e 'open(ENV["GITHUB_OUTPUT"], "a") do io;
+          println(io, "version=", VERSION);
+          println(io, "image=", ENV["ImageOS"], "-", ENV["ImageVersion"]);
+          end'
       - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3
         with:
           delete-old-caches: false
-      - name: Instantiate the pinned environment
-        run: julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
-      - uses: julia-actions/julia-runtest@6e050c8013b833b1195105ff2fce9cd802f53271 # v1
+      - name: Resolve the suite environment
+        id: resolved
+        run: >-
+          julia --project=. -e 'using Pkg, SHA;
+          isempty(Pkg.Registry.reachable_registries()) && Pkg.Registry.add("General");
+          Pkg.resolve();
+          open(ENV["GITHUB_OUTPUT"], "a") do io;
+          println(io, "manifest=", bytes2hex(SHA.sha256(read("Manifest.toml"))));
+          end'
+      - name: Compute exact suite input digest
+        id: inputs
+        run: >-
+          julia --project=. .github/scripts/suite-input-digest.jl
+          "${{ matrix.suite }}" --without-manifest
+      - name: Cache exact suite proof
+        id: proof
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
-          coverage: false
+          path: .ci-proof
+          key: >-
+            proof-${{ runner.os }}-${{ runner.arch }}-image-${{ steps.julia.outputs.image
+            }}-julia-${{ steps.julia.outputs.version }}-threads-${{ matrix.threads
+            }}-${{ matrix.suite }}-manifest-${{ steps.resolved.outputs.manifest
+            }}-${{ steps.inputs.outputs.digest }}
+      - name: Instantiate the resolved environment
+        if: steps.proof.outputs.cache-hit != 'true'
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+      - name: Run the ${{ matrix.suite }} suite
+        if: steps.proof.outputs.cache-hit != 'true'
+        run: julia -t ${{ matrix.threads }} --project=. -e 'using Pkg; Pkg.test()'
+      - name: Mark the exact suite inputs as proven
+        if: steps.proof.outputs.cache-hit != 'true'
+        run: julia -e 'mkpath(".ci-proof"); write(joinpath(".ci-proof", "passed"), "passed\n")'
 
-  compat-floor:
-    name: Manifest-free resolution / Julia 1.10.11
+  legacy:
+    name: Legacy / Julia 1.11 / Ubuntu
+    if: >-
+      github.event_name == 'push' || github.event_name == 'pull_request' ||
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     timeout-minutes: 45
+    env:
+      BRAINLESSLAB_TEST_SUITE: legacy
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3
         with:
-          version: '1.10.11'
+          version: '1.11'
+      - name: Read the resolved Julia version
+        id: julia
+        run: >-
+          julia -e 'open(ENV["GITHUB_OUTPUT"], "a") do io;
+          println(io, "version=", VERSION);
+          println(io, "image=", ENV["ImageOS"], "-", ENV["ImageVersion"]);
+          end'
       - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3
         with:
           delete-old-caches: false
-      - name: Resolve and test without the checked-in manifest
-        run: julia --project=. -e 'using Pkg; rm("Manifest.toml"; force=true); Pkg.instantiate(); Pkg.test()'
+      - name: Resolve the legacy environment
+        id: resolved
+        run: >-
+          julia --project=. -e 'using Pkg, SHA;
+          isempty(Pkg.Registry.reachable_registries()) && Pkg.Registry.add("General");
+          Pkg.resolve();
+          open(ENV["GITHUB_OUTPUT"], "a") do io;
+          println(io, "manifest=", bytes2hex(SHA.sha256(read("Manifest.toml"))));
+          end'
+      - name: Compute exact suite input digest
+        id: inputs
+        run: >-
+          julia --project=. .github/scripts/suite-input-digest.jl
+          legacy --without-manifest
+      - name: Cache exact legacy proof
+        id: proof
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .ci-proof
+          key: >-
+            proof-${{ runner.os }}-${{ runner.arch }}-image-${{ steps.julia.outputs.image
+            }}-julia-${{ steps.julia.outputs.version }}-legacy-manifest-${{
+            steps.resolved.outputs.manifest }}-${{ steps.inputs.outputs.digest }}
+      - name: Instantiate the resolved environment
+        if: steps.proof.outputs.cache-hit != 'true'
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+      - name: Run the legacy suite
+        if: steps.proof.outputs.cache-hit != 'true'
+        run: julia --project=. -e 'using Pkg; Pkg.test()'
+      - name: Mark the exact legacy inputs as proven
+        if: steps.proof.outputs.cache-hit != 'true'
+        run: julia -e 'mkpath(".ci-proof"); write(joinpath(".ci-proof", "passed"), "passed\n")'
+
+  visual:
+    name: Visual / Julia 1.11 / Ubuntu
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3
+        with:
+          version: '1.11'
+      - name: Read the resolved Julia version
+        id: julia
+        run: >-
+          julia -e 'open(ENV["GITHUB_OUTPUT"], "a") do io;
+          println(io, "version=", VERSION);
+          println(io, "image=", ENV["ImageOS"], "-", ENV["ImageVersion"]);
+          end'
+      - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3
+        with:
+          delete-old-caches: false
+      - name: Resolve the visual environment
+        id: resolved
+        run: >-
+          julia --project=test/visual -e 'using Pkg, SHA;
+          isempty(Pkg.Registry.reachable_registries()) && Pkg.Registry.add("General");
+          Pkg.develop(path=pwd()); Pkg.resolve();
+          manifest = joinpath("test", "visual", "Manifest.toml");
+          open(ENV["GITHUB_OUTPUT"], "a") do io;
+          println(io, "manifest=", bytes2hex(SHA.sha256(read(manifest))));
+          end'
+      - name: Cache proof for the exact visual environment
+        id: proof
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .ci-proof
+          key: >-
+            proof-${{ runner.os }}-${{ runner.arch }}-image-${{ steps.julia.outputs.image
+            }}-julia-${{ steps.julia.outputs.version }}-visual-manifest-${{
+            steps.resolved.outputs.manifest }}-${{
+            hashFiles('.github/workflows/ci.yml', 'Project.toml', 'Manifest.toml',
+            'src/**', 'ext/**', 'test/fixtures/**', 'test/test_viz.jl',
+            'test/test_examples.jl', 'test/visual/**', 'examples/**') }}
+      - name: Instantiate the visual environment
+        if: steps.proof.outputs.cache-hit != 'true'
+        run: julia --project=test/visual -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+      - name: Run visual tests
+        if: steps.proof.outputs.cache-hit != 'true'
+        run: julia --project=test/visual test/visual/runtests.jl
+      - name: Mark the exact visual inputs as proven
+        if: steps.proof.outputs.cache-hit != 'true'
+        run: julia -e 'mkpath(".ci-proof"); write(joinpath(".ci-proof", "passed"), "passed\n")'
+
+  manifest-free-core:
+    name: Manifest-free core / Julia 1.11 / Ubuntu
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    env:
+      BRAINLESSLAB_TEST_SUITE: core
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3
+        with:
+          version: '1.11'
+      - name: Read the resolved Julia version
+        id: julia
+        run: >-
+          julia -e 'open(ENV["GITHUB_OUTPUT"], "a") do io;
+          println(io, "version=", VERSION);
+          println(io, "image=", ENV["ImageOS"], "-", ENV["ImageVersion"]);
+          end'
+      - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3
+        with:
+          delete-old-caches: false
+      - name: Resolve without the checked-in manifest
+        id: resolved
+        run: >-
+          julia --project=. -e 'using Pkg, SHA;
+          isempty(Pkg.Registry.reachable_registries()) && Pkg.Registry.add("General");
+          rm("Manifest.toml"; force=true); Pkg.resolve();
+          open(ENV["GITHUB_OUTPUT"], "a") do io;
+          println(io, "manifest=", bytes2hex(SHA.sha256(read("Manifest.toml"))));
+          end'
+      - name: Compute exact core input digest
+        id: inputs
+        run: >-
+          julia --project=. .github/scripts/suite-input-digest.jl
+          core --without-manifest
+      - name: Cache proof for the exact resolved environment
+        id: proof
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .ci-proof
+          key: >-
+            proof-${{ runner.os }}-${{ runner.arch }}-image-${{ steps.julia.outputs.image
+            }}-julia-${{ steps.julia.outputs.version }}-manifest-free-core-manifest-${{
+            steps.resolved.outputs.manifest }}-${{
+            steps.inputs.outputs.digest }}
+      - name: Instantiate and precompile the resolved environment
+        if: steps.proof.outputs.cache-hit != 'true'
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+      - name: Run the core suite against the resolved environment
+        if: steps.proof.outputs.cache-hit != 'true'
+        run: julia --project=. -e 'using Pkg; Pkg.test()'
+      - name: Mark the resolved environment as proven
+        if: steps.proof.outputs.cache-hit != 'true'
+        run: julia -e 'mkpath(".ci-proof"); write(joinpath(".ci-proof", "passed"), "passed\n")'
 
   tool-smoke:
-    name: Tool and template smoke tests
+    name: CLI and template smoke / Julia 1.11 / Ubuntu
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
+    timeout-minutes: 20
     env:
       BRAINLESSLAB_AUTOTHREADS: '0'
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
       - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3
         with:
-          version: '1.10.11'
+          version: '1.11'
+      - name: Read the resolved Julia version
+        id: julia
+        run: >-
+          julia -e 'open(ENV["GITHUB_OUTPUT"], "a") do io;
+          println(io, "version=", VERSION);
+          println(io, "image=", ENV["ImageOS"], "-", ENV["ImageVersion"]);
+          end'
       - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3
         with:
           delete-old-caches: false
-      - name: Instantiate benchmark environment
-        run: julia --project=bench -e 'using Pkg; Pkg.instantiate()'
-      - name: Benchmark statistics and execution smoke
+      - name: Resolve the project template environment
+        id: resolved
+        run: >-
+          julia --project=examples/templates/new_project -e 'using Pkg, SHA;
+          isempty(Pkg.Registry.reachable_registries()) && Pkg.Registry.add("General");
+          Pkg.develop(path=pwd()); Pkg.resolve();
+          manifest = joinpath("examples", "templates", "new_project", "Manifest.toml");
+          open(ENV["GITHUB_OUTPUT"], "a") do io;
+          println(io, "manifest=", bytes2hex(SHA.sha256(read(manifest))));
+          end'
+      - name: Cache proof for the exact tool environments
+        id: proof
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .ci-proof
+          key: >-
+            proof-${{ runner.os }}-${{ runner.arch }}-image-${{ steps.julia.outputs.image
+            }}-julia-${{ steps.julia.outputs.version }}-tool-smoke-manifest-${{
+            steps.resolved.outputs.manifest }}-${{
+            hashFiles('.github/workflows/ci.yml', 'Project.toml', 'Manifest.toml',
+            'src/**', 'ext/**', 'bin/**', 'plans/**', 'experiments/**', 'examples/**') }}
+      - name: Ensure the package environment is available
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
+      - name: Precompile the package and template environments
+        if: steps.proof.outputs.cache-hit != 'true'
         run: |
-          julia --project=bench bench/test_stats.jl
-          julia --project=bench -e 'include("bench/Benchmark.jl"); using .Benchmark; cfg = Benchmark.read_bench_config("bench/configs/smoke.toml"); out = Benchmark.run_benchmark(cfg; out_root=mktempdir()); @assert isfile(joinpath(out.dir, "summary.csv"))'
-      - name: Instantiate profile environment
-        run: julia --project=profile -e 'using Pkg; Pkg.instantiate()'
-      - name: Profile execution smoke
-        run: julia --project=profile -e 'include("profile/Profile.jl"); using .NodeProfile; out = NodeProfile.node_profile(:falandays; tasks=(:tracking,), n_seeds=1, canonical_N=Dict(:tracking => 12), gifs=false, out_root=mktempdir()); @assert isfile(out.metrics)'
-      - name: Sweep execution smoke
-        run: julia --project=. -e 'using BrainlessLab; out = run_sweep("configs/ci_sweep.toml"; root=mktempdir()); @assert isfile(out.results)'
-      - name: Unified plan and record smoke
+          julia --project=. -e 'using Pkg; Pkg.precompile()'
+          julia --project=examples/templates/new_project -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+      - name: Check the CLI and example plans
+        if: steps.proof.outputs.cache-hit != 'true'
         run: |
+          julia --project=. bin/brainlesslab.jl check plans/examples/profile_tracking.toml
+          julia --project=. bin/brainlesslab.jl check plans/examples/sweep_tracking.toml
+          julia --project=. bin/brainlesslab.jl check plans/examples/ablate_tracking.toml
           julia --project=. bin/brainlesslab.jl check plans/examples/benchmark_core.toml
-          julia --project=. bin/brainlesslab.jl run plans/examples/profile_tracking.toml --root "${{ runner.temp }}/brainlesslab-records"
-      - name: Instantiate and execute project template
+      - name: Check the committed research catalogue
         run: |
-          julia --project=examples/templates/new_project -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
-          julia --project=examples/templates/new_project examples/templates/new_project/run.jl --ticks 20 --n-nodes 12 --out "${{ runner.temp }}/brainlesslab-template-smoke"
-          julia --project=examples/templates/new_project examples/templates/new_project/run_plan.jl examples/templates/new_project/config.toml "${{ runner.temp }}/brainlesslab-template-records"
+          julia --project=. bin/brainlesslab.jl index-research --root research --output "${{ runner.temp }}/research-catalogue.json"
+          cmp "${{ runner.temp }}/research-catalogue.json" research/catalogue.json
+      - name: Check accepted research contributions
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BASE: ${{ github.event.before }}
+        run: |
+          base_args=()
+          case "$EVENT_NAME" in
+            pull_request)
+              test -n "$PR_BASE"
+              base_args=(--base "$PR_BASE")
+              ;;
+            push)
+              if [[ -n "$PUSH_BASE" && ! "$PUSH_BASE" =~ ^0+$ ]]; then
+                base_args=(--base "$PUSH_BASE")
+              fi
+              ;;
+          esac
+          if [ -d research/contributions ]; then
+            while IFS= read -r manifest; do
+              directory="${manifest%/contribution.toml}"
+              julia --project=. bin/brainlesslab.jl check-contribution "$directory" --repository . --main-ref origin/main "${base_args[@]}"
+            done < <(find research/contributions -type f -name contribution.toml -print | sort)
+          fi
+      - name: Instantiate and execute the project template
+        if: steps.proof.outputs.cache-hit != 'true'
+        run: >-
+          julia --project=examples/templates/new_project
+          examples/templates/new_project/run.jl --ticks 100 --n-nodes 12
+          --out "${{ runner.temp }}/brainlesslab-template-smoke"
+      - name: Mark the exact tool inputs as proven
+        if: steps.proof.outputs.cache-hit != 'true'
+        run: julia -e 'mkpath(".ci-proof"); write(joinpath(".ci-proof", "passed"), "passed\n")'
 
   documentation:
     name: Locked documentation build
     runs-on: ubuntu-22.04
     timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: site
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Read the runner image identity
+        id: image
+        run: |
+          test -n "${ImageOS:-}"
+          test -n "${ImageVersion:-}"
+          printf 'value=%s-%s\n' "$ImageOS" "$ImageVersion" >> "$GITHUB_OUTPUT"
+      - name: Cache exact documentation proof
+        id: proof
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .ci-proof
+          key: >-
+            proof-${{ runner.os }}-${{ runner.arch }}-image-${{ steps.image.outputs.value
+            }}-bun-1.3.11-documentation-${{ hashFiles('.github/workflows/ci.yml',
+            'Project.toml', 'Manifest.toml', 'README.md', 'CONTRIBUTING.md', 'AGENTS.md',
+            'site/package.json', 'site/bun.lock', 'site/astro.config.mjs',
+            'site/tsconfig.json', 'site/src/**', 'site/public/**', 'src/**', 'ext/**',
+            'test/**', 'benchmarks/**', 'experiments/**', 'plans/**',
+            'examples/**', 'docs/**', 'skills/**', 'tools/**', 'research/**',
+            'bin/**') }}
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        if: steps.proof.outputs.cache-hit != 'true'
         with:
           bun-version: 1.3.11
-      - run: bun install --frozen-lockfile
-      - run: bun run build
+      - name: Install locked documentation dependencies
+        if: steps.proof.outputs.cache-hit != 'true'
+        working-directory: site
+        run: bun install --frozen-lockfile
+      - name: Build the documentation
+        if: steps.proof.outputs.cache-hit != 'true'
+        working-directory: site
+        run: bun run build
+      - name: Mark the exact documentation inputs as proven
+        if: steps.proof.outputs.cache-hit != 'true'
+        run: mkdir -p .ci-proof && printf 'passed\n' > .ci-proof/passed

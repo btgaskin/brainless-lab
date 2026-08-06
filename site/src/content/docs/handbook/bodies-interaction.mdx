@@ -1,0 +1,54 @@
+---
+title: Bodies and interaction
+description: Follow sensing, neural frames, readout, action, physiology, and world updates through one closed-loop tick.
+---
+
+A body closes a reservoir through a world. It owns the sensorimotor organisation while the
+reservoir remains task-agnostic.
+
+## Component path
+
+```text
+world sample
+  → sensor
+  → encoder
+  → receptor frame(s)
+  → reservoir step(s)
+  → readout
+  → effector values
+  → actuator
+  → typed command
+  → dynamics
+```
+
+`AbstractBody` is the dispatch boundary. `Embodiment` is the generic composed body.
+Geometry, sensors, encoders, readout, actuators, dynamics, and optional physiology use
+stable component IDs.
+
+```julia
+portspec(body)
+BrainlessLab.component_slots(body)
+n_receptors(body)
+n_effectors(body)
+```
+
+Port widths must match the reservoir before tick zero. Stable `EntityID`, `ObjectID`, and
+component IDs preserve identity when runtime order changes.
+
+## Interaction timing
+
+`InteractionCycle` defines neural frames within one world step. `FixedRateCycle(K)` samples
+the world once, runs `K` neural frames, and emits one command through the selected readout.
+This timing does not define repeated research trials.
+
+All agents observe the same pre-action world state. The runtime then applies complete
+command frames and world effects. An agent cannot observe another agent's action from the
+same tick.
+
+## Physical interpretation
+
+Component presets are simplified compositions. Names such as insect, robot, or aircraft do
+not establish fidelity. Inspect sensor geometry, noise, actuator limits, dynamics, and
+physiology before making a physical or biological claim.
+
+<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>, <code>src/world/Embodiment.jl</code>, <code>src/world/Ensemble.jl</code>.</p>

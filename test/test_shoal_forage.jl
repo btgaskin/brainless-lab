@@ -4,13 +4,13 @@ using Test
 
 include(joinpath(@__DIR__, "..", "examples", "shoal_forage_quickstart.jl"))
 
-function _sector_test_body(sensor; physiology=NoPhysiology())
-    return Embodiment(
-        geometry=DiscGeometry(0.25),
+function _sector_test_body(sensor; physiology=BrainlessLab.NoPhysiology())
+    return BrainlessLab.Embodiment(
+        geometry=BrainlessLab.DiscGeometry(0.25),
         sensors=(sensor,),
-        encoders=(IdentityEncoder(n_receptors(sensor); prefix=:sector, sources=(:vision,)),),
-        actuators=(AntagonisticTurnActuator(max_forward_speed=0.2, max_turn_rate=pi / 8),),
-        dynamics=UnicycleDynamics(),
+        encoders=(BrainlessLab.IdentityEncoder(n_receptors(sensor); prefix=:sector, sources=(:vision,)),),
+        actuators=(BrainlessLab.AntagonisticTurnActuator(max_forward_speed=0.2, max_turn_rate=pi / 8),),
+        dynamics=BrainlessLab.UnicycleDynamics(),
         physiology=physiology,
         component_ids=(
             geometry=:shape,
@@ -24,123 +24,123 @@ function _sector_test_body(sensor; physiology=NoPhysiology())
 end
 
 @testset "antagonistic turn actuator contract" begin
-    actuator = AntagonisticTurnActuator(max_forward_speed=0.2, max_turn_rate=pi / 8)
-    @test [port.id for port in ports(actuator).effectors] ==
+    actuator = BrainlessLab.AntagonisticTurnActuator(max_forward_speed=0.2, max_turn_rate=pi / 8)
+    @test [port.id for port in BrainlessLab.ports(actuator).effectors] ==
           [:left_turn, :right_turn, :thrust]
-    command = command_buffer(actuator)
-    @test decode!(command, actuator, [1.0, 0.25, 0.5]) === command
+    command = BrainlessLab.command_buffer(actuator)
+    @test BrainlessLab.decode!(command, actuator, [1.0, 0.25, 0.5]) === command
     @test command.forward_speed == 0.1
     @test command.turn_rate ≈ 3pi / 32
-    decode!(command, actuator, [0.0, 1.0, 1.0])
+    BrainlessLab.decode!(command, actuator, [0.0, 1.0, 1.0])
     @test command.forward_speed == 0.2
     @test command.turn_rate ≈ -pi / 8
-    @test_throws DimensionMismatch decode!(command, actuator, [1.0, 0.0])
+    @test_throws DimensionMismatch BrainlessLab.decode!(command, actuator, [1.0, 0.0])
 end
 
 @testset "sector vision geometry and matched controls" begin
-    veridical = SectorVision(
-        ConspecificSource();
+    veridical = BrainlessLab.SectorVision(
+        BrainlessLab.ConspecificSource();
         channels=16,
         field_of_view=deg2rad(300),
         max_range=5.0,
     )
     observer = _sector_test_body(veridical)
-    target = _sector_test_body(SectorVision(ConspecificSource(); max_range=5.0))
-    world = ObjectWorld(
-        WalledArena(10.0),
+    target = _sector_test_body(BrainlessLab.SectorVision(BrainlessLab.ConspecificSource(); max_range=5.0))
+    world = BrainlessLab.ObjectWorld(
+        BrainlessLab.WalledArena(10.0),
         [
-            MotionState2D(position=(2.0, 2.0), heading=0.0),
-            MotionState2D(position=(4.0, 2.0), heading=0.0),
+            BrainlessLab.MotionState2D(position=(2.0, 2.0), heading=0.0),
+            BrainlessLab.MotionState2D(position=(4.0, 2.0), heading=0.0),
         ],
     )
-    values = sample!(world, [observer, target])[1]
+    values = BrainlessLab.sample!(world, [observer, target])[1]
     @test length(values) == 16
     @test count(>(0.0), values) == 1
     @test maximum(values) ≈ 0.7
     @test argmax(values) in (8, 9)
 
-    shaped_body = _sector_test_body(SectorVision(
-        ConspecificSource();
+    shaped_body = _sector_test_body(BrainlessLab.SectorVision(
+        BrainlessLab.ConspecificSource();
         channels=16,
         field_of_view=deg2rad(300),
         max_range=5.0,
         gain=2.0,
         distance_exponent=2.0,
     ))
-    shaped = sample!(world, [shaped_body, target])[1]
+    shaped = BrainlessLab.sample!(world, [shaped_body, target])[1]
     @test maximum(shaped) ≈ 2.0 * 0.7^2
 
-    blind_body = _sector_test_body(SectorVision(
-        ConspecificSource();
+    blind_body = _sector_test_body(BrainlessLab.SectorVision(
+        BrainlessLab.ConspecificSource();
         channels=16,
         field_of_view=deg2rad(300),
         max_range=5.0,
         mode=:blind,
     ))
-    @test all(iszero, sample!(world, [blind_body, target])[1])
+    @test all(iszero, BrainlessLab.sample!(world, [blind_body, target])[1])
 
-    sham_body = _sector_test_body(SectorVision(
-        ConspecificSource();
+    sham_body = _sector_test_body(BrainlessLab.SectorVision(
+        BrainlessLab.ConspecificSource();
         channels=16,
         field_of_view=deg2rad(300),
         max_range=5.0,
         mode=:bearing_sham,
         sham_seed=17,
     ))
-    sham = sample!(world, [sham_body, target])[1]
+    sham = BrainlessLab.sample!(world, [sham_body, target])[1]
     @test sort(sham) == sort(values)
     @test sham != values
 
-    source = ObjectType(:food; bank=:food, radius=0.5)
-    source_world = ObjectWorld(
-        WalledArena(10.0),
-        [MotionState2D(position=(2.0, 2.0), heading=pi / 2)];
-        populations=(ObjectPopulation(source, [(2.0, 4.0)]),),
+    source = BrainlessLab.ObjectType(:food; bank=:food, radius=0.5)
+    source_world = BrainlessLab.ObjectWorld(
+        BrainlessLab.WalledArena(10.0),
+        [BrainlessLab.MotionState2D(position=(2.0, 2.0), heading=pi / 2)];
+        populations=(BrainlessLab.ObjectPopulation(source, [(2.0, 4.0)]),),
     )
-    source_body = _sector_test_body(SectorVision(ObjectSource(:food); max_range=5.0))
-    @test maximum(only(sample!(source_world, [source_body]))) ≈ 0.75
-    @test_throws ArgumentError SectorVision(ConspecificSource(); gain=-1.0)
-    @test_throws ArgumentError SectorVision(ConspecificSource(); distance_exponent=0.0)
+    source_body = _sector_test_body(BrainlessLab.SectorVision(BrainlessLab.ObjectSource(:food); max_range=5.0))
+    @test maximum(only(BrainlessLab.sample!(source_world, [source_body]))) ≈ 0.75
+    @test_throws ArgumentError BrainlessLab.SectorVision(BrainlessLab.ConspecificSource(); gain=-1.0)
+    @test_throws ArgumentError BrainlessLab.SectorVision(BrainlessLab.ConspecificSource(); distance_exponent=0.0)
 end
 
 @testset "proximity exposure is independent of sight" begin
-    association = RegulatedVariable(
+    association = BrainlessLab.RegulatedVariable(
         :association;
         initial=0.5,
         setpoint=1.0,
         drift=0.0,
-        mode=OffFeedback(),
+        mode=BrainlessLab.OffFeedback(),
     )
     bodies = [
         _sector_test_body(
-            SectorVision(ConspecificSource(); max_range=1.0, mode=:blind);
-            physiology=RegulatedPhysiology((association,); seed=index),
+            BrainlessLab.SectorVision(BrainlessLab.ConspecificSource(); max_range=1.0, mode=:blind);
+            physiology=BrainlessLab.RegulatedPhysiology((association,); seed=index),
         )
         for index in 1:2
     ]
-    world = ObjectWorld(
-        WalledArena(10.0),
+    world = BrainlessLab.ObjectWorld(
+        BrainlessLab.WalledArena(10.0),
         [
-            MotionState2D(position=(2.0, 2.0)),
-            MotionState2D(position=(3.0, 2.0)),
+            BrainlessLab.MotionState2D(position=(2.0, 2.0)),
+            BrainlessLab.MotionState2D(position=(3.0, 2.0)),
         ];
-        relations=(ProximityExposure(
+        relations=(BrainlessLab.ProximityExposure(
             :association;
             radius=2.0,
             amount=0.004,
             target_neighbors=2.0,
         ),),
     )
-    commands = [ForwardTurnCommand(), ForwardTurnCommand()]
-    effects = apply_commands!(world, bodies, commands)
+    commands = [BrainlessLab.ForwardTurnCommand(), BrainlessLab.ForwardTurnCommand()]
+    effects = BrainlessLab.apply_commands!(world, bodies, commands)
     @test all(length(effect) == 1 for effect in effects)
     @test all(only(effect).name === :association for effect in effects)
     @test all(only(effect).amount ≈ 0.0015 for effect in effects)
 end
 
 @testset "shoal forage task contract and matched blocks" begin
-    on = setup_task(
-        SHOAL_FORAGE_TASK;
+    on = BrainlessLab.setup_task(
+        BrainlessLab.SHOAL_FORAGE_TASK;
         seed=23,
         n_nodes=40,
         n_agents=4,
@@ -149,8 +149,8 @@ end
         conspecific_mode=:veridical,
         conspecific_range=5.0,
     )
-    off = setup_task(
-        SHOAL_FORAGE_TASK;
+    off = BrainlessLab.setup_task(
+        BrainlessLab.SHOAL_FORAGE_TASK;
         seed=23,
         n_nodes=40,
         n_agents=4,
@@ -168,12 +168,12 @@ end
           getfield.(off.environment.initial_states, :heading)
     @test [object.origin for object in on.environment.objects] ==
           [object.origin for object in off.environment.objects]
-    @test on.bodies[1].physiology.variables[3].mode isa BernoulliFeedback
-    @test off.bodies[1].physiology.variables[3].mode isa OffFeedback
+    @test on.bodies[1].physiology.variables[3].mode isa BrainlessLab.BernoulliFeedback
+    @test off.bodies[1].physiology.variables[3].mode isa BrainlessLab.OffFeedback
     @test off.bodies[1].physiology.variables[3].drift == 0.0
 
-    sensitive = setup_task(
-        SHOAL_FORAGE_TASK;
+    sensitive = BrainlessLab.setup_task(
+        BrainlessLab.SHOAL_FORAGE_TASK;
         seed=23,
         n_nodes=40,
         n_agents=4,
@@ -202,18 +202,18 @@ end
     @test sensitive.bodies[1].sensors[2].distance_exponent == 2.0
     @test sensitive.bodies[1].physiology.variables[1].drift == -0.002
     @test sensitive.bodies[1].physiology.variables[1].gain == 1.5
-    @test sensitive.bodies[1].physiology.variables[1].curve isa PowerFeedback
+    @test sensitive.bodies[1].physiology.variables[1].curve isa BrainlessLab.PowerFeedback
     @test sensitive.bodies[1].physiology.variables[1].emission_p == 0.4
     @test sensitive.bodies[1].physiology.variables[3].drift == -0.002
     @test sensitive.bodies[1].physiology.variables[3].gain == 0.5
-    @test sensitive.bodies[1].physiology.variables[3].curve isa PowerFeedback
+    @test sensitive.bodies[1].physiology.variables[3].curve isa BrainlessLab.PowerFeedback
     @test sensitive.bodies[1].physiology.variables[3].emission_p == 0.1
     @test sensitive.environment.object_types[1].effects[1].amount == 0.02
     @test sensitive.environment.relations[1].amount == 0.008
     @test sensitive.environment.relations[1].radius == 4.0
     @test sensitive.environment.relations[1].target_neighbors == 4.0
 
-    sim = simulate(
+    sim = BrainlessLabTestUtils.diagnostic_simulate(
         :shoal_forage;
         node=:falandays,
         ticks=2,
@@ -233,9 +233,11 @@ end
     @test length(getchannel(sim.recorder, :poses)) == 2
     @test sim.config.environment.relations[1].kind === :proximity_exposure
     @test sim.config.agents[1].body.sensors[1].kind === :sector_vision
+    @test sim.config.agents[1].body.sensors[1].source === :conspecific
+    @test sim.config.agents[1].body.sensors[2].source === :resource_1
     @test sim.config.agents[1].body.actuators[1].kind === :antagonistic_turn
-    needs = shoal_need_satisfaction(sim; warmup=0)
-    grouped = shoal_group_movement_summary(sim; warmup=0, grouping_radius=2.0)
+    needs = BrainlessLab.shoal_need_satisfaction(sim; warmup=0)
+    grouped = BrainlessLab.shoal_group_movement_summary(sim; warmup=0, grouping_radius=2.0)
     @test 0.0 <= needs.mean_material_satisfaction <= 1.0
     @test 0.0 <= needs.material_no_contact_floor <= 1.0
     @test isfinite(needs.material_regulation_gain)
@@ -246,7 +248,7 @@ end
 end
 
 @testset "shoal forage quickstart" begin
-    sim = run_shoal_forage_quickstart(; ticks=2)
+    sim = run_shoal_forage_quickstart(; ticks=2, window=2)
     @test sim.task === :shoal_forage
     @test length(getchannel(sim.recorder, :poses)) == 2
     @test sim.config.agents[1].body.sensors[1].kind === :sector_vision
@@ -254,8 +256,8 @@ end
 end
 
 @testset "experimental component catalog entries" begin
-    sensor_resolver = component_info(:sensor, :sector_vision).config_resolver
-    sensor = sensor_resolver(ComponentConfig(
+    sensor_resolver = BrainlessLab.component_info(:sensor, :sector_vision).config_resolver
+    sensor = sensor_resolver(BrainlessLab.ComponentConfig(
         :social,
         :sensor,
         :sector_vision,
@@ -270,18 +272,18 @@ end
             sham_seed=9,
         ),
     ))
-    @test sensor.source isa ConspecificSource
+    @test sensor.source isa BrainlessLab.ConspecificSource
     @test sensor.mode === :bearing_sham
     @test sensor.sham_seed == 9
     @test sensor.gain == 2.0
     @test sensor.distance_exponent == 0.5
 
-    actuator_resolver = component_info(:actuator, :antagonistic_turn).config_resolver
-    actuator = actuator_resolver(ComponentConfig(
+    actuator_resolver = BrainlessLab.component_info(:actuator, :antagonistic_turn).config_resolver
+    actuator = actuator_resolver(BrainlessLab.ComponentConfig(
         :motor,
         :actuator,
         :antagonistic_turn,
         (max_forward=0.2, max_turn=pi / 8),
     ))
-    @test actuator isa AntagonisticTurnActuator
+    @test actuator isa BrainlessLab.AntagonisticTurnActuator
 end

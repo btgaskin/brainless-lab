@@ -8,11 +8,11 @@ observations, actions, metrics, controls, and calibration before editing.
 
 ## Files
 
-- `my_node.jl` defines `MyNode <: Reservoir`, then registers a typed `NodeSpec` with parameters, capabilities, and default sweep/evolution sets.
+- `my_node.jl` defines `MyNode <: Reservoir`, then registers a typed `NodeSpec` with parameters, capabilities, and default sweep/connectivity sets.
 - `my_task.jl` defines `MyTrackingEnv <: TaskWorld`, wraps it in a `TaskSpec`, then registers the task in `DEFAULT_REGISTRY`.
 - `my_metric.jl` registers a small metric function as `:final_error_abs`, requested by symbol in `run.jl`.
 - `run.jl` includes those files, runs one explicit `CompositionSpec`, prints metrics, and saves a Makie figure.
-- `config.toml` is a version-one `ProfilePlan` using the same node, task, and evaluation contracts as every built-in operation.
+- `config.toml` is a current `ProfilePlan` using the same node, task, and evaluation contracts as every built-in operation.
 - `run_plan.jl` loads the extension, executes `config.toml`, and writes the standard portable record.
 
 ## Setup
@@ -84,9 +84,13 @@ n_effectors(node)
 
 The public `NodeSpec` builder receives a `NodeBuildContext` and the fully resolved parameter
 dictionary. The context supplies node count, body ports, named seeds, and any receptor
-profile. `ParameterSpec` declares validation, default sweep values, evolution bounds, and
-ownership. Here `link_p` is reservoir-owned connectivity while node count remains part of
-the composition.
+profile. `ParameterSpec` declares validation, default sweep values, and ownership. Here
+`link_p` is reservoir-owned connectivity while node count remains part of the composition.
+
+`pack_params` and `unpack_params` map the eight readable physical model values through
+fixed bounded sigmoid bijections. An optimiser can therefore use unconstrained coordinates
+without producing unbounded learning rates or scales. `learn_on` remains outside the
+coordinate vector, and instance-based unpacking preserves it.
 
 Important Julia gotcha: when extending BrainlessLab generics from outside the package, import the names you extend:
 
@@ -138,13 +142,16 @@ In `run.jl`, the simulation requests the metric with `metrics=[:final_error_abs]
 ## Operations
 
 `config.toml` uses the single `brainlesslab-plan` schema. Change `operation` and its final
-section to profile, sweep, ablate, evolve, or benchmark. The target composition and
-evaluation section stay the same.
+section to profile, sweep, ablate, or benchmark. The target composition and evaluation
+section stay the same.
 
-The node's `:sweep` and `:evolve` parameter sets provide defaults. A plan can instead name
-explicit sweep axes or another registered parameter set. Benchmark conditions reference
-registered nodes and tasks but remain task-specific; registering a component does not
-automatically qualify it for a benchmark.
+The node's `:sweep` parameter set provides defaults. A plan can instead name explicit sweep
+axes or another registered parameter set. `genome_type` records the model-coordinate
+contract, but it does not by itself admit this example node to `EvolutionPlan`. Public
+fixed-design evolution accepts any node that declares a reviewed
+`Evolution.NodeDesignSpec`. Benchmark conditions reference registered nodes and tasks but
+remain task-specific; registering a component does not automatically qualify it for a
+benchmark.
 
 ## Make It Your Own
 
@@ -160,10 +167,10 @@ automatically qualify it for a benchmark.
 
 The docs live in the Astro/Starlight site (<https://brainless-lab.pages.dev>, or `cd site && bun run dev`):
 
-- [Reservoirs and node models](https://brainless-lab.pages.dev/core/reservoirs/)
-- [Worlds, tasks and populations](https://brainless-lab.pages.dev/core/worlds-tasks-populations/)
-- [Embodiment](https://brainless-lab.pages.dev/core/embodiment/)
-- [Extend the lab](https://brainless-lab.pages.dev/core/extend/)
-- [Design a study](https://brainless-lab.pages.dev/core/design-study/)
-- [Agentic workflow](https://brainless-lab.pages.dev/agentic-workflow/)
-- [Operations and records](https://brainless-lab.pages.dev/core/operations-records/)
+- [Nodes and reservoirs](https://brainless-lab.pages.dev/handbook/nodes-reservoirs/)
+- [Worlds, tasks and populations](https://brainless-lab.pages.dev/handbook/worlds-tasks-populations/)
+- [Bodies and interaction](https://brainless-lab.pages.dev/handbook/bodies-interaction/)
+- [Extending BrainlessLab](https://brainless-lab.pages.dev/handbook/extending/)
+- [Experiments and evidence](https://brainless-lab.pages.dev/handbook/experiments-evidence/)
+- [Research records](https://brainless-lab.pages.dev/research/)
+- [Operations](https://brainless-lab.pages.dev/handbook/operations/)

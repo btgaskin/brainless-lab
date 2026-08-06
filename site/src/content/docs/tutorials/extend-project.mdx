@@ -1,0 +1,51 @@
+---
+title: Extend from another project
+description: Copy the external-project template, register a node and task, then produce a standard profile record.
+---
+
+Use the project template when your node or task belongs outside the BrainlessLab package.
+The template demonstrates Julia dispatch, registration, one diagnostic run, and one typed
+profile plan.
+
+## Copy and install the template
+
+Copy `examples/templates/new_project/` to your project. From the copied directory, install
+BrainlessLab from GitHub:
+
+```bash
+julia --project=. -e '
+using Pkg
+Pkg.add(url="https://github.com/btgaskin/brainless-lab")
+Pkg.instantiate()
+'
+```
+
+While the template remains inside this repository, use
+`Pkg.develop(path="../../..")` instead.
+
+## Run the worked extension
+
+```bash
+julia --project=. run.jl --ticks 300 --seed 1 --n-nodes 80
+julia --project=. run_plan.jl config.toml records
+```
+
+The first command runs one composition and saves a figure. The second writes a standard
+profile record.
+
+## Replace the worked parts
+
+Edit one boundary at a time:
+
+1. `my_node.jl` defines reservoir state, methods, parameters, and a `NodeSpec`.
+2. `my_task.jl` defines observations, actions, metrics, anchors, and a `TaskSpec`.
+3. `my_metric.jl` registers an optional reusable metric.
+4. `config.toml` defines repeated evaluation without adding another runner.
+
+Import a BrainlessLab generic before adding a Julia method to it. Keep runtime state out of
+the parameter genome. Match body port widths before tick zero.
+
+The template proves that the extension loads and runs. It does not validate the scientific
+meaning of a new task or node.
+
+<p class="bl-source">Source: <code>examples/templates/new_project/</code>.</p>

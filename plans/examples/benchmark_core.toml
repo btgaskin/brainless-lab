@@ -4,14 +4,46 @@ operation = "benchmark"
 id = "core_benchmark_example"
 
 [[targets]]
+id = "wall_falandays"
+[targets.composition]
+id = "wall_falandays"
+preset = "falandays_wall"
+[targets.evaluation]
+blocks = 1
+trials_per_block = 1
+horizon = 220
+warmup = 20
+construction_scope = "trial"
+reset = "full"
+root_seed = 501
+aggregate = "mean"
+
+[[targets]]
+id = "wall_random"
+[targets.composition]
+id = "wall_random"
+node = "null_random"
+task = "wall"
+n_nodes = 200
+[targets.evaluation]
+blocks = 1
+trials_per_block = 1
+horizon = 220
+warmup = 20
+construction_scope = "trial"
+reset = "full"
+root_seed = 501
+aggregate = "mean"
+
+[[targets]]
 id = "tracking_falandays"
 [targets.composition]
 id = "tracking_falandays"
 preset = "falandays_tracking"
 [targets.evaluation]
-blocks = 2
+blocks = 1
 trials_per_block = 1
-horizon = 120
+horizon = 2020
 warmup = 20
 construction_scope = "trial"
 reset = "full"
@@ -26,9 +58,9 @@ node = "null_random"
 task = "tracking"
 n_nodes = 200
 [targets.evaluation]
-blocks = 2
+blocks = 1
 trials_per_block = 1
-horizon = 120
+horizon = 2020
 warmup = 20
 construction_scope = "trial"
 reset = "full"
@@ -41,9 +73,9 @@ id = "pong_falandays"
 id = "pong_falandays"
 preset = "falandays_pong"
 [targets.evaluation]
-blocks = 2
+blocks = 1
 trials_per_block = 1
-horizon = 400
+horizon = 6040
 warmup = 40
 construction_scope = "trial"
 reset = "full"
@@ -58,9 +90,9 @@ node = "null_random"
 task = "pong"
 n_nodes = 500
 [targets.evaluation]
-blocks = 2
+blocks = 1
 trials_per_block = 1
-horizon = 400
+horizon = 6040
 warmup = 40
 construction_scope = "trial"
 reset = "full"
@@ -68,6 +100,11 @@ root_seed = 2501
 aggregate = "mean"
 
 [benchmark]
+
+[[benchmark.cases]]
+id = "wall"
+conditions = ["wall_falandays", "wall_random"]
+baseline = "wall_random"
 
 [[benchmark.cases]]
 id = "tracking"

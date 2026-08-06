@@ -2,7 +2,10 @@ using Dates
 
 function _git_short_sha()
     try
-        sha = strip(readchomp(`git rev-parse --short HEAD`))
+        # Resolve against the package repository rather than whatever directory
+        # the process happens to be launched from.
+        repo = abspath(joinpath(@__DIR__, "..", ".."))
+        sha = strip(readchomp(`git -C $repo rev-parse --short HEAD`))
         return isempty(sha) ? "unknown" : sha
     catch
         return "unknown"
@@ -26,9 +29,25 @@ end
 
 _mean_float64(values::Vector{Float64}) = sum(values) / length(values)
 
-function _calibration_provenance(task_obj, null, score_key, seed_values)
+function _calibration_provenance(
+    task_obj,
+    null,
+    rate_reference,
+    null_target_rate,
+    n_nodes,
+    score_key,
+    seed_values,
+    scored_ticks,
+)
+    # scored_ticks is load-bearing, not decoration: rate matching measures the
+    # reference firing rate over the scoring window, so an anchor measured over a
+    # different window is a different anchor. Recording it makes a stale anchor
+    # detectable instead of silent.
     return "task=$(_calibration_task_symbol(task_obj)), null=$(null), " *
-           "score_key=$(score_key), rng=MersenneTwister, julia=$(VERSION), " *
+           "rate_reference=$(rate_reference), null_target_rate=$(null_target_rate), " *
+           "n_nodes=$(Int(n_nodes)), " *
+           "score_key=$(score_key), scored_ticks=$(scored_ticks), " *
+           "rng=MersenneTwister, julia=$(VERSION), " *
            "seeds $(_seed_summary(seed_values)), git $(_git_short_sha()), $(Dates.today())"
 end
 
@@ -73,15 +92,88 @@ function _calibration_task_symbol(task_obj)
     return Symbol(task_obj)
 end
 
+function _resolve_calibration_n_nodes(task_obj, N, node_kwargs, kwargs)
+    top_level = _merge_kwdicts(kwargs)
+    node_options = _merge_kwdicts(node_kwargs)
+    n_nodes = if haskey(top_level, :n_nodes)
+        Int(top_level[:n_nodes])
+    elseif N !== nothing
+        Int(N)
+    elseif haskey(node_options, :n_nodes)
+        Int(node_options[:n_nodes])
+    else
+        is_swarm = task_obj isa TaskSpec && is_multiagent(task_obj.setup)
+        _default_node_count(:falandays, _calibration_task_symbol(task_obj), is_swarm)
+    end
+    n_nodes >= 1 || throw(ArgumentError("calibration n_nodes must be at least one"))
+    return n_nodes
+end
+
 function _calibration_score_key(metrics_nt, preferred::Symbol)
     preferred in propertynames(metrics_nt) && return preferred
     preferred == :score && :forage_score in propertynames(metrics_nt) && return :forage_score
     throw(KeyError("metric :$(preferred) is absent from calibration metrics"))
 end
 
+_metric_value(metrics_nt::NamedTuple, key::Symbol) = Float64(getproperty(metrics_nt, key))
+
 function _calibration_raw_score(sim::SimResult, preferred::Symbol)
     key = _calibration_score_key(sim.metrics, preferred)
     return _metric_value(sim.metrics, key), key
+end
+
+function _calibration_window_rate(sim::SimResult)
+    rates = _analysis_rate_matrix(sim, :calibrate_task)
+    n_samples = size(rates, 1)
+    window = min(_analysis_config_int(sim, :window, n_samples), n_samples)
+    window >= 1 || throw(ArgumentError("calibration window must contain at least one tick"))
+    first_sample = n_samples - window + 1
+    total = 0.0
+    count = 0
+    @inbounds for agent in axes(rates, 2), tick in first_sample:n_samples
+        total += rates[tick, agent]
+        count += 1
+    end
+    count > 0 || throw(ArgumentError("canonical rate measurement produced no samples"))
+    return total / count
+end
+
+function _measure_canonical_rate(
+    task_obj,
+    seed_values::Vector{Int};
+    rate_reference,
+    ticks,
+    window,
+    N,
+    n_agents,
+    node_kwargs,
+    env_kwargs,
+    kwargs,
+)
+    task_sym = _calibration_task_symbol(task_obj)
+    rates = Float64[]
+    for seed in seed_values
+        options = _merge_kwdicts(_calibration_sim_kwargs(
+            task_obj;
+            node=rate_reference,
+            seed=seed,
+            ticks=ticks,
+            window=window,
+            N=N,
+            n_agents=n_agents,
+            record=(:rate,),
+            node_kwargs=node_kwargs,
+            env_kwargs=env_kwargs,
+            kwargs=kwargs,
+        ))
+        # Recorder settings do not change the task protocol. Use every tick so
+        # the measured rate covers the same scoring window exactly.
+        options[:record] = (:rate,)
+        options[:every] = 1
+        sim = simulate(task_sym; _kwargs_tuple(options)...)
+        push!(rates, _calibration_window_rate(sim))
+    end
+    return _mean_float64(rates)
 end
 
 function _measure_null_anchor(
@@ -98,8 +190,25 @@ function _measure_null_anchor(
     env_kwargs,
     kwargs,
 )
+    rate_reference = :falandays
+    matched_rate = _measure_canonical_rate(
+        task_obj,
+        seed_values;
+        rate_reference=rate_reference,
+        ticks=ticks,
+        window=window,
+        N=N,
+        n_agents=n_agents,
+        node_kwargs=node_kwargs,
+        env_kwargs=env_kwargs,
+        kwargs=kwargs,
+    )
+    matched_node_kwargs = _merge_kwdicts(node_kwargs)
+    matched_node_kwargs[:target_rate] = matched_rate
+
     raw = Float64[]
     used_key = preferred_key
+    scored_ticks = 0
     task_sym = _calibration_task_symbol(task_obj)
     for seed in seed_values
         sim = simulate(
@@ -113,17 +222,27 @@ function _measure_null_anchor(
                 N=N,
                 n_agents=n_agents,
                 record=record,
-                node_kwargs=node_kwargs,
+                node_kwargs=matched_node_kwargs,
                 env_kwargs=env_kwargs,
                 kwargs=kwargs,
             )...,
         )
         value, key = _calibration_raw_score(sim, preferred_key)
         used_key = key
+        scored_ticks = Int(sim.config.window)
         push!(raw, value)
     end
-    provenance = _calibration_provenance(task_obj, null, used_key, seed_values)
-    return null_anchor(_mean_float64(raw), provenance)
+    provenance = _calibration_provenance(
+        task_obj,
+        null,
+        rate_reference,
+        matched_rate,
+        N,
+        used_key,
+        seed_values,
+        scored_ticks,
+    )
+    return null_anchor(_mean_float64(raw), provenance; scored_ticks)
 end
 
 function _reference_from_namedtuple(reference, default_model)
@@ -156,6 +275,7 @@ function _measure_reference_anchor(
     model === nothing || (ref_node_kwargs[:params] = model)
     raw = Float64[]
     used_key = task_spec.score_key
+    scored_ticks = 0
     task_sym = _calibration_task_symbol(task_spec)
     for seed in seed_values
         sim = simulate(
@@ -176,10 +296,11 @@ function _measure_reference_anchor(
         )
         value, key = _calibration_raw_score(sim, task_spec.score_key)
         used_key = key
+        scored_ticks = Int(sim.config.window)
         push!(raw, value)
     end
-    provenance = "reference=$(model_sym), score_key=$(used_key), seeds $(_seed_summary(seed_values)), git $(_git_short_sha()), $(Dates.today())"
-    return reference_anchor(_mean_float64(raw), provenance)
+    provenance = "reference=$(model_sym), n_nodes=$(Int(N)), score_key=$(used_key), scored_ticks=$(scored_ticks), seeds $(_seed_summary(seed_values)), git $(_git_short_sha()), $(Dates.today())"
+    return reference_anchor(_mean_float64(raw), provenance; scored_ticks)
 end
 
 function _calibrated_ceiling(
@@ -216,11 +337,13 @@ function _calibrated_ceiling(
 end
 
 function _reference_ceiling_with_fallback(task_spec::TaskSpec, measured::ScoreAnchor, floor::ScoreAnchor)
-    if measured.kind == REFERENCE_MEASURED &&
-       measured.value <= floor.value &&
-       task_spec.ceiling.kind == REFERENCE_MEASURED &&
-       task_spec.ceiling.value > floor.value
-        return task_spec.ceiling
+    if measured.kind == REFERENCE_MEASURED && measured.value <= floor.value
+        throw(ArgumentError(
+            "fresh reference ceiling $(measured.value) for task :$(task_spec.name) " *
+            "does not exceed the measured null floor $(floor.value); the stored ceiling " *
+            "$(task_spec.ceiling.value) was not retained. The reference policy is at or " *
+            "below the null and the task calibration must be inspected.",
+        ))
     end
     return measured
 end
@@ -228,10 +351,11 @@ end
 """
     calibrate_task(task; null=:null_random, reference=nothing, seeds=0:7, kw...)
 
-Measure the null floor for a task using the model-agnostic random-output policy
-and return `(floor, ceiling)` anchors. Reference ceilings are measured only when
-`reference` is supplied; otherwise existing non-analytic ceilings are retagged as
-legacy observed bests pending reference-genome calibration.
+Measure the canonical `:falandays` spike rate on the task protocol, use that
+rate to construct an input-independent null with the same resolved reservoir
+width, and return `(floor, ceiling)` anchors. Reference ceilings are measured
+only when `reference` is supplied; otherwise existing non-analytic ceilings are
+retagged as legacy observed bests pending reference-genome calibration.
 """
 function calibrate_task(
     task;
@@ -250,6 +374,7 @@ function calibrate_task(
 )
     task_obj = resolve_task(task)
     seed_values = _seed_vector(seeds)
+    calibration_n_nodes = _resolve_calibration_n_nodes(task_obj, N, node_kwargs, kwargs)
 
     if task_obj isa TaskSpec
         floor = _measure_null_anchor(
@@ -259,7 +384,7 @@ function calibrate_task(
             null=Symbol(null),
             ticks=ticks,
             window=window,
-            N=N,
+            N=calibration_n_nodes,
             n_agents=n_agents,
             record=record,
             node_kwargs=node_kwargs,
@@ -273,7 +398,7 @@ function calibrate_task(
             reference_model=reference_model,
             ticks=ticks,
             window=window,
-            N=N,
+            N=calibration_n_nodes,
             node_kwargs=node_kwargs,
             env_kwargs=env_kwargs,
             kwargs=kwargs,
@@ -288,7 +413,7 @@ function calibrate_task(
             null=Symbol(null),
             ticks=ticks,
             window=window,
-            N=N,
+            N=calibration_n_nodes,
             n_agents=n_agents,
             record=record,
             node_kwargs=node_kwargs,
@@ -303,7 +428,7 @@ end
 
 function write_calibration_report(
     io::IO=stdout;
-    task_names=(:wall, :pong, :pong_hitrate, :cartpole_swingup, :forage),
+    task_names=(:wall, :tracking, :pong, :pong_hitrate, :cartpole_swingup, :forage),
     references=Dict{Symbol,Any}(
         :wall => (model=FalandaysParams(), model_sym=:falandays),
         :pong => (model=FalandaysParams(), model_sym=:falandays),

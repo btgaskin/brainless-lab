@@ -1,6 +1,6 @@
 using Random
 
-struct Unsigned end
+struct UnsignedAxis end
 
 struct Dale
     sign::Vector{Int}
@@ -13,7 +13,7 @@ struct Dale
     end
 end
 
-function recurrent_input(::Unsigned, wmat::AbstractMatrix{<:Real}, prev_spikes::AbstractVector{<:Real})
+function recurrent_input(::UnsignedAxis, wmat::AbstractMatrix{<:Real}, prev_spikes::AbstractVector{<:Real})
     return vec(transpose(prev_spikes) * wmat)
 end
 
@@ -27,9 +27,21 @@ end
 function _learn_counts(mask::BitMatrix, prev_spikes::AbstractVector{<:Real})
     n = size(mask, 2)
     counts = zeros(Float64, n)
+    return counts, _learn_counts!(counts, mask, prev_spikes)
+end
+
+function _learn_counts!(
+    counts::Vector{Float64},
+    mask::BitMatrix,
+    prev_spikes::AbstractVector{<:Real},
+)
+    length(counts) == size(mask, 2) ||
+        throw(DimensionMismatch(
+            "count buffer length $(length(counts)) does not match recurrent width $(size(mask, 2))",
+        ))
     active_total = 0.0
 
-    @inbounds for j in 1:n
+    @inbounds for j in axes(mask, 2)
         count = 0.0
         for i in 1:size(mask, 1)
             if mask[i, j] && prev_spikes[i] != 0.0
@@ -40,7 +52,7 @@ function _learn_counts(mask::BitMatrix, prev_spikes::AbstractVector{<:Real})
         active_total += count
     end
 
-    return counts, active_total
+    return active_total
 end
 
 function _update_targets!(targets::Vector{Float64}, errors::AbstractVector{<:Real}, p)
@@ -53,8 +65,17 @@ function _update_targets!(targets::Vector{Float64}, errors::AbstractVector{<:Rea
     return targets
 end
 
+@inline function _checked_falandays_weight(weight::Float64, delta::Float64)
+    updated = weight - delta
+    isfinite(updated) || throw(DomainError(
+        updated,
+        "Falandays recurrent weight diverged to a non-finite value",
+    ))
+    return updated
+end
+
 function learn!(
-    ::Unsigned,
+    ::UnsignedAxis,
     wmat::Matrix{Float64},
     targets::Vector{Float64},
     errors::Vector{Float64},
@@ -62,7 +83,21 @@ function learn!(
     prev_spikes::Vector{Float64},
     p,
 )
-    counts, active_total = _learn_counts(mask, prev_spikes)
+    counts = zeros(Float64, size(mask, 2))
+    return learn!(UnsignedAxis(), wmat, targets, errors, mask, prev_spikes, p, counts)
+end
+
+function learn!(
+    ::UnsignedAxis,
+    wmat::Matrix{Float64},
+    targets::Vector{Float64},
+    errors::Vector{Float64},
+    mask::BitMatrix,
+    prev_spikes::Vector{Float64},
+    p,
+    counts::Vector{Float64},
+)
+    active_total = _learn_counts!(counts, mask, prev_spikes)
 
     if active_total > 0.0
         @inbounds for j in 1:size(wmat, 2)
@@ -70,7 +105,7 @@ function learn!(
                 delta = errors[j] / counts[j] * p.lrate_wmat
                 for i in 1:size(wmat, 1)
                     if mask[i, j] && prev_spikes[i] != 0.0
-                        wmat[i, j] -= delta
+                        wmat[i, j] = _checked_falandays_weight(wmat[i, j], delta)
                     end
                 end
             end
@@ -90,7 +125,21 @@ function learn!(
     prev_spikes::Vector{Float64},
     p,
 )
-    counts, active_total = _learn_counts(mask, prev_spikes)
+    counts = zeros(Float64, size(mask, 2))
+    return learn!(axis, wmat, targets, errors, mask, prev_spikes, p, counts)
+end
+
+function learn!(
+    axis::Dale,
+    wmat::Matrix{Float64},
+    targets::Vector{Float64},
+    errors::Vector{Float64},
+    mask::BitMatrix,
+    prev_spikes::Vector{Float64},
+    p,
+    counts::Vector{Float64},
+)
+    active_total = _learn_counts!(counts, mask, prev_spikes)
 
     if active_total > 0.0
         @inbounds for j in 1:size(wmat, 2)
@@ -99,7 +148,10 @@ function learn!(
                 for i in 1:size(wmat, 1)
                     if mask[i, j] && prev_spikes[i] != 0.0
                         signed_delta = axis.sign[i] == -1 ? -delta : delta
-                        wmat[i, j] -= signed_delta
+                        wmat[i, j] = _checked_falandays_weight(
+                            wmat[i, j],
+                            signed_delta,
+                        )
                         if wmat[i, j] < 0.0
                             wmat[i, j] = 0.0
                         end

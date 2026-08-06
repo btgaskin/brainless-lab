@@ -2,58 +2,37 @@
 
 [![CI](https://github.com/btgaskin/brainless-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/btgaskin/brainless-lab/actions/workflows/ci.yml)
 
+An exact-input proof-cache hit can make CI green without rerunning the matching test suite.
+
 <p align="center"><img src="brainless-lab.png" alt="BrainlessLab" width="760"></p>
 
-<p align="center">
-  <em>Behaviour from collectives of simple neuron-like nodes.</em><br>
-  <a href="https://brainless-lab.pages.dev/core/getting-started/">Getting started</a>
-  &middot;
-  <a href="https://brainless-lab.pages.dev/core/operations-records/">Operations and records</a>
-  &middot;
-  <a href="https://brainless-lab.pages.dev/experimental/">Experimental capabilities</a>
-</p>
+BrainlessLab is a Julia platform for studying simple neural substrates in closed
+sensorimotor loops. It separates runtime composition, repeated evaluation, research
+operations, and portable records.
 
-BrainlessLab is an experimental Julia platform for studying neural reservoirs in closed
-sensorimotor loops. It separates four concerns:
-
-- a node type and its registered parameters;
-- a body, task, and interaction cycle;
-- an evaluation protocol over independent trials;
-- a research operation that writes a portable record.
-
-The canonical `:falandays` node is validated against declared reference trajectories.
-That validation covers the tested construction and update path. It does not establish
-behavioural equivalence across every task or validate a biological interpretation.
+The canonical `:falandays` node is validated on declared reference trajectories. Tracking,
+Pong, and Wall are the core benchmark tasks. These boundaries do not establish general
+competence or biological fidelity.
 
 ## Quick start
 
-BrainlessLab is not yet registered in Julia General. Clone the repository and use its
-project environment:
+BrainlessLab is not yet registered in Julia General.
 
 ```bash
 git clone https://github.com/btgaskin/brainless-lab.git
 cd brainless-lab
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
+julia --project=. -e 'using BrainlessLab; sim = simulate(:tracking; node=:falandays, ticks=2_000, seed=26); println(task_outcome(sim))'
 ```
 
-Run one diagnostic simulation:
+The public guide provides four direct paths:
 
-```bash
-julia --project=. -e 'using BrainlessLab; sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11); println(task_outcome(sim))'
-```
+1. [Run your first simulation](https://brainless-lab.pages.dev/tutorials/first-simulation/)
+2. [Create a reproducible profile](https://brainless-lab.pages.dev/tutorials/reproducible-profile/)
+3. [Compare conditions](https://brainless-lab.pages.dev/tutorials/compare-conditions/)
+4. [Extend from another project](https://brainless-lab.pages.dev/tutorials/extend-project/)
 
-`task_outcome(sim)` returns the task's outcome key, raw value, and normalised value. It
-returns `nothing` when the task declares no scalar outcome. Scores remain task-specific,
-even after normalisation.
-
-The public guide starts with:
-
-1. [Getting started](https://brainless-lab.pages.dev/core/getting-started/)
-2. [Core task tour](https://brainless-lab.pages.dev/core/task-tour/)
-3. [Architecture](https://brainless-lab.pages.dev/core/architecture/)
-4. [Design a study](https://brainless-lab.pages.dev/core/design-study/)
-
-## Compose a run, then choose an operation
+## Repeated research
 
 ```text
 NodeSpec + TaskSpec + body + InteractionCycle
@@ -61,19 +40,12 @@ NodeSpec + TaskSpec + body + InteractionCycle
 
 CompositionSpec + EvaluationSpec
   → EvaluationTarget
-
-EvaluationTarget(s) + operation settings
-  → ProfilePlan | SweepPlan | AblationPlan | EvolutionPlan | BenchmarkPlan
-  → versioned record
-
-named conditions + operation plans
-  → ExperimentSpec
+  → operation plan
+  → typed result
+  → record
 ```
 
-`simulate` is the convenient path for one in-memory run. A `CompositionSpec` records the
-same runtime choices explicitly and is the preferred input for reusable work.
-
-For repeated work, validate and run a plan:
+Validate and run one example plan:
 
 ```bash
 julia --project=. bin/brainlesslab.jl check plans/examples/profile_tracking.toml
@@ -81,74 +53,57 @@ julia -t auto --project=. bin/brainlesslab.jl run \
   plans/examples/profile_tracking.toml --root records
 ```
 
-Each operation writes its request, resolved settings, seed ledger, CSV tables, summary,
-checksums, and HTML report. `ExperimentSpec` groups named conditions and ordinary
-operation plans into a versioned scientific protocol. It does not add another runner.
+Every operation record contains the submitted and resolved plans, realised seeds, CSV
+tables, a machine-readable summary, provenance, checksums, and a readable report.
+`ExperimentSpec` groups ordinary operation plans under one versioned scientific question.
 
-The five operations answer different questions:
+Browse the [Handbook](https://brainless-lab.pages.dev/handbook/system-map/), the
+[Research record guide](https://brainless-lab.pages.dev/research/), and the
+[accepted-run catalogue](https://brainless-lab.pages.dev/research/catalogue/). The
+catalogue retains accepted contributor records and linked maintainer replays without
+turning them into additional independent results. It also marks older compatibility
+records explicitly.
 
-- `ProfilePlan` describes one composition and its recorded dynamics.
-- `SweepPlan` maps declared parameter values on development trials.
-- `AblationPlan` compares registered interventions with a paired baseline.
-- `EvolutionPlan` selects node parameters on one target, then evaluates the champion on
-  declared held-out targets.
-- `BenchmarkPlan` compares conditions within each task under paired evaluation blocks.
+Browse software that remains outside the core learning path in the
+[Experimental catalogue](https://brainless-lab.pages.dev/experimental/).
 
-See [Operations and records](https://brainless-lab.pages.dev/core/operations-records/) and
-[Runs and results](https://brainless-lab.pages.dev/core/runs-results/).
+## Citation and attribution
 
-## Discover registered parts
+The canonical `:falandays` node implements the model published in:
 
-```julia
-using BrainlessLab
+> Falandays, J. Benjamin; Yoshimi, Jeffrey; Warren, William H.; Spivey, Michael J.
+> "A potential mechanism for Gibsonian resonance: behavioral entrainment emerges from
+> local homeostasis in an unsupervised reservoir network."
+> *Cognitive Neurodynamics* **18**(4), 1811–1834 (2024).
+> [doi:10.1007/s11571-023-09988-2](https://doi.org/10.1007/s11571-023-09988-2)
 
-nodes(DEFAULT_REGISTRY)
-tasks(DEFAULT_REGISTRY)
-tasks(DEFAULT_REGISTRY; tag=:benchmark)
-analyses(DEFAULT_REGISTRY)
-ablations(DEFAULT_REGISTRY)
-compositions(DEFAULT_REGISTRY)
-components()
-readiness()
-```
+**If you use this software, cite that work as well as BrainlessLab.**
 
-The registry supports discovery and configuration by name. Julia methods and direct
-composition remain the extension mechanism.
-
-## Extend the lab
-
-Start from `examples/templates/new_project/` when adding a node, vector task, or analysis.
-Start from `examples/embodiments/` when composing a physical body and `ObjectWorld`.
-
-Keep node dynamics independent of task names. Derive receptor and effector widths from the
-body ports. Register parameters explicitly so sweeps and evolution do not infer a genome
-from runtime fields.
-
-Read [Extend the lab](https://brainless-lab.pages.dev/core/extend/) and
-[Interface contracts](https://brainless-lab.pages.dev/contracts/) before adding a public
-part.
-
-## Scientific limits
-
-Tracking and Pong form the initial core benchmark. The four Plank CartPole levels are
-experimental challenge tasks. Wall and ecological tasks remain available for exploratory
-work but are not part of the core benchmark.
-
-A score can reveal a capacity, limit, or trade-off. It does not, by itself, establish
-cognition, general competence, biological fidelity, or external validity. Keep
-development, selection, and held-out evaluation seeds separate.
+BrainlessLab's implementation is an independent reimplementation of the published model.
+The authors' own Julia source is public at
+[bfalandays/ReservoirModel_followups](https://github.com/bfalandays/ReservoirModel_followups)
+and is cited, not vendored: no upstream source, data, or figures are redistributed here.
+Task-specific constants are recorded with per-file provenance in
+[`src/api/paper_config.jl`](src/api/paper_config.jl), and the reference fixtures are
+described in [`test/FIXTURES.md`](test/FIXTURES.md).
 
 ## Development
 
+Run the fast Core contract tier during ordinary development:
+
 ```bash
-julia --project=. -e 'using Pkg; Pkg.test()'
+BRAINLESSLAB_TEST_SUITE=core julia --project=. -e 'using Pkg; Pkg.test()'
+```
+
+Bare `Pkg.test()` runs every suite and takes about fifteen minutes. Select additional
+runtime, operations, scientific-oracle, legacy, or visual gates from
+[test/README.md](test/README.md). Build the site separately:
+
+```bash
 cd site
 bun install
 bun run build
 ```
-
-The compute package has no Makie dependency. Use a downstream or tool environment with
-`CairoMakie` for saved figures and `GLMakie` for interactive windows.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), [CITATION.cff](CITATION.cff), and the
 [MIT licence](LICENSE).

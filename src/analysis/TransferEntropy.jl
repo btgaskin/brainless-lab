@@ -1,13 +1,5 @@
 using Random: MersenneTwister, randperm
 
-# EXPERIMENTAL transfer-entropy analysis.
-#
-# Schreiber (2000) introduced transfer entropy as directional information flow.
-# This implementation is intentionally simple: order-1, discrete/quantile-binned,
-# plug-in histogram probabilities, and no bias correction. Short series are
-# biased upward; a KSG/k-NN estimator is a documented future upgrade for serious
-# continuous-valued information-flow estimates.
-
 function _te_int(value, name::Symbol)
     out = Int(value)
     out >= 1 || throw(ArgumentError("$(name) must be >= 1"))
@@ -67,6 +59,10 @@ Each series is binned independently into quantile bins; binary 0/1 series pass
 through unchanged. This is a plug-in histogram estimator after Schreiber (2000):
 it is useful as a lightweight directional-flow diagnostic, but biased for short
 series and has no bias correction or higher-order history embedding.
+
+On independent continuous data with `N=500` and `bins=8`, the current estimator
+reports `0.674` bits. This is 22% of its `log2(8) = 3` bit dynamic range. Use a
+surrogate null and report the sample count, bins, lag, and multiplicity.
 """
 function transfer_entropy(source::AbstractVector, target::AbstractVector; bins=2, lag=1)
     length(source) == length(target) ||
@@ -277,6 +273,10 @@ boundaries.
 For large node counts the default `pairs=:all_or_sampled` samples up to
 `max_pairs` unordered pairs per agent and logs the sampled pair indices with
 `@info`.
+
+The underlying plug-in estimator reports `0.674` bits on independent continuous
+data at `N=500` and `bins=8`, or 22% of its dynamic range. Pair averaging does
+not correct this finite-sample bias.
 """
 function node_transfer_entropy(
     sim::SimResult;
@@ -385,6 +385,10 @@ behavioral signals from `:poses`. The default `signal=:heading_change` uses the
 sign of each per-tick heading change; `signal=:speed` uses above/below-median
 per-agent speed. The estimator and pair-sampling behavior match
 `node_transfer_entropy`.
+
+The underlying plug-in estimator reports `0.674` bits on independent continuous
+data at `N=500` and `bins=8`, or 22% of its dynamic range. Use a time-shift
+surrogate before interpreting directional information.
 """
 function agent_transfer_entropy(
     sim::SimResult;

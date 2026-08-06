@@ -1,0 +1,133 @@
+---
+title: Evolve a structured CTRNN
+description: Search one fixed StructuredCompartmental design and write a portable evolution record.
+---
+
+Use this path when you want to search a fixed compartmental continuous-time recurrent
+neural network (CTRNN). The example uses a small SepCMA budget so that you can inspect the
+complete workflow.
+
+It does not evolve topology, body structure, or ports. It also does not establish that the
+selected model is optimal.
+
+## Build the plan
+
+Save this Julia file as `make_structured_ctrnn_plan.jl`:
+
+```julia
+using BrainlessLab
+
+composition = CompositionSpec(
+    :structured_ctrnn_wall,
+    :compartmental_structured,
+    :wall;
+    n_nodes=60,
+)
+
+training = EvaluationTarget(
+    :wall_development,
+    composition,
+    EvaluationSpec(
+        blocks=1,
+        trials_per_block=2,
+        horizon=240,
+        warmup=40,
+        construction_scope=:trial,
+        reset=:full,
+        root_seed=0x1101,
+        aggregate=:mean,
+    ),
+)
+
+heldout = EvaluationTarget(
+    :wall_heldout,
+    composition,
+    EvaluationSpec(
+        blocks=1,
+        trials_per_block=2,
+        horizon=240,
+        warmup=40,
+        construction_scope=:trial,
+        reset=:full,
+        root_seed=0x2201,
+        aggregate=:mean,
+    ),
+)
+
+run = BrainlessLab.Evolution.RunConfig(;
+    strategy=:sepcma,
+    iterations=2,
+    search_seed=0x2a,
+    measure=:normalized_score,
+    direction=:maximise,
+    initialisation=BrainlessLab.Evolution.NormalInitialisation(
+        centre=:zero,
+        scale=0.25,
+    ),
+    options=(population=4, reducer=:minimum,),
+)
+
+plan = EvolutionPlan(
+    :structured_ctrnn_search,
+    (training,);
+    run=run,
+    heldout_targets=(heldout,),
+)
+
+write_plan("plans/structured_ctrnn_search.toml", plan)
+```
+
+The node key `:compartmental_structured` selects the fixed
+`StructuredCompartmental` design. Use `:compartmental_dense` when the declared question
+requires the fixed `DenseCompartmental` design.
+
+Other registered nodes can use `EvolutionPlan` when their `NodeSpec` declares a reviewed
+`Evolution.NodeDesignSpec`.
+
+The normal initialisation is explicit. `search_seed` controls the initial population and
+later search decisions. The target root seeds control evaluation trials.
+
+This workflow uses Wall because its 200-scored-tick minimum fits the existing 240-tick
+horizon and 40-tick warm-up. Wall is a near-ceiling floor-check, so this smoke-budget
+search demonstrates the operation contract rather than a meaningful optimisation claim.
+
+## Validate and run
+
+Run the Julia file once to write the plan:
+
+```bash
+julia --project=. make_structured_ctrnn_plan.jl
+```
+
+Then validate the generated TOML without simulation:
+
+```bash
+julia --project=. bin/brainlesslab.jl check \
+  plans/structured_ctrnn_search.toml
+```
+
+Run the plan into a record root:
+
+```bash
+julia -t auto --project=. bin/brainlesslab.jl run \
+  plans/structured_ctrnn_search.toml --root records
+```
+
+The command prints the record directory. Keep that exact path for the next tutorials.
+
+## Check the result
+
+A complete run contains `DONE`, not `INCOMPLETE` or `FAILED`. Start with:
+
+- `request.toml` for the plan that you submitted;
+- `resolved.toml` for the complete resolved search;
+- `seeds.csv` for search and evaluation seed records;
+- the operation tables listed by `record.toml`;
+- the generated report for a compact inspection view.
+
+SepCMA records one stable model role named `selected`. This role identifies development
+output. It is not a confirmed benchmark result.
+
+Next, [inspect and resume the evolution record](/tutorials/resume-evolution/).
+
+<p class="bl-source">Source: <code>src/evolution/Evolution.jl</code>, <code>src/operations/Evolution.jl</code>, <code>src/records/Records.jl</code>.</p>

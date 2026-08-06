@@ -1,0 +1,28 @@
+format = "brainlesslab-plan"
+format_version = 2
+operation = "profile"
+id = "documentation_example"
+
+[[targets]]
+id = "example_wall"
+
+[targets.composition]
+id = "example_wall"
+node = "null_random"
+task = "wall"
+n_nodes = 24
+
+[targets.evaluation]
+blocks = 2
+trials_per_block = 1
+horizon = 220
+warmup = 20
+construction_scope = "trial"
+reset = "full"
+root_seed = 7
+aggregate = "mean"
+
+[profile]
+target = "example_wall"
+analyses = []
+record_every = 1

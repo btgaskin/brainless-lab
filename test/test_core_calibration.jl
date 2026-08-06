@@ -4,7 +4,7 @@ using BrainlessLab
 using Test
 using TOML
 
-include(joinpath(pkgdir(BrainlessLab), "calibration", "core_tasks.jl"))
+include(joinpath(pkgdir(BrainlessLab), "tools", "calibration", "core_tasks.jl"))
 
 @testset "core task calibration writes a traceable development artifact" begin
     output = mktempdir()
@@ -27,6 +27,12 @@ include(joinpath(pkgdir(BrainlessLab), "calibration", "core_tasks.jl"))
     @test isfile(report_path)
     @test isfile(manifest_path)
     @test length(readlines(results_path)) == 17
+    pong_rows = filter(
+        line -> startswith(line, "pong,"),
+        readlines(results_path),
+    )
+    @test length(pong_rows) == 8
+    @test all(line -> occursin(",missing,", line), pong_rows)
 
     manifest = TOML.parsefile(manifest_path)["calibration"]
     @test manifest["id"] == "core-task-opportunity"

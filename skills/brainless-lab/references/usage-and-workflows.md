@@ -8,13 +8,16 @@ Use `cli-tools.md` when a question requires repeated trials or a portable record
 ```julia
 using BrainlessLab
 
-sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11)
+sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11, window=1000)
 task_outcome(sim)
 ```
 
 The symbol form constructs a registered task and node, runs one closed loop, and returns a
 `SimResult`. It is useful for diagnostics and exploration. Reusable work should construct
 a `CompositionSpec`; repeated evaluation should use an operation plan.
+
+The explicit `window` acknowledges that the example is shorter than Tracking's ordinary
+2,000-scored-tick minimum. It is a diagnostic, not a study protocol.
 
 A `SimResult` contains:
 
@@ -34,9 +37,9 @@ tasks(DEFAULT_REGISTRY; tag=:benchmark)
 analyses(DEFAULT_REGISTRY)
 analyses(DEFAULT_REGISTRY; task=:tracking)
 ablations(DEFAULT_REGISTRY)
-compositions(DEFAULT_REGISTRY)
-components()
-readiness()
+BrainlessLab.compositions(DEFAULT_REGISTRY)
+BrainlessLab.components()
+BrainlessLab.readiness()
 ```
 
 Typed queries are the source for new plans and extensions. Zero-argument discovery
@@ -78,13 +81,17 @@ When the task declares a scalar outcome, the result contains:
 
 - `key`: the task's outcome name;
 - `raw`: the task-specific value;
-- `normalized`: the value mapped between the task's declared anchors.
+- `normalized`: the value mapped between the task's declared anchors, or `missing`;
+- `normalization_status`: whether the anchor applies to this scoring window;
+- `anchor_scored_ticks`: the interval declared by a window-specific measured anchor;
+- `window`: the interval used for the raw outcome.
 
 The function returns `nothing` when the task has no scalar outcome. Other fields under
 `sim.metrics` are diagnostics unless the `TaskSpec` declares them as the outcome.
 
-Raw outcomes are not comparable across tasks. Normalisation places values within each
-task's anchors but does not make the measured capacities identical. Keep Tracking, Pong,
+Raw outcomes are not comparable across tasks. A measured anchor permits normalisation only
+when `window` matches `anchor_scored_ticks`. Analytic anchors are window-invariant.
+Normalisation does not make the measured capacities identical. Keep Tracking, Pong, Wall,
 CartPole, and ecological outcomes separate.
 
 ## Record the channels an analysis needs
@@ -110,14 +117,14 @@ requires an eigenvalue calculation.
 Call analyses as ordinary functions:
 
 ```julia
-branching_ratio_mr(sim; level=:node, kmax=4)
-susceptibility(sim; level=:agent)
+BrainlessLab.branching_ratio_mr(sim; level=:node, kmax=4)
+BrainlessLab.susceptibility(sim; level=:agent)
 spectral_radius(sim)
 participation_ratio(sim)
-correlation_length(sim)
-crossshift_null(
+BrainlessLab.correlation_length(sim)
+BrainlessLab.crossshift_null(
     sim,
-    shifted -> susceptibility(shifted; level=:agent).susceptibility;
+    shifted -> BrainlessLab.susceptibility(shifted; level=:agent).susceptibility;
     n_shifts=200,
 )
 ```
@@ -130,11 +137,11 @@ interpreting a result.
 Read and materialise a strict component configuration:
 
 ```julia
-config = read_embodiment_config("examples/embodiments/differential_robot.toml")
-body = materialize_embodiment(config)
+config = BrainlessLab.read_embodiment_config("examples/embodiments/differential_robot.toml")
+body = BrainlessLab.materialize_embodiment(config)
 
 portspec(body)
-component_slots(body)
+BrainlessLab.component_slots(body)
 ```
 
 Each materialisation creates fresh runtime state. Stable component IDs define port names,
@@ -157,8 +164,9 @@ sim = run_object_world_task(ticks=25, seed=11)
 task_outcome(sim)
 ```
 
-Use a `DevelopmentSpec` to evolve declared scalar component parameters while keeping the
-component graph fixed. Runtime state never belongs to the development genome.
+Use a `DevelopmentSpec` to materialise declared scalar component parameters while keeping
+the component graph fixed. It is separate from experimental neuron-model search. Runtime
+state never belongs to the development genotype.
 
 ## Plot without changing the compute package
 
@@ -168,16 +176,17 @@ environment:
 ```julia
 using BrainlessLab, CairoMakie
 
-sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11)
+sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11, window=1000)
 fig = visualize(sim; panels=[:raster, :rate, :trajectory])
 save("tracking.png", fig)
 ```
 
-Use `CairoMakie` for saved images and headless work. Use `GLMakie` for `explore`:
+Use `CairoMakie` for saved images and headless work. The GLMakie live explorer
+is an experimental interactive path for collective simulations:
 
 ```julia
 using BrainlessLab, GLMakie
-explore(:torus; node=:falandays, n_agents=6)
+BrainlessLab.explore(:torus; node=:falandays, n_agents=6)
 ```
 
 Available recipes include `rasterplot`, `rateplot`, `trajectoryplot`, `swarmplot`,
@@ -187,7 +196,7 @@ the required channels.
 For a multi-agent result, select a stable identity:
 
 ```julia
-networkplot(sim; entity=EntityID(3))
+BrainlessLab.networkplot(sim; entity=BrainlessLab.EntityID(3))
 ```
 
 Automatic network selection is allowed only when exactly one entity exposes a network.
@@ -200,7 +209,7 @@ Use the smallest operation that answers the question:
 - use `SweepPlan` to map declared parameter values;
 - use `AblationPlan` to test a registered intervention;
 - use `EvolutionPlan` to select parameters and evaluate held-out targets;
-- use `BenchmarkPlan` to compare paired conditions within tasks.
+- use `BenchmarkPlan` to describe or compare conditions within tasks.
 
 Validate before execution:
 

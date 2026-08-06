@@ -1,5 +1,6 @@
 ---
 import DefaultPageTitle from '@astrojs/starlight/components/PageTitle.astro';
+import { familyLabels } from './familyLabels';
 
 const entry = Astro.locals.starlightRoute.entry;
 const experimental = entry.data.experimental;
@@ -21,7 +22,7 @@ const titleCase = (value: string) =>
         <span class="page-label__badge">{titleCase(experimental.readiness)}</span>
       </div>
       <p>
-        Family: {titleCase(experimental.family)}. Software readiness describes integration,
+        Family: {familyLabels[experimental.family] ?? titleCase(experimental.family)}. Software readiness describes integration,
         examples, and tests. It is not scientific evidence.
       </p>
       <a href={experimental.core_page}>Read the related Core contract</a>

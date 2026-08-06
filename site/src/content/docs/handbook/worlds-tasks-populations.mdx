@@ -1,0 +1,51 @@
+---
+title: Worlds, tasks, and populations
+description: Understand external state, task contracts, scalar outcomes, and the shared one-or-many runtime.
+---
+
+An environment owns external state, objects, fields, encounters, and effects. A task
+defines how a composition enters that environment and how a declared outcome is measured.
+
+## Task contract
+
+`TaskSpec` owns:
+
+- setup and sensorimotor ports;
+- accepted setup option defaults;
+- default horizon and scoring window;
+- interaction timing when required;
+- one optional scalar outcome key;
+- floor and ceiling anchors;
+- descriptors, tags, and experimental status.
+
+Use `task_outcome(sim)` to read the declared outcome. Other metric fields are diagnostics
+unless the task contract names them.
+
+A normalised score maps the raw outcome between the task's anchors. It is useful within a
+task. It does not make outcomes from different tasks interchangeable.
+
+## One agent and many agents
+
+The same `Ensemble` lifecycle runs one agent and a fixed population. Each `Agent` combines
+one reservoir, one body, and one interaction cycle.
+
+Entity-aligned recorder values retain their `EntityID`s. Agents and ticks inside one world
+are not automatically independent samples.
+
+## Core tasks
+
+Tracking, Pong, and Wall are the core benchmark tasks. Each declares a scalar outcome and
+anchors. Wall sits near its analytic ceiling for canonical Falandays, so it is a competence
+floor-check with little upward discrimination.
+
+Query the live registry:
+
+```julia
+tasks(DEFAULT_REGISTRY)
+tasks(DEFAULT_REGISTRY; tag=:benchmark)
+BrainlessLab.task_spec(DEFAULT_REGISTRY, :tracking)
+```
+
+Read the [Core catalogue](/reference/core-catalog/) for current outcome and anchor details.
+
+<p class="bl-source">Source: <code>src/tasks/Tasks.jl</code>, <code>src/world/Ensemble.jl</code>, <code>src/api/Highlevel.jl</code>.</p>

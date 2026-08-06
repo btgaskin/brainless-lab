@@ -221,7 +221,7 @@ function _crossshift_surrogate(
         "crossshift_null was given n_agents=$(n_agents), but the simulation contains $(context.n_agents)",
     ))
     shift_map = _crossshift_shift_map(context.ids, shifts, context.n_ticks)
-    shifted_channels = Dict{Symbol,Vector{Any}}()
+    shifted_channels = Dict{Symbol,Vector}()
     for (channel, raw) in sim.recorder.channels
         isempty(raw) && continue
         if channel in _CROSSSHIFT_DROP_CHANNELS
@@ -263,8 +263,8 @@ end
     crossshift_null(sim, measure_fn; n_shifts, rng, threaded=true,
                     strict=true, alternative=:greater)
 
-Compute a circular-shift null test for a cross-agent measure. Each surrogate
-independently circular-shifts every agent's recorded time series, preserving
+Compute an EXPERIMENTAL circular-shift null test for a cross-agent measure. Each
+surrogate independently circular-shifts every agent's recorded time series, preserving
 single-agent dynamics while destroying inter-agent timing. Entity-owned channels
 are aligned and shifted by stable `EntityID`; derived ensemble and event channels
 are removed. In addition to the historical summary fields, the result includes

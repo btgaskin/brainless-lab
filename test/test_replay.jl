@@ -7,12 +7,13 @@ using Test
         :wall;
         node=:falandays,
         ticks=24,
+        window=24,
         seed=11,
         n_nodes=12,
         record=[:spikes, :rate, :poses, :scene],
     )
 
-    path = save_recorder(dir, sim)
+    path = BrainlessLab.save_recorder(dir, sim)
     @test path == joinpath(dir, "recorder.jld2")
     @test isfile(path)
 
@@ -29,6 +30,8 @@ using Test
 
     for channel in keys(sim.recorder.channels)
         @test getchannel(restored.recorder, channel) == getchannel(sim.recorder, channel)
+        @test eltype(getchannel(restored.recorder, channel)) ===
+            eltype(getchannel(sim.recorder, channel))
     end
 
     restored_from_file = replay(path)

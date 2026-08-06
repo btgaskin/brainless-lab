@@ -92,48 +92,45 @@ Do not label a fixed system online-plastic to avoid preparation. Do not describe
 online plasticity as “nothing is trained”. State that there is no external task loss,
 teacher, or fitted readout when that narrower claim is correct.
 
-## Keep genome and runtime state separate
+## Keep model coordinates and runtime state separate
 
-Evolution needs declared parameters, not arbitrary struct fields:
+Evolution needs a declared fixed design, not arbitrary struct fields:
 
-- `pack_params`, `unpack_params`, and `paramdim` define the optimisation genome;
+- `pack_params`, `unpack_params`, and `paramdim` define model coordinates;
 - `snapshot_state` and `load_state!` preserve transient runtime state for reset or replay.
 
 Do not place activations, learned within-rollout weights, spike buffers, or RNG position in
-the genome. Do not place evolvable design parameters only in a runtime snapshot.
+the model coordinates. Do not place searchable design values only in a runtime snapshot.
 
-Register the parameter set explicitly:
+The public evolution operation supports any registered node whose `NodeSpec` declares a
+reviewed `Evolution.NodeDesignSpec`. The built-in fixed designs are:
+
+- `FalandaysParams`, used by the registered `:falandays` node;
+- `StructuredCompartmental`, registered as `:compartmental_structured`;
+- `DenseCompartmental`, registered as `:compartmental_dense`.
+
+Each `NodeDesignSpec` fixes the model type, coordinate schema, and reconstruction contract.
+The Falandays design searches seven bounded coordinates and reconstructs candidates with
+online plasticity enabled. `learn_on` is not a model coordinate.
+
+Setting `genome_type` on another `NodeSpec` does not admit that node to the public
+`EvolutionPlan` path. A new design needs a reviewed typed design contract, portable model
+serialisation, and record tests. A search changes coordinates within that design. It does
+not change topology, node count, body components, receptor ports, or effector ports.
+
+Continue to register ordinary node parameters for composition and sweep work. For example:
 
 ```julia
-spec = NodeSpec(
-    :my_node,
-    build_my_node;
-    genome_type=MyNodeParams,
-    parameters=(
-        ParameterSpec(
-            :leak,
-            0.25;
-            sweep=(0.1, 0.25, 0.5),
-            evolve=(lower=0.0, upper=0.95),
-        ),
-        ParameterSpec(
-            :link_p,
-            0.1;
-            owner=:reservoir,
-            evolve=(lower=0.01, upper=0.8),
-        ),
-    ),
-    parameter_sets=Dict(
-        :sweep => (:leak,),
-        :evolve => (:leak,),
-        :connectivity => (:link_p,),
-    ),
+ParameterSpec(
+    :leak,
+    0.25;
+    sweep=(0.1, 0.25, 0.5),
 )
 ```
 
 `ParameterSpec.owner` distinguishes local node parameters from reservoir construction
-parameters. A non-evolvable node declares no `:evolve` parameter set. A `SweepPlan` or
-`EvolutionPlan` resolves only the registered set.
+parameters. A `SweepPlan` searches declared parameter cells. It does not create a portable
+evolved model.
 
 Reservoir wrappers must forward methods, not only fields. Forward widths, traits,
 recording, `network_snapshot`, readout, interventions, and state snapshot methods. Include
@@ -151,15 +148,26 @@ composition = CompositionSpec(
     n_nodes=200,
 )
 
-simulate(composition; ticks=300, seed=11)
+simulate(composition; ticks=300, seed=11, window=300)
 ```
+
+The explicit `window` marks this as a short implementation diagnostic. Use the task's
+declared minimum scored interval for ordinary evaluation.
 
 Resolve and run explicit `CompositionSpec` values on at least two port-compatible tasks.
 The node implementation must not change between them.
 
-Use an `EvolutionPlan` when the node requires parameter selection. The plan separates
-optimiser randomness, training evaluation, and held-out targets. A direct low-level
-optimiser call is appropriate for implementation tests, not for a published protocol.
+Use an `EvolutionPlan` only when the registered node declares a reviewed fixed design
+contract. Embed `BrainlessLab.Evolution.RunConfig` to declare the strategy, iteration
+budget, search seed, measure, direction, seeded normal initialisation, and strategy options.
+
+All public strategies resolve through one typed registry. The current keys are `:sepcma`,
+`:nsga2`, and `:cmame`. SepCMA writes the model role `selected`. NSGA-II and CMA-ME write
+ordered sets and do not choose an implicit champion.
+
+Use `Evolution.model_reference` to attach one named model to a later `EvaluationTarget`.
+Evaluate that target with a `BenchmarkPlan`. A direct low-level optimiser call is suitable
+for implementation tests, not for a published protocol.
 
 Use an `AblationPlan` to test a registered mechanism. Declare the required node
 capabilities in `AblationSpec`. Typed plan validation rejects an inapplicable intervention
@@ -186,16 +194,16 @@ against the runtime contract.
 
 - Hardcoded task widths: derive dimensions from `context.ports`.
 - Task-name branches: move task behaviour into the body, task, or composition.
-- Hidden parameter discovery: register sweep and evolution parameters explicitly.
-- Mixed genotype and state: keep design values separate from runtime variables.
+- Hidden design discovery: use a reviewed `NodeDesignSpec`; do not search struct fields.
+- Mixed model and state: keep design coordinates separate from runtime variables.
 - Incomplete wrappers: Julia dispatch does not forward through `getproperty`.
 - Incorrect reset: restore initial weights and all stochastic positions required by the
   declared reset policy.
-- Unbounded parameters: give each evolved parameter an explicit transform or bound.
+- Implicit initialisation: declare a seeded normal distribution in `Evolution.RunConfig`.
 
 The project keeps the term `Reservoir` for the runtime node population. Do not rename it
 to `Network` in the public interface.
 
-See the [reservoir guide](https://brainless-lab.pages.dev/core/reservoirs/), the
-[extension guide](https://brainless-lab.pages.dev/core/extend/), `cli-tools.md`, and
+See the [node and reservoir guide](https://brainless-lab.pages.dev/handbook/nodes-reservoirs/), the
+[extension guide](https://brainless-lab.pages.dev/handbook/extending/), `cli-tools.md`, and
 `designing-environments-and-tasks.md`.

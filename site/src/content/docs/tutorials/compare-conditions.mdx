@@ -1,0 +1,44 @@
+---
+title: Compare conditions
+description: Run a small paired benchmark and interpret its task-specific statistics and contrasts.
+---
+
+This tutorial compares Falandays with a random-output control on Tracking, Pong, and Wall.
+It is a software-scale example, not the canonical Falandays benchmark.
+
+## Inspect and validate the comparison
+
+Open `plans/examples/benchmark_core.toml`. Each case names conditions on one
+[task](/glossary/#task) and declares its random control as the baseline.
+
+```bash
+julia --project=. bin/brainlesslab.jl check \
+  plans/examples/benchmark_core.toml
+```
+
+Validation requires conditions in one case to share their task, [block](/glossary/#block)
+structure, [horizon](/glossary/#horizon), [warm-up](/glossary/#warm-up), reset,
+[construction scope](/glossary/#construction-scope), root seed,
+[streams](/glossary/#seed-stream), and [aggregation](/glossary/#aggregation).
+
+## Run the benchmark
+
+```bash
+julia -t auto --project=. bin/brainlesslab.jl run \
+  plans/examples/benchmark_core.toml --root records
+```
+
+Inspect two tables:
+
+- `summary/statistics.csv` gives raw and [normalised](/glossary/#normalised-score)
+  intervals for each condition;
+- `summary/contrasts.csv` gives paired differences from the declared baseline.
+
+Keep Tracking, Pong, and Wall separate. Their raw outcomes differ, and normalisation does
+not turn them into one competence scale.
+
+Use an [anchor](/glossary/#anchor)-only case when you want to describe one condition
+without a comparator.
+Such a case has exactly one condition and omits `baseline`.
+
+<p class="bl-source">Source: <code>plans/examples/benchmark_core.toml</code>, <code>src/operations/Benchmark.jl</code>.</p>

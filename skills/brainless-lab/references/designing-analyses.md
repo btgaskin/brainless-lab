@@ -23,7 +23,7 @@ Register it for discovery and profile plans:
 register!(
     DEFAULT_REGISTRY,
     :analyses,
-    ImplementationSpec(
+    BrainlessLab.ImplementationSpec(
         :my_measure,
         my_measure;
         label="my measure (experimental)",
@@ -129,9 +129,9 @@ temporal structure while disrupting cross-agent alignment:
 ```julia
 using Random
 
-result = crossshift_null(
+result = BrainlessLab.crossshift_null(
     sim,
-    shifted -> susceptibility(shifted; level=:agent).susceptibility;
+    shifted -> BrainlessLab.susceptibility(shifted; level=:agent).susceptibility;
     n_shifts=200,
     rng=MersenneTwister(11),
 )

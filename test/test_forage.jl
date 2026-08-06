@@ -25,9 +25,9 @@ end
     @test :forage in tasks()
 
     for conspecific_vision in (true, false)
-        sim = simulate(
+        sim = BrainlessLabTestUtils.diagnostic_simulate(
             :forage;
-            node=:falandays_base,
+            node=:falandays,
             n_agents=4,
             n_nodes=40,
             ticks=20,
@@ -40,15 +40,15 @@ end
 
         @test sim isa SimResult
         @test sim.task == :forage
-        @test sim.node == :falandays_base
+        @test sim.node == :falandays
         @test sim.config.environment.kind == :forage
         @test sim.config.environment.conspecific_vision == conspecific_vision
         _test_forage_metrics(sim.metrics; ticks=20)
     end
 
-    oosawa = simulate(
+    alternative = BrainlessLabTestUtils.diagnostic_simulate(
         :forage;
-        node=:falandays_oosawa,
+        node=:sorn,
         n_agents=3,
         n_nodes=30,
         ticks=8,
@@ -57,14 +57,14 @@ end
         source_gain=1.0,
         record=Symbol[],
     )
-    @test oosawa.node == :falandays_oosawa
-    _test_forage_metrics(oosawa.metrics; ticks=8)
+    @test alternative.node == :sorn
+    _test_forage_metrics(alternative.metrics; ticks=8)
 end
 
 @testset "Forage receptor banks and blind condition" begin
-    setup = BrainlessLab._build_ensemble(
+    setup = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :forage,
-        :falandays_base;
+        :falandays;
         ticks=1,
         seed=11,
         n_agents=2,
@@ -74,15 +74,15 @@ end
         record=Symbol[],
     )
     agent = setup.ensemble.agents[1]
-    layout = situated_sensor(agent.body)
+    layout = BrainlessLab.situated_sensor(agent.body)
     @test n_receptors(agent.reservoir) == 128
-    @test n_sensors(layout) == 128
+    @test BrainlessLab.n_sensors(layout) == 128
     @test n_effectors(agent.reservoir) == 3
 
-    torus = Torus(10.0)
+    torus = BrainlessLab.Torus(10.0)
     agent_radius = 0.5
     positions = [(4.0, 5.0), (4.2, 5.0)]
-    config = SwarmConfig(
+    config = BrainlessLab.SwarmConfig(
         n_agents=2,
         space_size=10.0,
         sensory_noise=0.0,
@@ -93,29 +93,29 @@ end
         capture_radius=0.5,
         agent_radius=agent_radius,
     )
-    environment = ForageEnvironment(torus, positions; config=config, rng=MersenneTwister(7))
+    environment = BrainlessLab.ForageEnvironment(torus, positions; config=config, rng=MersenneTwister(7))
 
     # The compatibility facade still receives fully composed bodies so its
     # geometry and actuator contracts match the main runtime.
     bodies = [
-        situated_embodiment(SituatedSensorLayout(source_bank=true); radius=agent_radius)
+        BrainlessLab.situated_embodiment(BrainlessLab.SituatedSensorLayout(source_bank=true); radius=agent_radius)
         for _ in 1:2
     ]
-    inputs = sample!(environment, bodies)
+    inputs = BrainlessLab.sample!(environment, bodies)
     @test length(inputs[1]) == 128
     @test all(iszero, @view(inputs[1][1:64]))           # conspecific-blind
     @test maximum(@view(inputs[1][65:128])) ≈ 2.0       # source bank × source_gain
 
     before = copy(environment.positions)
-    apply_commands!(environment, bodies, [zeros(3), zeros(3)])
+    BrainlessLab.apply_commands!(environment, bodies, [zeros(3), zeros(3)])
     after = copy(environment.positions)
     @test after != before                                # collision resolution separates them
-    @test tdistance(torus, after[1], after[2]) >= 2.0 * agent_radius - 1e-9
+    @test BrainlessLab.tdistance(torus, after[1], after[2]) >= 2.0 * agent_radius - 1e-9
 end
 
 @testset "Forage source vision range" begin
     kwargs = (
-        node=:falandays_base,
+        node=:falandays,
         n_agents=4,
         n_nodes=35,
         ticks=16,
@@ -125,14 +125,14 @@ end
         source_gain=1.0,
         record=(:poses,),
     )
-    implicit_default = simulate(:forage; kwargs...)
-    explicit_default = simulate(:forage; kwargs..., source_vision_range=nothing)
+    implicit_default = BrainlessLabTestUtils.diagnostic_simulate(:forage; kwargs...)
+    explicit_default = BrainlessLabTestUtils.diagnostic_simulate(:forage; kwargs..., source_vision_range=nothing)
     @test getchannel(implicit_default.recorder, :poses) == getchannel(explicit_default.recorder, :poses)
     @test implicit_default.metrics == explicit_default.metrics
     @test explicit_default.config.environment.source_vision_range === nothing
 
-    torus = Torus(10.0)
-    bodies = [situated_embodiment(SituatedSensorLayout(source_bank=true))]
+    torus = BrainlessLab.Torus(10.0)
+    bodies = [BrainlessLab.situated_embodiment(BrainlessLab.SituatedSensorLayout(source_bank=true))]
     source_kwargs = (
         n_agents=1,
         space_size=10.0,
@@ -142,22 +142,22 @@ end
         source_gain=1.0,
         capture_radius=0.5,
     )
-    unlimited = ForageEnvironment(
+    unlimited = BrainlessLab.ForageEnvironment(
         torus,
         [(1.0, 5.0)];
         headings=[0.0],
-        config=SwarmConfig(; source_kwargs..., source_vision_range=nothing),
+        config=BrainlessLab.SwarmConfig(; source_kwargs..., source_vision_range=nothing),
         rng=MersenneTwister(3),
     )
-    limited = ForageEnvironment(
+    limited = BrainlessLab.ForageEnvironment(
         torus,
         [(1.0, 5.0)];
         headings=[0.0],
-        config=SwarmConfig(; source_kwargs..., source_vision_range=1.5),
+        config=BrainlessLab.SwarmConfig(; source_kwargs..., source_vision_range=1.5),
         rng=MersenneTwister(3),
     )
-    unlimited_inputs = sample!(unlimited, bodies)
-    limited_inputs = sample!(limited, bodies)
+    unlimited_inputs = BrainlessLab.sample!(unlimited, bodies)
+    limited_inputs = BrainlessLab.sample!(limited, bodies)
     @test maximum(@view(unlimited_inputs[1][65:128])) > 0.0
     @test all(iszero, @view(limited_inputs[1][65:128]))
     @test unlimited_inputs[1][65:128] != limited_inputs[1][65:128]
@@ -171,26 +171,26 @@ end
         capture_radius=0.5,
     )
     conspecific_bodies = [
-        situated_embodiment(SituatedSensorLayout(source_bank=true))
+        BrainlessLab.situated_embodiment(BrainlessLab.SituatedSensorLayout(source_bank=true))
         for _ in 1:2
     ]
     conspecific_positions = [(1.0, 5.0), (3.0, 5.0)]
-    unlimited_conspecific = ForageEnvironment(
+    unlimited_conspecific = BrainlessLab.ForageEnvironment(
         torus,
         conspecific_positions;
         headings=[0.0, pi],
-        config=SwarmConfig(; conspecific_kwargs..., source_vision_range=nothing),
+        config=BrainlessLab.SwarmConfig(; conspecific_kwargs..., source_vision_range=nothing),
         rng=MersenneTwister(4),
     )
-    limited_conspecific = ForageEnvironment(
+    limited_conspecific = BrainlessLab.ForageEnvironment(
         torus,
         conspecific_positions;
         headings=[0.0, pi],
-        config=SwarmConfig(; conspecific_kwargs..., source_vision_range=1.5),
+        config=BrainlessLab.SwarmConfig(; conspecific_kwargs..., source_vision_range=1.5),
         rng=MersenneTwister(4),
     )
-    unlimited_conspecific_inputs = sample!(unlimited_conspecific, conspecific_bodies)
-    limited_conspecific_inputs = sample!(limited_conspecific, conspecific_bodies)
+    unlimited_conspecific_inputs = BrainlessLab.sample!(unlimited_conspecific, conspecific_bodies)
+    limited_conspecific_inputs = BrainlessLab.sample!(limited_conspecific, conspecific_bodies)
     @test maximum(@view(unlimited_conspecific_inputs[1][1:64])) > 0.0
     @test limited_conspecific_inputs[1][1:64] == unlimited_conspecific_inputs[1][1:64]
     @test limited_conspecific_inputs[2][1:64] == unlimited_conspecific_inputs[2][1:64]
@@ -198,7 +198,7 @@ end
 
 @testset "Forage seeded determinism" begin
     kwargs = (
-        node=:falandays_base,
+        node=:falandays,
         n_agents=5,
         n_nodes=35,
         ticks=18,
@@ -208,20 +208,20 @@ end
         conspecific_vision=true,
         record=Symbol[],
     )
-    a = simulate(:forage; kwargs...)
-    b = simulate(:forage; kwargs...)
+    a = BrainlessLabTestUtils.diagnostic_simulate(:forage; kwargs...)
+    b = BrainlessLabTestUtils.diagnostic_simulate(:forage; kwargs...)
     @test a.metrics.mean_distance_to_source == b.metrics.mean_distance_to_source
 end
 
 @testset "situated routing precedence and complete provenance" begin
     exclusions = Set((:n_agents, :n_nodes, :link_p, :seed))
     @test BrainlessLab._SWARM_ENVIRONMENT_KWARGS ==
-          Set(name for name in fieldnames(SituatedConfig) if !(name in exclusions))
+          Set(name for name in fieldnames(BrainlessLab.SituatedConfig) if !(name in exclusions))
 
-    effects = (Exposure(:social, 0.2),)
-    setup = BrainlessLab._build_ensemble(
+    effects = (BrainlessLab.Exposure(:social, 0.2),)
+    setup = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :forage,
-        :falandays_base;
+        :falandays;
         ticks=1,
         seed=51,
         n_agents=2,
@@ -243,9 +243,9 @@ end
     @test environment.config.conspecific_contact_radius == 0.0
     @test environment.config.conspecific_contact_effects == effects
 
-    no_bare = BrainlessLab._build_ensemble(
+    no_bare = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :torus,
-        :falandays_base;
+        :falandays;
         ticks=1,
         seed=52,
         n_agents=2,
@@ -260,10 +260,10 @@ end
 end
 
 @testset "situated contact provenance and task-layer errors" begin
-    effects = (Exposure(:social, 0.2),)
-    sim = simulate(
+    effects = (BrainlessLab.Exposure(:social, 0.2),)
+    sim = BrainlessLabTestUtils.diagnostic_simulate(
         :forage;
-        node=:falandays_base,
+        node=:falandays,
         ticks=1,
         seed=53,
         n_agents=2,
@@ -276,7 +276,7 @@ end
         n_colours=2,
     )
     config = sim.config.environment
-    @test all(name -> hasproperty(config, name), fieldnames(SituatedConfig))
+    @test all(name -> hasproperty(config, name), fieldnames(BrainlessLab.SituatedConfig))
     @test config.conspecific_contact_radius == 0.0
     @test only(config.conspecific_contact_effects) ==
           (kind=:exposure, name=:social, amount=0.2)
@@ -287,9 +287,9 @@ end
     @test length(config.source_gains) == 2
 
     err = try
-        simulate(
+        BrainlessLabTestUtils.diagnostic_simulate(
             :wall;
-            node=:falandays_base,
+            node=:falandays,
             ticks=1,
             n_nodes=10,
             record=Symbol[],

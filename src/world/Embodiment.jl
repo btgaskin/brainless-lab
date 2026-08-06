@@ -16,143 +16,6 @@ struct ConspecificSource <: SensorySource end
 source_name(::ObjectSource{Name}) where {Name} = Name
 source_name(::SpatialFieldSource{Name}) where {Name} = Name
 
-abstract type SensoryModality end
-
-"""Ray-based bearing vision of circular object sources."""
-struct BearingModality{S<:AbstractSensor,C} <: SensoryModality
-    sensor::S
-    range::Union{Nothing,Float64}
-    curve::C
-end
-
-function BearingModality(;
-    sensor::AbstractSensor=BEARING_DEFAULT,
-    range=nothing,
-    curve=LinearResponse(),
-)
-    range_ = _sensory_range(range)
-    return BearingModality{typeof(sensor),typeof(curve)}(sensor, range_, curve)
-end
-
-"""Local scalar-field probes placed evenly in the body frame."""
-struct FieldModality{C} <: SensoryModality
-    range::Union{Nothing,Float64}
-    curve::C
-    probe_count::Int
-    probe_radius::Float64
-    aggregation::Symbol
-end
-
-function FieldModality(;
-    range=nothing,
-    curve=LinearResponse(),
-    probe_count::Integer=8,
-    probe_radius::Real=0.5,
-    aggregation::Symbol=:max,
-)
-    range_ = _sensory_range(range)
-    count_ = Int(probe_count)
-    radius_ = Float64(probe_radius)
-    count_ >= 1 || throw(ArgumentError("field probe_count must be at least one"))
-    isfinite(radius_) && radius_ >= 0.0 ||
-        throw(ArgumentError("field probe_radius must be finite and non-negative"))
-    aggregation in (:max, :sum) ||
-        throw(ArgumentError("field aggregation must be :max or :sum"))
-    return FieldModality{typeof(curve)}(range_, curve, count_, radius_, aggregation)
-end
-
-"""Disable a modality while retaining its exact receptor layout."""
-struct OffModality{M<:SensoryModality} <: SensoryModality
-    modality::M
-end
-OffModality() = OffModality(FieldModality())
-
-function _sensory_range(range)
-    range === nothing && return nothing
-    value = Float64(range)
-    isfinite(value) && value > 0.0 ||
-        throw(ArgumentError("sensory range must be finite and positive"))
-    return value
-end
-
-_active_modality(modality::SensoryModality) = modality
-_active_modality(modality::OffModality) = _active_modality(modality.modality)
-_modality_curve(modality::Union{BearingModality,FieldModality}) = modality.curve
-_modality_curve(modality::OffModality) = _modality_curve(modality.modality)
-_modality_range(modality::Union{BearingModality,FieldModality}) = modality.range
-_modality_range(modality::OffModality) = _modality_range(modality.modality)
-_raw_bank_width(modality::BearingModality) = n_sensors(modality.sensor)
-_raw_bank_width(modality::FieldModality) = modality.probe_count
-_raw_bank_width(modality::OffModality) = _raw_bank_width(modality.modality)
-_encoded_bank_width(modality::BearingModality) = 2 + n_sensors(modality.sensor)
-_encoded_bank_width(modality::FieldModality) = modality.probe_count
-_encoded_bank_width(modality::OffModality) = _encoded_bank_width(modality.modality)
-
-"""Source, modality, encoding, gain, and reservoir wiring for one sensor bank."""
-struct SensorBank{S<:SensorySource,M<:SensoryModality}
-    name::Symbol
-    source::S
-    modality::M
-    norm_mode::Union{Nothing,Symbol}
-    norm_sigma::Float64
-    gain::Float64
-    link_p::Union{Nothing,Float64}
-end
-
-function SensorBank(
-    name::Symbol;
-    source::SensorySource=ObjectSource(name),
-    modality=nothing,
-    sensor=nothing,
-    range=nothing,
-    curve=LinearResponse(),
-    norm_mode=nothing,
-    norm_sigma::Real=1.0,
-    gain::Real=1.0,
-    link_p=nothing,
-)
-    sigma = Float64(norm_sigma)
-    gain_ = Float64(gain)
-    isfinite(sigma) && sigma > 0.0 ||
-        throw(ArgumentError("sensor-bank norm_sigma must be finite and positive"))
-    isfinite(gain_) && gain_ >= 0.0 ||
-        throw(ArgumentError("sensor-bank gain must be finite and non-negative"))
-    link_p_ = link_p === nothing ? nothing : Float64(link_p)
-    link_p_ === nothing || 0.0 <= link_p_ <= 1.0 ||
-        throw(ArgumentError("sensor-bank link_p must lie in [0, 1]"))
-    modality_ = if modality === nothing
-        BearingModality(
-            sensor=sensor === nothing ? BEARING_DEFAULT : sensor,
-            range=range,
-            curve=curve,
-        )
-    else
-        sensor === nothing || throw(ArgumentError(
-            "pass sensor through BearingModality when modality is explicit",
-        ))
-        range === nothing || throw(ArgumentError(
-            "pass range through the explicit sensory modality",
-        ))
-        modality isa SensoryModality ||
-            throw(ArgumentError("modality must be a SensoryModality"))
-        modality
-    end
-    return SensorBank{typeof(source),typeof(modality_)}(
-        name,
-        source,
-        modality_,
-        norm_mode === nothing ? nothing : Symbol(norm_mode),
-        sigma,
-        gain_,
-        link_p_,
-    )
-end
-
-SensorBank(name::AbstractString; kwargs...) = SensorBank(Symbol(name); kwargs...)
-bank_width(bank::SensorBank) = _encoded_bank_width(bank.modality)
-raw_bank_width(bank::SensorBank) = _raw_bank_width(bank.modality)
-rawspec(bank::SensorBank) = (id=bank.name, width=raw_bank_width(bank), source=bank.source)
-
 """Identity sensor component for task worlds that already emit receptor vectors."""
 struct DirectRelaySensor <: AbstractSensor
     port_ids::Tuple{Vararg{Symbol}}
@@ -182,11 +45,10 @@ end
     SituatedSensorLayout(; ...)
 
 Temporary generic sensor component preserving the current situated bearing,
-source, signalling, colour, and additional-bank receptor contract. It is an
-ordinary sensor component and can be replaced bank-by-bank without changing the
-`Embodiment` type.
+source, signalling, and colour receptor contract. It is an ordinary sensor
+component and can be replaced without changing the `Embodiment` type.
 """
-struct SituatedSensorLayout{S<:AbstractSensor,B<:Tuple} <: AbstractSensor
+struct SituatedSensorLayout{S<:AbstractSensor} <: AbstractSensor
     sensory_scaling::Bool
     source_bank::Bool
     source_gain::Float64
@@ -197,7 +59,6 @@ struct SituatedSensorLayout{S<:AbstractSensor,B<:Tuple} <: AbstractSensor
     n_colours::Int
     colour_sensing::Bool
     sensor::S
-    sensory_banks::B
 end
 
 function SituatedSensorLayout(;
@@ -211,11 +72,7 @@ function SituatedSensorLayout(;
     n_colours::Integer=1,
     colour_sensing::Bool=false,
     sensor::AbstractSensor=BEARING_DEFAULT,
-    sensory_banks=(),
 )
-    banks = Tuple(sensory_banks)
-    all(bank -> bank isa SensorBank, banks) ||
-        throw(ArgumentError("situated sensor banks must all be SensorBank values"))
     sigma = Float64(norm_sigma)
     source_gain_ = Float64(source_gain)
     conspecific_gain_ = Float64(conspecific_gain)
@@ -226,7 +83,7 @@ function SituatedSensorLayout(;
     isfinite(conspecific_gain_) && conspecific_gain_ >= 0.0 ||
         throw(ArgumentError("conspecific_gain must be finite and non-negative"))
     Int(n_colours) >= 1 || throw(ArgumentError("n_colours must be at least one"))
-    return SituatedSensorLayout{typeof(sensor),typeof(banks)}(
+    return SituatedSensorLayout{typeof(sensor)}(
         sensory_scaling,
         source_bank,
         source_gain_,
@@ -237,7 +94,6 @@ function SituatedSensorLayout(;
         Int(n_colours),
         colour_sensing,
         sensor,
-        banks,
     )
 end
 
@@ -245,7 +101,6 @@ n_sensors(layout::SituatedSensorLayout) = _situated_receptor_count(layout)
 rawspec(layout::SituatedSensorLayout) = (
     id=:situated,
     width=n_sensors(layout),
-    banks=Tuple(rawspec(bank) for bank in layout.sensory_banks),
 )
 
 const _SITUATED_RECEPTOR_PLACEMENT = Union{NoPlacement,Float64}
@@ -260,7 +115,7 @@ function _situated_receptor_count(layout::SituatedSensorLayout)
     nb = n_sensors(layout.sensor)
     conspecific = _conspecific_width(layout.colour_sensing, layout.n_colours; n_sensors=nb)
     source = layout.source_bank ? 2 + nb : 0
-    return conspecific + source + sum(bank_width, layout.sensory_banks; init=0)
+    return conspecific + source
 end
 
 function _base_receptor_ports(layout::SituatedSensorLayout)
@@ -285,35 +140,6 @@ function _base_receptor_ports(layout::SituatedSensorLayout)
     return out
 end
 
-_probe_angles_deg(count::Integer) = Float64[360.0 * (i - 1) / Int(count) for i in 1:Int(count)]
-
-function _append_bank_ports!(out, offset::Int, bank::SensorBank, modality::BearingModality)
-    degrees = angles_deg(modality.sensor)
-    out[offset + 1] = Port{_SITUATED_RECEPTOR_PLACEMENT}(Symbol(bank.name, :_reserved_1), NO_PLACEMENT)
-    out[offset + 2] = Port{_SITUATED_RECEPTOR_PLACEMENT}(Symbol(bank.name, :_reserved_2), NO_PLACEMENT)
-    @inbounds for i in eachindex(degrees)
-        out[offset + 2 + i] = Port{_SITUATED_RECEPTOR_PLACEMENT}(
-            Symbol(bank.name, :_bearing_, i),
-            Float64(degrees[i]),
-        )
-    end
-    return offset + bank_width(bank)
-end
-
-function _append_bank_ports!(out, offset::Int, bank::SensorBank, modality::FieldModality)
-    degrees = _probe_angles_deg(modality.probe_count)
-    @inbounds for i in eachindex(degrees)
-        out[offset + i] = Port{_SITUATED_RECEPTOR_PLACEMENT}(
-            Symbol(bank.name, :_probe_, i),
-            degrees[i],
-        )
-    end
-    return offset + bank_width(bank)
-end
-
-_append_bank_ports!(out, offset::Int, bank::SensorBank, modality::OffModality) =
-    _append_bank_ports!(out, offset, bank, _active_modality(modality))
-
 function portspec(layout::SituatedSensorLayout)
     base = _base_receptor_ports(layout)
     nb = n_sensors(layout.sensor)
@@ -336,54 +162,8 @@ function portspec(layout::SituatedSensorLayout)
         end
         offset += 2 + nb
     end
-    for bank in layout.sensory_banks
-        offset = _append_bank_ports!(out, offset, bank, bank.modality)
-    end
     return PortSpec(width, 0, out, Port{NoPlacement}[])
 end
-
-function _curve_bank!(values::Vector{Float64}, curve)
-    @inbounds for i in eachindex(values)
-        values[i] = response_value(curve, clamp(values[i], 0.0, 1.0))
-    end
-    return values
-end
-
-function _encode_sensor_bank(bank::SensorBank, raw, modality::BearingModality)
-    values = _component_float_vector(raw)
-    length(values) == n_sensors(modality.sensor) || throw(DimensionMismatch(
-        "sensor bank :$(bank.name) expected $(n_sensors(modality.sensor)) bearing samples, got $(length(values))",
-    ))
-    _curve_bank!(values, modality.curve)
-    return assemble_inputs(
-        values,
-        false;
-        norm_mode=bank.norm_mode,
-        norm_sigma=bank.norm_sigma,
-        gain=bank.gain,
-        n_sensors=n_sensors(modality.sensor),
-    )
-end
-
-function _encode_sensor_bank(bank::SensorBank, raw, modality::FieldModality)
-    values = _component_float_vector(raw)
-    length(values) == modality.probe_count || throw(DimensionMismatch(
-        "sensor bank :$(bank.name) expected $(modality.probe_count) field samples, got $(length(values))",
-    ))
-    _curve_bank!(values, modality.curve)
-    _normalize_bank!(values, something(bank.norm_mode, :raw), bank.norm_sigma)
-    bank.gain == 1.0 || (values .*= bank.gain)
-    return values
-end
-
-function _encode_sensor_bank(bank::SensorBank, raw, modality::OffModality)
-    length(_component_float_vector(raw)) == raw_bank_width(bank) || throw(DimensionMismatch(
-        "disabled sensor bank :$(bank.name) received the wrong sample width",
-    ))
-    return zeros(Float64, bank_width(bank))
-end
-
-_encode_sensor_bank(bank::SensorBank, raw) = _encode_sensor_bank(bank, raw, bank.modality)
 
 function _encode_situated(layout::SituatedSensorLayout, percept::NamedTuple)
     hasproperty(percept, :conspecific) ||
@@ -422,19 +202,7 @@ function _encode_situated(layout::SituatedSensorLayout, percept::NamedTuple)
             n_sensors=nb,
         )
     end
-    isempty(layout.sensory_banks) && return base
-    bank_percept = hasproperty(percept, :sensory) ? percept.sensory : percept.objects
-    output = Vector{Float64}(undef, n_sensors(layout))
-    copyto!(output, 1, base, 1, length(base))
-    offset = length(base)
-    for bank in layout.sensory_banks
-        hasproperty(bank_percept, bank.name) ||
-            throw(ArgumentError("sensory percept is missing bank :$(bank.name)"))
-        encoded = _encode_sensor_bank(bank, getproperty(bank_percept, bank.name))
-        copyto!(output, offset + 1, encoded, 1, length(encoded))
-        offset += length(encoded)
-    end
-    return output
+    return base
 end
 
 function _encode_situated(layout::SituatedSensorLayout, percept)
@@ -578,6 +346,7 @@ struct EmbodimentState{I,C,E,P,B,U}
     commands::C
     encoder_groups::E
     port_spec::P
+    sensor_width::Int
     receptor_buffer::B
     user::U
 end
@@ -647,12 +416,18 @@ function Embodiment(;
     encoder_groups = _encoder_groups(sensors_, encoders_, ids.sensors, ids.encoders)
     commands = Tuple(command_buffer(actuator) for actuator in actuators_)
     port_spec = _embodiment_portspec(ids, encoder_groups, actuators_, physiology)
+    sensor_width = sum(
+        n_receptors(_encoder_portspec(group[2], group[3]))
+        for group in encoder_groups;
+        init=0,
+    )
     receptor_buffer = zeros(Float64, n_receptors(port_spec))
     state_ = EmbodimentState(
         ids,
         commands,
         encoder_groups,
         port_spec,
+        sensor_width,
         receptor_buffer,
         state,
     )
@@ -1052,11 +827,7 @@ function begin_encoding!(body::Embodiment, percept, cycle::FixedRateCycle)
         input = _encoder_input(encoder, sensors, selected_samples)
         begin_encoding!(encoder, input, cycle)
     end
-    sensor_width = sum(
-        n_receptors(_encoder_portspec(group[2], group[3]))
-        for group in _encoder_groups(body);
-        init=0,
-    )
+    sensor_width = body.state.sensor_width
     feedback_width = length(body.state.receptor_buffer) - sensor_width
     feedback_width >= 0 || throw(DimensionMismatch(
         "Embodiment encoders expose $(sensor_width) receptors, but its cached port " *
@@ -1184,16 +955,6 @@ function receptor_link_profile(body::Embodiment, default_probability::Real)
     for (_, encoder, sensors, _) in _encoder_groups(body)
         width = n_receptors(_encoder_portspec(encoder, sensors))
         append!(probabilities, fill(Float64(default_probability), width))
-        if encoder isa SituatedEncoder
-            layout = encoder.layout
-            offset = length(probabilities) - sum(bank_width, layout.sensory_banks; init=0)
-            for bank in layout.sensory_banks
-                width_ = bank_width(bank)
-                bank.link_p === nothing ||
-                    (probabilities[(offset + 1):(offset + width_)] .= bank.link_p)
-                offset += width_
-            end
-        end
     end
     append!(probabilities, physiology_link_profile(body.physiology, default_probability))
     all(==(Float64(default_probability)), probabilities) && return nothing

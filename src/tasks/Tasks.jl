@@ -80,8 +80,21 @@ end
 Task composition plus rollout/scoring metadata. `setup` is any concrete callable
 returning `TaskSetup`; no builder hierarchy is required. Static receptor/effector
 counts are optional default metadata only; resolved body ports size reservoirs.
+Declare accepted setup keyword defaults in `options` so composition resolution
+can reject unknown keys and record the complete setup.
+
+`default_window` remains the environment-metric fallback. The independent
+`minimum_scored_ticks` field declares how many scored ticks a task objective
+needs before its value is meaningful.
+
+For the `TaskWorld` compatibility path, implement `sense(environment)`,
+`step!(environment, effectors)`, `metrics(environment, window)`,
+`reset!(environment)`, `n_receptors(::Type{Environment})`,
+`n_effectors(::Type{Environment})`, `default_ticks(::Type{Environment})`, and
+`default_window(::Type{Environment})`. Register the resulting `TaskSpec` with
+`register_task!`.
 """
-struct TaskSpec{S,E} <: AbstractTask
+struct TaskSpec{S,E,O} <: AbstractTask
     name::Symbol
     setup::S
     env_type::E
@@ -89,10 +102,12 @@ struct TaskSpec{S,E} <: AbstractTask
     n_effectors::Union{Nothing,Int}
     default_ticks::Int
     default_window::Int
+    minimum_scored_ticks::Int
     interaction_cycle::Union{Nothing,InteractionCycle}
     status::Symbol
     tags::Tuple{Vararg{Symbol}}
     protocol::NamedTuple
+    options::O
     floor::ScoreAnchor
     ceiling::ScoreAnchor
     score_key::Union{Nothing,Symbol}
@@ -106,10 +121,12 @@ function TaskSpec(
     n_effectors::Integer=n_effectors(env_type),
     default_ticks::Integer=default_ticks(env_type),
     default_window::Integer=default_window(env_type),
+    minimum_scored_ticks::Integer=default_window,
     interaction_cycle::Union{Nothing,InteractionCycle}=nothing,
     status::Symbol=:stable,
     tags=(),
     protocol::NamedTuple=NamedTuple(),
+    options=Dict{Symbol,Any}(),
     floor=nothing,
     ceiling=nothing,
     score_floor=nothing,
@@ -125,10 +142,12 @@ function TaskSpec(
         n_effectors=n_effectors,
         default_ticks=default_ticks,
         default_window=default_window,
+        minimum_scored_ticks=minimum_scored_ticks,
         interaction_cycle=interaction_cycle,
         status=status,
         tags=tags,
         protocol=protocol,
+        options=options,
         floor=floor,
         ceiling=ceiling,
         score_floor=score_floor,
@@ -146,10 +165,12 @@ function TaskSpec(
     n_effectors=nothing,
     default_ticks::Integer=1000,
     default_window::Integer=default_ticks,
+    minimum_scored_ticks::Integer=default_window,
     interaction_cycle::Union{Nothing,InteractionCycle}=nothing,
     status::Symbol=:stable,
     tags=(),
     protocol::NamedTuple=NamedTuple(),
+    options=Dict{Symbol,Any}(),
     floor=nothing,
     ceiling=nothing,
     score_floor=nothing,
@@ -180,6 +201,20 @@ function TaskSpec(
         score_ceiling,
         analytic(1.0; note="default analytic ceiling"),
     )
+    _anchor_scored_ticks(floor_anchor, ceiling_anchor)
+    options_ = _option_defaults(options, "task :$(task_name)")
+    minimum_scored_ticks_ = Int(minimum_scored_ticks)
+    minimum_scored_ticks_ > 0 || throw(ArgumentError(
+        "task :$(task_name) minimum_scored_ticks must be positive",
+    ))
+    # A task whose own default run cannot satisfy its own minimum makes the
+    # no-argument call an error, which is the silent-inconsistency class this
+    # minimum exists to remove. Reject it at registration.
+    Int(default_ticks) >= minimum_scored_ticks_ || throw(ArgumentError(
+        "task :$(task_name) default_ticks = $(Int(default_ticks)) is below its " *
+        "minimum_scored_ticks = $(minimum_scored_ticks_); a default run must be " *
+        "long enough to score",
+    ))
     return TaskSpec(
         task_name,
         setup,
@@ -188,15 +223,36 @@ function TaskSpec(
         n_effectors === nothing ? nothing : Int(n_effectors),
         Int(default_ticks),
         Int(default_window),
+        minimum_scored_ticks_,
         interaction_cycle,
         status,
         tags_,
         protocol,
+        options_,
         floor_anchor,
         ceiling_anchor,
         score_key,
         Symbol.(collect(descriptor_keys)),
     )
+end
+
+function _validate_minimum_scored_ticks(
+    task::TaskSpec,
+    scored_ticks::Integer;
+    explicit_window::Bool=false,
+    typed_evaluation::Bool=false,
+)
+    scored_ticks_ = Int(scored_ticks)
+    task.score_key === nothing && return scored_ticks_
+    explicit_window && return scored_ticks_
+    scored_ticks_ >= task.minimum_scored_ticks && return scored_ticks_
+    action = typed_evaluation ?
+        "Increase evaluation horizon or reduce warmup" :
+        "Increase ticks, or pass an explicit window to acknowledge a shorter diagnostic run"
+    throw(ArgumentError(
+        "task :$(task.name) scored interval is $(scored_ticks_) ticks, but " *
+        "minimum_scored_ticks is $(task.minimum_scored_ticks). $(action).",
+    ))
 end
 
 function Base.getproperty(task::TaskSpec, key::Symbol)
@@ -252,12 +308,66 @@ function _fixed_port_counts(layouts; context::AbstractString="fixed-layout calle
     return counts
 end
 
+const WALL_TASK_OPTIONS = (
+    x=nothing,
+    y=nothing,
+    theta=nothing,
+    lam=1.0,
+    sensory_noise=0.0,
+    clip_sensory_noise=true,
+)
+
+const TRACKING_TASK_OPTIONS = (
+    stim_speed_rad=deg2rad(1.0),
+    movement_amp=10.0,
+    eye_offset_deg=30.0,
+    sensor_offsets_deg=collect(-60.0:4.0:60.0),
+    sensory_gain=1.0,
+    randomize_start=true,
+    theta0=nothing,
+    phi0=nothing,
+    direction0=nothing,
+)
+
+const PONG_TASK_OPTIONS = (sensory_gain=1.0,)
+
+const CARTPOLE_VARIANT_TASK_OPTIONS = (
+    name=:cartpole_variant,
+    tau=0.02,
+    gravity=9.8,
+    max_force=10.0,
+    pole_length=0.5,
+    pole_mass=0.1,
+    cart_mass=1.0,
+    max_x=2.4,
+    max_theta=0.2095,
+    terminate_on_theta=true,
+    score_kind=:balanced_fraction,
+    init_x=nothing,
+    init_x_range=(-1.2, 1.2),
+    init_xdot=nothing,
+    init_xdot_range=(-0.05, 0.05),
+    init_theta=nothing,
+    init_theta_range=(-0.10475, 0.10475),
+    init_thetadot=nothing,
+    init_thetadot_range=(-0.05, 0.05),
+    obs_max=(2.4, 5.0, Float64(pi), 5.0),
+)
+
+function _cartpole_variant_task_options(overrides::NamedTuple)
+    defaults = Dict{Symbol,Any}(pairs(CARTPOLE_VARIANT_TASK_OPTIONS))
+    merge!(defaults, Dict{Symbol,Any}(pairs(overrides)))
+    return defaults
+end
+
 const WALL_TASK = TaskSpec(
     :wall,
     WallEnv;
-    status=:experimental,
-    tags=(:extended,),
-    floor=null_anchor(0.775625, "task=wall, null=null_random, score_key=nav_score, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
+    status=:reference,
+    tags=(:benchmark, :qualification, :core),
+    minimum_scored_ticks=200,
+    options=WALL_TASK_OPTIONS,
+    floor=null_anchor(0.8106249999999999, "task=wall, null=null_random, rate_reference=falandays, null_target_rate=0.34008828124999996, n_nodes=200, score_key=nav_score, scored_ticks=200, sem=0.0084, sd=0.0477, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git ca09082, 2026-08-05"; scored_ticks=200),
     ceiling=analytic(1.0; note="nav_score max = collision-free navigation while moving (a true analytic optimum); untrained falandays ref measured ~0.013 << null 0.776, so the analytic optimum is the honest ceiling, not a reference agent"),
     score_key=:nav_score,
     descriptor_keys=[:collisions_window, :distance_window],
@@ -268,7 +378,9 @@ const TRACKING_TASK = TaskSpec(
     TrackingEnv;
     status=:reference,
     tags=(:benchmark, :qualification, :core),
-    floor=analytic(0.0; note="E[cos]=0 chance"),
+    minimum_scored_ticks=2000,
+    options=TRACKING_TASK_OPTIONS,
+    floor=analytic(0.0; note="E[cos]=0 chance; a rate-matched null over 40 seeds at scored_ticks=2000 measures 0.0022 (sd 0.0167 across five 8-seed blocks), consistent with zero, so the analytic anchor stands. The earlier 0.0599 +/- 0.0691 (sd 0.3907) figure was measured over a 200-tick window, where the estimator is dominated by sampling noise"),
     ceiling=analytic(1.0; note="perfect heading alignment"),
     score_key=:track_score,
 )
@@ -278,7 +390,9 @@ const PONG_TASK = TaskSpec(
     PongEnv;
     status=:reference,
     tags=(:benchmark, :qualification, :core),
-    floor=null_anchor(0.35317460317460314, "task=pong, null=null_random, score_key=hit_rate, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
+    minimum_scored_ticks=6000,
+    options=PONG_TASK_OPTIONS,
+    floor=null_anchor(0.23673837560386476, "task=pong, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, n_nodes=500, score_key=hit_rate, scored_ticks=6000, sem=0.0141, sd=0.0798, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git ca09082, 2026-08-05"; scored_ticks=6000),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
@@ -288,7 +402,9 @@ const PONG_HITRATE_TASK = TaskSpec(
     PongEnv;
     status=:alias,
     tags=(:alias,),
-    floor=null_anchor(0.35317460317460314, "task=pong_hitrate, null=null_random, score_key=hit_rate, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
+    minimum_scored_ticks=6000,
+    options=PONG_TASK_OPTIONS,
+    floor=null_anchor(0.23673837560386476, "task=pong_hitrate, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, n_nodes=500, score_key=hit_rate, scored_ticks=6000, sem=0.0141, sd=0.0798, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git ca09082, 2026-08-05"; scored_ticks=6000),
     ceiling=analytic(1.0; note="hit_rate max = intercept every ball (a true analytic optimum); no trained reference agent exists yet, so a reference-agent ceiling is a TODO(reference-genome)"),
     score_key=:hit_rate,
 )
@@ -307,6 +423,13 @@ const CARTPOLE_HARD_TASK = TaskSpec(
     CartPoleHardEnv;
     status=:experimental,
     tags=(:extended, :legacy_cartpole_variant),
+    options=_cartpole_variant_task_options((
+        name=:cartpole_hard,
+        max_theta=0.12,
+        max_force=8.0,
+        pole_length=0.75,
+        obs_max=(2.4, 5.0, 0.12, 5.0),
+    )),
     floor=analytic(0.0; note="minimum balanced fraction"),
     ceiling=analytic(1.0; note="full window balanced"),
 )
@@ -316,7 +439,18 @@ const CARTPOLE_SWINGUP_TASK = TaskSpec(
     CartPoleSwingupEnv;
     status=:experimental,
     tags=(:extended, :legacy_cartpole_variant),
-    floor=null_anchor(0.05026043382947809, "task=cartpole_swingup, null=null_random, score_key=mean_uprightness, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23"),
+    options=_cartpole_variant_task_options((
+        name=:cartpole_swingup,
+        init_x_range=(-0.25, 0.25),
+        init_theta_range=(Float64(pi - 0.08), Float64(pi + 0.08)),
+        terminate_on_theta=false,
+        max_x=20.0,
+        max_theta=Float64(pi),
+        max_force=10.0,
+        score_kind=:mean_uprightness,
+        obs_max=(20.0, 5.0, Float64(pi), 8.0),
+    )),
+    floor=null_anchor(0.023001180092574576, "task=cartpole_swingup, null=null_random, rate_reference=falandays, null_target_rate=0.08925895833333375, score_key=mean_uprightness, sem=0.0018, sd=0.0104, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28"),
     ceiling=analytic(1.0; note="perfect uprightness"),
     score_key=:mean_uprightness,
 )
@@ -326,6 +460,13 @@ const CARTPOLE_LONG_TASK = TaskSpec(
     CartPoleLongEnv;
     status=:experimental,
     tags=(:extended, :legacy_cartpole_variant),
+    options=_cartpole_variant_task_options((
+        name=:cartpole_long,
+        pole_length=1.0,
+        max_theta=0.2095,
+        max_force=10.0,
+        obs_max=(2.4, 5.0, 0.2095, 5.0),
+    )),
     floor=analytic(0.0; note="minimum balanced fraction"),
     ceiling=analytic(1.0; note="full window balanced"),
 )
@@ -369,7 +510,17 @@ function _plank_cartpole_task(level_name::Symbol)
         default_window=PLANK_CARTPOLE_MISSION_STEPS,
         interaction_cycle=FixedRateCycle(PLANK_CARTPOLE_NEURAL_FRAMES),
         status=:experimental,
-        tags=(:experimental, :plank_cartpole),
+        tags=level.name === :easy ?
+             (:experimental, :plank_cartpole, :frontier) :
+             (:experimental, :plank_cartpole),
+        options=(
+            initial_ranges=(
+                (-1.2, 1.2),
+                (-0.05, 0.05),
+                (-0.10475, 0.10475),
+                (-0.05, 0.05),
+            ),
+        ),
         protocol=(;
             PLANK_CARTPOLE_PROTOCOL...,
             level=level.name,
@@ -401,7 +552,7 @@ const CARTPOLE_PLANK_HARD_TASK = _plank_cartpole_task(:hard)
 const CARTPOLE_PLANK_HARDEST_TASK = _plank_cartpole_task(:hardest)
 
 const FORAGE_FLOOR_ANCHOR =
-    null_anchor(0.45826637542592896, "task=forage, null=null_random, score_key=forage_score, rng=MersenneTwister, julia=1.10.11, seeds 0:7, git b3b495c, 2026-07-23")
+    null_anchor(0.45309936524964084, "task=forage, null=null_random, rate_reference=falandays, null_target_rate=0.4352481640624999, score_key=forage_score, sem=0.0037, sd=0.0212, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git e944fab, 2026-07-28")
 const FORAGE_CEILING_ANCHOR =
     analytic(1.0; note="agents on source")
 
@@ -428,9 +579,29 @@ end
 make_env(task::TaskSpec, rng; kwargs...) = make_env(task; rng=rng, kwargs...)
 make_env(task_name::Union{Symbol,AbstractString}; kwargs...) = make_env(resolve_task(task_name); kwargs...)
 
-function normalized_score(task::TaskSpec, raw_score::Real)
+"""
+    normalized_score(task, raw_score; window=nothing)
+
+Map a raw task score between its declared floor and ceiling. Values at or
+beyond an anchor are clamped to `[0, 1]`. Aggregated results must therefore
+report how many observations hit each bound. A Student-t interval over these
+censored values is descriptive; it is not a calibrated interval. A measured
+anchor with `scored_ticks` requires a matching `window`.
+"""
+function normalized_score(task::TaskSpec, raw_score::Real; window=nothing)
+    anchor_scored_ticks = _anchor_scored_ticks(task.floor, task.ceiling)
+    if anchor_scored_ticks !== nothing
+        window === nothing && throw(ArgumentError(
+            "normalizing task :$(task.name) requires window=$(anchor_scored_ticks), " *
+            "the interval used to measure its anchor",
+        ))
+        Int(window) == anchor_scored_ticks || throw(ArgumentError(
+            "cannot normalize task :$(task.name) over window=$(Int(window)); its " *
+            "measured anchor applies at scored_ticks=$(anchor_scored_ticks)",
+        ))
+    end
     return _normalized_anchor_score(raw_score, task.floor, task.ceiling, "task $(task.name)")
 end
 
-normalized_score(task_name::Union{Symbol,AbstractString}, raw_score::Real) =
-    normalized_score(resolve_task(task_name), raw_score)
+normalized_score(task_name::Union{Symbol,AbstractString}, raw_score::Real; kwargs...) =
+    normalized_score(resolve_task(task_name), raw_score; kwargs...)

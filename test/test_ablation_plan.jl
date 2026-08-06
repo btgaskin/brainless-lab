@@ -1,30 +1,20 @@
 using BrainlessLab
 using Test
+using .BrainlessLabTestUtils: operation_registry, operation_target
 
 function _ablation_registry()
-    registry = RegistrySet()
-    register!(registry, falandays_node_spec())
-    register!(registry, task_spec(DEFAULT_REGISTRY, :tracking))
-    return registry
+    return operation_registry()
 end
 
 function _ablation_target()
-    reference = default_composition(DEFAULT_REGISTRY, :falandays, :tracking)
-    composition = CompositionSpec(
-        :tracking_ablation_smoke,
-        reference.node,
-        reference.task;
-        n_nodes=8,
-        parameters=reference.parameters,
-    )
-    evaluation = EvaluationSpec(
-        blocks=1,
-        trials_per_block=2,
+    return operation_target(
+        :tracking,
+        :tracking;
+        trials=2,
         horizon=3,
         root_seed=812,
         aggregate=:mean,
     )
-    return EvaluationTarget(:tracking, composition, evaluation)
 end
 
 function _with_ablation_parameter(
@@ -49,25 +39,25 @@ function _with_ablation_parameter(
     )
 end
 
-function _register_falandays_ablations!(registry)
-    freeze = AblationSpec(
+function _register_test_ablations!(registry)
+    freeze = BrainlessLab.AblationSpec(
         :freeze_plasticity,
         source -> _with_ablation_parameter(
             source,
             :freeze_plasticity,
-            :learn_on,
-            false,
+            :gain,
+            0.5,
         );
         stage=:composition,
         required_capabilities=(:online_plasticity,),
     )
-    clamp = AblationSpec(
+    clamp = BrainlessLab.AblationSpec(
         :clamp_target,
         source -> _with_ablation_parameter(
             source,
             :clamp_target,
-            :lrate_targ,
-            0.0,
+            :bias,
+            -0.25,
         );
         stage=:composition,
         required_capabilities=(:homeostatic_target,),
@@ -75,21 +65,21 @@ function _register_falandays_ablations!(registry)
     register!(
         registry,
         :ablations,
-        ImplementationSpec(:freeze_plasticity, freeze),
+        BrainlessLab.ImplementationSpec(:freeze_plasticity, freeze),
     )
     register!(
         registry,
         :ablations,
-        ImplementationSpec(:clamp_target, clamp),
+        BrainlessLab.ImplementationSpec(:clamp_target, clamp),
     )
     return registry
 end
 
 @testset "ablation plan resolution is explicit" begin
-    registry = _register_falandays_ablations!(_ablation_registry())
+    registry = _register_test_ablations!(_ablation_registry())
     target = _ablation_target()
     plan = AblationPlan(
-        :falandays_ablations,
+        :test_ablations,
         target;
         ablations=(:freeze_plasticity, :clamp_target),
     )
@@ -98,25 +88,25 @@ end
     @test Tuple(case.id for case in resolved.cases) ==
           (:baseline, :freeze_plasticity, :clamp_target)
     @test resolved.cases[1].ablation === nothing
-    @test resolved.cases[2].target.composition.parameters[:learn_on] == false
-    @test resolved.cases[3].target.composition.parameters[:lrate_targ] == 0.0
+    @test resolved.cases[2].target.composition.parameters[:gain] == 0.5
+    @test resolved.cases[3].target.composition.parameters[:bias] == -0.25
 
-    missing_capability = AblationSpec(
+    missing_capability = BrainlessLab.AblationSpec(
         :requires_dendrites,
-        source -> _with_ablation_parameter(source, :dendrites, :learn_on, false);
+        source -> _with_ablation_parameter(source, :dendrites, :gain, 0.25);
         required_capabilities=(:dendrites,),
     )
     register!(
         registry,
         :ablations,
-        ImplementationSpec(:requires_dendrites, missing_capability),
+        BrainlessLab.ImplementationSpec(:requires_dendrites, missing_capability),
     )
     @test_throws ArgumentError BrainlessLab.resolve(
         AblationPlan(:bad_capability, target; ablations=(:requires_dendrites,)),
         registry,
     )
 
-    reservoir_stage = AblationSpec(
+    reservoir_stage = BrainlessLab.AblationSpec(
         :reservoir_stage,
         identity;
         stage=:reservoir,
@@ -124,7 +114,7 @@ end
     register!(
         registry,
         :ablations,
-        ImplementationSpec(:reservoir_stage, reservoir_stage),
+        BrainlessLab.ImplementationSpec(:reservoir_stage, reservoir_stage),
     )
     @test_throws ArgumentError BrainlessLab.resolve(
         AblationPlan(:bad_stage, target; ablations=(:reservoir_stage,)),
@@ -134,7 +124,7 @@ end
     register!(
         registry,
         :ablations,
-        ImplementationSpec(:raw_intervention, FreezePlasticity),
+        BrainlessLab.ImplementationSpec(:raw_intervention, BrainlessLab.FreezePlasticity),
     )
     @test_throws ArgumentError BrainlessLab.resolve(
         AblationPlan(:raw, target; ablations=(:raw_intervention,)),
@@ -144,9 +134,9 @@ end
     register!(
         registry,
         :ablations,
-        ImplementationSpec(
+        BrainlessLab.ImplementationSpec(
             :baseline,
-            AblationSpec(:baseline, source -> deepcopy(source)),
+            BrainlessLab.AblationSpec(:baseline, source -> deepcopy(source)),
         ),
     )
     @test_throws ArgumentError BrainlessLab.resolve(
@@ -156,7 +146,7 @@ end
 end
 
 @testset "ablation execution includes paired baseline" begin
-    registry = _register_falandays_ablations!(_ablation_registry())
+    registry = _register_test_ablations!(_ablation_registry())
     plan = AblationPlan(
         :paired_ablations,
         _ablation_target();
@@ -170,14 +160,20 @@ end
     @test length(output.cases) == 3
     @test compact.n_cases == 3
     @test compact.n_rollouts == 6
+    @test compact.operation === :ablate
     @test first(output.cases).ablation === :none
     @test all(row -> isfinite(row.raw_score), output.trials)
+    @test all(row -> row.normalized_n == 2, output.cases)
+    @test all(
+        row -> row.normalized_censored_count ==
+               row.normalized_floor_count + row.normalized_ceiling_count,
+        output.cases,
+    )
 
     for trial in 1:2
         paired = filter(row -> row.block == 1 && row.trial == trial, output.trials)
         @test length(paired) == 3
         @test length(unique(row.topology_seed for row in paired)) == 1
         @test length(unique(row.world_seed for row in paired)) == 1
-        @test length(unique(row.task_seed for row in paired)) == 1
     end
 end

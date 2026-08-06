@@ -8,9 +8,9 @@ const HFR2_GAIN_MAX = 10.0
 """
     HomeostaticFlowV2Params(; kwargs...)
 
-Raw-genome parameter bundle for `HomeostaticFlowV2Reservoir`. Same unconstrained-raw /
-monotone-bijection convention as `HomeostaticFlowParams`: `pack_params(unpack_params(T, raw))`
-exactly preserves the raw `Float64` genome.
+Raw-genome parameter bundle for `HomeostaticFlowV2Reservoir`. Stored fields use
+unconstrained raw values and monotone bijections:
+`pack_params(unpack_params(T, raw))` exactly preserves the raw `Float64` genome.
 """
 struct HomeostaticFlowV2Params <: NodeModel
     leak_mean_raw::Float64

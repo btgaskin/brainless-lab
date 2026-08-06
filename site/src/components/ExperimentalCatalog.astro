@@ -5,23 +5,9 @@ interface Props {
   family?: string;
 }
 
+import { familyLabels } from './familyLabels';
+
 const { family } = Astro.props;
-const familyLabels: Record<string, string> = {
-  reservoirs: 'Reservoirs',
-  embodiment: 'Embodiment',
-  'worlds-tasks': 'Worlds & tasks',
-  collectives: 'Collectives',
-  analyses: 'Analyses',
-  evolution: 'Evolution',
-};
-const familyRoutes: Record<string, string> = {
-  reservoirs: '/experimental/reservoirs/',
-  embodiment: '/experimental/embodiment/',
-  'worlds-tasks': '/experimental/worlds-tasks/',
-  collectives: '/experimental/collectives/',
-  analyses: '/experimental/analyses/',
-  evolution: '/experimental/evolution/',
-};
 const allFeatures = (
   await getCollection('docs', ({ data }) => Boolean(data.experimental))
 ).sort((a, b) => a.data.title.localeCompare(b.data.title));
@@ -36,23 +22,6 @@ const routeFor = (id: string) => `/${id.replace(/\/index$/, '')}/`;
 ---
 
 <section class="catalog" data-experimental-catalog>
-  {
-    !family && (
-      <nav class="family-nav" aria-label="Experimental feature families">
-        {Object.entries(familyLabels).map(([key, label]) => {
-          const count = allFeatures.filter(
-            (entry) => entry.data.experimental?.family === key,
-          ).length;
-          return (
-            <a href={familyRoutes[key]}>
-              {label} <span>{count}</span>
-            </a>
-          );
-        })}
-      </nav>
-    )
-  }
-
   <form class="catalog-filters" role="search" aria-label="Filter Experimental features">
     <label>
       Search
@@ -200,37 +169,23 @@ const routeFor = (id: string) => `/${id.replace(/\/index$/, '')}/`;
     margin-top: 1.25rem;
   }
 
-  .family-nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin: 1rem 0 1.5rem;
-  }
-
-  .family-nav a {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    padding: 0.45rem 0.7rem;
-    border: 1px solid var(--sl-color-gray-5);
-    border-radius: 0.4rem;
-    text-decoration: none;
-  }
-
-  .family-nav span {
-    color: var(--sl-color-gray-2);
-    font-variant-numeric: tabular-nums;
-  }
-
   .catalog-filters {
     display: grid;
-    grid-template-columns: minmax(14rem, 2fr) repeat(3, minmax(9rem, 1fr)) auto;
+    /* Track minimums totalled ~41rem plus gaps and padding, which exceeds the
+     * docs content column well before the 58rem viewport breakpoint below --
+     * so the trailing auto track (the Clear button) was pushed outside the
+     * rounded border. Let the tracks shrink and stack sooner. */
+    grid-template-columns: minmax(10rem, 2fr) repeat(3, minmax(7rem, 1fr)) auto;
     gap: 0.75rem;
     align-items: end;
     padding: 1rem;
     border: 1px solid var(--sl-color-gray-5);
     border-radius: 0.5rem;
     background: var(--sl-color-bg-nav);
+  }
+
+  .catalog-filters > * {
+    min-width: 0;
   }
 
   .catalog-filters label {
@@ -329,7 +284,7 @@ const routeFor = (id: string) => `/${id.replace(/\/index$/, '')}/`;
     text-align: center;
   }
 
-  @media (max-width: 58rem) {
+  @media (max-width: 72rem) {
     .catalog-filters {
       grid-template-columns: 1fr 1fr;
     }

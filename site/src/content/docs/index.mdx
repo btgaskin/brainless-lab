@@ -1,92 +1,56 @@
 ---
 title: BrainlessLab
-description: A Julia research platform for designing neural substrates and testing their behaviour across tasks, bodies, receptors, and effectors.
+description: Compose neural substrates, run controlled evaluations, and retain portable research records.
 template: splash
 hero:
-  title: From cellular cognition to collective intelligence
-  tagline: Compose neural substrates, embodiments, tasks, and reproducible studies on a CPU-first Julia platform.
+  title: Behaviour from simple neural substrates
+  tagline: Compose nodes, bodies, tasks, and reproducible research operations in Julia.
   actions:
-    - text: Get started
-      link: /core/getting-started/
+    - text: Run a simulation
+      link: /tutorials/first-simulation/
       icon: right-arrow
       variant: primary
-    - text: Design a study
-      link: /core/design-study/
+    - text: See the system
+      link: /handbook/system-map/
       icon: document
       variant: minimal
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
-import FalandaysDemo from '../../components/FalandaysDemo.tsx';
-
-<FalandaysDemo client:load />
 
 <div id="more"></div>
 
-## A platform for comparative neural design
+## A small core with explicit research paths
 
-BrainlessLab connects four parts of an experiment:
+BrainlessLab connects a node model, body, task, and evaluation protocol. The initial core
+contains the fixture-validated Falandays implementation and three benchmark tasks:
+Tracking, Pong, and Wall.
 
-```text
-node model + embodiment + task + evaluation protocol
-```
-
-The platform begins with a fixture-validated implementation of the Falandays
-homeostatic reservoir and two core tasks from the source study: object Tracking and Pong.
-These provide a small common test set for asking how a node design behaves when its
-sensorimotor setting changes.
-
-Performance is evidence about a declared composition. It is not a universal measure of
-intelligence. A low score can still identify a missing capacity, an unsuitable body, or a
-parameter regime that does not support the task. That makes the benchmark useful for both
-evolving existing parameters and designing new local mechanisms, such as dendritic
-compartments.
-
-## One runtime, five research operations
-
-Use `simulate` to inspect one closed-loop run. Use a typed plan when the work must be
-repeatable:
-
-- `ProfilePlan` characterises one composition;
-- `SweepPlan` maps declared parameters;
-- `AblationPlan` disables registered mechanisms;
-- `EvolutionPlan` develops a registered parameter set;
-- `BenchmarkPlan` compares conditions within tasks.
-
-An `ExperimentSpec` groups named conditions and operation plans into a versioned scientific
-protocol. Every operation writes the same record structure: submitted and resolved
-settings, named random streams, raw tables, summaries, provenance, checksums, and an HTML
-report.
-
-The compute package is headless, runs on a laptop, and does not require a GPU. Optional
-Makie extensions provide figures and interactive views.
-
-## Choose a path
+Use `simulate` for one diagnostic run. Use a typed operation plan when repeated work needs
+exact settings, independent trials, and a portable record.
 
 <CardGrid>
-  <Card title="Run the core tasks" icon="rocket">
-    Install the package, run Tracking and Pong, and inspect their task-native outcomes.
-    [Getting started →](/core/getting-started/)
+  <Card title="Learn by doing" icon="rocket">
+    Follow four short tutorials from one simulation to an external extension.
+    [Start the tutorials →](/tutorials/first-simulation/)
   </Card>
-  <Card title="Build a reproducible operation" icon="random">
-    Choose profiling, sweeping, ablation, evolution, or benchmarking and write a portable
-    record. [Operations and records →](/core/operations-records/)
+  <Card title="Understand the system" icon="document">
+    Follow runtime composition through evaluation, operations, experiments, and records.
+    [Open the handbook →](/handbook/system-map/)
   </Card>
-  <Card title="Design a scientific protocol" icon="document">
-    Define conditions, controls, independent units, development data, and held-out
-    evaluation. [Design a study →](/core/design-study/)
+  <Card title="Browse research" icon="random">
+    Review benchmark and experiment protocols with exact record paths and evidence states.
+    [See research records →](/research/)
   </Card>
-  <Card title="Extend the platform" icon="puzzle">
-    Add a node model, body component, task, analysis, or optimiser through the documented
-    Julia interfaces. [Extend the lab →](/core/extend/)
+  <Card title="Explore capabilities" icon="puzzle">
+    Filter implemented features outside the compact core by family, readiness, and tag.
+    [Open Experimental →](/experimental/)
   </Card>
 </CardGrid>
 
-:::note[Agent-assisted use]
-The repository includes BrainlessLab and Julia skills plus a root `AGENTS.md`. A compatible
-coding agent can inspect the live registries, validate plans, run operations, and report the
-limits of the resulting evidence.
-:::
+Every standard record preserves the submitted and resolved configurations, realised seed
+streams, raw tables, summaries, provenance, and checksums. A record makes a run reviewable.
+It does not make an exploratory result confirmed.
 
 ---
 

@@ -51,7 +51,7 @@ function validate(plan::SweepPlan, registry::RegistrySet)
     resolved = resolve_composition(plan.target.composition, registry)
     axes = _sweep_axes(plan, resolved.node)
     _validate_sweep_axes(axes, resolved.node)
-    return plan
+    return _validate_plan_evaluations(plan, registry)
 end
 
 function _factorial_parameter_cells(axes::Tuple)
@@ -181,6 +181,7 @@ function _sweep_cell_summaries(
     for cell in plan.cells
         selected = filter(row -> row.cell === cell.id, rows)
         viability = [row.viable for row in selected if !ismissing(row.viable)]
+        censoring = _normalized_censoring_summary(selected)
         push!(summaries, (
             operation=plan.source.id,
             cell=cell.id,
@@ -192,6 +193,12 @@ function _sweep_cell_summaries(
                 (row.normalized_score for row in selected),
                 policy,
             ),
+            normalized_n=censoring.normalized_n,
+            normalized_floor_count=censoring.normalized_floor_count,
+            normalized_ceiling_count=censoring.normalized_ceiling_count,
+            normalized_censored_count=censoring.normalized_censored_count,
+            normalized_censored_fraction=censoring.normalized_censored_fraction,
+            normalized_censoring=censoring.normalized_censoring,
             viable_fraction=isempty(viability) ? missing : mean(viability),
         ))
     end

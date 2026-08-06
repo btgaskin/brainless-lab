@@ -1,0 +1,535 @@
+---
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve, sep } from 'node:path';
+
+type JsonObject = Record<string, unknown>;
+
+interface OperationPaths {
+  record: string;
+  request: string;
+  resolved: string;
+  seeds: string;
+  trials: string;
+  task_metrics: string;
+  summary: string;
+  report: string;
+}
+
+interface CatalogueOperation {
+  id: string;
+  kind: string;
+  targets: JsonObject[];
+  settings: JsonObject;
+  paths: OperationPaths;
+}
+
+interface CatalogueRun {
+  role: 'submission' | 'maintainer_replay' | 'historical_record';
+  independent_evidence: boolean;
+  run_id: string;
+  operations: CatalogueOperation[];
+}
+
+interface AcceptedContribution {
+  id: string;
+  admission: 'accepted';
+  experiment_id: string;
+  experiment_version: string;
+  evidence_state: string;
+  title: string;
+  source_sha: string;
+  question: string;
+  limitations: string[];
+  contributor: string;
+  reviewer: string;
+  review_url: string;
+  accepted_utc: string;
+  paths: {
+    contribution: string;
+    experiment: string;
+    comparison: string;
+  };
+  runs: CatalogueRun[];
+}
+
+interface PrePipelineContribution {
+  id: string;
+  admission: 'pre-pipeline';
+  experiment_id: string;
+  experiment_version: string;
+  evidence_state: string;
+  title: string;
+  source_sha: string;
+  note: string;
+  paths: {
+    protocol: string;
+    record: string;
+  };
+  runs: CatalogueRun[];
+}
+
+type CatalogueContribution = AcceptedContribution | PrePipelineContribution;
+
+const repositoryRoot = [process.cwd(), resolve(process.cwd(), '..')].find(
+  (candidate) =>
+    existsSync(resolve(candidate, 'Project.toml')) &&
+    existsSync(resolve(candidate, 'site', 'src', 'content.config.ts')),
+);
+
+if (!repositoryRoot) {
+  throw new Error('cannot locate the BrainlessLab repository root from the site process');
+}
+
+const cataloguePath = resolve(repositoryRoot, 'research', 'catalogue.json');
+if (!existsSync(cataloguePath)) {
+  throw new Error(
+    'research/catalogue.json is missing; generate and commit it with `bin/brainlesslab.jl index-research`',
+  );
+}
+
+const invalid = (location: string, message: string): never => {
+  throw new Error(`invalid research/catalogue.json at ${location}: ${message}`);
+};
+
+const objectAt = (value: unknown, location: string): JsonObject => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    invalid(location, 'expected an object');
+  }
+  return value as JsonObject;
+};
+
+const arrayAt = (value: unknown, location: string): unknown[] => {
+  if (!Array.isArray(value)) invalid(location, 'expected an array');
+  return value;
+};
+
+const stringAt = (value: unknown, location: string): string => {
+  if (typeof value !== 'string' || value.length === 0) {
+    invalid(location, 'expected a non-empty string');
+  }
+  return value;
+};
+
+const httpsUrlAt = (value: unknown, location: string): string => {
+  const address = stringAt(value, location);
+  let parsed: URL;
+  try {
+    parsed = new URL(address);
+  } catch {
+    invalid(location, 'expected an absolute HTTPS URL');
+  }
+  if (parsed.protocol !== 'https:') invalid(location, 'expected an absolute HTTPS URL');
+  return address;
+};
+
+const booleanAt = (value: unknown, location: string): boolean => {
+  if (typeof value !== 'boolean') invalid(location, 'expected a boolean');
+  return value;
+};
+
+const repositoryPathAt = (value: unknown, location: string): string => {
+  const path = stringAt(value, location);
+  const segments = path.split(/[\\/]/);
+  if (path.startsWith('/') || segments.includes('..')) {
+    invalid(location, 'expected a repository-relative path');
+  }
+  const target = resolve(repositoryRoot, path);
+  if (target !== repositoryRoot && !target.startsWith(`${repositoryRoot}${sep}`)) {
+    invalid(location, 'path leaves the repository');
+  }
+  if (!existsSync(target)) invalid(location, `path does not exist: ${path}`);
+  return path;
+};
+
+const stringArrayAt = (value: unknown, location: string): string[] =>
+  arrayAt(value, location).map((item, index) => stringAt(item, `${location}[${index}]`));
+
+const targetsAt = (value: unknown, location: string): JsonObject[] =>
+  arrayAt(value, location).map((item, index) => {
+    const target = objectAt(item, `${location}[${index}]`);
+    stringAt(target.id, `${location}[${index}].id`);
+    return target;
+  });
+
+const parseOperation = (value: unknown, location: string): CatalogueOperation => {
+  const operation = objectAt(value, location);
+  const paths = objectAt(operation.paths, `${location}.paths`);
+  return {
+    id: stringAt(operation.id, `${location}.id`),
+    kind: stringAt(operation.kind, `${location}.kind`),
+    targets: targetsAt(operation.targets, `${location}.targets`),
+    settings: objectAt(operation.settings, `${location}.settings`),
+    paths: {
+      record: repositoryPathAt(paths.record, `${location}.paths.record`),
+      request: repositoryPathAt(paths.request, `${location}.paths.request`),
+      resolved: repositoryPathAt(paths.resolved, `${location}.paths.resolved`),
+      seeds: repositoryPathAt(paths.seeds, `${location}.paths.seeds`),
+      trials: repositoryPathAt(paths.trials, `${location}.paths.trials`),
+      task_metrics: repositoryPathAt(paths.task_metrics, `${location}.paths.task_metrics`),
+      summary: repositoryPathAt(paths.summary, `${location}.paths.summary`),
+      report: repositoryPathAt(paths.report, `${location}.paths.report`),
+    },
+  };
+};
+
+const parseRun = (
+  value: unknown,
+  location: string,
+  admission: 'accepted' | 'pre-pipeline',
+): CatalogueRun => {
+  const run = objectAt(value, location);
+  const role = stringAt(run.role, `${location}.role`);
+  const allowedRoles =
+    admission === 'accepted'
+      ? ['submission', 'maintainer_replay']
+      : ['historical_record'];
+  if (!allowedRoles.includes(role)) {
+    invalid(`${location}.role`, `expected one of ${allowedRoles.join(', ')}`);
+  }
+  const independentEvidence = booleanAt(
+    run.independent_evidence,
+    `${location}.independent_evidence`,
+  );
+  if (role === 'maintainer_replay' && independentEvidence) {
+    invalid(`${location}.independent_evidence`, 'a maintainer replay is not independent evidence');
+  }
+  if (role === 'historical_record' && independentEvidence) {
+    invalid(`${location}.independent_evidence`, 'a pre-pipeline role is not admitted evidence');
+  }
+  if (role === 'submission' && !independentEvidence) {
+    invalid(`${location}.independent_evidence`, 'an accepted submission is the evidence-bearing role');
+  }
+  const operations = arrayAt(run.operations, `${location}.operations`).map((operation, index) =>
+    parseOperation(operation, `${location}.operations[${index}]`),
+  );
+  if (operations.length === 0) invalid(`${location}.operations`, 'expected at least one operation');
+  return {
+    role: role as CatalogueRun['role'],
+    independent_evidence: independentEvidence,
+    run_id: stringAt(run.run_id, `${location}.run_id`),
+    operations,
+  };
+};
+
+const parseContribution = (value: unknown, index: number): CatalogueContribution => {
+  const location = `contributions[${index}]`;
+  const item = objectAt(value, location);
+  const admission = stringAt(item.admission, `${location}.admission`);
+  if (admission !== 'accepted' && admission !== 'pre-pipeline') {
+    invalid(`${location}.admission`, 'expected accepted or pre-pipeline');
+  }
+  const runs = arrayAt(item.runs, `${location}.runs`).map((run, runIndex) =>
+    parseRun(run, `${location}.runs[${runIndex}]`, admission),
+  );
+  const expectedRoles =
+    admission === 'accepted'
+      ? ['maintainer_replay', 'submission']
+      : ['historical_record'];
+  const roles = runs.map((run) => run.role).sort();
+  if (JSON.stringify(roles) !== JSON.stringify(expectedRoles)) {
+    invalid(`${location}.runs`, `expected exactly ${expectedRoles.join(' and ')}`);
+  }
+  if (new Set(runs.map((run) => run.run_id)).size !== runs.length) {
+    invalid(`${location}.runs`, 'run ids must be unique');
+  }
+
+  const common = {
+    id: stringAt(item.id, `${location}.id`),
+    experiment_id: stringAt(item.experiment_id, `${location}.experiment_id`),
+    experiment_version: stringAt(item.experiment_version, `${location}.experiment_version`),
+    evidence_state: stringAt(item.evidence_state, `${location}.evidence_state`),
+    title: stringAt(item.title, `${location}.title`),
+    source_sha: stringAt(item.source_sha, `${location}.source_sha`),
+    runs,
+  };
+  if (!/^[0-9a-f]{40}$/.test(common.source_sha)) {
+    invalid(`${location}.source_sha`, 'expected a full lowercase Git SHA');
+  }
+
+  const paths = objectAt(item.paths, `${location}.paths`);
+  if (admission === 'accepted') {
+    return {
+      ...common,
+      admission,
+      question: stringAt(item.question, `${location}.question`),
+      limitations: stringArrayAt(item.limitations, `${location}.limitations`),
+      contributor: stringAt(item.contributor, `${location}.contributor`),
+      reviewer: stringAt(item.reviewer, `${location}.reviewer`),
+      review_url: httpsUrlAt(item.review_url, `${location}.review_url`),
+      accepted_utc: stringAt(item.accepted_utc, `${location}.accepted_utc`),
+      paths: {
+        contribution: repositoryPathAt(paths.contribution, `${location}.paths.contribution`),
+        experiment: repositoryPathAt(paths.experiment, `${location}.paths.experiment`),
+        comparison: repositoryPathAt(paths.comparison, `${location}.paths.comparison`),
+      },
+    };
+  }
+  return {
+    ...common,
+    admission,
+    note: stringAt(item.note, `${location}.note`),
+    paths: {
+      protocol: repositoryPathAt(paths.protocol, `${location}.paths.protocol`),
+      record: repositoryPathAt(paths.record, `${location}.paths.record`),
+    },
+  };
+};
+
+let parsed: unknown;
+try {
+  parsed = JSON.parse(readFileSync(cataloguePath, 'utf8'));
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  throw new Error(`cannot parse research/catalogue.json: ${message}`);
+}
+
+const root = objectAt(parsed, '$');
+if (root.format !== 'brainlesslab-research-catalogue') {
+  invalid('format', 'expected brainlesslab-research-catalogue');
+}
+if (root.format_version !== 1) invalid('format_version', 'expected 1');
+const contributions = arrayAt(root.contributions, 'contributions').map(parseContribution);
+if (new Set(contributions.map((item) => item.id)).size !== contributions.length) {
+  invalid('contributions', 'contribution ids must be unique');
+}
+
+const repositoryUrl = 'https://github.com/btgaskin/brainless-lab';
+const sourceUrl = (sha: string) => `${repositoryUrl}/commit/${sha}`;
+const pathUrl = (path: string) => `${repositoryUrl}/blob/main/${path}`;
+const directoryUrl = (path: string) => `${repositoryUrl}/tree/main/${path}`;
+const shortSha = (sha: string) => sha.slice(0, 12);
+const formatSettings = (settings: JsonObject) =>
+  Object.keys(settings).join(', ');
+const pathLinks = (paths: OperationPaths) => [
+  ['Record', paths.record, true],
+  ['Request', paths.request, false],
+  ['Resolved', paths.resolved, false],
+  ['Seeds', paths.seeds, false],
+  ['Trials', paths.trials, false],
+  ['Task metrics', paths.task_metrics, false],
+  ['Summary', paths.summary, false],
+  ['Report', paths.report, false],
+] as const;
+---
+
+<div class="accepted-catalogue">
+  {
+    contributions.map((contribution) => (
+      <article class="contribution">
+        <header>
+          <div class="badges">
+            <span class:list={['admission', contribution.admission]}>{contribution.admission}</span>
+            <span>{contribution.evidence_state}</span>
+          </div>
+          <h2>{contribution.title}</h2>
+          <p class="identity">
+            <code>{contribution.experiment_id}</code>, version {contribution.experiment_version}
+          </p>
+        </header>
+
+        {contribution.admission === 'accepted' ? (
+          <>
+            <p>{contribution.question}</p>
+            <dl class="contribution-meta">
+              <div><dt>Contributor</dt><dd>{contribution.contributor}</dd></div>
+              <div><dt>Reviewer</dt><dd>{contribution.reviewer}</dd></div>
+              <div><dt>Accepted</dt><dd>{contribution.accepted_utc}</dd></div>
+              <div>
+                <dt>Source</dt>
+                <dd><a href={sourceUrl(contribution.source_sha)}>{shortSha(contribution.source_sha)}</a></dd>
+              </div>
+            </dl>
+            {contribution.limitations.length > 0 && (
+              <div class="limitations">
+                <h3>Limitations</h3>
+                <ul>{contribution.limitations.map((item) => <li>{item}</li>)}</ul>
+              </div>
+            )}
+            <p class="entry-links">
+              <a href={directoryUrl(contribution.paths.contribution)}>Contribution</a>
+              <a href={directoryUrl(contribution.paths.experiment)}>Protocol</a>
+              <a href={pathUrl(contribution.paths.comparison)}>Role comparison</a>
+              <a href={contribution.review_url}>Review</a>
+            </p>
+          </>
+        ) : (
+          <>
+            <p>{contribution.note}</p>
+            <p class="pre-pipeline-note">
+              This record predates the contribution pipeline. It was not retrospectively accepted.
+            </p>
+            <p class="entry-links">
+              <a href={pathUrl(contribution.paths.protocol)}>Protocol</a>
+              <a href={directoryUrl(contribution.paths.record)}>Record</a>
+              <a href={sourceUrl(contribution.source_sha)}>Source {shortSha(contribution.source_sha)}</a>
+            </p>
+          </>
+        )}
+
+        <div class="runs">
+          {contribution.runs.map((run) => (
+            <section class="run">
+              <div class="run-heading">
+                <h3>{run.role.replaceAll('_', ' ')}</h3>
+                <code>{run.run_id}</code>
+              </div>
+              {!run.independent_evidence && (
+                <p class="not-independent">
+                  {run.role === 'maintainer_replay'
+                    ? 'This replay is linked to the submission. It is not independent evidence and does not add another result.'
+                    : 'This historical record is compatibility material, not an accepted contribution.'}
+                </p>
+              )}
+              {run.operations.map((operation) => (
+                <section class="operation">
+                  <h4>{operation.id} <span>{operation.kind}</span></h4>
+                  <dl>
+                    <div>
+                      <dt>Targets</dt>
+                      <dd>
+                        {operation.targets.map((target) => String(target.id)).join(', ') ||
+                          'None declared'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Settings</dt>
+                      <dd>{formatSettings(operation.settings) || 'None declared'}</dd>
+                    </div>
+                  </dl>
+                  <p class="operation-links">
+                    {pathLinks(operation.paths).map(([label, path, isDirectory]) => (
+                      <a href={isDirectory ? directoryUrl(path) : pathUrl(path)}>{label}</a>
+                    ))}
+                  </p>
+                </section>
+              ))}
+            </section>
+          ))}
+        </div>
+      </article>
+    ))
+  }
+</div>
+
+<style>
+  .accepted-catalogue {
+    display: grid;
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+  }
+
+  .contribution {
+    padding: 1.25rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    background: var(--sl-color-bg-nav);
+  }
+
+  .contribution h2 {
+    margin: 0.65rem 0 0;
+    font-size: var(--sl-text-2xl);
+  }
+
+  .badges,
+  .entry-links,
+  .operation-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.9rem;
+  }
+
+  .badges span {
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-xs);
+    text-transform: uppercase;
+  }
+
+  .badges .admission {
+    padding: 0.1rem 0.45rem;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+  }
+
+  .badges .accepted {
+    color: var(--sl-color-green-high);
+  }
+
+  .identity,
+  .pre-pipeline-note,
+  .not-independent {
+    color: var(--sl-color-gray-2);
+  }
+
+  .contribution-meta,
+  .operation dl {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .contribution-meta div,
+  .operation dl div {
+    display: grid;
+    grid-template-columns: minmax(6rem, 9rem) 1fr;
+    gap: 0.75rem;
+  }
+
+  dt {
+    color: var(--sl-color-gray-2);
+  }
+
+  dd {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .runs {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1.25rem;
+  }
+
+  .run {
+    padding: 1rem;
+    border-left: 3px solid var(--sl-color-gray-5);
+    background: var(--sl-color-bg);
+  }
+
+  .run-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .run-heading h3 {
+    margin: 0;
+    text-transform: capitalize;
+  }
+
+  .operation + .operation {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--sl-color-gray-5);
+  }
+
+  .operation h4 {
+    margin-bottom: 0.5rem;
+  }
+
+  .operation h4 span {
+    margin-left: 0.4rem;
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-sm);
+    font-weight: normal;
+  }
+
+  @media (max-width: 36rem) {
+    .contribution-meta div,
+    .operation dl div {
+      grid-template-columns: 1fr;
+      gap: 0.1rem;
+    }
+  }
+</style>

@@ -29,33 +29,33 @@ end
 function _recorded_draws_from_fixture(data)
     raw = _env_vector(data, "draws")
     count = _env_int_scalar(data, "draw_count")
-    count == 0 && return RecordedDraws(Float64[])
-    return RecordedDraws(raw[1:count])
+    count == 0 && return BrainlessLab.RecordedDraws(Float64[])
+    return BrainlessLab.RecordedDraws(raw[1:count])
 end
 
 function _build_env(name::AbstractString, data)
     draws = _recorded_draws_from_fixture(data)
     if name == "wall"
-        return WallEnv(; rng=draws)
+        return BrainlessLab.WallEnv(; rng=draws)
     elseif name == "tracking"
-        return TrackingEnv(; rng=draws)
+        return BrainlessLab.TrackingEnv(; rng=draws, randomize_start=false)
     elseif name == "pong"
-        return PongEnv(; rng=draws)
+        return BrainlessLab.PongEnv(; rng=draws)
     elseif name == "cartpole"
-        return CartPoleEnv(; rng=draws)
+        return BrainlessLab.CartPoleEnv(; rng=draws)
     end
     error("unknown env $name")
 end
 
-function _state_vector(env::WallEnv)
+function _state_vector(env::BrainlessLab.WallEnv)
     return [env.box.x, env.box.y, env.box.theta, Float64(env.box.collisions)]
 end
 
-function _state_vector(env::TrackingEnv)
+function _state_vector(env::BrainlessLab.TrackingEnv)
     return [env.theta, env.phi, env.direction, Float64(env.tick)]
 end
 
-function _state_vector(env::PongEnv)
+function _state_vector(env::BrainlessLab.PongEnv)
     return [
         env.ball_x,
         env.ball_y,
@@ -65,11 +65,11 @@ function _state_vector(env::PongEnv)
     ]
 end
 
-function _state_vector(env::CartPoleEnv)
+function _state_vector(env::BrainlessLab.CartPoleEnv)
     return copy(env.state)
 end
 
-function _max_abs_dev(a, b)
+function _env_max_abs_dev(a, b)
     av = Float64.(vec(a))
     bv = Float64.(vec(b))
     length(av) == length(bv) ||
@@ -111,12 +111,12 @@ function _assert_env_replay(name)
 
     for t in axes(effs, 1)
         sensors = sense(env)
-        sensor_dev = _max_abs_dev(sensors, sensors_T[t, :])
+        sensor_dev = _env_max_abs_dev(sensors, sensors_T[t, :])
         max_sensor = max(max_sensor, sensor_dev)
         @test sensor_dev <= ENV_ATOL
 
         step!(env, vec(effs[t, :]))
-        state_dev = _max_abs_dev(_state_vector(env), state_T[t, :])
+        state_dev = _env_max_abs_dev(_state_vector(env), state_T[t, :])
         max_state = max(max_state, state_dev)
         @test state_dev <= ENV_ATOL
     end
@@ -144,7 +144,7 @@ end
     end
 end
 
-function _expected_sensor_value(box::WallBox, angle::Real)
+function _expected_sensor_value(box::BrainlessLab.WallBox, angle::Real)
     dx = cos(Float64(angle))
     dy = sin(Float64(angle))
     origin_x = box.x + box.r * dx
@@ -173,18 +173,18 @@ end
 
 @testset "Authors-faithful wall/tracking/pong defaults" begin
     @testset "wall motor, collision, sensors, start" begin
-        wall = WallEnv(; rng=RecordedDraws(Float64[]))
+        wall = BrainlessLab.WallEnv(; rng=BrainlessLab.RecordedDraws(Float64[]))
         @test wall.box.x == 7.5
         @test wall.box.y == 7.5
         @test wall.box.theta == pi / 2.0
 
-        moved = WallBox(; rng=RecordedDraws(Float64[]), x=7.5, y=7.5, theta=0.0)
+        moved = BrainlessLab.WallBox(; rng=BrainlessLab.RecordedDraws(Float64[]), x=7.5, y=7.5, theta=0.0)
         step!(moved, 0.0, 1.0)
         @test moved.x ≈ 8.0 atol=ENV_ATOL
         @test moved.y ≈ 7.5 atol=ENV_ATOL
         @test moved.theta ≈ 1.0 atol=ENV_ATOL
 
-        collided = WallBox(; rng=RecordedDraws([1.0]), x=14.4, y=7.5, theta=0.0)
+        collided = BrainlessLab.WallBox(; rng=BrainlessLab.RecordedDraws([1.0]), x=14.4, y=7.5, theta=0.0)
         step!(collided, 1.0, 1.0)
         @test collided.x ≈ 14.5 atol=ENV_ATOL
         @test collided.y ≈ 7.5 atol=ENV_ATOL
@@ -192,21 +192,23 @@ end
         @test collided.collisions == 1
         @test only(collided.translations) ≈ 0.1 atol=ENV_ATOL
 
-        sensed = WallBox(; rng=RecordedDraws(Float64[]), x=7.5, y=7.5, theta=0.0)
+        sensed = BrainlessLab.WallBox(; rng=BrainlessLab.RecordedDraws(Float64[]), x=7.5, y=7.5, theta=0.0)
         sensors = sense(sensed; clip=false)
         @test sensors[1] ≈ _expected_sensor_value(sensed, pi / 4.0) atol=ENV_ATOL
         @test sensors[1] > 1.0 - (15.0 / sqrt(2.0)) / sensed.dist_max
     end
 
     @testset "tracking sensor flat top" begin
-        tracking = TrackingEnv(; rng=RecordedDraws(Float64[]))
+        tracking = BrainlessLab.TrackingEnv(; rng=BrainlessLab.RecordedDraws(Float64[]), randomize_start=false)
         sensors = sense(tracking)
         @test sensors[33] == 1.0
         @test exp(-(4.0^2) / 10.0) < 0.21
     end
 
     @testset "pong catch zone and hit-rate score" begin
-        pong = PongEnv(; rng=RecordedDraws([250.0, 1.0]))
+        @test default_ticks(BrainlessLab.PongEnv) == 7_200
+        @test default_window(BrainlessLab.PongEnv) == 6_000
+        pong = BrainlessLab.PongEnv(; rng=BrainlessLab.RecordedDraws([250.0, 1.0]))
         pong.ball_x = pong.paddle_x + pong.ball_r + pong.ball_speed
         pong.ball_y = pong.paddle_y + pong.paddle_h / 2.0 + pong.ball_r
         pong.vx = -pong.ball_speed
@@ -218,22 +220,28 @@ end
         pong.hit_flags = [1, 0, 0]
         pong.miss_flags = [0, 1, 1]
         pong.align_flags = [0.1, 0.2, 1.0]
-        m = metrics(pong, 1)
-        @test m.hit_rate ≈ 1 / 3 atol=ENV_ATOL
-        @test m.score === m.hit_rate
-        @test PONG_TASK.score_key === :hit_rate
+        final_tick = metrics(pong, 1)
+        full_run = metrics(pong, 3)
+        @test final_tick.hit_rate == 0.0
+        @test final_tick.mean_align == 1.0
+        @test full_run.hit_rate ≈ 1 / 3 atol=ENV_ATOL
+        @test full_run.mean_align ≈ (0.1 + 0.2 + 1.0) / 3 atol=ENV_ATOL
+        @test final_tick.hit_rate != full_run.hit_rate
+        @test final_tick.mean_align != full_run.mean_align
+        @test final_tick.score === final_tick.hit_rate
+        @test BrainlessLab.PONG_TASK.score_key === :hit_rate
     end
 end
 
 @testset "TaskWorld RNG fields are concrete" begin
-    wall = WallEnv(; rng=RecordedDraws([1.0, 1.0, 0.0]))
-    tracking = TrackingEnv(; rng=RecordedDraws(Float64[]))
-    pong = PongEnv(; rng=RecordedDraws([250.0, 1.0]))
-    cartpole = CartPoleEnv(; rng=RecordedDraws([0.0, 0.0, 0.0, 0.0]))
-    variant = CartPoleVariantEnv(; rng=RecordedDraws([0.0, 0.0, 0.0, 0.0]))
+    wall = BrainlessLab.WallEnv(; rng=BrainlessLab.RecordedDraws([1.0, 1.0, 0.0]))
+    tracking = BrainlessLab.TrackingEnv(; rng=BrainlessLab.RecordedDraws(Float64[]), randomize_start=false)
+    pong = BrainlessLab.PongEnv(; rng=BrainlessLab.RecordedDraws([250.0, 1.0]))
+    cartpole = BrainlessLab.CartPoleEnv(; rng=BrainlessLab.RecordedDraws([0.0, 0.0, 0.0, 0.0]))
+    variant = BrainlessLab.CartPoleVariantEnv(; rng=BrainlessLab.RecordedDraws([0.0, 0.0, 0.0, 0.0]))
 
     for env in (wall, tracking, pong, cartpole, variant)
-        @test fieldtype(typeof(env), :rng) === RecordedDraws
+        @test fieldtype(typeof(env), :rng) === BrainlessLab.RecordedDraws
     end
-    @test fieldtype(typeof(wall.box), :rng) === RecordedDraws
+    @test fieldtype(typeof(wall.box), :rng) === BrainlessLab.RecordedDraws
 end

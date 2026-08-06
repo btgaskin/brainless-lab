@@ -1,0 +1,50 @@
+format = "brainlesslab-resolution"
+format_version = 1
+id = "documentation_example"
+operation = "profile"
+result_type = "ProfileResult"
+
+[operation_settings]
+analyses = []
+record_channels = []
+record_every = 1
+
+[[targets]]
+composition_id = "example_wall"
+effective_window = 200
+id = "example_wall"
+n_nodes = 24
+node = "null_random"
+task = "wall"
+
+    [targets.body_options]
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 2
+    construction_scope = "trial"
+    horizon = 220
+    reset = "full"
+    root_seed = 0x07
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 20
+
+    [targets.interaction_cycle]
+    kind = "reservoir_default"
+
+    [targets.parameters]
+
+    [targets.task_options]
+    clip_sensory_noise = true
+    lam = 1.0
+    sensory_noise = 0.0
+
+        [targets.task_options.theta]
+        __brainlesslab_nothing__ = true
+
+        [targets.task_options.x]
+        __brainlesslab_nothing__ = true
+
+        [targets.task_options.y]
+        __brainlesslab_nothing__ = true

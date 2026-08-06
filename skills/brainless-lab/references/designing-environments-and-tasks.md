@@ -5,16 +5,16 @@
 `step!(ensemble)` runs one synchronous lifecycle for one agent or a mixed population:
 
 ```julia
-prepare_step!(environment, bodies)
-percepts = sample!(environment, bodies)          # same pre-action world
+BrainlessLab.prepare_step!(environment, bodies)
+percepts = BrainlessLab.sample!(environment, bodies)  # same pre-action world
 
-R = sense!(body, percept)                        # sensors/encoders + physiology
+R = BrainlessLab.sense!(body, percept)           # sensors/encoders + physiology
 spikes = step!(reservoir, R)
-E = readout(readout_policy(body), reservoir, spikes)
-command = decode!(body, E)                       # reusable typed command
+E = BrainlessLab.readout(BrainlessLab.readout_policy(body), reservoir, spikes)
+command = BrainlessLab.decode!(body, E)          # reusable typed command
 
-effects = apply_commands!(environment, bodies, commands)
-update!(body, effects_for_body)                  # physiology / viability
+effects = BrainlessLab.apply_commands!(environment, bodies, commands)
+BrainlessLab.update!(body, effects_for_body)     # physiology / viability
 ```
 
 The reservoir remains task-agnostic. It is constructed from `portspec(body)`, which fixes
@@ -60,9 +60,9 @@ in `decode!`; dynamics integrate only compatible command types.
 Strict TOML is the reusable body configuration:
 
 ```julia
-config = read_embodiment_config("examples/embodiments/bilateral_insect.toml")
-blueprint = materialize_blueprint(config)
-body = materialize_embodiment(config)
+config = BrainlessLab.read_embodiment_config("examples/embodiments/bilateral_insect.toml")
+blueprint = BrainlessLab.materialize_blueprint(config)
+body = BrainlessLab.materialize_embodiment(config)
 ```
 
 Each `[[components]]` entry has `id`, generic `family`, registered `kind`, and validated
@@ -169,6 +169,7 @@ A task setup callable returns `TaskSetup(environment, bodies)`. Declare it in a 
 const MY_TASK = TaskSpec(
     :my_task,
     my_setup;
+    options=(arena_size=10.0,),
     score_key=:score,
     floor=analytic(0.0; note="chance"),
     ceiling=analytic(1.0; note="optimal"),
@@ -179,6 +180,8 @@ register!(DEFAULT_REGISTRY, MY_TASK)
 
 Import `register!` and `DEFAULT_REGISTRY` from BrainlessLab. Typed registration rejects a
 duplicate task name rather than silently changing the active registry.
+Declare every configurable setup keyword and its default in `options`. Composition
+resolution records the complete option set and rejects unknown keys before a run starts.
 
 For a generic setup callable, accept `seed`, `rng`, `body`, `n_nodes`, and `kwargs...` so
 the high-level runner can supply deterministic construction context without task-specific
@@ -190,19 +193,20 @@ standardised `SimResult`, rollout defaults, and optional scoring.
 are runtime truth. Use `score_key=nothing` when the task is characterised by multiple
 collective/ecological measures rather than one objective.
 
-`task_outcome(sim)` returns `(key, raw, normalized)` from the
-task contract recorded in the result, and returns `nothing` when `score_key=nothing`.
-Legacy metric fields remain diagnostics. The `normalized` value maps the task's raw outcome
-between its own floor and ceiling, clamped to `[0,1]`. Prefer measured null anchors with
-provenance over guessed zero floors. A saturated value is outside the anchors, not
-physically equal to another task's result.
+`task_outcome(sim)` returns the key, raw outcome, normalised value and normalisation
+status from the task contract recorded in the result. It returns `nothing` when
+`score_key=nothing`. Legacy metric fields remain diagnostics. A measured anchor declares
+the `scored_ticks` interval where it applies. If the result uses a different window, the
+normalised value is `missing` and the raw outcome remains available. Analytic anchors are
+window-invariant. Prefer measured null anchors with provenance over guessed zero floors. A
+saturated value is outside the anchors, not physically equal to another task's result.
 
 Put a registered task, node, body, and interaction cycle into `CompositionSpec`. Put
 blocks, trials, horizon, warm-up, reset, construction scope, and root seed into
 `EvaluationSpec`. Do not add trial replication to `TaskSpec` or task timing to
 `EvaluationSpec`.
 
-Use a `ProfilePlan` for descriptive task analysis and a `BenchmarkPlan` for paired
+Use a `ProfilePlan` for descriptive task analysis and a `BenchmarkPlan` for task-specific
 condition comparisons. Use `ExperimentSpec` when the task forms part of a versioned
 scientific protocol. The task implementation must remain the same across these operations.
 
@@ -270,7 +274,7 @@ See also `designing-nodes.md`, `designing-analyses.md`, `usage-and-workflows.md`
 `cli-tools.md`.
 
 The canonical public contracts are in
-[Core: worlds, tasks, and populations](https://brainless-lab.pages.dev/core/worlds-tasks-populations/)
-and [Core: embodiment](https://brainless-lab.pages.dev/core/embodiment/). List non-core
+[Worlds, tasks, and populations](https://brainless-lab.pages.dev/handbook/worlds-tasks-populations/)
+and [Bodies and interaction](https://brainless-lab.pages.dev/handbook/bodies-interaction/). List non-core
 capabilities in [Experimental capabilities](https://brainless-lab.pages.dev/experimental/);
 software readiness there does not promote a study or validate a biological interpretation.

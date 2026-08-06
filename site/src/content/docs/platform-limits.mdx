@@ -4,7 +4,7 @@ description: What BrainlessLab can test, what remains simplified, and where its 
 ---
 
 BrainlessLab tests neural substrates inside declared bodies, tasks, and worlds. The current
-core starts with Falandays nodes in Tracking and Pong. The platform also includes
+core starts with Falandays nodes in Tracking, Pong, and Wall. The platform also includes
 experimental nodes, physical components, collective worlds, analyses, and challenge tasks.
 
 It is not a general robotics simulator, a complete neuroscience model, or an authority that
@@ -47,8 +47,8 @@ Therefore, statements about online self-organisation apply to the relevant node,
 every composition that BrainlessLab can run.
 
 Current node models omit most cellular biology. See
-[Node mechanisms and biological scope](/node-mechanisms/) for the implemented mechanisms
-and omissions.
+[Nodes and reservoirs](/handbook/nodes-reservoirs/) for the implemented mechanisms and
+omissions.
 
 ## Physical and ecological limits
 
@@ -88,9 +88,9 @@ body-body collision response, and species-specific vision.
 
 ## Evolution limits
 
-`EvolutionPlan` searches one registered node parameter set while node count and composition
-structure remain fixed. The included optimiser is experimental infrastructure. One run
-does not measure search variance.
+`EvolutionPlan` searches one registered node whose `NodeSpec` declares a reviewed
+`Evolution.NodeDesignSpec`. Node count and composition structure remain fixed. The included
+optimiser is experimental infrastructure. One run does not measure search variance.
 
 `DevelopmentSpec` varies bounded scalar paths on a fixed embodiment graph. It does not add
 or remove components, vary port count, encode runtime state, or schedule developmental
@@ -111,7 +111,7 @@ Finite runs and populations constrain every estimator:
 - shared input can imitate collective coupling;
 - failed, dead, missing, and saturated runs need declared handling.
 
-The [Analysis](/analysis/) guide gives method-specific checks. Every new task and sampling
+The [Analysis reference](/reference/analysis/) gives method-specific checks. Every new task and sampling
 regime still needs validation.
 
 ## Workflow limits
@@ -123,9 +123,13 @@ The platform does not yet provide a graphical study builder, automatic preregist
 sealed-data service, permissions sandbox, or automatic evidence promotion. Bit-for-bit
 claims apply only where explicit fixture tests establish them.
 
+The public run-contribution pipeline accepts public records only. Aim for at most 1 MiB of
+text-only files in the complete contribution. The hard limit is 5 MiB. Files above this limit
+and large datasets remain out of scope for this Git-native path.
+
 Direct `Ensemble` simulation supports heterogeneous bodies and reservoirs. Some
 configuration and optimisation paths still require a fixed receptor and effector layout
 for the population they construct.
 
-Use [Design a study](/core/design-study/) for the evidence ladder and
-[Agent-assisted workflow](/agentic-workflow/) for the automation boundary.
+Use [Experiments and evidence](/handbook/experiments-evidence/) for the evidence ladder and
+[Extend from another project](/tutorials/extend-project/) for the supported extension path.

@@ -170,7 +170,8 @@ end
 """
     branching_ratio(sim; level=:pooled, turn_threshold=DEFAULT_TURN_THRESHOLD)
 
-Compute branching-ratio summaries from a recorded rollout's `:rate` channel.
+Compute EXPERIMENTAL branching-ratio summaries from a recorded rollout's
+`:rate` channel.
 
 `level=:pooled` preserves the legacy population series. `level=:node` computes
 the estimator inside each agent's node population and returns per-agent
@@ -228,13 +229,19 @@ end
     branching_ratio_mr(sim; kmax=20, transient=0, level=:pooled, turn_threshold=DEFAULT_TURN_THRESHOLD)
 
 Estimate the branching ratio m with the Wilting-Priesemann multistep-regression
-(MR) estimator. After optionally dropping `transient` initial ticks, it computes
-the intercept-corrected lag slopes `r_k` for `k = 1:kmax` and fits
+(MR) estimator. This estimator is EXPERIMENTAL in BrainlessLab. After optionally
+dropping `transient` initial ticks, it computes the intercept-corrected lag
+slopes `r_k` for `k = 1:kmax` and fits
 `r_k = b * m^k` over positive finite `r_k`.
 
 `level=:pooled` preserves the legacy population series. `level=:node` returns
 per-agent MR estimates across reservoirs. `level=:agent` uses the same
 turn-event count as `branching_ratio`.
+
+The current synthetic check reads a true `m=0.50` process as `0.816`. The only
+ground-truth regression test uses `m=0.90`, where this bias is not visible.
+Report the fitted lags and fit quality, and do not interpret the estimate as an
+unbiased criticality coordinate.
 """
 function branching_ratio_mr(sim::SimResult; kmax::Integer=20, transient::Integer=0, level::Symbol=:pooled, turn_threshold=DEFAULT_TURN_THRESHOLD, observable=nothing, event_kind::Symbol=:turn, threshold=nothing, neighbor_radius=nothing)
     kmax = Int(kmax)
@@ -391,8 +398,10 @@ end
     branching_ratio_mr_windowed(sim; level=:pooled, window, stride=window, kmax=20,
         observable=nothing, drive=nothing, min_r2=0.0)
 
-Compute sliding-window Wilting-Priesemann MR branching estimates. Returns
-`(t_centers, m_series, r2_series, n_used_series)`. At `level=:agent`,
+Compute EXPERIMENTAL sliding-window Wilting-Priesemann MR branching estimates.
+The current synthetic check reads true `m=0.50` as `0.816`; windowing does not
+remove that estimator bias. Returns `(t_centers, m_series, r2_series,
+n_used_series)`. At `level=:agent`,
 `observable` may specify `kind=:turn|:speed|:align|:graded`, `threshold`, and
 `neighbor_radius`; the threshold is resolved once over the full run and reused
 inside every window.
@@ -452,7 +461,8 @@ end
     branching_ratio_mr_conditioned(sim; condition=:object_in_view, window=200, stride=window,
         kmax=20, in_view_frac=0.5, min_r2=0.0)
 
-Split the windowed pooled MR branching estimate by a per-tick `condition` series
+Split the EXPERIMENTAL windowed pooled MR branching estimate by a per-tick
+`condition` series
 (a symbol resolved via the drive machinery — `:object_in_view` / `:heading_error`
 / `:distance_to_source` — or a numeric vector) and contrast the two regimes. A
 window counts as "in condition" when the mean of `condition` over its ticks is at
@@ -465,6 +475,9 @@ is never corrupted by concatenating non-adjacent in-view samples. Read `m_diff`
 beside `spectral_radius(sim)` — the Falandays homeostat pins the rate, so a
 near-1 `m` may be rate-pinned rather than emergent, and the difference should be
 checked against a phase-aware null (see `temporal_null`).
+
+The underlying estimator reads true `m=0.50` as `0.816` in the current
+synthetic check. A conditioned contrast does not make either level unbiased.
 """
 function branching_ratio_mr_conditioned(
     sim::SimResult;

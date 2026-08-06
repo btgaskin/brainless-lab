@@ -2,6 +2,7 @@ import JLD2
 import TOML
 
 const _RECORDER_REPLAY_FILE = "recorder.jld2"
+const _LEGACY_RESOLVED_CONFIG_FILE = "config.resolved.toml"
 
 function _replay_file(dir::AbstractString)
     path = String(dir)
@@ -14,17 +15,18 @@ function _replay_dir(path::AbstractString)
 end
 
 function _recorder_channels_for_save(rec::Recorder)
-    channels = Dict{Symbol,Vector{Any}}()
+    channels = Dict{Symbol,Vector}()
     for (channel, samples) in rec.channels
-        channels[Symbol(channel)] = Any[sample for sample in samples]
+        channels[Symbol(channel)] = copy(samples)
     end
     return channels
 end
 
 function _restore_channel_dict(channels)
-    restored = Dict{Symbol,Vector{Any}}()
+    restored = Dict{Symbol,Vector}()
     for (channel, samples) in channels
-        restored[Symbol(channel)] = Any[sample for sample in samples]
+        restored[Symbol(channel)] =
+            samples isa Vector ? copy(samples) : collect(samples)
     end
     return restored
 end
@@ -67,7 +69,7 @@ end
 
 function _run_provenance(dir::AbstractString)
     return (
-        config=_maybe_parse_toml(joinpath(dir, resolved_config_filename())),
+        config=_maybe_parse_toml(joinpath(dir, _LEGACY_RESOLVED_CONFIG_FILE)),
         manifest=_maybe_parse_toml(joinpath(dir, "manifest.toml")),
     )
 end
@@ -156,7 +158,7 @@ function replay(rundir::AbstractString)::SimResult
     dir = _replay_dir(rundir)
     provenance = _run_provenance(dir)
 
-    channels = _jld_has(data, "channels") ? _jld_get(data, "channels") : Dict{Symbol,Vector{Any}}()
+    channels = _jld_has(data, "channels") ? _jld_get(data, "channels") : Dict{Symbol,Vector}()
     enabled = _jld_has(data, "enabled") ? _jld_get(data, "enabled") : collect(keys(channels))
     every = _jld_has(data, "every") ? _jld_get(data, "every") : 1
     tick = _jld_has(data, "tick") ? _jld_get(data, "tick") : 0

@@ -122,6 +122,11 @@ function reset!(box::WallBox; x=nothing, y=nothing, theta=nothing)
     return box
 end
 
+# Authors-faithful convention (see commit 6552af5): the ray is cast from the
+# sensor's point on the agent's circle, not from the agent's centre. This makes
+# every measured distance shorter by `r` than a centre-cast ray would give, and
+# is one of four places this world deliberately diverges from the earlier v0.2
+# Python implementation. See test/FIXTURES.md.
 function _ray_distance(box::WallBox, angle::Real)
     angle_f = Float64(angle)
     dx = cos(angle_f)
@@ -179,6 +184,13 @@ function sense(box::WallBox; sensory_noise::Real=0.0, clip::Bool=true, rng=nothi
     return [c_left, c_right]
 end
 
+# Authors-faithful conventions (see commit 6552af5), all deliberate divergences
+# from the earlier v0.2 Python implementation:
+#   - translate along the OLD heading, then rotate
+#   - collision clamps and slides, crediting the partial translation, rather
+#     than freezing the pose and crediting nothing
+#   - a post-collision turn of +/-45 degrees is taken from the NEW heading
+# test/FIXTURES.md records why the wall fixture's trajectory keys are legacy.
 function step!(box::WallBox, e_L::Real, e_R::Real)
     eL = clamp(Float64(e_L), 0.0, 1.0)
     eR = clamp(Float64(e_R), 0.0, 1.0)

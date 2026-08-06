@@ -18,7 +18,11 @@ end
 """
     task_outcome(sim::SimResult)
 
-Return the outcome declared by the task as `(key, raw, normalized)`. Return
+Return the outcome declared by the task as
+`(key, raw, normalized, normalized_bound, normalization_status,
+anchor_scored_ticks, window)`. A measured anchor only produces a normalised
+value when `window` matches its declared `anchor_scored_ticks`; otherwise the
+normalised fields are `missing` and `normalization_status` explains why. Return
 `nothing` when the task has no scalar objective. Legacy metric fields remain
 available as diagnostics but do not define the task outcome.
 """
@@ -41,6 +45,7 @@ function task_outcome(sim::SimResult)
             key=task.score_key,
             floor=score_floor(task),
             ceiling=score_ceiling(task),
+            anchor_scored_ticks=_anchor_scored_ticks(task.floor, task.ceiling),
         )
     end
     contract === nothing && return nothing
@@ -52,11 +57,36 @@ function task_outcome(sim::SimResult)
     raw = Float64(getproperty(sim.metrics, key))
     floor = Float64(contract.floor)
     ceiling = Float64(contract.ceiling)
-    ceiling > floor || throw(ArgumentError(
-        "task :$(sim.task) outcome ceiling must be greater than its floor",
+    hasproperty(sim.config, :window) || throw(ArgumentError(
+        "task :$(sim.task) outcome has no recorded scoring window",
     ))
-    normalized = clamp((raw - floor) / (ceiling - floor), 0.0, 1.0)
-    return (key=key, raw=raw, normalized=normalized)
+    window = Int(sim.config.window)
+    anchor_scored_ticks = hasproperty(contract, :anchor_scored_ticks) ?
+        contract.anchor_scored_ticks : nothing
+    normalization_status =
+        anchor_scored_ticks === nothing || window == anchor_scored_ticks ?
+        :available : :anchor_window_mismatch
+    normalized = if normalization_status === :available
+        try
+            _normalized_anchor_result(raw, floor, ceiling, "task :$(sim.task)")
+        catch error
+            error isa ArgumentError || rethrow()
+            throw(ArgumentError(
+                "task :$(sim.task) outcome ceiling must be greater than its floor",
+            ))
+        end
+    else
+        nothing
+    end
+    return (
+        key=key,
+        raw=raw,
+        normalized=normalized === nothing ? missing : normalized.value,
+        normalized_bound=normalized === nothing ? missing : normalized.bound,
+        normalization_status,
+        anchor_scored_ticks,
+        window,
+    )
 end
 
 function view(sim::SimResult, sym::Union{Symbol,AbstractString}; kwargs...)
@@ -71,10 +101,6 @@ const _DEFAULT_RECORD_CHANNELS = (:spikes, :rate, :poses, :polarization, :millin
 
 const _NODE_DEFAULT_N = Dict{Symbol,Int}(
     :falandays => 100,
-    :falandays_oosawa => 100,
-    :falandays_dendritic => 100,
-    :falandays_spatial => 100,
-    :falandays_delayed => 100,
     :compartmental_dense => 60,
     :compartmental_structured => 60,
 )
@@ -157,21 +183,11 @@ _sim_rng(seed) = seed === nothing ? MersenneTwister() : MersenneTwister(Int(seed
 
 _default_node_count(node::Symbol) = get(_NODE_DEFAULT_N, node, 100)
 
-const _FALANDAYS_ALIASES = Set{Symbol}((:falandays, :falandays_base))
-const _FALANDAYS_NATIVE_COMPAT_NODES = Set{Symbol}((
-    :falandays,
-    :falandays_base,
-    :falandays_noisy,
-    :falandays_extended,
-    :falandays_ablated,
-    :falandays_oosawa,
-))
-
 _falandays_config_key(task::Symbol) = task === :pong_hitrate ? :pong : task
 _has_falandays_paper_config(task::Symbol) = haskey(FALANDAYS_PAPER_CONFIG, _falandays_config_key(task))
 
 function _default_node_count(node::Symbol, task::Symbol, is_swarm::Bool)
-    if !is_swarm && node in _FALANDAYS_ALIASES && _has_falandays_paper_config(task)
+    if !is_swarm && node === :falandays && _has_falandays_paper_config(task)
         return falandays_paper_config(_falandays_config_key(task)).nnodes
     end
     return _default_node_count(node)
@@ -229,6 +245,11 @@ end
 
 function _normalize_node_options!(node::Symbol, options::Dict{Symbol,Any})
     if _is_falandays_node(node)
+        if haskey(options, :input_amp)
+            # Preserve the legacy alias's precedence while recording the value
+            # that the constructor will use in FalandaysParams.
+            options[:input_weight] = pop!(options, :input_amp)
+        end
         options[:params] = _take_falandays_params!(options)
         _normalize_drive_options!(options)
     elseif node == :sorn
@@ -248,7 +269,7 @@ function _ablation_notes(sym::Symbol, node::Symbol, task::Symbol, is_swarm::Bool
     sym === :none && return String[]
     notes = String[]
     if sym === :freeze_plasticity
-        if _is_falandays_node(node) || node === :sorn
+        if _is_falandays_node(node) || node in (:sorn, :homeostatic_flow_v2)
             push!(notes, "freeze_plasticity applied: learn_on=false")
         elseif _is_compartmental_node(node)
             push!(notes, "freeze_plasticity no-op: compartmental nodes have no online plasticity")
@@ -280,20 +301,37 @@ function _ablation_notes(sym::Symbol, node::Symbol, task::Symbol, is_swarm::Bool
             push!(notes, "$(sym) no-op: compartmental-specific ablation")
         end
     else
-        push!(notes, "ablation :$(sym) passed through registered intervention hooks")
+        throw(ArgumentError(
+            "registered ablation :$(sym) has no high-level simulate handler; " *
+            "use an AblationSpec with AblationPlan or add an explicit execution handler",
+        ))
     end
     return notes
 end
+
+const _HIGHLEVEL_ABLATIONS = (
+    :freeze_plasticity,
+    :clamp_target,
+    :disable_vision,
+    :zero_recurrent,
+    :reset_dendrites,
+    :no_soma_back,
+    :no_hillock_back,
+)
 
 function _prepare_ablation_options!(node::Symbol, task::Symbol, is_swarm::Bool, node_options::Dict{Symbol,Any}, swarm_options::Dict{Symbol,Any}, ablation)
     sym = _ablation_symbol(ablation)
     sym === :none && return sym
     resolve_ablation(sym)
+    sym in _HIGHLEVEL_ABLATIONS || throw(ArgumentError(
+        "registered ablation :$(sym) has no high-level simulate handler; " *
+        "use an AblationSpec with AblationPlan or add an explicit execution handler",
+    ))
 
     if sym === :freeze_plasticity
         if _is_falandays_node(node)
             node_options[:learn_on] = false
-        elseif node === :sorn
+        elseif node in (:sorn, :homeostatic_flow_v2)
             node_options[:learn_on] = false
         end
     elseif sym === :clamp_target
@@ -311,6 +349,9 @@ end
 
 function _apply_postbuild_ablation!(reservoir::Reservoir, sym::Symbol)
     sym === :none && return reservoir
+    sym in _HIGHLEVEL_ABLATIONS || throw(ArgumentError(
+        "registered ablation :$(sym) has no high-level simulate handler",
+    ))
     intervention =
         sym === :zero_recurrent ? ZeroRecurrent() :
         sym === :freeze_plasticity ? FreezePlasticity() :
@@ -376,13 +417,13 @@ function _apply_falandays_task_defaults!(
     node_kwargs::Dict{Symbol,Any},
     env_kwargs::Dict{Symbol,Any},
 )
-    (!is_swarm && node in _FALANDAYS_ALIASES && _has_falandays_paper_config(task)) || return nothing
+    (!is_swarm && node === :falandays && _has_falandays_paper_config(task)) || return nothing
 
     cfg = falandays_paper_config(_falandays_config_key(task))
     if !haskey(node_kwargs, :params)
         _setdefault!(node_kwargs, :lrate_wmat, cfg.lrate_wmat)
         _setdefault!(node_kwargs, :lrate_targ, cfg.lrate_targ)
-        _setdefault!(node_kwargs, :input_amp, cfg.input_amp)
+        _setdefault!(node_kwargs, :input_weight, cfg.input_amp)
     end
     _setdefault!(node_kwargs, :weight_init_mode, cfg.weight_init_mode)
     _setdefault!(node_kwargs, :rectify, false)
@@ -402,18 +443,6 @@ function _apply_falandays_task_defaults!(
     return nothing
 end
 
-function _preserve_swarm_falandays_defaults!(
-    node::Symbol,
-    is_swarm::Bool,
-    node_kwargs::Dict{Symbol,Any},
-)
-    (is_swarm && node in _FALANDAYS_NATIVE_COMPAT_NODES) || return nothing
-    _setdefault!(node_kwargs, :weight_init_mode, :legacy_normal)
-    _setdefault!(node_kwargs, :repair_masks, true)
-    _setdefault!(node_kwargs, :rectify, true)
-    return nothing
-end
-
 function _falandays_native(n_nodes::Integer, n_receptors_::Integer, n_effectors_::Integer; seed=nothing, kwargs...)
     return FalandaysReservoir(Int(n_nodes), Int(n_receptors_), Int(n_effectors_); seed=seed, kwargs...)
 end
@@ -429,193 +458,6 @@ function _sorn_native(n_nodes::Integer, n_receptors_::Integer, n_effectors_::Int
     return SORNReservoir(Int(n_nodes), Int(n_receptors_), Int(n_effectors_); seed=seed, _kwargs_tuple(options)...)
 end
 
-function _falandays_oosawa_native(
-    n_nodes::Integer,
-    n_receptors_::Integer,
-    n_effectors_::Integer;
-    seed=nothing,
-    membrane_noise::Real=0.0,
-    noise_gain::Real=0.8,
-    kwargs...,
-)
-    options = _kwdict(kwargs)
-    drive = pop!(
-        options,
-        :drive,
-        :oosawa,
-    )
-    drive = _resolve_drive_instance(
-        drive;
-        membrane_noise=Float64(membrane_noise),
-        noise_gain=Float64(noise_gain),
-    )
-    return FalandaysReservoir(
-        Int(n_nodes),
-        Int(n_receptors_),
-        Int(n_effectors_);
-        seed=seed,
-        drive=drive,
-        _kwargs_tuple(options)...,
-    )
-end
-
-# `:falandays_dendritic` — the homeostatic Falandays neuron with per-dendrite
-# eligibility-tag plasticity and a logistic endogenous drive (port of v0.2's
-# `DendriticReservoir`). Distinct from the biophysical `compartmental_*` nodes.
-# `dend_drive` defaults active so dendritic spikes occur and widen the plastic
-# gate; `eligibility_only=true` keeps the soma behaving like the base node.
-function _falandays_dendritic_native(
-    n_nodes::Integer,
-    n_receptors_::Integer,
-    n_effectors_::Integer;
-    seed=nothing,
-    n_dendrites::Integer=4,
-    soma_drive::Real=0.0,
-    dend_drive::Real=0.6,
-    drive_floor::Real=0.0,
-    drive_d0::Real=1.0,
-    drive_w::Real=0.4,
-    dend_threshold::Real=1.0,
-    eligibility_only::Bool=true,
-    kwargs...,
-)
-    options = _kwdict(kwargs)
-    return DendriticReservoir(
-        Int(n_nodes),
-        Int(n_receptors_),
-        Int(n_effectors_);
-        seed=seed,
-        n_dendrites=Int(n_dendrites),
-        soma_drive=Float64(soma_drive),
-        dend_drive=Float64(dend_drive),
-        drive_floor=Float64(drive_floor),
-        drive_d0=Float64(drive_d0),
-        drive_w=Float64(drive_w),
-        dend_threshold=Float64(dend_threshold),
-        eligibility_only=Bool(eligibility_only),
-        _kwargs_tuple(options)...,
-    )
-end
-
-# `:falandays_noisy` — the base reservoir wrapped with sensory input noise
-# (Uniform(±sensory_noise), clip >= 0). Distinct from `:falandays_oosawa`, which
-# is membrane noise. `sensory_noise` defaults to the v0.2 body value of 0.1.
-function _falandays_noisy_native(
-    n_nodes::Integer,
-    n_receptors_::Integer,
-    n_effectors_::Integer;
-    seed=nothing,
-    sensory_noise::Real=0.1,
-    kwargs...,
-)
-    inner = _falandays_native(n_nodes, n_receptors_, n_effectors_; seed=seed, kwargs...)
-    return NoisyInput(inner; sensory_noise=Float64(sensory_noise), seed=(seed === nothing ? 0 : Int(seed)))
-end
-
-# `:falandays_extended` — the paper's extended model: the base homeostatic reservoir
-# with sensory input noise, Watts–Strogatz small-world recurrent wiring, and Dale's
-# law (excitatory/inhibitory sign). Same neuron update as base; a richer substrate.
-function _falandays_extended_native(
-    n_nodes::Integer,
-    n_receptors_::Integer,
-    n_effectors_::Integer;
-    seed=nothing,
-    sensory_noise::Real=0.1,
-    topology=:watts_strogatz,
-    sign=:dale,
-    kwargs...,
-)
-    inner = _falandays_native(n_nodes, n_receptors_, n_effectors_;
-                              seed=seed, topology=topology, sign=sign, kwargs...)
-    return NoisyInput(inner; sensory_noise=Float64(sensory_noise), seed=(seed === nothing ? 0 : Int(seed)))
-end
-
-function _falandays_hemispheric_native(
-    n_nodes::Integer,
-    n_receptors_::Integer,
-    n_effectors_::Integer;
-    seed=nothing,
-    callosum_density::Real=0.0,
-    contralateral=true,
-    kernel::Union{Symbol,AbstractString}=:exp,
-    p0::Real=0.5,
-    lambda::Real=0.3,
-    d0::Real=0.3,
-    alpha::Real=2.0,
-    link_p::Real=0.1,
-    extent::Real=1.0,
-    effector_wiring::Union{Symbol,AbstractString}=:bernoulli,
-    params=FalandaysParams(),
-    drive=NoDrive(),
-    sign=Unsigned(),
-    rectify=true,
-    noise_source=nothing,
-    kwargs...,
-)
-    n_nodes = Int(n_nodes)
-    n_receptors_ = Int(n_receptors_)
-    n_effectors_ = Int(n_effectors_)
-    n_receptors_ >= 2 || throw(ArgumentError("hemispheric node needs >= 2 receptors to split left/right"))
-    n_effectors_ >= 2 || throw(ArgumentError("hemispheric node needs >= 2 effectors to split left/right"))
-    n_nodes >= 2 || throw(ArgumentError("hemispheric node needs >= 2 nodes"))
-
-    params = _as_falandays_params(params)
-    input_weight, inhibitory_frac = _spatial_native_options(params, kwargs)
-
-    rng = _rng_from_seed(seed)
-    axis = _native_axis(sign, n_nodes, rng, inhibitory_frac)
-    connectome = build_hemispheric_connectome(
-        n_nodes,
-        n_receptors_,
-        n_effectors_;
-        rng=rng,
-        kernel=kernel,
-        p0=p0,
-        lambda=lambda,
-        d0=d0,
-        alpha=alpha,
-        link_p=link_p,
-        extent=extent,
-        callosum_density=callosum_density,
-        contralateral=Bool(contralateral),
-        effector_wiring=effector_wiring,
-        weight_init_std=params.weight_init_std,
-        input_weight=input_weight,
-    )
-
-    source = noise_source === nothing ? _noise_source_from_seed(seed) : noise_source
-    wmat = copy(connectome.wmat0)
-    acts = zeros(Float64, n_nodes)
-    targets = ones(Float64, n_nodes)
-    spikes = zeros(Float64, n_nodes)
-    errors = zeros(Float64, n_nodes)
-    prev_spikes = zeros(Float64, n_nodes)
-
-    return ReservoirInstance(
-        FalandaysModel(params, _resolve_drive_instance(drive), axis, Bool(rectify)),
-        connectome,
-        FalandaysConnState(wmat),
-        FalandaysNodeState(acts, targets, spikes, errors, prev_spikes, source),
-        PortSpec(n_receptors_, n_effectors_),
-    )
-end
-
-# `:falandays_ablated` is the packaged node preset for the canonical
-# `clamp_target` intervention: lrate_targ=0 pins every node's target at its
-# init (1.0), so the firing threshold stays fixed at 2.0; recurrent weights
-# still learn.
-function _falandays_ablated_native(
-    n_nodes::Integer,
-    n_receptors_::Integer,
-    n_effectors_::Integer;
-    seed=nothing,
-    kwargs...,
-)
-    options = _kwdict(kwargs)
-    reservoir = _falandays_native(n_nodes, n_receptors_, n_effectors_;
-                                  seed=seed, _kwargs_tuple(options)...)
-    return apply!(ClampTarget(), reservoir)
-end
 
 function _native_compartmental_wiring(
     n_nodes::Integer,
@@ -738,6 +580,12 @@ function _compartmental_structured_native(args...; kwargs...)
     return _compartmental_native(StructuredCompartmental, args...; kwargs...)
 end
 
+function _methoderror_targets(error::MethodError, constructor)
+    error.f === constructor && return true
+    error.f === Core.kwcall || return false
+    return length(error.args) >= 2 && error.args[2] === constructor
+end
+
 function _build_reservoir(
     node::Symbol,
     node_ctor,
@@ -757,8 +605,12 @@ function _build_reservoir(
         reservoir = node_ctor(Int(n_nodes), Int(n_receptors_), Int(n_effectors_); kwargs...)
         return _apply_postbuild_ablation!(reservoir, Symbol(ablation))
     catch err
-        msg = "Registered node :$(node) must accept (n_nodes, n_receptors, n_effectors; seed, kwargs...). Original error: $(sprint(showerror, err))"
-        throw(ArgumentError(msg))
+        if err isa MethodError && _methoderror_targets(err, node_ctor)
+            msg = "Registered node :$(node) must accept " *
+                  "(n_nodes, n_receptors, n_effectors; seed, kwargs...)."
+            rethrow(ArgumentError(msg))
+        end
+        rethrow()
     end
 end
 
@@ -954,51 +806,6 @@ function _ports_config(body::AbstractBody)
     )
 end
 
-function _sensory_bank_config(bank::SensorBank)
-    return (
-        name=bank.name,
-        source=_sensory_source_config(bank.source),
-        modality=_sensory_modality_config(bank.modality),
-        norm_mode=bank.norm_mode,
-        norm_sigma=bank.norm_sigma,
-        gain=bank.gain,
-        link_p=bank.link_p,
-    )
-end
-
-_sensory_source_config(source::ObjectSource) = (
-    kind=:objects,
-    name=source_name(source),
-)
-
-_sensory_source_config(source::SpatialFieldSource) = (
-    kind=:spatial_field,
-    name=source_name(source),
-)
-
-_sensory_source_config(::ConspecificSource) = (kind=:conspecifics,)
-
-_sensory_modality_config(modality::BearingModality) = (
-    kind=:bearing,
-    range=modality.range,
-    curve=_curve_config(modality.curve),
-    sensor=_sensor_config(modality.sensor),
-)
-
-_sensory_modality_config(modality::FieldModality) = (
-    kind=:field,
-    range=modality.range,
-    curve=_curve_config(modality.curve),
-    probe_count=modality.probe_count,
-    probe_radius=modality.probe_radius,
-    aggregation=modality.aggregation,
-)
-
-_sensory_modality_config(modality::OffModality) = (
-    kind=:off,
-    underlying=_sensory_modality_config(modality.modality),
-)
-
 function _sensor_component_config(sensor::SituatedSensorLayout)
     return (
         kind=:situated,
@@ -1012,7 +819,6 @@ function _sensor_component_config(sensor::SituatedSensorLayout)
         n_colours=sensor.n_colours,
         colour_sensing=sensor.colour_sensing,
         sensor=_sensor_config(sensor.sensor),
-        sensory_banks=Tuple(_sensory_bank_config(bank) for bank in sensor.sensory_banks),
     )
 end
 
@@ -1519,11 +1325,13 @@ function _simulation_config(
             status=task_spec.status,
             tags=task_spec.tags,
             protocol=task_spec.protocol,
+            minimum_scored_ticks=task_spec.minimum_scored_ticks,
         ) : nothing,
         outcome_contract=task_spec isa TaskSpec && task_spec.score_key !== nothing ? (
             key=task_spec.score_key,
             floor=score_floor(task_spec),
             ceiling=score_ceiling(task_spec),
+            anchor_scored_ticks=_anchor_scored_ticks(task_spec.floor, task_spec.ceiling),
         ) : nothing,
     )
 end
@@ -1560,6 +1368,17 @@ function _build_ensemble(task_spec::TaskSpec, node::Symbol; ticks=nothing, seed=
     ablation_arg = haskey(options, :ablation) ? pop!(options, :ablation) : nothing
     interventions_arg = haskey(options, :interventions) ? pop!(options, :interventions) : nothing
     intervention_schedule = _resolve_intervention_schedule(interventions_arg)
+    tick_count = ticks === nothing ? task_spec.default_ticks : Int(ticks)
+    tick_count > 0 || throw(ArgumentError("simulation ticks must be positive"))
+    window = window_arg === nothing ? tick_count : Int(window_arg)
+    0 < window <= tick_count || throw(ArgumentError(
+        "simulation window must lie in 1:ticks",
+    ))
+    _validate_minimum_scored_ticks(
+        task_spec,
+        tick_count;
+        explicit_window=window_arg !== nothing,
+    )
 
     is_swarm = is_multiagent(task_spec.setup)
     if n_agents !== nothing && !is_swarm
@@ -1587,7 +1406,6 @@ function _build_ensemble(task_spec::TaskSpec, node::Symbol; ticks=nothing, seed=
 
     node_kwargs = _merge_kwdicts(node_kwargs, options)
     _apply_falandays_task_defaults!(task_spec.name, node, is_swarm, node_kwargs, task_options)
-    _preserve_swarm_falandays_defaults!(node, is_swarm, node_kwargs)
     ablation_sym = _prepare_ablation_options!(node, task_spec.name, is_swarm, node_kwargs, task_options, ablation_arg)
     ablation_notes = _ablation_notes(ablation_sym, node, task_spec.name, is_swarm)
     n_nodes = _resolve_n_nodes!(node, task_spec.name, explicit_n_nodes, node_kwargs, is_swarm)
@@ -1607,9 +1425,6 @@ function _build_ensemble(task_spec::TaskSpec, node::Symbol; ticks=nothing, seed=
         body=body,
         ablation=ablation_sym,
     )
-    tick_count = ticks === nothing ? task_spec.default_ticks : Int(ticks)
-    window = window_arg === nothing ? min(tick_count, task_spec.default_window) : Int(window_arg)
-
     return (
         ensemble=ensemble,
         recorder=recorder,

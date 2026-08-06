@@ -1,5 +1,6 @@
 using BrainlessLab
 using Test
+using .BrainlessLabTestUtils: operation_registry, operation_target
 
 function _profile_tracking_target(; blocks=1, trials=2, horizon=8)
     composition = CompositionSpec(
@@ -26,8 +27,7 @@ function _profile_tracking_target(; blocks=1, trials=2, horizon=8)
 end
 
 @testset "profile resolves registry contracts once" begin
-    registry = RegistrySet()
-    register_builtins!(registry)
+    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
     target = _profile_tracking_target()
 
     defaults = ProfilePlan(:tracking_defaults, target)
@@ -38,7 +38,6 @@ end
           node_spec(registry, :falandays).default_analyses
     @test resolved.record_channels == (
         :acts,
-        :rate,
         :spectral_radius,
         :spikes,
         :targets,
@@ -57,9 +56,15 @@ end
 end
 
 @testset "profile executes every trial and emits two tables" begin
-    registry = RegistrySet()
-    register_builtins!(registry)
-    target = _profile_tracking_target(blocks=2, trials=2)
+    registry = operation_registry()
+    target = operation_target(
+        :tracking,
+        :tracking;
+        blocks=2,
+        trials=2,
+        horizon=8,
+        root_seed=611,
+    )
     plan = ProfilePlan(
         :tracking_heading_profile,
         target;
@@ -70,7 +75,7 @@ end
     resolved = resolve(plan, registry)
     @test resolved.record_channels == (:scene,)
     result = execute(resolved)
-    output = tables(result)
+    output = BrainlessLab.tables(result)
     report = BrainlessLab.summary(result)
 
     @test result isa BrainlessLab.ProfileResult
@@ -87,16 +92,18 @@ end
     @test report.analyses == (:heading_error,)
     @test report.record_channels == (:scene,)
     @test isfinite(report.raw_score_mean)
+    @test report.normalized_n == 4
+    @test report.normalized_censored_count ==
+          report.normalized_floor_count + report.normalized_ceiling_count
     @test all(item -> item.n_trials == 4, report.analysis_statistics)
 end
 
 @testset "profile analysis failures retain trial context" begin
-    registry = RegistrySet()
-    register_builtins!(registry)
+    registry = operation_registry()
     register!(
         registry,
         :analyses,
-        ImplementationSpec(
+        BrainlessLab.ImplementationSpec(
             :profile_failure_fixture,
             _ -> error("deliberate analysis failure");
             metadata=(task=:tracking, required_channels=()),
@@ -104,7 +111,12 @@ end
     )
     plan = ProfilePlan(
         :failing_profile,
-        _profile_tracking_target(trials=1);
+        operation_target(
+            :tracking,
+            :tracking;
+            horizon=8,
+            root_seed=611,
+        );
         analyses=(:profile_failure_fixture,),
     )
 

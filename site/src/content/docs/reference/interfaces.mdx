@@ -1,0 +1,176 @@
+---
+title: Interface reference
+description: The public interfaces for nodes, tasks, bodies, worlds, identity, and registered interventions.
+---
+
+These interfaces keep experimental parts replaceable. A node receives ports and parameters,
+not task physics. A body gives receptor and effector channels physical meaning. A task owns
+the world setup and outcome definition.
+
+Use this page as a method reference. The [System map](/handbook/system-map/) explains
+how the parts fit together.
+
+## Node
+
+A reusable neural substrate is a subtype of `Reservoir`. It implements:
+
+```julia
+step!(reservoir, receptors)
+effectors(reservoir, spikes)
+reset!(reservoir)
+n_nodes(reservoir)
+n_receptors(reservoir)
+n_effectors(reservoir)
+```
+
+Import BrainlessLab generics before adding methods:
+
+```julia
+import BrainlessLab: step!, effectors, reset!, n_nodes, n_receptors, n_effectors
+```
+
+Register the implementation with `NodeSpec`. Its builder receives a `NodeBuildContext` and
+the resolved parameter dictionary. The context supplies node count, resolved ports, named
+seeds, and any receptor connection profile.
+
+`ParameterSpec` defines each configurable value. It can declare an owner, validator, and
+sweep values. Named parameter sets such as `:sweep` select values for parameter operations.
+Experimental neuron design uses a separate `Evolution.NodeDesignSpec`; runtime state must
+not enter either surface.
+
+## Task
+
+`TaskSpec` holds a setup callable, its accepted option defaults, and task metadata. The
+setup returns:
+
+```julia
+TaskSetup(environment, bodies)
+```
+
+The resolved body ports determine reservoir widths. Static receptor and effector counts on
+`TaskSpec` are optional default metadata.
+
+Declare every configurable setup keyword in `options`. Composition resolution writes the
+complete option set into the record and rejects unknown keys before execution.
+
+A scored task declares one `score_key`, a floor, and a ceiling. It may also declare
+descriptor keys. A task with `score_key=nothing` remains valid for profiling, but it cannot
+supply a scalar objective to evolution or a scalar benchmark case.
+
+## Body
+
+`AbstractBody` connects a reservoir to a task or physical world. At minimum, a custom body
+implements:
+
+```julia
+n_receptors(body)
+n_effectors(body)
+BrainlessLab.sense!(body, percept)
+BrainlessLab.decode!(body, effectors)
+```
+
+A body may also specialise `portspec`, `alive`, `inactive_command`, `update!`, `reset!`,
+`component_state`, and `receptor_link_profile`.
+
+A registered body constructor declares accepted option defaults in its
+`ImplementationSpec`. Composition resolution records those defaults and rejects unknown
+`body_options` before construction.
+
+`Embodiment` composes seven registered component families:
+
+| Family | Responsibility |
+| --- | --- |
+| geometry | footprint and geometric bounds |
+| sensor | physical sampling |
+| encoder | raw sensor values to receptor ports |
+| readout | reservoir activity to effector values |
+| actuator | effector values to a typed command |
+| dynamics | command and motion state to new motion state |
+| physiology | internal feedback, effects, and viability |
+
+Component IDs are unique within a body. Port IDs derive from those stable component IDs.
+Materialisation rejects incompatible actuator and dynamics command types.
+
+An inactive body keeps its stable ensemble slot. The runtime supplies zero receptor and node
+activity vectors and uses `inactive_command(body)` without advancing the reservoir.
+
+## World lifecycle
+
+An `Ensemble` uses one synchronous lifecycle:
+
+```julia
+BrainlessLab.sync_activity!(environment, bodies)
+BrainlessLab.prepare_step!(environment, bodies)
+percepts = BrainlessLab.sample!(environment, bodies)
+# sense! → step! → effectors → decode! for each body
+effects = BrainlessLab.apply_commands!(environment, bodies, commands)
+BrainlessLab.update!(body, effects_for_body)
+BrainlessLab.sync_activity!(environment, bodies)
+```
+
+`sample!` returns one percept per body from the same pre-action state.
+`apply_commands!` commits the frame and returns effects for each body. Physiology interprets
+those effects.
+
+`ObjectWorld` also supports `bind_entity_ids!`, `interaction_events`, and
+`object_snapshot`. A new physical sensor extends
+`sample_world_sensor!(sensor, world, motion_state)`.
+
+## Identity and recording
+
+`EntityID` and `ObjectID` remain stable when vector positions or heterogeneous groups
+change. Use `entity_ids`, `agent_at_slot`, `body_at_slot`, and `foreach_group` instead of
+reading storage fields.
+
+Entity-aligned recorder channels store `EntityFrame` values. The frame keeps IDs attached
+to the recorded values. World-level interactions and object snapshots are not
+`EntityFrame`s.
+
+`component_state(body)` is keyed by component ID. A recorder or analysis should not inspect
+the concrete body type to find component state.
+
+## Configuration and registration
+
+Embodiment TOML is strict and schema-versioned. Each component table declares an ID,
+family, registered kind, and parameters. Unknown keys and parameters are errors.
+
+`materialize_blueprint` resolves the configuration for inspection.
+`materialize_embodiment` creates fresh runtime state.
+
+Typed registries support discovery and serialisable names. Register nodes and tasks with:
+
+```julia
+register!(DEFAULT_REGISTRY, node_spec)
+register!(DEFAULT_REGISTRY, task_spec)
+```
+
+Register generic implementations through the appropriate registry field or helper.
+Duplicate keys fail. Julia dispatch remains the implementation mechanism; registration
+does not replace it.
+
+## Ablations
+
+`AblationSpec` declares an intervention function, application stage, required capabilities,
+description, and metadata. `AblationPlan` always includes an implicit baseline and compares
+it with one or more registered ablations.
+
+Validation rejects missing capabilities and invalid stages before simulation. An ablation
+must not silently do nothing.
+
+## Parameters, development, and state
+
+Keep these representations separate:
+
+- node or embodiment parameters are values that an operation may search;
+- a developed blueprint is a resolved component configuration;
+- runtime state includes activations, learned weights, sensor buffers, physiology, and
+  motion.
+
+`pack_params` and `unpack_params` handle an explicit parameter genome.
+`snapshot_state` and `load_state!` handle transient replay state.
+`DevelopmentSpec` selects bounded scalar paths on a fixed component graph.
+
+Current development does not add components, vary port count, encode runtime buffers, or
+schedule births and lineages.
+
+<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>, <code>src/core/Composition.jl</code>, <code>src/core/Specifications.jl</code>, <code>src/tasks/Tasks.jl</code>, <code>src/world/Ensemble.jl</code>.</p>

@@ -1,0 +1,179 @@
+---
+title: Glossary
+description: One definition for each load-bearing term in BrainlessLab, with a link to the page that owns it.
+---
+
+Each term below has one preferred meaning across the site and the repository. Every entry
+links to the page that owns the term in full.
+
+## Runtime
+
+<strong id="node">node</strong> — The local neural unit model. A registered `NodeSpec` owns its builder,
+parameters, named parameter sets, capabilities, and tags. See
+[Nodes and reservoirs](/handbook/nodes-reservoirs/).
+
+<strong id="reservoir">reservoir</strong> — A runtime population of nodes with wiring and dynamic state. It receives
+receptor values and returns activity for a body readout. See
+[Nodes and reservoirs](/handbook/nodes-reservoirs/).
+
+<strong id="body">body</strong> — The sensorimotor organisation coupled to a task. A body closes a reservoir
+through a world, and the reservoir itself stays task-agnostic. See
+[Bodies and interaction](/handbook/bodies-interaction/).
+
+<strong id="embodiment">embodiment</strong> — `Embodiment` is the generic composed body. It assembles the seven
+component families under stable component IDs. See
+[Interface reference](/reference/interfaces/).
+
+<strong id="agent">agent</strong> — One reservoir, one body, and one interaction cycle. See
+[Worlds, tasks, and populations](/handbook/worlds-tasks-populations/).
+
+<strong id="ensemble">ensemble</strong> — The shared world lifecycle. The same `Ensemble` runs one agent and a fixed
+population. See [Worlds, tasks, and populations](/handbook/worlds-tasks-populations/).
+
+<strong id="world">world</strong> — The external state an agent acts in, including objects, fields, encounters, and
+effects. `Environment` is the abstract type, and `TaskWorld` is its task-compatibility
+subtype. See [Worlds, tasks, and populations](/handbook/worlds-tasks-populations/).
+
+<strong id="task">task</strong> — Registered setup, ports, outcome, anchors, and defaults. A `TaskSpec` defines how
+a composition enters an environment and how its declared outcome is measured. See
+[Worlds, tasks, and populations](/handbook/worlds-tasks-populations/).
+
+<strong id="composition">composition</strong> — The complete runtime composition. A `CompositionSpec` selects the node,
+task, body, node count, parameters, task and body options, and interaction timing. See
+[API, plans, and CLI](/reference/).
+
+<strong id="interaction-cycle">interaction cycle</strong> — Neural frames executed within one world step. `FixedRateCycle(K)`
+samples the world once, runs `K` neural frames, and emits one command. See
+[Bodies and interaction](/handbook/bodies-interaction/).
+
+## Body components
+
+<strong id="receptor">receptor</strong> — One input channel of a reservoir. The body gives receptor channels their
+sensorimotor meaning. See [Bodies and interaction](/handbook/bodies-interaction/).
+
+<strong id="effector">effector</strong> — One output channel of a reservoir. An actuator turns effector values into a
+typed command. See [Bodies and interaction](/handbook/bodies-interaction/).
+
+<strong id="port-width">port width</strong> — The number of receptor or effector channels a body declares. Port widths
+must match the reservoir before tick zero. See
+[Bodies and interaction](/handbook/bodies-interaction/).
+
+<strong id="geometry">geometry</strong> — The component family that declares the body's footprint and geometric
+bounds. See [Interface reference](/reference/interfaces/).
+
+<strong id="sensor">sensor</strong> — The component family that performs physical sampling of the world. See
+[Interface reference](/reference/interfaces/).
+
+<strong id="encoder">encoder</strong> — The component family that converts raw sensor values to receptor ports. See
+[Interface reference](/reference/interfaces/).
+
+<strong id="readout">readout</strong> — The component family that converts reservoir activity to effector values. See
+[Interface reference](/reference/interfaces/).
+
+<strong id="actuator">actuator</strong> — The component family that converts effector values to a typed command. See
+[Interface reference](/reference/interfaces/).
+
+<strong id="dynamics">dynamics</strong> — The component family that converts a command and the current motion state to
+a new motion state. See [Interface reference](/reference/interfaces/).
+
+<strong id="physiology">physiology</strong> — The optional component family for internal feedback, effects, and
+viability. See [Interface reference](/reference/interfaces/).
+
+## Evaluation
+
+<strong id="evaluation">evaluation</strong> — The outer trial, seed, reset, and aggregation protocol. An
+`EvaluationSpec` is separate from neural frames and world ticks. See
+[Evaluation](/handbook/evaluation/).
+
+<strong id="target">target</strong> — One named composition with one evaluation protocol. An operation section names
+an `EvaluationTarget` by its id. See [Plan file format](/reference/plan-format/).
+
+<strong id="block">block</strong> — The outer repetition unit of an evaluation. A block or trial is usually the
+independent randomised unit. See [Evaluation](/handbook/evaluation/).
+
+<strong id="trial">trial</strong> — One rollout inside a block. Agents, nodes, samples, and ticks within one world
+do not multiply the sample size. See [Evaluation](/handbook/evaluation/).
+
+<strong id="horizon">horizon</strong> — The number of world ticks in one trial, including warm-up. See
+[Plan file format](/reference/plan-format/).
+
+<strong id="warm-up">warm-up</strong> — Leading ticks that run before recording and scoring. See
+[Evaluation](/handbook/evaluation/).
+
+<strong id="scored-interval">scored interval</strong> — `horizon - warmup`, the part of a trial that is recorded and scored.
+A plan is rejected when this interval falls below the task's `minimum_scored_ticks`. See
+[Core catalogue](/reference/core-catalog/).
+
+<strong id="construction-scope">construction scope</strong> — Whether topology is constructed once per evaluation, once per
+block, or once per trial. See [Evaluation](/handbook/evaluation/).
+
+<strong id="reset-policy">reset policy</strong> — What is reset between trials. The policies are `:full`,
+`:body_environment`, and `:none`. Generic operation plans currently support only `:full`.
+See [Evaluation](/handbook/evaluation/).
+
+<strong id="seed-stream">seed stream</strong> — A named random stream derived from the evaluation root seed. The default
+streams are `:topology` and `:world`; declare another only when an implementation consumes
+it. See [Evaluation](/handbook/evaluation/).
+
+<strong id="aggregation">aggregation</strong> — How declared trial values combine inside one operation. Aggregation does
+not authorise a cross-task aggregate. See [Evaluation](/handbook/evaluation/).
+
+## Operations and records
+
+<strong id="operation">operation</strong> — One research action over targets: a profile, sweep, ablation, evolution, or
+benchmark. See [Operations](/handbook/operations/).
+
+<strong id="operation-plan">operation plan</strong> — The strict TOML file that combines named targets with one operation.
+See [Plan file format](/reference/plan-format/).
+
+<strong id="profile">profile</strong> — The operation that runs declared analyses over the raw trials of one target.
+It produces a descriptive profile. See [Operations](/handbook/operations/).
+
+<strong id="sweep">sweep</strong> — The operation that evaluates one target across declared parameter cells and
+pairs seeds across those cells. It produces a development grid. See
+[Operations](/handbook/operations/).
+
+<strong id="ablation">ablation</strong> — The operation that compares registered interventions against an implicit
+baseline. It answers whether a registered mechanism is necessary. See
+[Operations](/handbook/operations/).
+
+<strong id="benchmark">benchmark</strong> — The operation that reports task-specific statistics and paired contrasts
+inside each declared case. See [Operations](/handbook/operations/).
+
+<strong id="evolution">evolution</strong> — The operation that searches registered model coordinates on training
+targets before held-out evaluation. It is experimental. See
+[API, plans, and CLI](/reference/).
+
+<strong id="record">record</strong> — The portable output of one operation. It holds the submitted and resolved
+plans, authoritative CSV tables, a summary, a seed ledger, provenance, and checksums. See
+[Records and results](/handbook/records-results/).
+
+<strong id="genome">genome</strong> — The explicit parameter vector that an operation may search, handled by
+`pack_params` and `unpack_params`. Runtime activations, learned weights, and buffers are
+not part of it. See [Interface reference](/reference/interfaces/).
+
+<strong id="design-spec">design spec</strong> — `Evolution.NodeDesignSpec`, the reviewed declaration of which model
+coordinates evolution may change for one node. See [API, plans, and CLI](/reference/).
+
+## Scoring and evidence
+
+<strong id="anchor">anchor</strong> — A declared reference point for a task outcome. Each anchor carries a value, a
+kind, and its provenance. A measured anchor also declares its scored interval when that
+interval affects the measurement. See [Core catalogue](/reference/core-catalog/).
+
+<strong id="floor">floor</strong> — The lower anchor of a task. It is an analytic chance level or a calibrated null
+control. See [Core catalogue](/reference/core-catalog/).
+
+<strong id="ceiling">ceiling</strong> — The upper anchor of a task. It is an analytic maximum or a measured
+reference. See [Core catalogue](/reference/core-catalog/).
+
+<strong id="normalised-score">normalised score</strong> — The task-declared anchor transformation of a raw outcome. A
+measured anchor can transform only a raw outcome measured over the same scored interval. A
+normalised score is useful within one task, and it is not a common competence scale. See
+[Core catalogue](/reference/core-catalog/).
+
+<strong id="evidence-state">evidence state</strong> — The status of an experiment protocol: planned, exploratory, tuned,
+frozen, confirmed, promoted, or retired. See
+[Experiments and evidence](/handbook/experiments-evidence/).
+
+<p class="bl-source">Source: <code>docs/WRITING.md</code>, <code>src/core/Specifications.jl</code>, <code>src/core/Interfaces.jl</code>, <code>src/tasks/Tasks.jl</code>, <code>src/operations/Plans.jl</code>.</p>

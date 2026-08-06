@@ -1,0 +1,73 @@
+---
+title: Inspect and resume evolution
+description: Inspect a standard evolution record and continue an interrupted search in place.
+---
+
+Use this path after an evolution operation stops before its declared iteration budget is
+complete. BrainlessLab can continue only from a complete generation boundary.
+
+## Inspect the record first
+
+Use the directory printed by the original `run` command:
+
+```julia
+using BrainlessLab
+using TOML
+
+record_directory = "records/RECORD_ID"
+manifest = TOML.parsefile(joinpath(record_directory, "record.toml"))
+
+manifest["format"]
+manifest["artifacts"]
+```
+
+Read `request.toml`, `resolved.toml`, and `seeds.csv` before continuation. These files show
+the requested plan, the resolved run configuration, and the realised random streams.
+
+The status markers have precise meanings:
+
+- `DONE` means that the declared run completed;
+- `INCOMPLETE` means that a generation-boundary continuation point is available;
+- `FAILED` means that execution or record generation failed.
+
+Do not edit the record or its checkpoint files. Resume validates the existing record before
+it writes more results.
+
+## Continue the same record
+
+Call the public resume interface:
+
+```julia
+using BrainlessLab
+
+record_directory = "records/RECORD_ID"
+continued = BrainlessLab.Evolution.resume(
+    record_directory;
+    registry=DEFAULT_REGISTRY,
+)
+
+@assert continued.directory == record_directory
+```
+
+`Evolution.resume` continues the same directory to the original
+`Evolution.RunConfig.iterations`. It restores the last complete generation. Work from an
+incomplete generation runs again.
+
+The call returns the same `(result=result, directory=directory)` shape as
+`run_operation`.
+
+## Check completion
+
+After a successful continuation, the record contains `DONE`. It contains neither
+`INCOMPLETE` nor `FAILED`.
+
+Check `record.toml` again because its artifact inventory and checksums now describe the
+completed record. Use the authoritative operation tables to inspect generation progress and
+recorded models.
+
+Resuming a run preserves its declared protocol. It does not add an independent replicate,
+increase the evidence state, or validate the selected model.
+
+Next, [benchmark the saved SepCMA model](/tutorials/benchmark-evolved-ctrnn/).
+
+<p class="bl-source">Source: <code>src/evolution/Evolution.jl</code>, <code>src/operations/Evolution.jl</code>, <code>src/records/Records.jl</code>.</p>

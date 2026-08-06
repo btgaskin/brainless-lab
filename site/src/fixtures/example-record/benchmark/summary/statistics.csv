@@ -1,0 +1,2 @@
+case,condition,n,raw_mean,raw_std,raw_ci_lower,raw_ci_upper,normalized_mean,normalized_censoring,normalized_n,normalized_std,normalized_ci_lower,normalized_ci_upper,normalized_floor_count,normalized_ceiling_count,normalized_censored_count,normalized_censored_fraction,normalized_interval_calibrated,interval_method
+wall,example_wall,2,0.3611646459080327,0.015789193662233247,0.21930665500056812,0.5030226368154973,0.0,2/2 at floor; 0/2 at ceiling,2,0.0,0.0,0.0,2,0,2,1.0,false,student_t_95

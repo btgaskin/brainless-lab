@@ -1,0 +1,74 @@
+---
+title: Records and results
+description: Read SimResult in memory and inspect the portable record written by every operation.
+---
+
+`simulate` returns a `SimResult` in memory. It contains recorded channels, metrics, task and
+node identifiers, and a resolved configuration snapshot.
+
+```julia
+sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11, window=1000)
+outcome = task_outcome(sim)
+```
+
+Use one simulation for diagnosis and exploration. Use an operation plan when the result
+needs repeated trials and a durable record.
+
+The explicit `window` acknowledges that this run is shorter than Tracking's ordinary
+2,000-scored-tick minimum. Treat its outcome as a short diagnostic, not study evidence.
+
+The raw outcome always uses the recorded scoring window. A measured anchor applies only at
+the `scored_ticks` interval used to measure it. If the intervals differ, `normalized` and
+`normalized_bound` are `missing`. Check `normalization_status` and
+`anchor_scored_ticks` before reporting a normalised value. Analytic anchors are
+window-invariant.
+
+## Standard record
+
+```text
+record-id/
+├── record.toml
+├── request.toml
+├── resolved.toml
+├── environment/Manifest.toml
+├── seeds.csv
+├── data/
+├── summary/
+├── figures/
+├── report/index.html
+└── DONE
+```
+
+`request.toml` preserves the submitted plan. `resolved.toml` records all defaults and
+settings that ran. `environment/Manifest.toml` preserves the exact dependency resolution.
+`seeds.csv` is the realised seed ledger.
+
+CSV files are the authoritative tables. `summary/summary.json` supports other tools. The
+HTML report presents the same typed result for a reader.
+
+`record.toml` stores the package and Julia versions, the Manifest SHA-256 digest, Git
+revision and state, artifact inventory, and artifact checksums. The inventory includes the
+resolved Manifest and its checksum. A failed write contains `FAILED` instead of `DONE`.
+
+## Public contribution records
+
+Merge the experiment protocol and software before submitting public run records. Generate those
+records from a clean Git commit that is reachable from `main`.
+
+A maintainer replay and a contributor submission are linked roles in one contribution. They do
+not provide two independent samples. Human review decides whether the contribution enters the
+[accepted-run catalogue](/research/catalogue/).
+
+Accepted records are public and immutable. A text-only contribution should be at most 1 MiB and
+must not exceed 5 MiB.
+
+## Interpretation boundary
+
+A complete record proves that generation finished and preserves the result. It does not
+promote exploratory work to confirmed evidence.
+
+Always report the outcome key, raw value, normalised value when available, normalisation
+status, scoring window, independent units, horizon, warm-up, construction, reset, seed
+policy, failed trials, and relevant controls.
+
+<p class="bl-source">Source: <code>src/core/Recorder.jl</code>, <code>src/records/Records.jl</code>.</p>

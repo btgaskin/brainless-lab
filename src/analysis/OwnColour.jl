@@ -1,10 +1,3 @@
-# EXPERIMENTAL own-colour decoder.
-#
-# In colour-sensing swarm runs, an agent sees colour-specific banks for its
-# neighbours but never receives its own colour tag directly. Decodability of the
-# agent's own colour from reservoir state is therefore an offline readout of an
-# implicit self-representation, not an online task metric.
-
 function _own_colour_environment_config(sim::SimResult, name::Symbol)
     hasproperty(sim.config, :environment) ||
         throw(ArgumentError("$(name) needs sim.config.environment from a swarm run"))
@@ -396,7 +389,8 @@ end
 EXPERIMENTAL offline decoder for colour-sensing swarm runs. It asks whether an
 agent's recorded reservoir state predicts that agent's own colour, even though
 the colour-sensing body only provides colour-specific banks for neighbours and
-excludes self.
+excludes self. This is an offline readout of an implicit self-representation,
+not an online task metric.
 
 The statistic is leave-one-agent-out, grouped cross-validated balanced accuracy
 from a shrinkage-regularized LDA implemented as a whitened nearest-class-mean

@@ -1,0 +1,63 @@
+format = "brainlesslab-plan"
+format_version = 2
+id = "structured_ctrnn_search_smoke"
+operation = "evolve"
+
+[evolve]
+heldout = ["tracking_heldout"]
+training = ["tracking_development"]
+
+    [evolve.run]
+    direction = "maximise"
+    iterations = 1
+    measure = "normalized_score"
+    search_seed = "42"
+    strategy = "sepcma"
+
+        [evolve.run.initialisation]
+        centre = "zero"
+        kind = "normal"
+        scale = 0.25
+
+        [evolve.run.options]
+        population = 2
+        reducer = "minimum"
+
+[[targets]]
+id = "tracking_development"
+
+    [targets.composition]
+    id = "structured_ctrnn_tracking"
+    n_nodes = 12
+    node = "compartmental_structured"
+    task = "tracking"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 1
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x1101
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_heldout"
+
+    [targets.composition]
+    id = "structured_ctrnn_tracking"
+    n_nodes = 12
+    node = "compartmental_structured"
+    task = "tracking"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 1
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x2201
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0

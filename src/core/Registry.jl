@@ -7,12 +7,15 @@ const SENSORS = Dict{Symbol,Any}()
 const METRICS = Dict{Symbol,Any}()
 const ANALYSES = Dict{Symbol,Any}()
 const VIEWS = Dict{Symbol,Any}()
-const OPTIMIZERS = Dict{Symbol,Any}()
 const ABLATIONS = Dict{Symbol,Any}()
 const NODE_GENOME_TYPES = Dict{Symbol,Any}()
 const NODE_RECEPTOR_PROFILE_KEYWORDS = Dict{Symbol,Symbol}()
+const BODY_OPTION_DEFAULTS = Dict{Symbol,Dict{Symbol,Any}}()
 
 function _register!(registry::Dict{Symbol,Any}, kind::AbstractString, sym::Symbol, T)
+    haskey(registry, sym) && throw(ArgumentError(
+        "$(kind) registry key $(repr(sym)) is already registered",
+    ))
     registry[sym] = T
     return T
 end
@@ -31,6 +34,11 @@ end
     register_node!(sym, T; genome_type=nothing, receptor_profile_keyword=nothing)
 
 Register a node constructor or concrete type under `sym`.
+
+The constructor must accept
+`(n_nodes, n_receptors, n_effectors; seed, kwargs...)` and return a
+`Reservoir`. Use a `NodeSpec` builder for the typed registry; that builder
+accepts `(context::NodeBuildContext, values::Dict{Symbol,Any})`.
 
 If the node can be evolved, pass `genome_type=<:NodeModel` so drivers can
 derive parameter dimension and unpacking from the public node contract.
@@ -80,8 +88,9 @@ end
 """
     node_receptor_profile_keyword(sym)
 
-Return the constructor keyword registered for per-receptor input connection
-probabilities, or `nothing` when the node does not declare that capability.
+Internal compatibility lookup for constructors registered through
+`register_node!`. A typed node declares `:receptor_profile` in its `NodeSpec`
+and reads the resolved profile from `NodeBuildContext`.
 """
 node_receptor_profile_keyword(sym::Symbol) = get(NODE_RECEPTOR_PROFILE_KEYWORDS, sym, nothing)
 
@@ -101,13 +110,17 @@ function genome_type(node::Union{Symbol,AbstractString})
 end
 
 function genome_type(node)
-    throw(ArgumentError("no evolvable genome_type is registered for node constructor $(node)"))
+    throw(ArgumentError("no node-design genome type is registered for constructor $(node)"))
 end
 
 """
     register_task!(sym, T)
 
-Register a task constructor or concrete type under `sym`.
+Register a `TaskSpec` or task constructor under `sym`.
+
+A `TaskSpec` setup returns `TaskSetup`. A `TaskWorld` used through the
+compatibility setup must implement `sense`, `step!`, `metrics`, `reset!`,
+`n_receptors`, `n_effectors`, `default_ticks`, and `default_window`.
 """
 register_task!(sym::Symbol, T) = _register!(TASKS, "task", sym, T)
 
@@ -137,7 +150,15 @@ resolve_drive(sym::Symbol)::Any = _resolve(DRIVES, "drive", sym)
 
 Register a body constructor or concrete type under `sym`.
 """
-register_body!(sym::Symbol, T) = _register!(BODIES, "body", sym, T)
+function register_body!(sym::Symbol, T; options=Dict{Symbol,Any}())
+    defaults = _option_defaults(options, "body :$(sym)")
+    registered = _register!(BODIES, "body", sym, T)
+    BODY_OPTION_DEFAULTS[sym] = defaults
+    return registered
+end
+
+body_option_defaults(sym::Symbol) =
+    deepcopy(get(BODY_OPTION_DEFAULTS, sym, Dict{Symbol,Any}()))
 
 """
     resolve_body(sym)
@@ -202,7 +223,12 @@ function register_analysis!(
     task::Union{Nothing,Symbol}=nothing,
     label::AbstractString=string(sym),
 )
-    ANALYSES[sym] = (f=f, task=task, label=String(label))
+    _register!(
+        ANALYSES,
+        "analysis",
+        sym,
+        (f=f, task=task, label=String(label)),
+    )
     return sym
 end
 
@@ -255,20 +281,6 @@ register_view!(sym::Symbol, T) = _register!(VIEWS, "view", sym, T)
 Resolve a registered view symbol to its constructor, function, or concrete type.
 """
 resolve_view(sym::Symbol)::Any = _resolve(VIEWS, "view", sym)
-
-"""
-    register_optimizer!(sym, T)
-
-Register an optimizer constructor or concrete type under `sym`.
-"""
-register_optimizer!(sym::Symbol, T) = _register!(OPTIMIZERS, "optimizer", sym, T)
-
-"""
-    resolve_optimizer(sym)
-
-Resolve a registered optimizer symbol to its constructor or concrete type.
-"""
-resolve_optimizer(sym::Symbol)::Any = _resolve(OPTIMIZERS, "optimizer", sym)
 
 """
     register_ablation!(sym, T)

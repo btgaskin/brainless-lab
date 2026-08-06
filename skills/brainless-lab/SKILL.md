@@ -58,9 +58,12 @@ Use `simulate` for one diagnostic run:
 ```julia
 using BrainlessLab
 
-sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11)
+sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11, window=1000)
 task_outcome(sim)
 ```
+
+The explicit `window` acknowledges a deliberately short diagnostic. Use at least 2,000
+scored ticks for ordinary Tracking evaluation.
 
 The symbol form is a convenient façade. Construct a `CompositionSpec` when reusable work
 must record node count, parameters, body, task options, and interaction timing.
@@ -73,9 +76,10 @@ julia -t auto --project=. bin/brainlesslab.jl run \
   plans/examples/profile_tracking.toml --root records
 ```
 
-`check` parses, validates, and resolves without simulation. `run` executes the plan and
-writes one standard record. Do not introduce another YAML schema, bespoke callback
-runner, or operation-specific protocol format.
+`check` parses, validates, and resolves without simulation. It rejects a scored target when
+`horizon - warmup` is below the task's `minimum_scored_ticks`. `run` executes the plan and
+writes one standard record. Do not introduce another YAML schema, bespoke callback runner,
+or operation-specific protocol format.
 
 ## Use the five operations precisely
 
@@ -86,11 +90,14 @@ runner, or operation-specific protocol format.
 - `AblationPlan` compares an implicit baseline with registered interventions. Validation
   checks the intervention stage and required node capabilities. Inapplicable or unchanged
   interventions are errors, not silent no-ops.
-- `EvolutionPlan` selects one registered node parameter set on a training target. Optimiser
-  randomness is separate from evaluation streams. Held-out targets run only after
-  champion selection.
-- `BenchmarkPlan` compares declared conditions within each task under paired blocks. It
-  reports task-specific outcomes and paired contrasts. It does not create a cross-task
+- `EvolutionPlan` searches any node that declares a reviewed
+  `Evolution.NodeDesignSpec` through the experimental `BrainlessLab.Evolution` namespace.
+  Built-in designs include Falandays and the dense and structured compartmental models.
+  Search randomness is separate from evaluation streams. SepCMA can evaluate its selected
+  model on held-out targets. Pareto and archive models move to a later `BenchmarkPlan`.
+- `BenchmarkPlan` reports declared conditions within each task. A multi-condition case uses
+  paired blocks and a declared baseline. A one-condition case can omit the baseline and
+  report anchor-relative statistics without contrasts. It does not create a cross-task
   competence score.
 
 Files under `plans/examples/` are executable syntax checks with small budgets. Versioned
@@ -110,6 +117,7 @@ record-id/
 ├── record.toml
 ├── request.toml
 ├── resolved.toml
+├── environment/Manifest.toml
 ├── seeds.csv
 ├── data/
 ├── summary/
@@ -120,11 +128,32 @@ record-id/
 
 `request.toml` preserves the plan. `resolved.toml` records node defaults, task and body
 options, interaction timing, evaluation settings, and operation-specific resolution.
+`environment/Manifest.toml` preserves the exact dependency resolution used for the run.
 `record.toml` inventories generated files and their SHA-256 checksums. CSV files are the
 authoritative tables; HTML is a readable report over those data.
 
 Shareable records must not contain host names or absolute local paths. `DONE` means record
 generation completed. It does not mean the result is confirmed evidence.
+
+## Contribute public research records
+
+Public run contributions use two stages. Merge the protocol and any software changes first.
+Then generate records from a clean Git commit that is reachable from `main`. A run-only pull
+request must not introduce or execute new code.
+
+Check a contribution with `check-contribution`. A maintainer replays the already-merged
+experiment at the submitted source SHA, adds the replay bundle, and runs
+`compare-contribution DIR --write`. Contributor submission and maintainer replay are
+role-linked records in one contribution. They are not independent evidence.
+
+Only a human maintainer accepts a contribution. After acceptance, regenerate
+`research/catalogue.json` with `index-research`. Keep accepted records immutable and public.
+Aim for at most 1 MiB of text-only files per contribution; 5 MiB is the hard limit.
+Files above 5 MiB are not accepted by this Git-native pipeline. Large datasets remain out
+of scope.
+
+The catalogue can include an explicit `pre-pipeline` compatibility entry for older material.
+Such an entry does not imply acceptance through the contribution process.
 
 ## Keep reference and experimental claims narrow
 
@@ -133,10 +162,11 @@ implementation. This validation covers the tested construction and update path. 
 not automatically cover every body, task, behavioural statistic, analysis, or biological
 interpretation.
 
-Tracking and Pong are the initial core benchmark tasks. Wall remains registered but is not
-part of the core benchmark. The four Plank CartPole levels are experimental challenge
-tasks. All use the general `EvaluationSpec`; there is no CartPole-specific evaluation
-protocol.
+Tracking, Pong, and Wall are the core benchmark tasks. Wall is a near-ceiling competence
+floor-check, not a task with much upward headroom. The four Plank CartPole levels are
+experimental challenge tasks. `cartpole_plank_easy` is the declared frontier task and is
+not part of the core aggregate. All use the general `EvaluationSpec`; there is no
+CartPole-specific evaluation protocol.
 
 Performance can reveal a capacity, limit, trade-off, or missing mechanism. Before
 interpreting a poor score, check the task opportunity, body ports, control floor, horizon,
@@ -152,14 +182,15 @@ Declare:
 
 - parameters and validators;
 - whether each parameter belongs to the node or reservoir;
-- default `:sweep`, `:evolve`, and optional connectivity parameter sets;
+- default `:sweep` and optional connectivity parameter sets;
 - capabilities used by ablations and tooling;
 - equations and default analyses when known;
 - stability and tags.
 
-Do not infer evolvable parameters from struct fields. Keep runtime state out of the genome.
-Online adaptation remains learning or plasticity even without a task loss, teacher, fitted
-readout, or separate training phase.
+Do not infer a node-design space from configurable parameters or struct fields. A supported
+fixed node design declares one reviewed `Evolution.NodeDesignSpec`. Keep runtime state out
+of the model. Online adaptation remains learning or plasticity even without a task loss,
+teacher, fitted readout, or separate training phase.
 
 A task extension registers a `TaskSpec` whose setup returns a `TaskSetup`. Validate port
 widths before tick zero. A task may omit a scalar outcome and remain useful for profiling.
@@ -185,8 +216,10 @@ ablation, model baseline, and oracle policies answer different questions. Exact 
 a regression control, not a causal null.
 
 Use `task_outcome(sim)` for the declared task result. Report its key, raw score, normalised
-score when used, blocks, trials, construction scope, reset, horizon, warm-up, and seed
-policy. Normalised Tracking and Pong scores remain different quantities.
+score when available, normalisation status, scoring window, blocks, trials, construction
+scope, reset, horizon, warm-up, and seed policy. A measured anchor applies only at its
+declared `scored_ticks`; analytic anchors are window-invariant. Normalised Tracking, Pong,
+and Wall scores remain different quantities.
 
 Treat criticality and information measures as estimator-dependent analyses. State their
 nulls, assumptions, and finite-sample limits. Shared environmental drive can produce
@@ -194,11 +227,15 @@ apparent collective structure.
 
 ## Verify changes
 
-For architecture or behaviour changes, run focused tests before the full package suite:
+Run the narrowest affected tier during iteration. The fast Core tier covers documentation and
+contract changes:
 
 ```bash
-julia --project=. -e 'using Pkg; Pkg.test()'
+BRAINLESSLAB_TEST_SUITE=core julia --project=. -e 'using Pkg; Pkg.test()'
 ```
+
+Bare `Pkg.test()` runs every suite and takes about fifteen minutes. Use the tier guidance in
+`test/README.md` to select additional gates for the change.
 
 Build the locked site after guide or skill edits:
 

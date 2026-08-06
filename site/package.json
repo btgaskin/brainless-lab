@@ -7,6 +7,9 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
+    "test": "bun test",
+    "demo:select": "bun run scripts/select-display-cases.ts",
+    "demo:check": "bun run scripts/select-display-cases.ts --check",
     "build": "astro build",
     "preview": "astro preview",
     "deploy": "astro build && wrangler pages deploy dist --project-name brainless-lab --branch main --commit-dirty=true",

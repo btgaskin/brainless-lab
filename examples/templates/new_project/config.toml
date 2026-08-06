@@ -1,5 +1,5 @@
 format = "brainlesslab-plan"
-format_version = 1
+format_version = 2
 operation = "profile"
 id = "my_project_profile"
 

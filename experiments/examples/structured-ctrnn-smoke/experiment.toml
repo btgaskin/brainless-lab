@@ -1,0 +1,17 @@
+conditions = ["tracking_development", "tracking_heldout"]
+evidence_state = "planned"
+format = "brainlesslab-experiment"
+format_version = 1
+id = "structured_ctrnn_smoke"
+limitations = ["Smoke-test budgets only; generated outputs are not scientific evidence.", "The operation searches the fixed StructuredCompartmental design; it does not evolve topology, ports, or body structure."]
+question = "Can the standard experiment path search one fixed structured CTRNN and preserve a held-out evaluation?"
+title = "Structured CTRNN search smoke experiment"
+version = "1.0.0"
+
+[metadata]
+programme = "experimental_node_design"
+role = "workflow_smoke"
+
+[[operations]]
+id = "structured_ctrnn_search_smoke"
+plan = "01-structured_ctrnn_search_smoke.toml"

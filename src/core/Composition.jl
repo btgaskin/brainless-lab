@@ -1,23 +1,42 @@
-"""Cold-path context supplied to a registered node builder."""
-struct NodeBuildContext{P,S,R}
+"""
+    NodeBuildContext
+
+Cold-path context supplied to `NodeSpec.build`. A node builder is called as
+`build(context::NodeBuildContext, values::Dict{Symbol,Any})`, where `values`
+contains the resolved declared parameters. The context supplies node count,
+body ports, named construction seeds, an optional receptor profile, and an
+optional fixed node model.
+"""
+struct NodeBuildContext{P,S,R,M}
     n_nodes::Int
     ports::P
     seeds::S
     receptor_profile::R
+    model::M
 
     function NodeBuildContext(
         n_nodes::Integer,
         ports,
         seeds;
         receptor_profile=nothing,
+        model=nothing,
     )
         count = Int(n_nodes)
         count > 0 || throw(ArgumentError("node build context requires a positive n_nodes"))
-        return new{typeof(ports),typeof(seeds),typeof(receptor_profile)}(
+        model === nothing || model isa NodeModel || throw(ArgumentError(
+            "node build context model must be a NodeModel or nothing",
+        ))
+        return new{
+            typeof(ports),
+            typeof(seeds),
+            typeof(receptor_profile),
+            typeof(model),
+        }(
             count,
             ports,
             seeds,
             receptor_profile,
+            model,
         )
     end
 end
@@ -27,12 +46,15 @@ end
 
 Discoverable contract for one neural substrate. Node count and the task/body
 ports are supplied by `NodeBuildContext`; the node owns only its mechanism and
-declared parameter surface.
+declared parameter surface. The `build` callable receives
+`(context::NodeBuildContext, values::Dict{Symbol,Any})` and must return a
+`Reservoir`.
 """
-struct NodeSpec{B,G,P,E,M}
+struct NodeSpec{B,G,D,P,E,M}
     id::Symbol
     build::B
     genome_type::G
+    design::D
     stability::Symbol
     tags::Tuple{Vararg{Symbol}}
     capabilities::Tuple{Vararg{Symbol}}
@@ -47,6 +69,7 @@ function NodeSpec(
     id::Union{Symbol,AbstractString},
     build;
     genome_type=nothing,
+    design=nothing,
     stability::Symbol=:experimental,
     tags=(),
     capabilities=(),
@@ -63,6 +86,15 @@ function NodeSpec(
     genome_type === nothing ||
         (genome_type isa Type && genome_type <: NodeModel) ||
         throw(ArgumentError("node :$(id_) genome_type must be a NodeModel type or nothing"))
+    design === nothing || design isa Evolution.NodeDesignSpec || throw(ArgumentError(
+        "node :$(id_) design must be an Evolution.NodeDesignSpec or nothing",
+    ))
+    if design !== nothing && genome_type !== nothing
+        design.model_type === genome_type || throw(ArgumentError(
+            "node :$(id_) design model type $(design.model_type) does not match " *
+            "genome_type $(genome_type)",
+        ))
+    end
     tags_ = _symbol_tuple(tags, "node tags")
     capabilities_ = _symbol_tuple(capabilities, "node capabilities")
     parameters_ = Tuple(parameters)
@@ -91,6 +123,7 @@ function NodeSpec(
     return NodeSpec{
         typeof(build),
         typeof(genome_type),
+        typeof(design),
         typeof(parameters_),
         typeof(equations_),
         typeof(metadata),
@@ -98,6 +131,7 @@ function NodeSpec(
         id_,
         build,
         genome_type,
+        design,
         stability,
         tags_,
         capabilities_,
@@ -140,17 +174,53 @@ function resolve_parameters(spec::NodeSpec, overrides=Dict{Symbol,Any}())
 end
 
 """One serializable, runnable node-task-body composition."""
-Base.@kwdef struct CompositionSpec
+struct CompositionSpec
     id::Symbol
     node::Symbol
     task::Symbol
-    body::Union{Nothing,Symbol}=nothing
-    n_agents::Union{Nothing,Int}=nothing
+    body::Union{Nothing,Symbol}
+    n_agents::Union{Nothing,Int}
     n_nodes::Int
-    parameters::Dict{Symbol,Any}=Dict{Symbol,Any}()
-    task_options::Dict{Symbol,Any}=Dict{Symbol,Any}()
-    body_options::Dict{Symbol,Any}=Dict{Symbol,Any}()
-    interaction_cycle::Union{Nothing,InteractionCycle}=nothing
+    parameters::Dict{Symbol,Any}
+    task_options::Dict{Symbol,Any}
+    body_options::Dict{Symbol,Any}
+    interaction_cycle::Union{Nothing,InteractionCycle}
+
+    function CompositionSpec(
+        id::Symbol,
+        node::Symbol,
+        task::Symbol,
+        body::Union{Nothing,Symbol},
+        n_agents::Union{Nothing,Int},
+        n_nodes::Int,
+        parameters::Dict{Symbol,Any},
+        task_options::Dict{Symbol,Any},
+        body_options::Dict{Symbol,Any},
+        interaction_cycle::Union{Nothing,InteractionCycle},
+    )
+        id_ = _nonempty_symbol(id, "composition id")
+        node_ = _nonempty_symbol(node, "composition node")
+        task_ = _nonempty_symbol(task, "composition task")
+        n_nodes > 0 || throw(ArgumentError(
+            "composition :$(id_) requires positive n_nodes",
+        ))
+        n_agents === nothing || n_agents > 0 || throw(ArgumentError(
+            "composition :$(id_) requires positive n_agents when specified",
+        ))
+        body_ = body === nothing ? nothing : _nonempty_symbol(body, "composition body")
+        return new(
+            id_,
+            node_,
+            task_,
+            body_,
+            n_agents,
+            n_nodes,
+            parameters,
+            task_options,
+            body_options,
+            interaction_cycle,
+        )
+    end
 end
 
 function CompositionSpec(
@@ -165,20 +235,13 @@ function CompositionSpec(
     body_options=Dict{Symbol,Any}(),
     interaction_cycle::Union{Nothing,InteractionCycle}=nothing,
 )
-    id_ = _nonempty_symbol(id, "composition id")
-    node_ = _nonempty_symbol(node, "composition node")
-    task_ = _nonempty_symbol(task, "composition task")
     count = Int(n_nodes)
-    count > 0 || throw(ArgumentError("composition :$(id_) requires positive n_nodes"))
     agents = n_agents === nothing ? nothing : Int(n_agents)
-    agents === nothing || agents > 0 || throw(ArgumentError(
-        "composition :$(id_) requires positive n_agents when specified",
-    ))
     body_ = body === nothing ? nothing : _nonempty_symbol(body, "composition body")
     return CompositionSpec(
-        id_,
-        node_,
-        task_,
+        _nonempty_symbol(id, "composition id"),
+        _nonempty_symbol(node, "composition node"),
+        _nonempty_symbol(task, "composition task"),
         body_,
         agents,
         count,
@@ -186,6 +249,32 @@ function CompositionSpec(
         Dict{Symbol,Any}(Symbol(key) => value for (key, value) in pairs(task_options)),
         Dict{Symbol,Any}(Symbol(key) => value for (key, value) in pairs(body_options)),
         interaction_cycle,
+    )
+end
+
+function CompositionSpec(;
+    id,
+    node,
+    task,
+    body=nothing,
+    n_agents=nothing,
+    n_nodes,
+    parameters=Dict{Symbol,Any}(),
+    task_options=Dict{Symbol,Any}(),
+    body_options=Dict{Symbol,Any}(),
+    interaction_cycle::Union{Nothing,InteractionCycle}=nothing,
+)
+    return CompositionSpec(
+        id,
+        node,
+        task;
+        body=body,
+        n_agents=n_agents,
+        n_nodes=n_nodes,
+        parameters=parameters,
+        task_options=task_options,
+        body_options=body_options,
+        interaction_cycle=interaction_cycle,
     )
 end
 
@@ -212,7 +301,7 @@ mutable struct RegistrySet
     metrics::Registry{Symbol,ImplementationSpec}
     analyses::Registry{Symbol,ImplementationSpec}
     views::Registry{Symbol,ImplementationSpec}
-    optimizers::Registry{Symbol,ImplementationSpec}
+    search_strategies::Registry{Symbol,Evolution.SearchStrategySpec}
     ablations::Registry{Symbol,ImplementationSpec}
     compositions::Registry{Symbol,CompositionSpec}
     composition_defaults::Dict{Tuple{Symbol,Symbol},Symbol}
@@ -229,7 +318,7 @@ function RegistrySet()
         Registry{Symbol,ImplementationSpec}(:metrics),
         Registry{Symbol,ImplementationSpec}(:analyses),
         Registry{Symbol,ImplementationSpec}(:views),
-        Registry{Symbol,ImplementationSpec}(:optimizers),
+        Registry{Symbol,Evolution.SearchStrategySpec}(:search_strategies),
         Registry{Symbol,ImplementationSpec}(:ablations),
         Registry{Symbol,CompositionSpec}(:compositions),
         Dict{Tuple{Symbol,Symbol},Symbol}(),
@@ -240,9 +329,11 @@ register!(registry::RegistrySet, spec::NodeSpec) = register!(registry.nodes, spe
 register!(registry::RegistrySet, spec::TaskSpec) = register!(registry.tasks, spec.name, spec)
 register!(registry::RegistrySet, spec::CompositionSpec) =
     register!(registry.compositions, spec.id, spec)
+register!(registry::RegistrySet, spec::Evolution.SearchStrategySpec) =
+    register!(registry.search_strategies, spec.key, spec)
 
 function register!(registry::RegistrySet, kind::Symbol, spec::ImplementationSpec)
-    kind in (:bodies, :drives, :motors, :sensors, :metrics, :analyses, :views, :optimizers, :ablations) ||
+    kind in (:bodies, :drives, :motors, :sensors, :metrics, :analyses, :views, :ablations) ||
         throw(ArgumentError("unknown implementation registry :$(kind)"))
     return register!(getfield(registry, kind), spec.key, spec)
 end
@@ -291,6 +382,14 @@ end
 ablations(registry::RegistrySet) = sort!(collect(keys(registry.ablations)); by=string)
 compositions(registry::RegistrySet) = sort!(collect(keys(registry.compositions)); by=string)
 
+Evolution.search_strategy(
+    registry::RegistrySet,
+    id::Union{Symbol,AbstractString},
+) = resolve(registry.search_strategies, Symbol(id))
+
+Evolution.search_strategies(registry::RegistrySet) =
+    sort!(collect(keys(registry.search_strategies)); by=string)
+
 function default_composition(
     registry::RegistrySet,
     node::Union{Symbol,AbstractString},
@@ -307,9 +406,6 @@ function _materialize_registered_body(spec::ImplementationSpec, options::Dict{Sy
     implementation = spec.implementation
     implementation isa AbstractBody && return deepcopy(implementation)
     values = (; (key => value for (key, value) in options)...)
-    applicable(implementation; values...) || throw(ArgumentError(
-        "registered body :$(spec.key) does not accept its declared options",
-    ))
     body = implementation(; values...)
     body isa AbstractBody || throw(ArgumentError(
         "registered body :$(spec.key) returned $(typeof(body)), not AbstractBody",
@@ -324,6 +420,18 @@ function resolve_composition(spec::CompositionSpec, registry::RegistrySet)
     parameters = resolve_parameters(node, spec.parameters)
     task_options = copy(spec.task_options)
     spec.n_agents === nothing || (task_options[:n_agents] = spec.n_agents)
+    task_options = _resolve_options(
+        "task",
+        task.name,
+        task.options,
+        task_options,
+    )
+    body === nothing && !isempty(spec.body_options) && throw(ArgumentError(
+        "composition :$(spec.id) provides body_options without a registered body",
+    ))
+    body_options = body === nothing ?
+        Dict{Symbol,Any}() :
+        _resolve_options("body", body.key, body.options, spec.body_options)
     return ResolvedComposition(
         spec.id,
         node,
@@ -333,7 +441,7 @@ function resolve_composition(spec::CompositionSpec, registry::RegistrySet)
         spec.n_nodes,
         parameters,
         task_options,
-        copy(spec.body_options),
+        body_options,
         spec.interaction_cycle === nothing ? task.interaction_cycle : spec.interaction_cycle,
     )
 end

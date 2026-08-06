@@ -1,0 +1,32 @@
+---
+title: Experiments
+description: Browse versioned scientific questions composed from named conditions and standard operations.
+---
+
+import ResearchCatalog from '../../../components/ResearchCatalog.astro';
+
+An experiment records a question, version, named conditions, operations, evidence state,
+and limitations. It does not replace operation plans or their records.
+
+The catalogue can include a planned protocol before results exist. Later evidence states
+must point to one or more complete operation records.
+
+<ResearchCatalog kind="experiment" />
+
+## How an experiment is retained
+
+An experiment directory contains `experiment.toml` and one ordinary plan file per
+operation. Running the experiment writes a small experiment index plus one standard record
+for every operation.
+
+```bash
+julia --project=. bin/brainlesslab.jl check-experiment experiments/my-study
+julia -t auto --project=. bin/brainlesslab.jl run-experiment \
+  experiments/my-study --root experiment-records
+```
+
+The protocol fixes the question and named conditions. The operation records retain exact
+submitted and resolved configurations, seeds, tables, summaries, provenance, and checksums.
+
+This page is intentionally a small catalogue stub. The [Research records](/research/) page
+defines how a later phase can discover those records and add search, sorting, and filters.

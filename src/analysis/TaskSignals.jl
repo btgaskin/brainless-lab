@@ -80,10 +80,10 @@ end
 """
     object_in_view(sim; threshold=0.5)
 
-Per-tick indicator (`1.0`/`0.0`) of whether the tracked stimulus is currently
-exciting the sensor bank — the strongest receptor activation on the tick is at or
-above `threshold`. Requires the `:percepts` channel. Aligned to the `:rate` grid,
-so it is directly usable as a `drive`/condition series for
+EXPERIMENTAL per-tick indicator (`1.0`/`0.0`) of whether the tracked stimulus is
+currently exciting the sensor bank — the strongest receptor activation on the
+tick is at or above `threshold`. Requires the `:percepts` channel. Aligned to
+the `:rate` grid, so it is directly usable as a `drive`/condition series for
 `branching_ratio_mr_windowed` — i.e. "branching while the object is in view" vs
 while the agent drifts without stimulus.
 

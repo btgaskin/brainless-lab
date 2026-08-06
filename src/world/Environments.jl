@@ -699,6 +699,36 @@ end
 (::TorusTaskSetup)(; kwargs...) = _swarm_task_setup(false; kwargs...)
 (::ForageTaskSetup)(; kwargs...) = _swarm_task_setup(true; kwargs...)
 
+const SITUATED_TASK_OPTIONS = (
+    n_agents=8,
+    space_size=15.0,
+    link_p=0.1,
+    sens_agent_dist=0,
+    vision_range=nothing,
+    source_vision_range=nothing,
+    sensory_noise=0.1,
+    sensory_scaling=true,
+    visual_coupling=true,
+    physical_coupling=false,
+    conspecific_vision=true,
+    conspecific_contact_radius=nothing,
+    source_position=nothing,
+    source_gain=1.0,
+    n_lookouts=nothing,
+    norm_mode=nothing,
+    norm_sigma=1.0,
+    conspecific_gain=1.0,
+    signalling=false,
+    signal_range=3.0,
+    signal_gain=1.0,
+    capture_radius=1.0,
+    agent_radius=0.5,
+    record_inputs=true,
+    n_colours=1,
+    colour_sensing=false,
+    colours=nothing,
+)
+
 const TORUS_TASK = TaskSpec(
     :torus,
     TorusTaskSetup();
@@ -707,6 +737,7 @@ const TORUS_TASK = TaskSpec(
     n_effectors=3,
     default_ticks=1000,
     default_window=1000,
+    options=SITUATED_TASK_OPTIONS,
     score_key=nothing,
 )
 
@@ -718,6 +749,7 @@ const FORAGE_TASK = TaskSpec(
     n_effectors=3,
     default_ticks=1000,
     default_window=1000,
+    options=SITUATED_TASK_OPTIONS,
     floor=FORAGE_FLOOR_ANCHOR,
     ceiling=FORAGE_CEILING_ANCHOR,
     score_key=:forage_score,

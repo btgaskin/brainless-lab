@@ -53,14 +53,25 @@ function fitnessplot end
 
 Generic multi-panel visualization hook.
 """
-function visualize end
+function visualize(value; kwargs...)
+    throw(ArgumentError(
+        "no visualization backend is loaded for $(typeof(value)); load CairoMakie " *
+        "or another Makie backend before calling visualize",
+    ))
+end
 
 """
     explore(args...; kwargs...)
 
-Generic interactive exploration hook.
+Experimental GLMakie interactive explorer for collective simulations. This
+interface is not part of the core Tracking, Pong, and Wall workflow.
 """
-function explore end
+function explore(args...; kwargs...)
+    throw(ArgumentError(
+        "the interactive explorer requires GLMakie; load GLMakie before " *
+        "calling BrainlessLab.explore",
+    ))
+end
 
 """
     replay(args...; kwargs...)

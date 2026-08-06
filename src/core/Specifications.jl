@@ -2,7 +2,6 @@ const IMPLEMENTATION_STABILITIES = (:reference, :stable, :experimental, :control
 const CONSTRUCTION_SCOPES = (:evaluation, :block, :trial)
 const RESET_POLICIES = (:full, :body_environment, :none)
 const AGGREGATE_POLICIES = (:none, :mean, :median, :sum, :minimum, :maximum)
-const EVOLUTION_SCALES = (:linear, :log, :integer)
 
 function _nonempty_symbol(value, label::AbstractString)
     symbol = Symbol(value)
@@ -16,6 +15,50 @@ function _symbol_tuple(values, label::AbstractString)
     length(unique(result)) == length(result) ||
         throw(ArgumentError("$(label) must be unique"))
     return result
+end
+
+function _option_defaults(values, label::AbstractString)
+    defaults = Dict{Symbol,Any}()
+    for (key, value) in pairs(values)
+        name = _nonempty_symbol(key, "$(label) option")
+        haskey(defaults, name) && throw(ArgumentError(
+            "$(label) option names must be unique",
+        ))
+        defaults[name] = deepcopy(value)
+    end
+    return defaults
+end
+
+function _resolve_options(
+    kind::AbstractString,
+    id::Symbol,
+    defaults::Dict{Symbol,Any},
+    overrides,
+)
+    override_dict = Dict{Symbol,Any}(
+        Symbol(key) => deepcopy(value)
+        for (key, value) in pairs(overrides)
+    )
+    unknown = sort!(
+        collect(setdiff(Set(keys(override_dict)), Set(keys(defaults))));
+        by=string,
+    )
+    isempty(unknown) || throw(ArgumentError(
+        "$(kind) :$(id) received unknown options $(unknown)",
+    ))
+    resolved = deepcopy(defaults)
+    for (name, value) in override_dict
+        default = defaults[name]
+        resolved[name] = if default isa Symbol && value isa AbstractString
+            Symbol(value)
+        elseif default isa Tuple && value isa AbstractVector &&
+               length(default) == length(value)
+            Tuple(value)
+        else
+            value
+        end
+    end
+    return resolved
 end
 
 """
@@ -75,11 +118,13 @@ Base.getindex(registry::Registry{K}, key::K) where {K} = resolve(registry, key)
 """
     ImplementationSpec(key, implementation; kwargs...)
 
-Generic discovery metadata for a registered implementation. This descriptor
-does not assume that the implementation is callable: tasks, bodies, analyses,
-and immutable specifications can all be registered through the same contract.
+Generic discovery metadata for a registered implementation. `options` declares
+the accepted constructor defaults for configurable implementations such as
+bodies. This descriptor does not assume that the implementation is callable:
+tasks, bodies, analyses, and immutable specifications can all be registered
+through the same contract.
 """
-struct ImplementationSpec{I,T<:Tuple,C<:Tuple,M<:NamedTuple}
+struct ImplementationSpec{I,T<:Tuple,C<:Tuple,O,M<:NamedTuple}
     key::Symbol
     implementation::I
     label::String
@@ -88,6 +133,7 @@ struct ImplementationSpec{I,T<:Tuple,C<:Tuple,M<:NamedTuple}
     stability::Symbol
     tags::T
     capabilities::C
+    options::O
     metadata::M
 end
 
@@ -100,6 +146,7 @@ function ImplementationSpec(
     stability::Symbol=:experimental,
     tags=(),
     capabilities=(),
+    options=Dict{Symbol,Any}(),
     metadata::NamedTuple=NamedTuple(),
 )
     key_ = _nonempty_symbol(key, "implementation key")
@@ -111,10 +158,12 @@ function ImplementationSpec(
     ))
     tags_ = _symbol_tuple(tags, "implementation tags")
     capabilities_ = _symbol_tuple(capabilities, "implementation capabilities")
+    options_ = _option_defaults(options, "implementation :$(key_)")
     return ImplementationSpec{
         typeof(implementation),
         typeof(tags_),
         typeof(capabilities_),
+        typeof(options_),
         typeof(metadata),
     }(
         key_,
@@ -125,6 +174,7 @@ function ImplementationSpec(
         stability,
         tags_,
         capabilities_,
+        options_,
         metadata,
     )
 end
@@ -228,101 +278,22 @@ function _parameter_sweep(sweep, validator, name::Symbol)
     return values
 end
 
-function _categorical_evolution(evolve::NamedTuple, validator, name::Symbol)
-    propertynames(evolve) == (:values,) || throw(ArgumentError(
-        "categorical evolution metadata for parameter :$(name) must contain only :values",
-    ))
-    values = _parameter_sweep(evolve.values, validator, name)
-    values === nothing && throw(ArgumentError(
-        "categorical evolution metadata for parameter :$(name) requires candidate values",
-    ))
-    return (values=values,)
-end
-
-function _bounded_evolution(evolve::NamedTuple, validator, name::Symbol, default)
-    allowed = (:lower, :upper, :scale, :mutation_scale)
-    unknown = setdiff(propertynames(evolve), allowed)
-    isempty(unknown) || throw(ArgumentError(
-        "unknown evolution metadata for parameter :$(name): " *
-        join(":" .* string.(unknown), ", "),
-    ))
-    hasproperty(evolve, :lower) && hasproperty(evolve, :upper) || throw(ArgumentError(
-        "bounded evolution metadata for parameter :$(name) requires :lower and :upper",
-    ))
-    lower = evolve.lower
-    upper = evolve.upper
-    lower isa Real && upper isa Real && default isa Real || throw(ArgumentError(
-        "bounded evolution metadata for parameter :$(name) requires numeric bounds and default",
-    ))
-    isfinite(lower) && isfinite(upper) || throw(ArgumentError(
-        "evolution bounds for parameter :$(name) must be finite",
-    ))
-    lower <= upper || throw(ArgumentError(
-        "evolution lower bound for parameter :$(name) exceeds its upper bound",
-    ))
-    lower <= default <= upper || throw(ArgumentError(
-        "default for parameter :$(name) lies outside its evolution bounds",
-    ))
-    _parameter_value_valid(validator, lower, name)
-    _parameter_value_valid(validator, upper, name)
-
-    scale = hasproperty(evolve, :scale) ? Symbol(evolve.scale) : :linear
-    scale in EVOLUTION_SCALES || throw(ArgumentError(
-        "evolution scale for parameter :$(name) must be one of " *
-        join(":" .* string.(EVOLUTION_SCALES), ", "),
-    ))
-    if scale === :log
-        lower > zero(lower) || throw(ArgumentError(
-            "log-scaled evolution for parameter :$(name) requires a positive lower bound",
-        ))
-    elseif scale === :integer
-        all(value -> value isa Integer, (lower, default, upper)) || throw(ArgumentError(
-            "integer-scaled evolution for parameter :$(name) requires integer bounds and default",
-        ))
-    end
-
-    mutation_scale = hasproperty(evolve, :mutation_scale) ? evolve.mutation_scale : nothing
-    if mutation_scale !== nothing
-        mutation_scale isa Real && isfinite(mutation_scale) && mutation_scale > 0 ||
-            throw(ArgumentError(
-                "evolution mutation_scale for parameter :$(name) must be finite and positive",
-            ))
-    end
-    return (
-        lower=lower,
-        upper=upper,
-        scale=scale,
-        mutation_scale=mutation_scale,
-    )
-end
-
-function _parameter_evolution(evolve, validator, name::Symbol, default)
-    evolve === nothing && return nothing
-    evolve isa NamedTuple || throw(ArgumentError(
-        "evolution metadata for parameter :$(name) must be a NamedTuple",
-    ))
-    hasproperty(evolve, :values) &&
-        return _categorical_evolution(evolve, validator, name)
-    return _bounded_evolution(evolve, validator, name, default)
-end
-
 """
     ParameterSpec(name, default; kwargs...)
 
 One configurable parameter and its cold-path research metadata. `owner`
 identifies the component level that interprets the value; node count therefore
-need not be owned by a node model. `sweep` is a finite candidate set. `evolve`
-is either `(values=(...),)` or bounded metadata with `lower`, `upper`, and
-optional `scale`/`mutation_scale`.
+need not be owned by a node model. `sweep` is a finite candidate set. Node
+models use a separate experimental `Evolution.NodeDesignSpec`; parameter
+metadata does not define a second design surface.
 """
-struct ParameterSpec{T,V,S,E}
+struct ParameterSpec{T,V,S}
     name::Symbol
     owner::Symbol
     datatype::Type
     default::T
     validator::V
     sweep::S
-    evolve::E
     description::String
     units::Union{Nothing,String}
 end
@@ -334,7 +305,6 @@ function ParameterSpec(
     datatype::Type=typeof(default),
     validator=nothing,
     sweep=nothing,
-    evolve=nothing,
     description::AbstractString="",
     units::Union{Nothing,AbstractString}=nothing,
 )
@@ -348,12 +318,10 @@ function ParameterSpec(
         throw(ArgumentError("parameter units must not be empty"))
     _parameter_value_valid(validator, default, name_)
     sweep_ = _parameter_sweep(sweep, validator, name_)
-    evolve_ = _parameter_evolution(evolve, validator, name_, default)
     return ParameterSpec{
         typeof(default),
         typeof(validator),
         typeof(sweep_),
-        typeof(evolve_),
     }(
         name_,
         owner_,
@@ -361,7 +329,6 @@ function ParameterSpec(
         default,
         validator,
         sweep_,
-        evolve_,
         String(description),
         units_,
     )
@@ -376,7 +343,6 @@ function validate_parameter(spec::ParameterSpec, value)
 end
 
 sweepable(spec::ParameterSpec) = spec.sweep !== nothing
-evolvable(spec::ParameterSpec) = spec.evolve !== nothing
 
 """
     SeedStreamSpec(name; description="")
@@ -399,12 +365,11 @@ end
 
 const DEFAULT_SEED_STREAMS = (
     SeedStreamSpec(:topology),
-    SeedStreamSpec(:node_state),
     SeedStreamSpec(:world),
-    SeedStreamSpec(:body),
-    SeedStreamSpec(:task),
-    SeedStreamSpec(:mechanism),
 )
+
+# Removed in 827d0bc: derived and recorded, but read by nothing.
+const _RETIRED_SEED_STREAMS = Set((:node_state, :body, :task, :mechanism))
 
 function _seed_streams(streams)
     source = streams isa Union{Symbol,AbstractString,SeedStreamSpec} ? (streams,) : streams
@@ -416,6 +381,21 @@ function _seed_streams(streams)
     names = getfield.(result, :name)
     length(unique(names)) == length(names) ||
         throw(ArgumentError("evaluation seed stream names must be unique"))
+    # Custom stream names are allowed: `derive_seed` is name-derived and stable,
+    # so an extension that consumes its own stream can declare one. But the four
+    # streams removed in 827d0bc must not come back by accident. They were
+    # derived, realised and written into seeds.csv and every run record while
+    # nothing read them, so a record advertised seed provenance with no
+    # mechanism behind it. A plan could otherwise reintroduce them silently --
+    # the checked-in example plan still declared all six until this was caught.
+    retired = intersect(Set(names), _RETIRED_SEED_STREAMS)
+    isempty(retired) || throw(ArgumentError(
+        "evaluation declares retired seed stream(s) $(sort!(collect(retired); by=string)); " *
+        "they were removed because nothing consumed them, and declaring one " *
+        "records seed provenance that no mechanism backs. Consumed streams are " *
+        "$(collect(getfield.(DEFAULT_SEED_STREAMS, :name))); a genuinely new " *
+        "stream may use any other name.",
+    ))
     return result
 end
 

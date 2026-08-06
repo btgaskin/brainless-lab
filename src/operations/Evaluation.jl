@@ -39,11 +39,41 @@ function _trial_viability(metrics)
     return missing
 end
 
+function _normalized_censoring_summary(rows)
+    bounds = Symbol[]
+    for row in rows
+        :normalized_bound in propertynames(row) || continue
+        bound = row.normalized_bound
+        ismissing(bound) && continue
+        bound in (:none, :floor, :ceiling) || throw(ArgumentError(
+            "normalized_bound must be :none, :floor, :ceiling, or missing",
+        ))
+        push!(bounds, bound)
+    end
+    n = length(bounds)
+    floor_count = count(==(:floor), bounds)
+    ceiling_count = count(==(:ceiling), bounds)
+    censored_count = floor_count + ceiling_count
+    fraction = n == 0 ? missing : censored_count / n
+    display = n == 0 ?
+        missing :
+        "$(floor_count)/$(n) at floor; $(ceiling_count)/$(n) at ceiling"
+    return (
+        normalized_n=n,
+        normalized_floor_count=floor_count,
+        normalized_ceiling_count=ceiling_count,
+        normalized_censored_count=censored_count,
+        normalized_censored_fraction=fraction,
+        normalized_censoring=display,
+    )
+end
+
 function _evaluate_trial(
     target::EvaluationTarget,
     resolved::ResolvedComposition,
     block::Integer,
     trial::Integer;
+    model=nothing,
     record=(),
     record_every::Integer=1,
     metrics=nothing,
@@ -61,6 +91,7 @@ function _evaluate_trial(
         trial=trial,
         construction_block=construction_block,
         construction_trial=construction_trial,
+        model=model,
         record=record,
         every=record_every,
     )
@@ -133,6 +164,7 @@ rejected until the composed task declares the corresponding reset hooks.
 function evaluate(
     target::EvaluationTarget;
     registry::RegistrySet=DEFAULT_REGISTRY,
+    model=nothing,
     record=(),
     record_every::Integer=1,
     metrics=nothing,
@@ -143,6 +175,30 @@ function evaluate(
         "must be exposed through a declared reset hook before using :$(evaluation.reset)",
     ))
     resolved = resolve_composition(target.composition, registry)
+    _validate_minimum_scored_ticks(
+        resolved.task,
+        evaluation.horizon - evaluation.warmup;
+        typed_evaluation=true,
+    )
+    requested_model = model === nothing ? target.model : model
+    resolved_model = if requested_model isa Evolution.ModelReference
+        resolved.node.design === nothing && throw(ArgumentError(
+            "node :$(resolved.node.id) does not declare a searchable design",
+        ))
+        Evolution.read_model(requested_model, resolved.node.id, resolved.node.design)
+    else
+        requested_model
+    end
+    if resolved.node.design !== nothing && resolved_model !== nothing
+        resolved_model isa resolved.node.design.model_type || throw(ArgumentError(
+            "node :$(resolved.node.id) requires model type " *
+            "$(resolved.node.design.model_type), got $(typeof(resolved_model))",
+        ))
+    elseif resolved_model !== nothing
+        throw(ArgumentError(
+            "node :$(resolved.node.id) does not accept an explicit node model",
+        ))
+    end
     count = evaluation.blocks * evaluation.trials_per_block
     trial_results = Vector{EvaluationTrial}(undef, count)
     index = 1
@@ -153,6 +209,7 @@ function evaluate(
                 resolved,
                 block,
                 trial;
+                model=resolved_model,
                 record=record,
                 record_every=record_every,
                 metrics=metrics,
@@ -172,17 +229,18 @@ function trial_row(trial::EvaluationTrial)
         condition=trial.condition,
         block=trial.block,
         trial=trial.trial,
+        window=Int(trial.simulation.config.window),
         seed_ledger_agents=length(trial.seeds),
         topology_seed=seed(:topology),
-        node_state_seed=seed(:node_state),
         world_seed=seed(:world),
-        body_seed=seed(:body),
-        task_seed=seed(:task),
-        mechanism_seed=seed(:mechanism),
         initial_state=trial.initial_state,
         score_key=outcome === nothing ? missing : outcome.key,
         raw_score=outcome === nothing ? missing : outcome.raw,
         normalized_score=outcome === nothing ? missing : outcome.normalized,
+        normalized_bound=outcome === nothing ? missing : outcome.normalized_bound,
+        normalization_status=outcome === nothing ? missing : outcome.normalization_status,
+        anchor_scored_ticks=outcome === nothing || outcome.anchor_scored_ticks === nothing ?
+            missing : outcome.anchor_scored_ticks,
         viable=_trial_viability(trial.simulation.metrics),
         liveness=_trial_liveness(trial.simulation.metrics),
     )

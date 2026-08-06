@@ -1,7 +1,7 @@
 using BrainlessLab, Random, Test
 
 function _signalling_forage_environment(positions; signal_range=2.0, signal_gain=1.0)
-    config = SwarmConfig(
+    config = BrainlessLab.SwarmConfig(
         n_agents=length(positions),
         space_size=20.0,
         sensory_noise=0.0,
@@ -12,35 +12,35 @@ function _signalling_forage_environment(positions; signal_range=2.0, signal_gain
         signal_range=signal_range,
         signal_gain=signal_gain,
     )
-    return ForageEnvironment(Torus(20.0), positions; config=config, rng=MersenneTwister(13))
+    return BrainlessLab.ForageEnvironment(BrainlessLab.Torus(20.0), positions; config=config, rng=MersenneTwister(13))
 end
 
 _stateless_bodies(n) = [
-    situated_embodiment(SituatedSensorLayout(source_bank=true, signalling=true))
+    BrainlessLab.situated_embodiment(BrainlessLab.SituatedSensorLayout(source_bank=true, signalling=true))
     for _ in 1:n
 ]
 
 @testset "Signalling embodiment ports" begin
-    silent = situated_embodiment(SituatedSensorLayout(source_bank=true, signalling=false))
+    silent = BrainlessLab.situated_embodiment(BrainlessLab.SituatedSensorLayout(source_bank=true, signalling=false))
     @test n_effectors(silent) == 3
     @test n_receptors(silent) == 128
 
-    signalling = situated_embodiment(SituatedSensorLayout(source_bank=true, signalling=true))
-    signalling_ports = ports(signalling)
+    signalling = BrainlessLab.situated_embodiment(BrainlessLab.SituatedSensorLayout(source_bank=true, signalling=true))
+    signalling_ports = BrainlessLab.ports(signalling)
     @test n_effectors(signalling) == 4
     @test n_receptors(signalling) == 128
     @test signalling_ports.effectors[end].id == :situated_actuator__signal
     @test signalling_ports.receptors[BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX].id ==
           :situated_encoder__acoustic
 
-    plain = situated_embodiment(SituatedSensorLayout())
+    plain = BrainlessLab.situated_embodiment(BrainlessLab.SituatedSensorLayout())
     @test n_effectors(plain) == 3
 end
 
 @testset "Signalling reservoir sizing via simulate" begin
-    setup = BrainlessLab._build_ensemble(
+    setup = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :forage,
-        :falandays_base;
+        :falandays;
         ticks=3,
         seed=5,
         n_agents=3,
@@ -51,9 +51,9 @@ end
     )
     @test all(n_effectors(agent.reservoir) == 4 for agent in setup.ensemble.agents)
 
-    sim = simulate(
+    sim = BrainlessLabTestUtils.diagnostic_simulate(
         :forage;
-        node=:falandays_base,
+        node=:falandays,
         ticks=4,
         seed=5,
         n_agents=3,
@@ -68,7 +68,7 @@ end
     @test all(length(eff) == 4 for sample in signal_effectors for eff in sample)
 
     base_kwargs = (
-        node=:falandays_base,
+        node=:falandays,
         ticks=4,
         seed=6,
         n_agents=3,
@@ -76,8 +76,8 @@ end
         sensory_noise=0.0,
         record=[:effectors],
     )
-    default_sim = simulate(:forage; base_kwargs...)
-    explicit_false = simulate(:forage; base_kwargs..., signalling=false)
+    default_sim = BrainlessLabTestUtils.diagnostic_simulate(:forage; base_kwargs...)
+    explicit_false = BrainlessLabTestUtils.diagnostic_simulate(:forage; base_kwargs..., signalling=false)
     default_effectors = getchannel(default_sim.recorder, :effectors)
     false_effectors = getchannel(explicit_false.recorder, :effectors)
     @test default_sim.config.environment.signalling == false
@@ -91,17 +91,17 @@ end
     bodies = _stateless_bodies(length(positions))
 
     env.last_signal .= [1.0, 0.0, 0.0, 0.0]
-    self_inputs = sample!(env, bodies)
+    self_inputs = BrainlessLab.sample!(env, bodies)
     @test self_inputs[1][BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX] ≈ 0.0
 
     env.last_signal .= [0.0, 1.0, 0.0, 0.0]
-    near_inputs = sample!(env, bodies)
-    near_expected = 1.25 * exp(-tdistance(env.torus, env.positions[1], env.positions[2]) / 2.0)
+    near_inputs = BrainlessLab.sample!(env, bodies)
+    near_expected = 1.25 * exp(-BrainlessLab.tdistance(env.torus, env.positions[1], env.positions[2]) / 2.0)
     @test near_inputs[1][BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX] ≈ near_expected
 
     env.last_signal .= [0.0, 0.0, 1.0, 0.0]
-    far_inputs = sample!(env, bodies)
-    far_expected = 1.25 * exp(-tdistance(env.torus, env.positions[1], env.positions[3]) / 2.0)
+    far_inputs = BrainlessLab.sample!(env, bodies)
+    far_expected = 1.25 * exp(-BrainlessLab.tdistance(env.torus, env.positions[1], env.positions[3]) / 2.0)
     @test far_inputs[1][BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX] ≈ far_expected
     @test near_inputs[1][BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX] >
           far_inputs[1][BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX]
@@ -110,7 +110,7 @@ end
     saturated = _signalling_forage_environment(close_positions; signal_range=3.0, signal_gain=1.25)
     close_bodies = _stateless_bodies(length(close_positions))
     saturated.last_signal .= [0.0, 1.0, 1.0, 1.0]
-    saturated_inputs = sample!(saturated, close_bodies)
+    saturated_inputs = BrainlessLab.sample!(saturated, close_bodies)
     @test saturated_inputs[1][BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX] ≈ 1.25
 end
 
@@ -118,14 +118,14 @@ end
     positions = [(2.0, 2.0), (3.0, 2.0)]
     env = _signalling_forage_environment(positions)
     bodies = _stateless_bodies(length(positions))
-    inputs = sample!(env, bodies)
+    inputs = BrainlessLab.sample!(env, bodies)
     @test all(input[BrainlessLab.DEFAULT_SIGNAL_RECEPTOR_INDEX] == 0.0 for input in inputs)
 end
 
 @testset "Signalling leaves non-forage torus untouched" begin
-    setup = BrainlessLab._build_ensemble(
+    setup = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :torus,
-        :falandays_base;
+        :falandays;
         ticks=1,
         seed=17,
         n_agents=3,
@@ -133,6 +133,6 @@ end
         signalling=true,
         record=Symbol[],
     )
-    @test setup.ensemble.environment isa SituatedEnvironment
+    @test setup.ensemble.environment isa BrainlessLab.SituatedEnvironment
     @test all(n_effectors(agent.reservoir) == 3 for agent in setup.ensemble.agents)
 end

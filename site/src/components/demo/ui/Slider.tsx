@@ -22,7 +22,7 @@ export function Slider({ label, value, min, max, step, onChange, format }: Slide
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="bl-range h-3 w-full cursor-pointer"
+        className="bl-range h-3 w-full cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
       />
     </label>
   );

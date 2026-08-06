@@ -1,20 +1,16 @@
+import { Rng } from '../rng';
 import type { TaskEnv } from '../types';
 
 /**
- * Object-tracking, ported from the paper's case study 1: agent fixed in
- * place, only rotates; a stimulus circles it at radius 1, 1deg/tick, flipping
- * direction every 720 ticks. Two eyes at +/-30deg from heading, each 31
- * Gaussian-tuned sensors over -60:4:60deg — matches src/envs/Envs.jl's
- * TrackingEnv exactly (already cross-verified in the earlier docs review).
+ * Object tracking aligned with the registered task defaults: random heading,
+ * target, and direction; a 1-degree world step; and a direction change after
+ * each 720-tick interval. Two eyes carry 31 Gaussian-tuned sensors each.
  */
 const EYE_OFFSETS_DEG = [30, -30];
 const SENSOR_OFFSETS_DEG = rangeStep(-60, 60, 4); // 31 values
 const EFFECTOR_GAIN_DEG = 10;
 const STIMULUS_SPEED_DEG = 1;
 const STIMULUS_FLIP_EVERY = 720;
-const INITIAL_HEADING_DEG = 90;
-const INITIAL_STIMULUS_DEG = 0;
-
 export interface TrackingSnapshot {
   headingDeg: number;
   stimulusDeg: number;
@@ -24,16 +20,28 @@ export class TrackingEnv implements TaskEnv<TrackingSnapshot> {
   readonly nReceptors = EYE_OFFSETS_DEG.length * SENSOR_OFFSETS_DEG.length; // 62
   readonly nEffectors = 2;
 
-  private headingDeg = INITIAL_HEADING_DEG;
-  private stimulusDeg = INITIAL_STIMULUS_DEG;
-  private stimulusDir = 1;
-
+  private headingDeg: number;
+  private stimulusDeg: number;
+  private stimulusDir: number;
+  private readonly initialHeadingDeg: number;
+  private readonly initialStimulusDeg: number;
+  private readonly initialStimulusDir: number;
   private tick = 0;
 
+  constructor(seed = 0) {
+    const rng = new Rng(seed);
+    this.initialHeadingDeg = 360 * rng.uniform();
+    this.initialStimulusDeg = 360 * rng.uniform();
+    this.initialStimulusDir = rng.uniform() < 0.5 ? -1 : 1;
+    this.headingDeg = this.initialHeadingDeg;
+    this.stimulusDeg = this.initialStimulusDeg;
+    this.stimulusDir = this.initialStimulusDir;
+  }
+
   reset(): void {
-    this.headingDeg = INITIAL_HEADING_DEG;
-    this.stimulusDeg = INITIAL_STIMULUS_DEG;
-    this.stimulusDir = 1;
+    this.headingDeg = this.initialHeadingDeg;
+    this.stimulusDeg = this.initialStimulusDeg;
+    this.stimulusDir = this.initialStimulusDir;
     this.tick = 0;
   }
 
@@ -55,14 +63,15 @@ export class TrackingEnv implements TaskEnv<TrackingSnapshot> {
     const [left, right] = effectors;
     this.headingDeg = wrapDeg(this.headingDeg + EFFECTOR_GAIN_DEG * (left - right));
 
+    this.stimulusDeg = wrapDeg(this.stimulusDeg + this.stimulusDir * STIMULUS_SPEED_DEG);
     this.tick += 1;
     if (this.tick % STIMULUS_FLIP_EVERY === 0) this.stimulusDir *= -1;
-    this.stimulusDeg = wrapDeg(this.stimulusDeg + this.stimulusDir * STIMULUS_SPEED_DEG);
   }
 
   snapshot(): TrackingSnapshot {
     return { headingDeg: this.headingDeg, stimulusDeg: this.stimulusDeg };
   }
+
 }
 
 function rangeStep(start: number, stop: number, step: number): number[] {
@@ -71,10 +80,7 @@ function rangeStep(start: number, stop: number, step: number): number[] {
   return out;
 }
 
-/** Wrap to (-180, 180]. */
+/** Match Julia's wrap to [-180, 180). */
 function wrapDeg(deg: number): number {
-  let d = deg % 360;
-  if (d > 180) d -= 360;
-  if (d <= -180) d += 360;
-  return d;
+  return ((deg + 180) % 360 + 360) % 360 - 180;
 }

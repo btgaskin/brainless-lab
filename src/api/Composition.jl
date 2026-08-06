@@ -5,6 +5,13 @@ end
 
 function _composition_body(resolved::ResolvedComposition)
     resolved.body === nothing && return nothing
+    if resolved.body.key === :direct
+        isempty(resolved.body_options) || throw(ArgumentError(
+            "registered body :direct does not accept body_options; its port widths " *
+            "come from the resolved task environment",
+        ))
+        return :direct
+    end
     return _materialize_registered_body(resolved.body, resolved.body_options)
 end
 
@@ -18,7 +25,7 @@ function _composition_seed_ledger(
 )
     names = seed_stream_names(evaluation)
     values = Tuple(begin
-        coordinates = if name in (:topology, :node_state)
+        coordinates = if name === :topology
             (construction_block, construction_trial, agent)
         elseif name in (:body, :mechanism)
             (block, trial, agent)
@@ -37,6 +44,7 @@ function _build_composition(
     trial::Integer=1,
     construction_block::Integer=block,
     construction_trial::Integer=trial,
+    model=nothing,
     record=_DEFAULT_RECORD_CHANNELS,
     every::Integer=1,
 )
@@ -77,6 +85,7 @@ function _build_composition(
             layout,
             seeds;
             receptor_profile=profile,
+            model=model,
         )
         reservoir = resolved.node.build(context, resolved.parameters)
         reservoir isa Reservoir || throw(ArgumentError(
@@ -108,6 +117,7 @@ runs one trial and accepts a temporary `ticks` override for interactive use.
 function simulate(
     composition::CompositionSpec;
     registry::RegistrySet=DEFAULT_REGISTRY,
+    model=nothing,
     ticks=nothing,
     seed::Integer=0,
     record=_DEFAULT_RECORD_CHANNELS,
@@ -118,16 +128,22 @@ function simulate(
     resolved = resolve_composition(composition, registry)
     tick_count = ticks === nothing ? resolved.task.default_ticks : Int(ticks)
     tick_count > 0 || throw(ArgumentError("simulation ticks must be positive"))
-    window_ = window === nothing ? min(tick_count, resolved.task.default_window) : Int(window)
+    window_ = window === nothing ? tick_count : Int(window)
     0 < window_ <= tick_count || throw(ArgumentError(
         "simulation window must lie in 1:ticks",
     ))
+    _validate_minimum_scored_ticks(
+        resolved.task,
+        tick_count;
+        explicit_window=window !== nothing,
+    )
     evaluation = EvaluationSpec(horizon=tick_count, root_seed=seed)
     setup = _build_composition(
         resolved,
         evaluation;
         block=1,
         trial=1,
+        model=model,
         record=record,
         every=every,
     )

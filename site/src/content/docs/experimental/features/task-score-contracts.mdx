@@ -5,7 +5,7 @@ experimental:
   family: worlds-tasks
   readiness: integrated
   tags: [tasks, scoring, calibration, controls]
-  core_page: /core/worlds-tasks-populations/
+  core_page: /handbook/worlds-tasks-populations/
   source_paths: [src/tasks/Tasks.jl, src/tasks/Scoring.jl, src/tasks/Calibration.jl, src/api/Highlevel.jl]
   example_paths: [examples/quickstart.jl]
   test_paths: [test/scoring_anchors.jl, test/scoring_calibration.jl, test/test_api.jl]
@@ -13,10 +13,17 @@ experimental:
 
 `TaskSpec` and `task_outcome(sim)` are stable Core contracts: a task names its setup,
 rollout defaults, optional primary metric, and anchors, and the result exposes that declared
-key with task-native and normalized values. This feature record tracks the extended task
-implementations, calibration utilities, and control settings composed through that
+key with its task-native value. A measured anchor also declares the `scored_ticks` interval
+where its normalised value is valid. A different scoring window keeps the raw value and
+withholds normalisation with an explicit status. This feature record tracks the extended
+task implementations, calibration utilities, and control settings composed through that
 interface.
 
 Calibration and outcome definitions operationalise behaviour. They do not validate the named
 cognitive capacity, make raw metrics comparable across tasks, or turn one rollout into an
 independent scientific result.
+
+`cartpole_plank_easy` is the declared frontier task. Canonical Falandays measured `10.0`
+raw and `0.0007` normalised, so the task is still at floor and remains unsolved by the
+canonical node. It is an open challenge, not a scored core coordinate. It becomes useful
+for design comparisons only after a design clears that floor.

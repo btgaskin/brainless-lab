@@ -4,7 +4,7 @@ let
     output_dir = get(ENV, "BRAINLESSLAB_EXAMPLE_OUTPUT_DIR", joinpath(@__DIR__, "output"))
     mkpath(output_dir)
 
-    sim = simulate(:tracking; node=:falandays, ticks=300, seed=1)
+    sim = simulate(:tracking; node=:falandays, ticks=2_000, seed=26)
     outcome = task_outcome(sim)
 
     println(
@@ -13,7 +13,7 @@ let
     )
     if isdefined(Main, :CairoMakie)
         fig = visualize(sim)
-        raster = rasterplot(sim)
+        raster = BrainlessLab.rasterplot(sim)
 
         Main.CairoMakie.save(joinpath(output_dir, "quickstart_visualize.png"), fig)
         Main.CairoMakie.save(joinpath(output_dir, "quickstart_raster.png"), raster)

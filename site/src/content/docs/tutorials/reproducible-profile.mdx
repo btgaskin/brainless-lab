@@ -1,0 +1,64 @@
+---
+title: Create a reproducible profile
+description: Validate and run a ProfilePlan, then inspect its standard record.
+---
+
+import BenchmarkRecord from '../../../components/BenchmarkRecord.astro';
+
+A [profile](/glossary/#profile) describes one [composition](/glossary/#composition) across
+declared [trials](/glossary/#trial). Use it when one in-memory run is not enough and you
+need a portable result.
+
+## Validate the plan
+
+The repository includes a small executable example:
+
+```bash
+julia --project=. bin/brainlesslab.jl check \
+  plans/examples/profile_tracking.toml
+```
+
+`check` parses, validates, and resolves the [plan](/glossary/#operation-plan) without
+simulation. It rejects a scored [target](/glossary/#target) when `horizon - warmup` is
+below the task's `minimum_scored_ticks`. It should report a valid `profile` plan and its
+resolved target.
+
+## Run the profile
+
+```bash
+julia -t auto --project=. bin/brainlesslab.jl run \
+  plans/examples/profile_tracking.toml --root records
+```
+
+The command prints the new record path. Open `report/index.html` for a readable summary.
+Use the CSV files for analysis.
+
+## See the output shape
+
+The two generated fixtures below use the same `null_random` Wall target, two blocks, and
+root seed. The profile and benchmark therefore differ by operation, not by input data.
+
+<BenchmarkRecord recordPath="site/src/fixtures/example-record/profile" />
+
+<BenchmarkRecord recordPath="site/src/fixtures/example-record/benchmark" />
+
+The profile leaves `summary/statistics.csv` empty. The benchmark fills it because
+statistics are a benchmark artifact. Both keep the floor-censored null result visible so
+the example also shows how task anchors appear in a record.
+
+## Check the record
+
+A successful [record](/glossary/#record) contains `DONE`, not `FAILED`. Begin with:
+
+- `request.toml` for the submitted plan;
+- `resolved.toml` for the values that ran;
+- `seeds.csv` for realised random [streams](/glossary/#seed-stream);
+- `data/trials.csv` for independent trial rows;
+- `record.toml` for provenance and checksums.
+
+The example uses one trial and Tracking's minimum [scored interval](/glossary/#scored-interval) to keep the run small.
+Its output is exploratory software evidence, not a confirmed scientific result.
+
+Next, [compare conditions](/tutorials/compare-conditions/) under paired blocks.
+
+<p class="bl-source">Source: <code>plans/examples/profile_tracking.toml</code>, <code>tools/docs/example_profile.toml</code>, <code>tools/docs/example_benchmark.toml</code>, <code>src/operations/Profile.jl</code>, <code>src/records/Records.jl</code>.</p>

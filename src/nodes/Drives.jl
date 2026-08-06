@@ -9,9 +9,8 @@ struct NoDrive <: Drive end
 # `nodes/falandays.mdx` §"The Oosawa drive".
 #
 # `OosawaDrive()` with both fields zero is deliberately inert (a NoDrive that still
-# consumes a noise draw); it is the neutral primitive. The active `:falandays_oosawa`
-# preset supplies `noise_gain = 0.8` at construction (see `falandays_oosawa` and
-# `_falandays_oosawa_native`).
+# consumes a noise draw); it is the neutral primitive. Set `noise_gain` explicitly
+# when composing a driven `FalandaysReservoir`.
 Base.@kwdef struct OosawaDrive <: Drive
     membrane_noise::Float64 = 0.0
     noise_gain::Float64 = 0.0

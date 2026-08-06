@@ -34,6 +34,8 @@ end
 struct LogisticResponse <: ResponseCurve
     slope::Float64
     midpoint::Float64
+    lo::Float64
+    denominator::Float64
 
     function LogisticResponse(slope::Real=10.0, midpoint::Real=0.5)
         slope_ = Float64(slope)
@@ -42,7 +44,9 @@ struct LogisticResponse <: ResponseCurve
             throw(ArgumentError("logistic slope must be finite and positive"))
         isfinite(midpoint_) && 0.0 <= midpoint_ <= 1.0 ||
             throw(ArgumentError("logistic midpoint must lie in [0, 1]"))
-        return new(slope_, midpoint_)
+        lo = _stable_logistic(-slope_ * midpoint_)
+        hi = _stable_logistic(slope_ * (1.0 - midpoint_))
+        return new(slope_, midpoint_, lo, hi - lo)
     end
 end
 
@@ -72,12 +76,9 @@ end
 
 @inline function (curve::LogisticResponse)(x::Real)
     value = _response_input(x)
-    lo = _stable_logistic(-curve.slope * curve.midpoint)
-    hi = _stable_logistic(curve.slope * (1.0 - curve.midpoint))
-    denominator = hi - lo
-    denominator <= eps(Float64) && return value
+    curve.denominator <= eps(Float64) && return value
     at = _stable_logistic(curve.slope * (value - curve.midpoint))
-    return Float64((at - lo) / denominator)
+    return Float64((at - curve.lo) / curve.denominator)
 end
 
 @inline function _response_input(x::Real)

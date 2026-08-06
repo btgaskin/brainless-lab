@@ -65,7 +65,7 @@ function validate(plan::AblationPlan, registry::RegistrySet)
             plan.target.composition,
         )
     end
-    return plan
+    return _validate_plan_evaluations(plan, registry)
 end
 
 function _apply_composition_ablation(
@@ -150,6 +150,7 @@ function _ablation_case_summaries(
     for case in plan.cases
         selected = filter(row -> row.case === case.id, rows)
         viability = [row.viable for row in selected if !ismissing(row.viable)]
+        censoring = _normalized_censoring_summary(selected)
         push!(summaries, (
             operation=plan.source.id,
             case=case.id,
@@ -161,6 +162,12 @@ function _ablation_case_summaries(
                 (row.normalized_score for row in selected),
                 policy,
             ),
+            normalized_n=censoring.normalized_n,
+            normalized_floor_count=censoring.normalized_floor_count,
+            normalized_ceiling_count=censoring.normalized_ceiling_count,
+            normalized_censored_count=censoring.normalized_censored_count,
+            normalized_censored_fraction=censoring.normalized_censored_fraction,
+            normalized_censoring=censoring.normalized_censoring,
             viable_fraction=isempty(viability) ? missing : mean(viability),
         ))
     end
@@ -180,7 +187,7 @@ tables(result::AblationResult) = (
 )
 
 summary(result::AblationResult) = (
-    operation=:ablation,
+    operation=:ablate,
     id=result.plan.source.id,
     n_cases=length(result.plan.cases),
     n_rollouts=length(result.trial_rows),

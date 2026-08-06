@@ -38,11 +38,11 @@ const repositoryPathSchema = z
     }
   });
 
-const corePageSchema = z
+const documentationPageSchema = z
   .string()
   .regex(
-    /^\/core\/[a-z0-9]+(?:-[a-z0-9]+)*\/$/,
-    'core_page must be a canonical /core/<slug>/ route',
+    /^\/(?:handbook|reference)\/[a-z0-9]+(?:-[a-z0-9]+)*\/$/,
+    'core_page must be a canonical handbook or reference route',
   )
   .superRefine((route, context) => {
     const relative = route.slice(1, -1);
@@ -79,7 +79,7 @@ const experimentalSchema = z
           ),
       )
       .min(1),
-    core_page: corePageSchema,
+    core_page: documentationPageSchema,
     source_paths: z.array(repositoryPathSchema).min(1),
     example_paths: z.array(repositoryPathSchema).default([]),
     test_paths: z.array(repositoryPathSchema).default([]),
@@ -110,12 +110,78 @@ const experimentalSchema = z
     }
   });
 
+const evidenceStateSchema = z.enum([
+  'planned',
+  'exploratory',
+  'tuned',
+  'frozen',
+  'confirmed',
+  'promoted',
+  'retired',
+]);
+
+const researchSchema = z
+  .object({
+    kind: z.enum(['benchmark', 'experiment']),
+    id: z
+      .string()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'research ids must be lowercase kebab-case'),
+    version: z.string().min(1),
+    evidence_state: evidenceStateSchema,
+    tasks: z.array(z.string().min(1)).default([]),
+    nodes: z.array(z.string().min(1)).default([]),
+    tags: z
+      .array(
+        z
+          .string()
+          .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'research tags must be lowercase kebab-case'),
+      )
+      .default([]),
+    protocol_path: repositoryPathSchema,
+    record_paths: z.array(repositoryPathSchema).default([]),
+  })
+  .superRefine((entry, context) => {
+    if (new Set(entry.tags).size !== entry.tags.length) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['tags'],
+        message: 'research tags must be unique',
+      });
+    }
+    if (new Set(entry.record_paths).size !== entry.record_paths.length) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['record_paths'],
+        message: 'research record paths must be unique',
+      });
+    }
+    if (entry.evidence_state !== 'planned' && entry.record_paths.length === 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['record_paths'],
+        message: 'research beyond the planned state requires at least one record path',
+      });
+    }
+    for (const recordPath of entry.record_paths) {
+      for (const artifact of ['record.toml', 'summary/summary.json', 'DONE']) {
+        if (!existsSync(resolve(repositoryRoot, recordPath, artifact))) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['record_paths'],
+            message: `research record is incomplete: ${recordPath}/${artifact}`,
+          });
+        }
+      }
+    }
+  });
+
 export const collections = {
   docs: defineCollection({
     loader: docsLoader(),
     schema: docsSchema({
       extend: z.object({
         experimental: experimentalSchema.optional(),
+        research: researchSchema.optional(),
       }),
     }),
   }),

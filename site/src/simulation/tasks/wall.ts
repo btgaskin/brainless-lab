@@ -2,9 +2,9 @@ import { Rng } from '../rng';
 import type { TaskEnv } from '../types';
 
 /**
- * Wall-avoidance, ported from the paper's case study 3 (Braitenberg-style
- * two-wheeled agent, 15x15m box) and cross-checked against src/envs/WallBox.jl
- * — both agree exactly on: +/-45deg ray-cast sensors, d_max = sqrt(2*15^2),
+ * Wall avoidance, ported from the paper's case study 3 (Braitenberg-style
+ * two-wheeled agent, 15x15m box) and aligned with src/envs/WallBox.jl on:
+ * +/-45deg ray-cast sensors, d_max = sqrt(2*15^2),
  * v=(eL+eR)/2 forward speed along the old heading, dtheta=(eR-eL)/(2r),
  * clamp-and-slide wall contact, and random +/-45deg turn after the step turn.
  */
@@ -82,18 +82,18 @@ export class WallEnv implements TaskEnv<WallSnapshot> {
 
     this.x = cx;
     this.y = cy;
-    this.headingRad = theta0 + dtheta;
+    this.headingRad = wrapRad(theta0 + dtheta);
     this.collided = nx !== cx || ny !== cy;
     if (this.collided) {
-      this.collided = true;
       const turn = this.rng.uniform() < 0.5 ? Math.PI / 4 : -Math.PI / 4;
-      this.headingRad += turn;
+      this.headingRad = wrapRad(this.headingRad + turn);
     }
   }
 
   snapshot(): WallSnapshot {
     return { boxSize: BOX_SIZE, x: this.x, y: this.y, headingRad: this.headingRad, collided: this.collided };
   }
+
 }
 
 function clamp01(x: number): number {
@@ -102,4 +102,8 @@ function clamp01(x: number): number {
 
 function clamp(x: number, lo: number, hi: number): number {
   return x < lo ? lo : x > hi ? hi : x;
+}
+
+function wrapRad(angle: number): number {
+  return ((angle + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
 }

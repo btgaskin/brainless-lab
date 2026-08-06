@@ -11,34 +11,34 @@ end
 
 @testset "core task sensory controls" begin
     @testset "tracking gain is explicit and validated" begin
-        default = TrackingEnv()
-        explicit = TrackingEnv(; sensory_gain=1.0)
-        blind = TrackingEnv(; sensory_gain=0.0)
+        default = BrainlessLab.TrackingEnv(; rng=MersenneTwister(11))
+        explicit = BrainlessLab.TrackingEnv(; rng=MersenneTwister(11), sensory_gain=1.0)
+        blind = BrainlessLab.TrackingEnv(; rng=MersenneTwister(11), sensory_gain=0.0)
 
         @test sense(default) == sense(explicit)
         @test any(!iszero, sense(default))
         @test all(iszero, sense(blind))
-        @test_throws ArgumentError TrackingEnv(; sensory_gain=-1.0)
-        @test_throws ArgumentError TrackingEnv(; sensory_gain=Inf)
+        @test_throws ArgumentError BrainlessLab.TrackingEnv(; sensory_gain=-1.0)
+        @test_throws ArgumentError BrainlessLab.TrackingEnv(; sensory_gain=Inf)
 
-        custom_bank = TrackingEnv(; sensor_offsets_deg=[-8.0, 0.0, 8.0])
+        custom_bank = BrainlessLab.TrackingEnv(; sensor_offsets_deg=[-8.0, 0.0, 8.0])
         @test n_receptors(custom_bank) == 6
         @test length(sense(custom_bank)) == 6
         @test_throws ArgumentError BrainlessLab.tracking_reference_policy(
-            TrackingEnv(; movement_amp=0.0),
+            BrainlessLab.TrackingEnv(; movement_amp=0.0),
         )
     end
 
     @testset "pong gain is explicit and validated" begin
-        default = PongEnv(; rng=RecordedDraws([250.0, 1.0]))
-        explicit = PongEnv(; rng=RecordedDraws([250.0, 1.0]), sensory_gain=1.0)
-        blind = PongEnv(; rng=RecordedDraws([250.0, 1.0]), sensory_gain=0.0)
+        default = BrainlessLab.PongEnv(; rng=BrainlessLab.RecordedDraws([250.0, 1.0]))
+        explicit = BrainlessLab.PongEnv(; rng=BrainlessLab.RecordedDraws([250.0, 1.0]), sensory_gain=1.0)
+        blind = BrainlessLab.PongEnv(; rng=BrainlessLab.RecordedDraws([250.0, 1.0]), sensory_gain=0.0)
 
         @test sense(default) == sense(explicit)
         @test any(!iszero, sense(default))
         @test all(iszero, sense(blind))
-        @test_throws ArgumentError PongEnv(; sensory_gain=-1.0)
-        @test_throws ArgumentError PongEnv(; sensory_gain=NaN)
+        @test_throws ArgumentError BrainlessLab.PongEnv(; sensory_gain=-1.0)
+        @test_throws ArgumentError BrainlessLab.PongEnv(; sensory_gain=NaN)
     end
 end
 
@@ -49,13 +49,11 @@ end
     pong_stationary = Float64[]
 
     for seed in 1:5
-        tracking = TrackingEnv(;
+        tracking = BrainlessLab.TrackingEnv(;
             rng=MersenneTwister(seed),
-            randomize_start=true,
         )
-        stationary_tracking = TrackingEnv(;
+        stationary_tracking = BrainlessLab.TrackingEnv(;
             rng=MersenneTwister(seed),
-            randomize_start=true,
         )
         push!(
             tracking_reference,
@@ -70,15 +68,15 @@ end
             _task_policy_rollout(stationary_tracking, _ -> (0.0, 0.0), 400).track_score,
         )
 
-        pong = PongEnv(seed)
-        stationary_pong = PongEnv(seed)
+        pong = BrainlessLab.PongEnv(seed)
+        stationary_pong = BrainlessLab.PongEnv(seed)
         push!(
             pong_reference,
-            _task_policy_rollout(pong, BrainlessLab.pong_reference_policy, 2_000).hit_rate,
+            _task_policy_rollout(pong, BrainlessLab.pong_reference_policy, 7_200).hit_rate,
         )
         push!(
             pong_stationary,
-            _task_policy_rollout(stationary_pong, _ -> (0.0, 0.0), 2_000).hit_rate,
+            _task_policy_rollout(stationary_pong, _ -> (0.0, 0.0), 7_200).hit_rate,
         )
     end
 

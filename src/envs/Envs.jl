@@ -149,7 +149,7 @@ function TrackingEnv(;
     eye_offset_deg::Real=30.0,
     sensor_offsets_deg::AbstractVector{<:Real}=collect(-60.0:4.0:60.0),
     sensory_gain::Real=1.0,
-    randomize_start::Bool=false,
+    randomize_start::Bool=true,
     theta0=nothing,
     phi0=nothing,
     direction0=nothing,
@@ -187,7 +187,10 @@ n_receptors(::Type{<:TrackingEnv}) = 62
 n_receptors(env::TrackingEnv) = 2 * length(env.sensor_offsets_deg)
 n_effectors(::Type{<:TrackingEnv}) = 2
 n_effectors(::TrackingEnv) = n_effectors(TrackingEnv)
-default_ticks(::Type{<:TrackingEnv}) = 1000
+# 2000, not 1000: tracking scores mean(cos(error)) per tick, and the between-seed
+# spread only falls below the mean past ~2000 scored ticks. See the task's
+# minimum_scored_ticks, which a default run must be able to satisfy.
+default_ticks(::Type{<:TrackingEnv}) = 2000
 default_ticks(::TrackingEnv) = default_ticks(TrackingEnv)
 default_window(::Type{<:TrackingEnv}) = 200
 default_window(::TrackingEnv) = default_window(TrackingEnv)
@@ -347,9 +350,9 @@ n_receptors(::Type{<:PongEnv}) = 46
 n_receptors(::PongEnv) = n_receptors(PongEnv)
 n_effectors(::Type{<:PongEnv}) = 2
 n_effectors(::PongEnv) = n_effectors(PongEnv)
-default_ticks(::Type{<:PongEnv}) = 2000
+default_ticks(::Type{<:PongEnv}) = 7200
 default_ticks(::PongEnv) = default_ticks(PongEnv)
-default_window(::Type{<:PongEnv}) = 1000
+default_window(::Type{<:PongEnv}) = 6000
 default_window(::PongEnv) = default_window(PongEnv)
 bounds(env::PongEnv) = (0.0, Float64(env.width), 0.0, Float64(env.height))
 
@@ -450,7 +453,7 @@ function reset!(env::PongEnv)
 end
 
 function metrics(env::PongEnv, window::Integer=default_window(env))
-    bounds = eachindex(env.hit_flags)
+    bounds = _tail_bounds(length(env.hit_flags), Int(window))
     hits = isempty(bounds) ? 0 : Int(sum(@view env.hit_flags[bounds]))
     misses = isempty(bounds) ? 0 : Int(sum(@view env.miss_flags[bounds]))
     denom = hits + misses

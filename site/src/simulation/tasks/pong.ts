@@ -3,9 +3,8 @@ import type { TaskEnv } from '../types';
 
 /**
  * Pong, ported from the paper's case study 2: 1000x500 arena, ball radius 15,
- * speed 5px/tick both axes, paddle height 100 fixed at x=100. 46 bearing
- * sensors over -90:4:90deg from the paddle centre to the ball; paddle_y +=
- * 100*(oUp-oDown). Cross-checked against src/envs/Envs.jl's PongEnv.
+ * speed 5px/tick on both axes, and paddle height 100 fixed at x=100. Its 46
+ * bearing sensors and paddle update follow src/envs/Envs.jl's PongEnv.
  */
 const ARENA_W = 1000;
 const ARENA_H = 500;

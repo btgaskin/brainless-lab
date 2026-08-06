@@ -434,7 +434,8 @@ effectors(r::SORNReservoir) = effectors(r, r.x)
 n_receptors(r::SORNReservoir) = r.n_receptors_
 n_effectors(r::SORNReservoir) = r.n_effectors_
 n_nodes(r::SORNReservoir) = length(r.x)
-plasticity(::SORNReservoir) = OnlinePlasticity()
+plasticity(r::SORNReservoir) =
+    r.learn_on ? OnlinePlasticity() : NoPlasticity()
 
 function reset!(r::SORNReservoir)
     r.W_EE .= r.W_EE0

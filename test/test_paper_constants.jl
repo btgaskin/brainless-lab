@@ -3,9 +3,72 @@ using Test
 
 @testset "Falandays paper config table" begin
     @test paramdim(FalandaysParams) == 7
-    @test length(pack_params(FalandaysParams())) == 7
+    default_params = FalandaysParams()
+    default_raw = pack_params(default_params)
+    default_restored = unpack_params(default_params, default_raw)
+    @test length(default_raw) == 7
+    @test default_params.lrate_wmat == 1.0
+    @test default_restored.lrate_wmat ≈ default_params.lrate_wmat
+    frozen_params = FalandaysParams(learn_on=false)
+    frozen_raw = pack_params(frozen_params)
+    @test !unpack_params(frozen_params, frozen_raw).learn_on
+    @test !unpack_params(FalandaysParams, frozen_raw; learn_on=false).learn_on
+    @test_throws UndefKeywordError unpack_params(FalandaysParams, frozen_raw)
 
-    wall = falandays_paper_config(:wall)
+    in_range = FalandaysParams(
+        leak=0.4,
+        lrate_wmat=1.25,
+        lrate_targ=0.2,
+        threshold_mult=3.0,
+        targ_min=4.0,
+        input_weight=12.5,
+        weight_init_std=2.5,
+        learn_on=false,
+    )
+    raw = pack_params(in_range)
+    restored = unpack_params(in_range, raw)
+    @test pack_params(restored) ≈ raw
+    @test restored.leak ≈ in_range.leak
+    @test restored.lrate_wmat ≈ in_range.lrate_wmat
+    @test restored.lrate_targ ≈ in_range.lrate_targ
+    @test restored.threshold_mult ≈ in_range.threshold_mult
+    @test restored.targ_min ≈ in_range.targ_min
+    @test restored.input_weight ≈ in_range.input_weight
+    @test restored.weight_init_std ≈ in_range.weight_init_std
+    @test !restored.learn_on
+
+    # Packing a value outside its declared range must fail loudly. The inverse
+    # sigmoid clamps, so without the guard this would pack to a large finite
+    # coordinate and decode back as the ceiling.
+    @test_throws ArgumentError pack_params(FalandaysParams(input_weight=20.0))
+    @test_throws ArgumentError pack_params(FalandaysParams(lrate_wmat=2.0))
+    @test_throws ArgumentError pack_params(FalandaysParams(targ_min=0.0))
+    # Values exactly on a bound remain packable.
+    @test length(pack_params(FalandaysParams(input_weight=16.0))) == 7
+    @test length(pack_params(FalandaysParams(leak=0.0))) == 7
+
+    high_coordinate = pack_params(FalandaysParams())
+    high_coordinate[2] = 8.0
+    bounded = unpack_params(FalandaysParams, high_coordinate; learn_on=true)
+    @test 0.0 < bounded.lrate_wmat < 1.5
+    reservoir = FalandaysReservoir(
+        24,
+        2,
+        2;
+        params=bounded,
+        seed=19,
+        link_p=0.2,
+        weight_init_mode=:legacy_normal,
+        rectify=true,
+    )
+    for _ in 1:2_500
+        step!(reservoir, [0.5, 0.25])
+    end
+    @test all(isfinite, reservoir.acts)
+    @test all(isfinite, reservoir.targets)
+    @test all(isfinite, reservoir.wmat)
+
+    wall = BrainlessLab.falandays_paper_config(:wall)
     @test wall.nnodes == 200
     @test wall.input_amp == 4.0
     @test wall.lrate_wmat == 1.0
@@ -15,7 +78,7 @@ using Test
     @test !wall.sensory_noise_assumption
     @test wall.clip_sensory_noise
 
-    tracking = falandays_paper_config(:tracking)
+    tracking = BrainlessLab.falandays_paper_config(:tracking)
     @test tracking.nnodes == 200
     @test tracking.input_amp == 0.75
     @test tracking.lrate_wmat == 1.0
@@ -23,15 +86,15 @@ using Test
     @test tracking.weight_init_mode === :excitatory
     @test tracking.sensory_noise == 0.0
 
-    pong = falandays_paper_config(:pong)
+    pong = BrainlessLab.falandays_paper_config(:pong)
     @test pong.nnodes == 500
     @test pong.input_amp == 2.75
     @test pong.lrate_wmat == 1.0
     @test pong.lrate_targ == 0.1
     @test pong.weight_init_mode === :pong_mixed
-    @test PONG_TASK.score_key === :hit_rate
+    @test BrainlessLab.PONG_TASK.score_key === :hit_rate
 
-    collective = falandays_paper_config(:collective)
+    collective = BrainlessLab.falandays_paper_config(:collective)
     @test collective.nnodes == 250
     @test collective.input_amp == 12.5
     @test collective.lrate_wmat == 0.10
@@ -39,65 +102,20 @@ using Test
     @test collective.weight_init_mode === :collective_dale_smallworld
 end
 
-@testset "Falandays canonical name and compatibility alias" begin
-    @test resolve_node(:falandays) === resolve_node(:falandays_base)
-    @test genome_type(:falandays) === FalandaysParams
-    @test genome_type(:falandays_base) === FalandaysParams
-    @test node_receptor_profile_keyword(:falandays) === :input_link_p
-    @test node_receptor_profile_keyword(:falandays_base) === :input_link_p
-    @test :falandays_base in variants()
-    @test !(:falandays_node in variants())
-
-    for task in (:wall, :tracking, :pong)
-        canonical = BrainlessLab._build_ensemble(
-            task,
-            :falandays;
-            ticks=1,
-            seed=17,
-            record=Symbol[],
-        )
-        alias = BrainlessLab._build_ensemble(
-            task,
-            :falandays_base;
-            ticks=1,
-            seed=17,
-            record=Symbol[],
-        )
-        canonical_reservoir = canonical.ensemble.agents[1].reservoir
-        alias_reservoir = alias.ensemble.agents[1].reservoir
-
-        @test canonical.n_nodes == alias.n_nodes == falandays_paper_config(task).nnodes
-        @test canonical_reservoir.params == alias_reservoir.params
-        @test canonical_reservoir.recurrent_mask == alias_reservoir.recurrent_mask
-        @test canonical_reservoir.wmat0 == alias_reservoir.wmat0
-        @test canonical_reservoir.input_wmat == alias_reservoir.input_wmat
-        @test canonical_reservoir.output_mask == alias_reservoir.output_mask
-    end
-
-    canonical = simulate(
-        :wall;
-        node=:falandays,
-        ticks=20,
-        seed=37,
-        record=(:spikes, :rate, :poses),
-    )
-    alias = simulate(
-        :wall;
-        node=:falandays_base,
-        ticks=20,
-        seed=37,
-        record=(:spikes, :rate, :poses),
-    )
-    @test canonical.node === :falandays
-    @test alias.node === :falandays_base
-    @test canonical.metrics == alias.metrics
-    for channel in (:spikes, :rate, :poses)
-        @test getchannel(canonical.recorder, channel) ==
-              getchannel(alias.recorder, channel)
-    end
+@testset "Falandays rejects non-finite runtime state" begin
+    reservoir = FalandaysReservoir(8, 2, 2; seed=9, link_p=0.5)
+    reservoir.wmat[1, 1] = NaN
+    @test_throws DomainError step!(reservoir, zeros(2))
 end
 
-@testset "Falandays base constructor defaults" begin
+@testset "Falandays canonical registration" begin
+    @test BrainlessLab.genome_type(:falandays) === FalandaysParams
+    @test BrainlessLab.node_receptor_profile_keyword(:falandays) === :input_link_p
+    @test :falandays in variants()
+    @test !(:falandays_node in variants())
+end
+
+@testset "Falandays constructor defaults" begin
     faithful = FalandaysReservoir(5, 2, 2; seed=1, link_p=0.0, input_amp=4.0)
     @test faithful.rectify == false
     @test all(.!faithful.recurrent_mask)
@@ -124,25 +142,26 @@ end
     @test any(x -> -0.5 < x < 0.5, pong_active)
 end
 
-@testset "simulate injects task-specific Falandays base defaults" begin
+@testset "simulate injects task-specific Falandays defaults" begin
     for task in (:wall, :tracking, :pong)
-        cfg = falandays_paper_config(task)
-        setup = BrainlessLab._build_ensemble(task, :falandays; ticks=1, seed=10, record=Symbol[])
+        cfg = BrainlessLab.falandays_paper_config(task)
+        setup = BrainlessLabTestUtils.diagnostic_build_ensemble(task, :falandays; ticks=1, seed=10, record=Symbol[])
         reservoir = setup.ensemble.agents[1].reservoir
         @test setup.n_nodes == cfg.nnodes
         @test reservoir.rectify == false
         @test reservoir.params.lrate_wmat == cfg.lrate_wmat
         @test reservoir.params.lrate_targ == cfg.lrate_targ
+        @test reservoir.params.input_weight == cfg.input_amp
         @test maximum(reservoir.input_wmat) == cfg.input_amp
     end
 
-    wall_setup = BrainlessLab._build_ensemble(:wall, :falandays; ticks=1, seed=10, record=Symbol[])
+    wall_setup = BrainlessLabTestUtils.diagnostic_build_ensemble(:wall, :falandays; ticks=1, seed=10, record=Symbol[])
     wall_env = wall_setup.ensemble.environment
-    @test wall_env isa WallEnv
+    @test wall_env isa BrainlessLab.WallEnv
     @test wall_env.sensory_noise == 0.0
     @test wall_env.clip_sensory_noise == true
 
-    noisy_wall = BrainlessLab._build_ensemble(
+    noisy_wall = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :wall,
         :falandays;
         ticks=1,
@@ -154,7 +173,7 @@ end
     @test noisy_wall.sensory_noise == 0.1
     @test noisy_wall.clip_sensory_noise == false
 
-    override = BrainlessLab._build_ensemble(
+    override = BrainlessLabTestUtils.diagnostic_build_ensemble(
         :wall,
         :falandays;
         ticks=1,
@@ -167,22 +186,28 @@ end
     override_reservoir = override.ensemble.agents[1].reservoir
     @test override.n_nodes == 12
     @test override_reservoir.params.lrate_wmat == 0.25
+    @test override_reservoir.params.input_weight == 1.5
     @test maximum(override_reservoir.input_wmat) == 1.5
-end
 
-@testset "swarm Falandays path keeps legacy defaults explicit" begin
-    setup = BrainlessLab._build_ensemble(
-        :torus,
+    low_input = BrainlessLabTestUtils.diagnostic_build_ensemble(
+        :tracking,
         :falandays;
         ticks=1,
-        seed=4,
+        seed=10,
         record=Symbol[],
-        n_agents=2,
-        n_nodes=24,
-    )
-    reservoir = setup.ensemble.agents[1].reservoir
-    @test setup.n_nodes == 24
-    @test reservoir.rectify == true
-    @test reservoir.params.lrate_wmat == FalandaysParams().lrate_wmat
-    @test reservoir.params.lrate_targ == FalandaysParams().lrate_targ
+        input_weight=0.5,
+    ).ensemble.agents[1].reservoir
+    high_input = BrainlessLabTestUtils.diagnostic_build_ensemble(
+        :tracking,
+        :falandays;
+        ticks=1,
+        seed=10,
+        record=Symbol[],
+        input_weight=1.5,
+    ).ensemble.agents[1].reservoir
+    @test low_input.params.input_weight == 0.5
+    @test high_input.params.input_weight == 1.5
+    @test maximum(low_input.input_wmat) == 0.5
+    @test maximum(high_input.input_wmat) == 1.5
+    @test low_input.input_wmat != high_input.input_wmat
 end

@@ -1,0 +1,69 @@
+---
+title: Research records
+description: How BrainlessLab retains exact run configurations and accepts public run contributions.
+---
+
+The research area is a small index over standard BrainlessLab records. It does not add a
+database or a separate research runner.
+
+## Current contract
+
+Every repeated run uses an operation plan and writes one portable record:
+
+```text
+record-id/
+├── record.toml
+├── request.toml
+├── resolved.toml
+├── seeds.csv
+├── data/
+├── summary/
+├── figures/
+├── report/index.html
+└── DONE
+```
+
+`request.toml` retains the exact submitted configuration. `resolved.toml` retains defaults
+and derived values. The seed ledger, raw tables, summary, Git revision, Julia version,
+checksums, and completion state make the run reviewable and shareable.
+
+An `ExperimentSpec` groups operation plans under one question and version. Each operation
+still writes its own standard record. A benchmark is one operation type, not the parent of
+all research.
+
+## Public indexes
+
+- [Accepted runs](/research/catalogue/) reads the committed contribution catalogue.
+- [Benchmarks](/benchmarks/) lists versioned benchmark protocols and records.
+- [Experiments](/experiments/) lists versioned questions and their evidence states.
+- [Experimental](/experimental/) lists software capabilities, not research results.
+
+The accepted-run catalogue lists accepted contributions and explicit pre-pipeline compatibility
+records. It does not aggregate outcomes, rank results, or plot parameter-performance relations.
+
+## Two-stage contribution path
+
+First, merge the protocol and any required software through ordinary review. This stage fixes the
+scientific question, operation plans, evidence state, and code that will execute.
+
+Second, generate the public records from a clean Git commit that is reachable from `main`. The
+second pull request contains records only.
+
+A contributor submission and its maintainer replay are linked roles within one contribution.
+They are not independent evidence or additional replicates. Replay checks execution and
+portability within the declared environment.
+
+Only a human maintainer accepts a contribution. Automated checks can validate the bundle,
+compare linked roles, and generate the catalogue. They cannot promote evidence.
+
+## Publication limits
+
+Public contribution records must not contain private or sealed material. Aim for at most 1 MiB
+of text-only files in the complete contribution. The hard limit is 5 MiB. This Git-native
+pipeline does not accept larger files, and large datasets remain out of scope.
+
+Accepted records are immutable. Add an annotation or superseding protocol when an interpretation
+changes. Do not rewrite the accepted bundle.
+
+The catalogue can include an explicit `pre-pipeline` compatibility entry for older material.
+Such an entry appears only when it is indexed and does not imply retrospective acceptance.

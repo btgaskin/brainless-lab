@@ -77,7 +77,7 @@ method.
 
 ## Research workflow
 
-Use the evidence ladder in `site/src/content/docs/core/design-study.mdx`:
+Use the evidence ladder in `site/src/content/docs/handbook/experiments-evidence.mdx`:
 
 conformance → calibration → exploration → tuning/training → variance pilot → frozen
 protocol → sealed confirmation → robustness → promoted evidence.
@@ -91,6 +91,13 @@ questions.
 Use an `ExperimentSpec` when a study needs a stable question, version, named conditions,
 limitations, and one or more operations. Keep these bundles under `experiments/`. Do not
 revive the archived bespoke experiment runner or add another operation-specific schema.
+
+For accepted public runs, query `research/catalogue.json` first. Follow its paths to the
+submitted plan, resolved configuration, seeds, trial tables, summary, and report. Filter
+only within matching experiment, version, operation, task, node, and protocol settings.
+Treat a maintainer replay as a linked reproduction check, not another independent result.
+Agents may help inspect and compare records, but only a human maintainer accepts them.
+Never modify an accepted contribution directory.
 
 ## Verification
 
