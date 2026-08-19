@@ -45,8 +45,9 @@ untouched paired blocks.
 | Plank CartPole Easy | Falandays | 8 | 24.2500 steps | `fitness = 24.2500` |
 | Plank CartPole Easy | SORN | 8 | 15.1250 steps | `fitness = 15.1250` |
 
-These values are selection data, not confirmation results. The frozen selection artefact
-also records every public profile coordinate and all non-selected gain cells. The CartPole
+These values are selection data, not confirmation results. The
+[`development/selection.toml`](development/selection.toml) manifest pins the clean source
+commit, run identifiers, selected values, and hashes for all six 10-cell tables. The CartPole
 selections were rerun after its readout was corrected to choose the largest cumulative
 output signal over all 24 neural frames. Silent frames do not count as left actions.
 
