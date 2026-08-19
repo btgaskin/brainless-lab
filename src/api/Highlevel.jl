@@ -1460,7 +1460,14 @@ whether the learned structure persists without ongoing adaptation.
 function simulate(task::TaskSpec; node=:falandays, ticks=nothing, seed=0, record=_DEFAULT_RECORD_CHANNELS, every::Integer=1, metrics=nothing, kwargs...)
     node_sym = Symbol(node)
     setup = _build_ensemble(task, node_sym; ticks=ticks, seed=seed, record=record, every=every, kwargs...)
-    result_metrics = rollout!(setup.ensemble, setup.ticks; window=setup.window, metrics=metrics, interventions=setup.interventions)
+    result_metrics = rollout!(
+        setup.ensemble,
+        setup.ticks;
+        window=setup.window,
+        metrics=metrics,
+        interventions=setup.interventions,
+        intervention_registry=DEFAULT_REGISTRY,
+    )
     config = _simulation_config(
         setup.ensemble;
         ticks=setup.ticks,

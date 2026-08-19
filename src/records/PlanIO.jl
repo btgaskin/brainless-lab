@@ -1,8 +1,8 @@
 using TOML
 
 const PLAN_FORMAT = "brainlesslab-plan"
-const PLAN_FORMAT_VERSION = 2
-const _READABLE_PLAN_FORMAT_VERSIONS = (1, PLAN_FORMAT_VERSION)
+const PLAN_FORMAT_VERSION = 3
+const _READABLE_PLAN_FORMAT_VERSIONS = (1, 2, PLAN_FORMAT_VERSION)
 const _NOTHING_TOML_KEY = "__brainlesslab_nothing__"
 
 _plan_toml_value(::Nothing) = Dict{String,Any}(_NOTHING_TOML_KEY => true)
@@ -108,6 +108,13 @@ function _target_document(target::EvaluationTarget)
     )
     target.model === nothing ||
         (document["model"] = Evolution.model_reference_document(target.model))
+    isempty(target.interventions) || (document["interventions"] = [
+        Dict{String,Any}(
+            "tick" => item.tick,
+            "verb" => String(item.verb),
+        )
+        for item in target.interventions
+    ])
     return document
 end
 
@@ -127,6 +134,14 @@ function plan_document(plan::ProfilePlan)
         "target" => String(plan.target.id),
         "analyses" => collect(String.(plan.analyses)),
         "record_every" => plan.record_every,
+        "analysis_options" => Dict{String,Any}(
+            String(id) => _string_dict(options)
+            for (id, options) in plan.analysis_options
+        ),
+        "compute_every" => Dict{String,Any}(
+            String(channel) => stride
+            for (channel, stride) in plan.compute_every
+        ),
     )
     return document
 end
@@ -292,21 +307,44 @@ function _parse_evaluation(document)
     )
 end
 
-function _parse_targets(document, registry::RegistrySet)
+function _parse_targets(
+    document,
+    registry::RegistrySet,
+    format_version::Integer,
+)
     targets = Dict{Symbol,EvaluationTarget}()
     for entry in document
-        _require_document_keys(entry, ("id", "composition", "evaluation", "model"), "target")
+        _require_document_keys(
+            entry,
+            ("id", "composition", "evaluation", "model", "interventions"),
+            "target",
+        )
         for key in ("id", "composition", "evaluation")
             haskey(entry, key) || throw(ArgumentError("target requires $(key)"))
         end
+        if format_version < 3 && haskey(entry, "interventions")
+            throw(ArgumentError(
+                "scheduled interventions require plan format_version=3 or later",
+            ))
+        end
         id = Symbol(entry["id"])
         haskey(targets, id) && throw(ArgumentError("duplicate target :$(id)"))
+        interventions = Tuple(begin
+            _require_document_keys(item, ("tick", "verb"), "scheduled intervention")
+            for key in ("tick", "verb")
+                haskey(item, key) || throw(ArgumentError(
+                    "scheduled intervention requires $(key)",
+                ))
+            end
+            ScheduledIntervention(item["tick"], item["verb"])
+        end for item in get(entry, "interventions", Any[]))
         targets[id] = EvaluationTarget(
             id,
             _parse_composition(entry["composition"], registry),
             _parse_evaluation(entry["evaluation"]),
             model=haskey(entry, "model") ?
                 Evolution.parse_model_reference(entry["model"]) : nothing,
+            interventions=interventions,
         )
     end
     isempty(targets) && throw(ArgumentError("plan requires at least one target"))
@@ -340,16 +378,52 @@ function read_plan(path::AbstractString; registry::RegistrySet=DEFAULT_REGISTRY)
         "plan operation :$(operation) requires [$(section_name)]",
     ))
     id = Symbol(document["id"])
-    targets = _parse_targets(document["targets"], registry)
+    targets = _parse_targets(document["targets"], registry, format_version)
     section = document[section_name]
 
     if operation === :profile
-        _require_document_keys(section, ("target", "analyses", "record_every"), "profile")
+        _require_document_keys(
+            section,
+            (
+                "target", "analyses", "record_every", "analysis_options",
+                "compute_every",
+            ),
+            "profile",
+        )
+        if format_version < 3 && any(
+            key -> haskey(section, key),
+            ("analysis_options", "compute_every"),
+        )
+            throw(ArgumentError(
+                "profile analysis_options and compute_every require " *
+                "plan format_version=3 or later",
+            ))
+        end
+        analysis_options = Dict{Symbol,Dict{Symbol,Any}}(
+            Symbol(id) => Dict{Symbol,Any}(
+                Symbol(key) => _parse_plan_toml_value(value)
+                for (key, value) in pairs(options)
+            )
+            for (id, options) in pairs(get(
+                section,
+                "analysis_options",
+                Dict{String,Any}(),
+            ))
+        )
         return ProfilePlan(
             id,
             _target(targets, section["target"]);
             analyses=Symbol.(get(section, "analyses", String[])),
             record_every=get(section, "record_every", 1),
+            analysis_options=analysis_options,
+            compute_every=Dict{Symbol,Int}(
+                Symbol(channel) => Int(stride)
+                for (channel, stride) in pairs(get(
+                    section,
+                    "compute_every",
+                    Dict{String,Any}(),
+                ))
+            ),
         )
     elseif operation === :sweep
         _require_document_keys(section, ("target", "axes", "mode", "max_rollouts"), "sweep")
@@ -375,9 +449,9 @@ function read_plan(path::AbstractString; registry::RegistrySet=DEFAULT_REGISTRY)
             ablations=Symbol.(section["ablations"]),
         )
     elseif operation === :evolve
-        format_version == PLAN_FORMAT_VERSION || throw(ArgumentError(
+        format_version >= 2 || throw(ArgumentError(
             "legacy evolution plans are not supported; rewrite the plan with " *
-            "Evolution.RunConfig and format_version=$(PLAN_FORMAT_VERSION)",
+            "Evolution.RunConfig and format_version=2 or later",
         ))
         _require_document_keys(
             section,

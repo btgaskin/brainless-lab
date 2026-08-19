@@ -394,6 +394,22 @@ function _with_composition_parameters(
     )
 end
 
+function _live_freeze_plasticity!(reservoir::Reservoir)
+    intervention = FreezePlasticity()
+    supports_intervention(intervention, reservoir) || throw(ArgumentError(
+        "reservoir $(typeof(reservoir)) does not support freeze_plasticity at runtime",
+    ))
+    return apply!(intervention, reservoir)
+end
+
+function _live_clamp_target!(reservoir::Reservoir)
+    intervention = ClampTarget()
+    supports_intervention(intervention, reservoir) || throw(ArgumentError(
+        "reservoir $(typeof(reservoir)) does not support clamp_target at runtime",
+    ))
+    return apply!(intervention, reservoir)
+end
+
 
 function _typed_builtin_ablation(id::Symbol)
     id === :freeze_plasticity && return AblationSpec(
@@ -403,6 +419,7 @@ function _typed_builtin_ablation(id::Symbol)
             :freeze_plasticity,
             :learn_on => false,
         );
+        live_apply=_live_freeze_plasticity!,
         required_capabilities=(:online_plasticity,),
         description="Disable online plasticity while preserving the composition.",
     )
@@ -413,6 +430,7 @@ function _typed_builtin_ablation(id::Symbol)
             :clamp_target,
             :lrate_targ => 0.0,
         );
+        live_apply=_live_clamp_target!,
         required_capabilities=(:homeostatic_target,),
         description="Clamp the homeostatic target by setting its adaptation rate to zero.",
     )
@@ -463,7 +481,11 @@ function register_builtins!(registry::RegistrySet)
                 id,
                 entry.f;
                 label=entry.label,
-                metadata=(task=entry.task,),
+                options=entry.options,
+                metadata=(
+                    task=entry.task,
+                    required_channels=entry.required_channels,
+                ),
             ),
         )
     end

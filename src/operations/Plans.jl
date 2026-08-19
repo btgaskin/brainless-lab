@@ -2,12 +2,98 @@ abstract type AbstractOperationPlan end
 abstract type AbstractResolvedOperationPlan end
 abstract type AbstractOperationResult end
 
+"""One registered intervention applied before the declared absolute trial tick."""
+struct ScheduledIntervention
+    tick::Int
+    verb::Symbol
+
+    function ScheduledIntervention(
+        tick::Integer,
+        verb::Union{Symbol,AbstractString},
+    )
+        tick_ = Int(tick)
+        tick_ >= 1 || throw(ArgumentError(
+            "scheduled intervention tick must be at least 1",
+        ))
+        return new(tick_, _nonempty_symbol(verb, "scheduled intervention verb"))
+    end
+end
+
+function _scheduled_interventions(values)
+    source = values isa ScheduledIntervention ? (values,) : Tuple(values)
+    interventions = Tuple(begin
+        value isa ScheduledIntervention || throw(ArgumentError(
+            "evaluation target interventions must be ScheduledIntervention values",
+        ))
+        value
+    end for value in source)
+    pairs = Tuple((item.tick, item.verb) for item in interventions)
+    length(unique(pairs)) == length(pairs) || throw(ArgumentError(
+        "evaluation target interventions must not repeat the same tick and verb",
+    ))
+    return Tuple(sort!(collect(interventions); by=item -> item.tick, alg=Base.Sort.MergeSort))
+end
+
+function _registered_runtime_ablation(registry::RegistrySet, id::Symbol)
+    entry = resolve(registry.ablations, id)
+    ablation = entry.implementation
+    ablation isa AblationSpec || throw(ArgumentError(
+        "registered intervention :$(id) must contain an AblationSpec to run on a schedule",
+    ))
+    ablation.id === id || throw(ArgumentError(
+        "registered intervention key :$(id) does not match AblationSpec id :$(ablation.id)",
+    ))
+    ablation.live_apply === nothing && throw(ArgumentError(
+        "registered intervention :$(id) does not declare a live runtime hook",
+    ))
+    return ablation
+end
+
+function _validate_target_interventions(
+    target,
+    node::NodeSpec,
+    registry::RegistrySet,
+)
+    horizon = target.evaluation.horizon
+    for item in target.interventions
+        item.tick <= horizon || throw(ArgumentError(
+            "evaluation target :$(target.id) schedules :$(item.verb) at tick " *
+            "$(item.tick), beyond horizon $(horizon)",
+        ))
+        ablation = _registered_runtime_ablation(registry, item.verb)
+        missing_capabilities = setdiff(ablation.required_capabilities, node.capabilities)
+        isempty(missing_capabilities) || throw(ArgumentError(
+            "scheduled intervention :$(item.verb) requires node capabilities " *
+            "$(Tuple(missing_capabilities)); node :$(node.id) declares $(node.capabilities)",
+        ))
+    end
+    return target
+end
+
+
+function _apply_runtime_intervention!(
+    registry::RegistrySet,
+    reservoir::Reservoir,
+    id::Symbol,
+)
+    ablation = _registered_runtime_ablation(registry, id)
+    applicable(ablation.live_apply, reservoir) || throw(ArgumentError(
+        "runtime hook for intervention :$(id) does not accept $(typeof(reservoir))",
+    ))
+    result = ablation.live_apply(reservoir)
+    result === reservoir || throw(ArgumentError(
+        "runtime hook for intervention :$(id) must return the mutated reservoir",
+    ))
+    return reservoir
+end
+
 """One named composition plus its complete outer evaluation protocol."""
-struct EvaluationTarget{C<:CompositionSpec,E<:EvaluationSpec,M}
+struct EvaluationTarget{C<:CompositionSpec,E<:EvaluationSpec,M,I<:Tuple}
     id::Symbol
     composition::C
     evaluation::E
     model::M
+    interventions::I
 
     function EvaluationTarget(
         id::Union{Symbol,AbstractString},
@@ -15,12 +101,20 @@ struct EvaluationTarget{C<:CompositionSpec,E<:EvaluationSpec,M}
         evaluation::E,
         ;
         model=nothing,
+        interventions=(),
     ) where {C<:CompositionSpec,E<:EvaluationSpec}
         id_ = _nonempty_symbol(id, "evaluation target id")
         model === nothing || model isa Evolution.ModelReference || throw(ArgumentError(
             "evaluation target model must be an Evolution.ModelReference or nothing",
         ))
-        return new{C,E,typeof(model)}(id_, composition, evaluation, model)
+        interventions_ = _scheduled_interventions(interventions)
+        return new{C,E,typeof(model),typeof(interventions_)}(
+            id_,
+            composition,
+            evaluation,
+            model,
+            interventions_,
+        )
     end
 end
 
@@ -29,6 +123,31 @@ struct ProfilePlan{T<:EvaluationTarget} <: AbstractOperationPlan
     target::T
     analyses::Tuple{Vararg{Symbol}}
     record_every::Int
+    analysis_options::Dict{Symbol,Dict{Symbol,Any}}
+    compute_every::Dict{Symbol,Int}
+end
+
+function _profile_analysis_options(values)
+    options = Dict{Symbol,Dict{Symbol,Any}}()
+    for (analysis, raw) in pairs(values)
+        id = _nonempty_symbol(analysis, "profile analysis option key")
+        options[id] = Dict{Symbol,Any}(
+            Symbol(key) => deepcopy(value)
+            for (key, value) in pairs(raw)
+        )
+    end
+    return options
+end
+
+function _profile_compute_every(raw)
+    strides = Dict{Symbol,Int}(
+        Symbol(channel) => Int(stride)
+        for (channel, stride) in pairs(raw)
+    )
+    all(stride -> stride >= 1, values(strides)) || throw(ArgumentError(
+        "profile compute_every strides must be positive",
+    ))
+    return strides
 end
 
 function ProfilePlan(
@@ -36,12 +155,27 @@ function ProfilePlan(
     target::EvaluationTarget;
     analyses=(),
     record_every::Integer=1,
+    analysis_options=Dict{Symbol,Any}(),
+    compute_every=Dict{Symbol,Int}(),
 )
     id_ = _nonempty_symbol(id, "profile plan id")
     analyses_ = _symbol_tuple(analyses, "profile analyses")
     every = Int(record_every)
     every > 0 || throw(ArgumentError("profile record_every must be positive"))
-    return ProfilePlan(id_, target, analyses_, every)
+    options_ = _profile_analysis_options(analysis_options)
+    unknown = isempty(analyses_) ? Symbol[] :
+        sort!(collect(setdiff(Set(keys(options_)), Set(analyses_))); by=string)
+    isempty(unknown) || throw(ArgumentError(
+        "profile analysis_options reference unrequested analyses $(unknown)",
+    ))
+    return ProfilePlan(
+        id_,
+        target,
+        analyses_,
+        every,
+        options_,
+        _profile_compute_every(compute_every),
+    )
 end
 
 struct SweepAxis{V<:Tuple}
@@ -100,9 +234,10 @@ function SweepPlan(
 end
 
 """A registered causal intervention, with explicit applicability metadata."""
-struct AblationSpec{A,M}
+struct AblationSpec{A,L,M}
     id::Symbol
     apply::A
+    live_apply::L
     stage::Symbol
     required_capabilities::Tuple{Vararg{Symbol}}
     description::String
@@ -112,6 +247,7 @@ end
 function AblationSpec(
     id::Union{Symbol,AbstractString},
     apply;
+    live_apply=nothing,
     stage::Symbol=:composition,
     required_capabilities=(),
     description::AbstractString="",
@@ -122,9 +258,10 @@ function AblationSpec(
         "ablation :$(id_) stage must be :composition, :reservoir, or :task",
     ))
     capabilities = _symbol_tuple(required_capabilities, "ablation capabilities")
-    return AblationSpec{typeof(apply),typeof(metadata)}(
+    return AblationSpec{typeof(apply),typeof(live_apply),typeof(metadata)}(
         id_,
         apply,
+        live_apply,
         stage,
         capabilities,
         String(description),
@@ -345,6 +482,8 @@ function _validate_plan_evaluations(
             "generic evaluation does not support reset=:$(evaluation.reset)",
         ))
         task = task_spec(registry, target.composition.task)
+        node = node_spec(registry, target.composition.node)
+        _validate_target_interventions(target, node, registry)
         _validate_minimum_scored_ticks(
             task,
             evaluation.horizon - evaluation.warmup;
@@ -369,6 +508,10 @@ function _experiment_target_signature(target::EvaluationTarget)
             node=target.model.node,
             schema_sha256=target.model.schema_sha256,
             coordinates_sha256=target.model.coordinates_sha256,
+        ),
+        interventions=Tuple(
+            (tick=item.tick, verb=item.verb)
+            for item in target.interventions
         ),
         composition=(
             id=composition.id,

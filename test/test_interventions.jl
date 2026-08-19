@@ -63,9 +63,94 @@ using Random
     end
 end
 
+@testset "typed scheduled interventions" begin
+    registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
+    composition = composition_spec(registry, :falandays_tracking)
+    evaluation = EvaluationSpec(
+        blocks=1,
+        trials_per_block=1,
+        horizon=20,
+        root_seed=707,
+    )
+    continuous = evaluate(
+        EvaluationTarget(:continuous, composition, evaluation);
+        registry,
+        record=(:rate,),
+    )
+    frozen = evaluate(
+        EvaluationTarget(
+            :frozen,
+            composition,
+            evaluation;
+            interventions=(ScheduledIntervention(10, :freeze_plasticity),),
+        );
+        registry,
+        record=(:rate,),
+    )
+    continuous_sim = only(continuous.trials).simulation
+    frozen_sim = only(frozen.trials).simulation
+    @test frozen_sim.config.interventions == ((10, :freeze_plasticity),)
+    @test frozen_sim.recorder.channels[:rate][1:9] ==
+          continuous_sim.recorder.channels[:rate][1:9]
+    @test task_outcome(frozen_sim).key === :track_score
+
+    warmup = EvaluationSpec(
+        blocks=1,
+        trials_per_block=1,
+        horizon=20,
+        warmup=5,
+        root_seed=707,
+    )
+    split = evaluate(
+        EvaluationTarget(
+            :split,
+            composition,
+            warmup;
+            interventions=(
+                ScheduledIntervention(3, :clamp_target),
+                ScheduledIntervention(10, :freeze_plasticity),
+            ),
+        );
+        registry,
+        record=(:rate,),
+    )
+    @test only(split.trials).simulation.config.interventions ==
+          ((3, :clamp_target), (10, :freeze_plasticity))
+    @test length(only(split.trials).simulation.recorder.channels[:rate]) == 15
+
+    @test_throws ArgumentError EvaluationTarget(
+        :duplicate,
+        composition,
+        evaluation;
+        interventions=(
+            ScheduledIntervention(10, :freeze_plasticity),
+            ScheduledIntervention(10, :freeze_plasticity),
+        ),
+    )
+    @test_throws ArgumentError evaluate(
+        EvaluationTarget(
+            :late,
+            composition,
+            evaluation;
+            interventions=(ScheduledIntervention(21, :freeze_plasticity),),
+        );
+        registry,
+    )
+    @test_throws ArgumentError evaluate(
+        EvaluationTarget(
+            :legacy_only,
+            composition,
+            evaluation;
+            interventions=(ScheduledIntervention(10, :zero_recurrent),),
+        );
+        registry,
+    )
+end
+
 @testset "tracking learning-dynamics analyses" begin
     sim = BrainlessLabTestUtils.diagnostic_simulate(:tracking; node=:falandays, ticks=1200, seed=0,
-                   record=(:rate, :spikes, :scene, :percepts))
+                   record=(:rate, :spikes, :scene, :percepts, :spectral_radius),
+                   spectral_every=100)
 
     @testset "object_in_view" begin
         oiv = object_in_view(sim)
@@ -105,5 +190,25 @@ end
         @test r1.null_mean == r2.null_mean        # deterministic in the seed
         @test hasproperty(r1, :ratio) && hasproperty(r1, :null_std)
         @test resolve_analysis(:temporal_null) === BrainlessLab.temporal_null
+    end
+
+    @testset "registered tracking plasticity diagnostic" begin
+        result = tracking_plasticity_diagnostics(
+            sim;
+            window=150,
+            stride=75,
+            kmax=20,
+            heading_bins=12,
+        )
+        @test result isa AnalysisResult
+        @test result.statistics.window == 150.0
+        @test Tuple(series.id for series in result.series) ==
+              (:over_time, :by_heading_error)
+        @test length(result.series[1].coordinates) > 0
+        @test length(result.series[2].coordinates) == 12
+        @test resolve_analysis(:tracking_plasticity_diagnostics) ===
+              tracking_plasticity_diagnostics
+        @test BrainlessLab.analysis_meta(:tracking_plasticity_diagnostics).task ===
+              :tracking
     end
 end

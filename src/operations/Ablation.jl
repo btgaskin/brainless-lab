@@ -90,7 +90,13 @@ function resolve(plan::AblationPlan, registry::RegistrySet)
         ResolvedAblationCase(
             :baseline,
             nothing,
-            EvaluationTarget(:baseline, plan.target.composition, plan.target.evaluation),
+            EvaluationTarget(
+                :baseline,
+                plan.target.composition,
+                plan.target.evaluation;
+                model=plan.target.model,
+                interventions=plan.target.interventions,
+            ),
         ),
     ]
     for id in plan.ablations
@@ -103,7 +109,13 @@ function resolve(plan::AblationPlan, registry::RegistrySet)
         push!(cases, ResolvedAblationCase(
             id,
             ablation,
-            EvaluationTarget(id, composition, plan.target.evaluation),
+            EvaluationTarget(
+                id,
+                composition,
+                plan.target.evaluation;
+                model=plan.target.model,
+                interventions=plan.target.interventions,
+            ),
         ))
     end
     return ResolvedAblationPlan(plan, Tuple(cases), registry)

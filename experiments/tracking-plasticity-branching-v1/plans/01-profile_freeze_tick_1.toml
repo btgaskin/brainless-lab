@@ -1,0 +1,38 @@
+format = "brainlesslab-plan"
+format_version = 3
+id = "profile_freeze_tick_1"
+operation = "profile"
+
+[profile]
+analyses = ["tracking_plasticity_diagnostics"]
+record_every = 1
+target = "freeze_tick_1"
+
+    [profile.analysis_options.tracking_plasticity_diagnostics]
+    heading_bins = 18
+    kmax = 20
+    min_r2 = 0.0
+    stride = 100
+    window = 400
+
+    [profile.compute_every]
+    spectral_radius = 100
+
+[[targets]]
+id = "freeze_tick_1"
+interventions = [{ tick = 1, verb = "freeze_plasticity" }]
+
+    [targets.composition]
+    id = "falandays_tracking"
+    preset = "falandays_tracking"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 60
+    construction_scope = "trial"
+    horizon = 7200
+    reset = "full"
+    root_seed = 20260819
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0

@@ -124,7 +124,13 @@ function resolve(plan::SweepPlan, registry::RegistrySet)
             parameters,
         )
         resolve_composition(composition, registry)
-        target = EvaluationTarget(cell_id, composition, plan.target.evaluation)
+        target = EvaluationTarget(
+            cell_id,
+            composition,
+            plan.target.evaluation;
+            model=plan.target.model,
+            interventions=plan.target.interventions,
+        )
         cells[index] = ResolvedSweepCell(cell_id, parameters, target)
     end
     return ResolvedSweepPlan(

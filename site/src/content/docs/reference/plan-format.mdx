@@ -19,7 +19,7 @@ The file below is a valid profile plan. Every comment is optional.
 ```toml
 # Header. All four keys are required.
 format = "brainlesslab-plan"
-format_version = 2
+format_version = 3
 operation = "profile"
 id = "tracking_leak_profile"
 
@@ -81,7 +81,7 @@ The four header keys come before any table.
 | Key | Value |
 | --- | --- |
 | `format` | always `"brainlesslab-plan"` |
-| `format_version` | `1` or `2` |
+| `format_version` | `1`, `2`, or `3`; new plans use `3` |
 | `operation` | `"profile"`, `"sweep"`, `"ablate"`, `"evolve"`, or `"benchmark"` |
 | `id` | stable name for this plan; the record carries it |
 
@@ -99,7 +99,8 @@ id = "tracking"
 ```
 
 A target requires `id`, a `[targets.composition]` table, and a `[targets.evaluation]`
-table. It accepts an optional `[targets.model]` table.
+table. It accepts an optional `[targets.model]` table and an optional `interventions`
+array in format version 3.
 
 Operation sections never restate a composition. They name a target by its id.
 
@@ -193,6 +194,22 @@ A misspelt field is an error, not a silent default:
 error: ArgumentError: unknown evaluation keys: warmups
 ```
 
+## Scheduled interventions
+
+Format version 3 can apply a registered live intervention before an absolute trial tick:
+
+```toml
+[[targets]]
+id = "freeze_tick_1800"
+interventions = [{ tick = 1800, verb = "freeze_plasticity" }]
+```
+
+Ticks are counted across warm-up and scored phases. At tick 1800, steps 1–1799 have already
+run and plasticity is disabled before step 1800. Validation rejects a tick beyond the
+trial horizon, an unsupported node capability, and an ablation that has no registered live
+hook. `freeze_plasticity` stops both recurrent-weight and target updates in the Falandays
+node.
+
 ## Two traps
 
 Both traps below reject the plan during `check`, before any simulation runs.
@@ -213,11 +230,12 @@ example under `plans/examples/` is still version 1, so a plan copied from there 
 version raised before an evolution run:
 
 ```text
-error: ArgumentError: legacy evolution plans are not supported; rewrite the plan with Evolution.RunConfig and format_version=2
+error: ArgumentError: legacy evolution plans are not supported; rewrite the plan with Evolution.RunConfig and format_version=2 or later
 ```
 
-Declare `format_version = 2` in a new plan. The reader still accepts version 1 for
-profile, sweep, ablation, and benchmark plans, and the writer emits version 2.
+Declare `format_version = 3` in a new plan. The reader still accepts versions 1 and 2;
+version 2 introduced the current evolution schema, and version 3 adds scheduled
+interventions and configurable profile analyses.
 
 ## Profile
 
@@ -228,6 +246,27 @@ A profile runs declared analyses over the raw trials of one target.
 | `target` | required | target id to profile |
 | `analyses` | `[]` | registered analysis keys |
 | `record_every` | `1` | recorder stride in ticks; must be positive |
+| `analysis_options` | `{}` | per-analysis option tables validated against registered defaults |
+| `compute_every` | `{}` | per-channel computation stride for expensive recorded diagnostics |
+
+For example:
+
+```toml
+[profile.analysis_options.tracking_plasticity_diagnostics]
+window = 400
+stride = 100
+kmax = 20
+min_r2 = 0.0
+heading_bins = 18
+
+[profile.compute_every]
+spectral_radius = 100
+```
+
+An analysis can return scalar statistics, aligned series, or both. Profile records write
+scalar rows to `data/analyses.csv` and across-trial series summaries to
+`data/analysis_series.csv`. The standard task and seed tables remain present. Raw tick
+traces are not retained by this summary-only profile record.
 
 Query the analyses available for a task with `analyses(DEFAULT_REGISTRY; task=:tracking)`.
 
@@ -406,7 +445,7 @@ preset exists for a control node.
 ## Evolve
 
 An evolution plan searches model coordinates on training targets. It requires
-`format_version = 2`.
+`format_version = 2` or later.
 
 The `[evolve]` table names targets by id.
 
