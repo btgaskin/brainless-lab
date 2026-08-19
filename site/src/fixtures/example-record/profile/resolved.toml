@@ -9,10 +9,15 @@ analyses = []
 record_channels = []
 record_every = 1
 
+    [operation_settings.analysis_options]
+
+    [operation_settings.compute_every]
+
 [[targets]]
 composition_id = "example_wall"
 effective_window = 200
 id = "example_wall"
+interventions = []
 n_nodes = 24
 node = "null_random"
 task = "wall"

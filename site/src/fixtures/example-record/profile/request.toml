@@ -8,6 +8,10 @@ analyses = []
 record_every = 1
 target = "example_wall"
 
+    [profile.analysis_options]
+
+    [profile.compute_every]
+
 [[targets]]
 id = "example_wall"
 

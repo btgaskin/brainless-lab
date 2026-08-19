@@ -12,6 +12,7 @@ id = "wall"
 composition_id = "example_wall"
 effective_window = 200
 id = "example_wall"
+interventions = []
 n_nodes = 24
 node = "null_random"
 task = "wall"
