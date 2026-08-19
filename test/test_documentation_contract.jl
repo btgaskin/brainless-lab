@@ -34,7 +34,10 @@ using Test
     @test length(readdir(joinpath(benchmark_protocol, "calibration"))) == 6
     development = joinpath(benchmark_protocol, "development")
     @test isfile(joinpath(development, "selection.toml"))
-    @test count(endswith(".csv"), readdir(development)) == 6
+    @test isfile(joinpath(development, "poster-summary.md"))
+    @test isfile(joinpath(development, "poster-model-statistics.csv"))
+    @test isfile(joinpath(development, "poster-paired-contrasts.csv"))
+    @test count(endswith(".csv"), readdir(development)) == 8
 
     qr_path = joinpath(repository, "site", "public", "brainless-lab-qr.png")
     @test isfile(qr_path)

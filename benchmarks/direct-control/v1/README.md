@@ -51,6 +51,12 @@ commit, run identifiers, selected values, and hashes for all six 10-cell tables.
 selections were rerun after its readout was corrected to choose the largest cumulative
 output signal over all 24 neural frames. Silent frames do not count as left actions.
 
+For figures and poster preparation, the development directory also contains a
+[readable summary](development/poster-summary.md), exact
+[model statistics](development/poster-model-statistics.csv), and exact
+[paired contrasts](development/poster-paired-contrasts.csv). These files retain the same
+development-only evidence label.
+
 ## Task timing
 
 | Task | Horizon | Warm-up | Scored interval | Neural frames per world step |
