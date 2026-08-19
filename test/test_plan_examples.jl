@@ -110,8 +110,11 @@ end
         manifest_relative = "environment/Manifest.toml"
         @test record["manifest_sha256"] == checksums[manifest_relative]
         manifest = TOML.parsefile(joinpath(root, manifest_relative))
-        @test haskey(manifest, "deps")
-        @test haskey(manifest["deps"], "BrainlessLab")
+        @test get(manifest, "manifest_format", nothing) == "2.0"
+        @test haskey(manifest, "project_hash")
+        dependencies = get(manifest, "deps", Dict{String,Any}())
+        @test haskey(dependencies, "JLD2")
+        @test haskey(dependencies, "StaticArrays")
         return record
     end
 
