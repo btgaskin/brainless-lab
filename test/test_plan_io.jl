@@ -55,7 +55,7 @@ function _read_plan_error(document)
     end
 end
 
-@testset "version-two TOML plan round trips" begin
+@testset "version-three TOML plan round trips" begin
     target = _io_target(:tracking, :tracking)
     evolution_target = EvaluationTarget(
         :ctrnn_tracking,
@@ -110,8 +110,40 @@ end
         parsed = read_plan(path)
         @test typeof(parsed).name.wrapper === typeof(plan).name.wrapper
         @test parsed.id === plan.id
-        @test BrainlessLab.plan_document(parsed)["format_version"] == 2
+        @test BrainlessLab.plan_document(parsed)["format_version"] == 3
     end
+end
+
+
+@testset "plan IO preserves interface axes and topology keys" begin
+    base = CompositionSpec(
+        :gain_tracking,
+        :falandays,
+        :tracking;
+        n_nodes=200,
+        interface=InterfaceSpec(input_gain=8.0),
+    )
+    target = EvaluationTarget(
+        :gain_tracking,
+        base,
+        EvaluationSpec(horizon=2_000);
+        topology_key=:falandays_direct_v1,
+    )
+    plan = SweepPlan(
+        :gain_tracking,
+        target;
+        axes=(BrainlessLab.SweepAxis(
+            :input_gain,
+            (1.0, 8.0);
+            scope=:interface,
+        ),),
+    )
+    path = tempname() * ".toml"
+    write_plan(path, plan)
+    parsed = read_plan(path)
+    @test parsed.target.composition.interface.input_gain == 8.0
+    @test parsed.target.topology_key === :falandays_direct_v1
+    @test only(parsed.axes).scope === :interface
 end
 
 @testset "anchor-only benchmark TOML omits a baseline" begin

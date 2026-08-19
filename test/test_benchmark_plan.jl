@@ -10,7 +10,7 @@ function _benchmark_target(id, task; gain=1.0, root_seed=55)
         trials=2,
         horizon=3,
         root_seed=root_seed,
-        aggregate=:none,
+        aggregate=:mean,
     )
 end
 
@@ -38,13 +38,21 @@ end
     @test length(result_tables.contrasts) == 1
     @test result.plan.cases[2].baseline === nothing
     @test result_tables.contrasts[1].condition === :tracking_low_gain
-    @test result_tables.contrasts[1].n == 2
+    @test result_tables.contrasts[1].n == 1
     @test hasproperty(result_tables.contrasts[1], :raw_ci_lower)
     @test hasproperty(result_tables.contrasts[1], :normalized_censored_pair_count)
     @test result_tables.contrasts[1].normalized_interval_calibrated === false
     @test result_tables.contrasts[1].interval_method === :paired_student_t_95
     @test all(row -> row.interval_method === :student_t_95, result_tables.statistics)
-    @test all(row -> row.normalized_n == row.n, result_tables.statistics)
+    @test all(row -> row.inference_unit === :block, result_tables.statistics)
+    @test Set(row.profile_metric for row in result_tables.statistics) ==
+        Set((:mean_abs_error_deg, :longest_rally))
+    @test all(row -> row.profile_mean isa Float64, result_tables.statistics)
+    @test result_tables.contrasts[1].profile_metric === :mean_abs_error_deg
+    @test result_tables.contrasts[1].profile_direction === :lower
+    @test result_tables.contrasts[1].inference_unit === :paired_block
+    @test all(row -> row.n == row.blocks == 1, result_tables.statistics)
+    @test all(row -> row.normalized_n <= row.n, result_tables.statistics)
     @test all(row -> row.normalized_interval_calibrated === false, result_tables.statistics)
     @test all(
         row -> row.normalized_censored_count ==

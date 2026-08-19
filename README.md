@@ -2,17 +2,16 @@
 
 [![CI](https://github.com/btgaskin/brainless-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/btgaskin/brainless-lab/actions/workflows/ci.yml)
 
-An exact-input proof-cache hit can make CI green without rerunning the matching test suite.
-
 <p align="center"><img src="brainless-lab.png" alt="BrainlessLab" width="760"></p>
 
 BrainlessLab is a Julia platform for studying simple neural substrates in closed
 sensorimotor loops. It separates runtime composition, repeated evaluation, research
 operations, and portable records.
 
-The canonical `:falandays` node is validated on declared reference trajectories. Tracking,
-Pong, and Wall are the core benchmark tasks. These boundaries do not establish general
-competence or biological fidelity.
+The canonical `:falandays` node is validated on declared reference trajectories. `:sorn`
+is a stable, paper-aligned implementation with a separate software-conformance boundary.
+Tracking, Pong, and Plank CartPole Easy are the core benchmark tasks. These declarations
+do not establish general competence or biological fidelity.
 
 ## Quick start
 
@@ -58,6 +57,7 @@ tables, a machine-readable summary, provenance, checksums, and a readable report
 `ExperimentSpec` groups ordinary operation plans under one versioned scientific question.
 
 Browse the [Handbook](https://brainless-lab.pages.dev/handbook/system-map/), the
+[Benchmark](https://brainless-lab.pages.dev/benchmarks/), the
 [Research record guide](https://brainless-lab.pages.dev/research/), and the
 [accepted-run catalogue](https://brainless-lab.pages.dev/research/catalogue/). The
 catalogue retains accepted contributor records and linked maintainer replays without

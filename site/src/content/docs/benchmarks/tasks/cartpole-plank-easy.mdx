@@ -1,0 +1,41 @@
+---
+title: Plank CartPole Easy
+description: Episode survival through the fixed Easy temporal spike interface.
+---
+
+Plank CartPole Easy asks the agent to balance a pole by choosing left or right. It follows
+the Easy interface from the 2025 TENNLab CartPole study: four state observations, a
+two-bin flip-flop spike encoder, two actions, and cumulative winner-take-all voting.
+
+| Contract | Value |
+| --- | --- |
+| Registry key | `:cartpole_plank_easy` |
+| Benchmark coordinate | balanced steps, higher is better |
+| Formal outcome | `fitness` |
+| Floor | `0.0`, analytic minimum survival |
+| Ceiling | `15,000`, full mission |
+| Source-study trained-agent target | `14,250`, diagnostic only |
+| Benchmark horizon | at most 15,000 world steps |
+| Warm-up | none |
+| Neural frames per world step | 24 |
+| Action decoder | sum each output signal over 24 frames, then take the first maximum |
+| Termination | cart or pole limit, or full mission |
+
+Each benchmark block is one episode with a fresh world and reservoir. Its benchmark
+coordinate and formal fitness are both the number of balanced world steps. The public
+profile reports the mean and interval across blocks; the normalised value is fitness
+divided by the 15,000-step ceiling.
+
+This task remains an experimental software implementation even though it is a core
+benchmark coordinate. Benchmark membership does not promote its biological interpretation
+or claim exact study reproduction. In particular, this benchmark uses 32 one-episode
+confirmation blocks rather than the source repository's 1,000-episode protocol. Its
+reservoirs are not reward-trained, so their scores are not directly comparable with the
+source study's trained-agent target.
+
+Source study: Plank et al.,
+[“A Neuromorphic Approach to CartPole”](https://doi.org/10.3390/jlpea15010005).
+The task-interface guide is pinned to
+[`TENNLab-UTK/framework-open@c346e743`](https://github.com/TENNLab-UTK/framework-open/blob/c346e743dc42d5b3339c4252e4ab23c7a8139635/markdown/cartpole_example.md).
+
+<p class="bl-source">Source: <code>src/envs/PlankCartPole.jl</code>, <code>src/tasks/Tasks.jl</code>.</p>

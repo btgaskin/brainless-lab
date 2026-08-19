@@ -1,0 +1,45 @@
+---
+title: Falandays
+description: The fixed 200-node Falandays profile used by direct-control benchmark version 1.
+---
+
+`falandays_direct_v1` is the Falandays model admitted to benchmark version 1. Its units
+integrate sensory and recurrent current, spike above an adaptive target, and update their
+active incoming weights and local target during behaviour. There is no reward signal,
+task-loss backpropagation, or fitted readout.
+
+## Fixed profile
+
+| Parameter | Value |
+| --- | ---: |
+| Total dynamic neurons | 200 |
+| Recurrent connection probability | 0.1 |
+| Topology | Bernoulli, no mask repair |
+| Initial recurrent weights | excitatory normal draw, scale 1.0 |
+| Leak | 0.25 |
+| Weight-homeostasis rate | 1.0 |
+| Target-adaptation rate | 0.01 |
+| Threshold multiplier | 2.0 |
+| Minimum target | 1.0 |
+| Node input weight | 1.875 |
+| Rectification | off |
+| Online plasticity | on |
+
+The task-specific Falandays presets in the general registry are not used here. This one
+profile is held constant across Tracking, Pong, and CartPole. Only the external
+`InterfaceSpec.input_gain` may be selected for each task.
+
+## Output and validation boundary
+
+The task readout receives a seeded direct mask over node activity. This output assembly is
+part of the benchmark profile and is redrawn from the same fixed policy in each block.
+
+The underlying `:falandays` implementation is the canonical BrainlessLab node and is
+validated against declared reference trajectories. That validation covers the tested
+construction and update path. It does not validate this benchmark profile's behavioural
+performance, prove biological fidelity, or transfer to SORN.
+
+Source paper: Falandays et al.,
+[“A potential mechanism for Gibsonian resonance”](https://doi.org/10.1007/s11571-023-09988-2).
+
+<p class="bl-source">Source: <code>src/nodes/Falandays.jl</code>, <code>src/operations/BenchmarkSpecs.jl</code>, <code>test/oracle/authors_falandays.jl</code>.</p>

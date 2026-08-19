@@ -3,23 +3,45 @@ struct Agent{R<:Reservoir,B<:AbstractBody,C<:InteractionCycle,S<:InteractionStat
     body::B
     cycle::C
     interaction::S
+    interface::InterfaceSpec
+    interface_buffer::Vector{Float64}
 end
 
 function Agent(
     reservoir::Reservoir,
     body::AbstractBody;
     cycle::Union{Nothing,InteractionCycle}=nothing,
+    interface::InterfaceSpec=InterfaceSpec(),
 )
     cycle_ = cycle === nothing ? default_interaction_cycle(reservoir) : cycle
     cycle_ isa FixedRateCycle || throw(ArgumentError(
         "the standard runtime currently supports FixedRateCycle, got $(typeof(cycle_))",
     ))
     interaction = InteractionState(primary_readout(body), reservoir, body)
-    return Agent(reservoir, body, cycle_, interaction)
+    return Agent(
+        reservoir,
+        body,
+        cycle_,
+        interaction,
+        interface,
+        zeros(Float64, n_receptors(body)),
+    )
 end
 
 Agent(reservoir::Reservoir, body::AbstractBody, cycle::InteractionCycle) =
     Agent(reservoir, body; cycle=cycle)
+
+function _interface_receptors!(agent::Agent, receptors)
+    gain = agent.interface.input_gain
+    gain == 1.0 && return receptors
+    length(receptors) == length(agent.interface_buffer) || throw(DimensionMismatch(
+        "interface expected $(length(agent.interface_buffer)) receptors, got $(length(receptors))",
+    ))
+    @inbounds for index in eachindex(agent.interface_buffer, receptors)
+        agent.interface_buffer[index] = gain * Float64(receptors[index])
+    end
+    return agent.interface_buffer
+end
 
 function reset!(agent::Agent)
     reset!(agent.reservoir)
@@ -647,7 +669,8 @@ function _run_interaction!(agent::Agent, percept)
     begin_interaction!(state, readout_component, cycle)
 
     @inbounds for frame in 1:neural_frames(cycle)
-        receptors = encode_frame!(body, encoding_state, frame, cycle)
+        encoded = encode_frame!(body, encoding_state, frame, cycle)
+        receptors = _interface_receptors!(agent, encoded)
         observe_receptors!(state, receptors)
         neural_output = step!(reservoir, receptors)
         observe_frame!(state.readout, readout_component, reservoir, neural_output, frame)
@@ -881,17 +904,22 @@ function rollout!(c::Ensemble, ticks::Integer; window::Integer=ticks, metrics=no
     ticks >= 0 || throw(ArgumentError("ticks must be non-negative"))
     window = Int(window)
 
-    rates = zeros(Float64, ticks)
+    rates = Float64[]
+    sizehint!(rates, ticks)
     node_count = 0
     for t in 1:ticks
+        terminated(c.environment) && break
         interventions === nothing || _apply_tick_interventions!(c, t, interventions)
         spikes = step!(c)
-        rates[t], width = _rollout_rate_and_width(spikes)
+        rate, width = _rollout_rate_and_width(spikes)
+        push!(rates, rate)
         node_count = max(node_count, width)
     end
 
     return (;
         _selected_environment_metrics(c, window, metrics)...,
+        rollout_ticks=length(rates),
+        terminated=terminated(c.environment),
         liveness(rates, node_count, window)...,
     )
 end

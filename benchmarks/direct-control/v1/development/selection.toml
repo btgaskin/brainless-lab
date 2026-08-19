@@ -1,0 +1,90 @@
+format = "brainlesslab-benchmark-selection"
+format_version = 1
+benchmark = "direct_control"
+version = "1.0.0"
+stage = "development"
+source_git_sha = "e5941fc09f3e45646474e6679104a2a0c8ddf889"
+git_state = "clean"
+blocks_per_gain = 16
+trials_per_block = 1
+gain_grid = [0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0]
+tie_break = "smaller_input_gain"
+confirmation_data_inspected = false
+
+[[records]]
+task = "tracking"
+profile = "falandays_direct_v1"
+record_id = "direct_control__tracking__falandays_direct_v1__input_gain-20260819T055810-d5552b96"
+cells = "tracking__falandays.csv"
+cells_sha256 = "31e8e022b723d58aefb44f5c209d8b7981128bf2a9a7d428ab765b24694e339a"
+profile_metric = "mean_abs_error_deg"
+profile_direction = "lower"
+selected_gain = 1.0
+selected_profile_value = 55.7491656095785
+formal_outcome_key = "track_score"
+selected_formal_outcome = 0.472722886932079
+
+[[records]]
+task = "tracking"
+profile = "sorn_direct_v1"
+record_id = "direct_control__tracking__sorn_direct_v1__input_gain-20260819T055815-2a706149"
+cells = "tracking__sorn.csv"
+cells_sha256 = "88bb231fd3e9dc00db210c958614d4a71dc49970425e4fa14151bf45b0bf0487"
+profile_metric = "mean_abs_error_deg"
+profile_direction = "lower"
+selected_gain = 4.0
+selected_profile_value = 38.86311994164269
+formal_outcome_key = "track_score"
+selected_formal_outcome = 0.7126709065787572
+
+[[records]]
+task = "pong"
+profile = "falandays_direct_v1"
+record_id = "direct_control__pong__falandays_direct_v1__input_gain-20260819T060048-bd173b3b"
+cells = "pong__falandays.csv"
+cells_sha256 = "280d80030c1387c5d01de789c351b2c0aad3f23e7be2feb02dac101f60286725"
+profile_metric = "longest_rally"
+profile_direction = "higher"
+selected_gain = 1.0
+selected_profile_value = 4.0
+formal_outcome_key = "hit_rate"
+selected_formal_outcome = 0.48255768711646857
+
+[[records]]
+task = "pong"
+profile = "sorn_direct_v1"
+record_id = "direct_control__pong__sorn_direct_v1__input_gain-20260819T060044-ab1760bc"
+cells = "pong__sorn.csv"
+cells_sha256 = "80770bd236ab95cb38e413a482f4ff47bcfba1e9c9679dd66c0f34400d8cc972"
+profile_metric = "longest_rally"
+profile_direction = "higher"
+selected_gain = 32.0
+selected_profile_value = 5.125
+formal_outcome_key = "hit_rate"
+selected_formal_outcome = 0.61257084472545
+
+[[records]]
+task = "cartpole_plank_easy"
+profile = "falandays_direct_v1"
+record_id = "direct_control__cartpole_plank_easy__falandays_direct_v1__input_gain-20260819T060254-fcadb08c"
+cells = "cartpole_plank_easy__falandays.csv"
+cells_sha256 = "db5298ce39ddb982f99436f94de41027276dabf66ab8c2921b619d2262df7a5c"
+profile_metric = "steps_balanced"
+profile_direction = "higher"
+selected_gain = 8.0
+selected_profile_value = 24.25
+formal_outcome_key = "fitness"
+selected_formal_outcome = 24.25
+
+[[records]]
+task = "cartpole_plank_easy"
+profile = "sorn_direct_v1"
+record_id = "direct_control__cartpole_plank_easy__sorn_direct_v1__input_gain-20260819T060258-062fdd9f"
+cells = "cartpole_plank_easy__sorn.csv"
+cells_sha256 = "45018fd512e99ab35377ad80ab4a94e0246a8f8f255c64dfa451cbcd08529fed"
+profile_metric = "steps_balanced"
+profile_direction = "higher"
+selected_gain = 8.0
+selected_profile_value = 15.125
+formal_outcome_key = "fitness"
+selected_formal_outcome = 15.125

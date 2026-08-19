@@ -16,7 +16,7 @@ the objective minimum.
 
 ```toml
 format = "brainlesslab-plan"
-format_version = 2
+format_version = 3
 operation = "profile" # profile | sweep | ablate | evolve | benchmark
 id = "stable_plan_id"
 
@@ -42,8 +42,9 @@ Unknown keys and duplicate target IDs fail. A composition may refer to a registe
 `preset`, or declare its node, task, node count, body, agent count, parameters, task or
 body options, and fixed-rate interaction cycle.
 
-Version 1 remains readable for non-evolution plans. The writer emits version 2. Evolution
-plans require version 2 and `[evolve.run]`.
+Versions 1 and 2 remain readable where their schemas apply. The writer emits version 3,
+which records the composition interface, topology profile key, and sweep-axis scope.
+Evolution plans require version 2 or later and `[evolve.run]`.
 
 The default root-seed policy derives `:topology` and `:world`. `construction_scope`
 controls topology sharing, while each trial receives its own world seed. Declare another
@@ -70,6 +71,7 @@ mode = "factorial" # factorial | one_at_a_time
 max_rollouts = 100
 
 [[sweep.axes]]
+scope = "node"
 parameter = "leak"
 values = [0.25, 0.5]
 ```

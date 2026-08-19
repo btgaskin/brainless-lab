@@ -45,6 +45,7 @@ const TEST_SUITES = (
     operations=(
         "test_operation_plans.jl",
         "test_benchmark_plan.jl",
+        "test_benchmark_specs.jl",
         "test_plan_io.jl",
         "test_profile_plan.jl",
         "test_sweep_plan.jl",

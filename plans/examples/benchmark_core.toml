@@ -1,45 +1,18 @@
 format = "brainlesslab-plan"
-format_version = 1
+format_version = 3
 operation = "benchmark"
-id = "core_benchmark_example"
+id = "benchmark_structure_example"
 
 [[targets]]
-id = "wall_falandays"
+id = "tracking_falandays"
+topology_key = "falandays"
 [targets.composition]
-id = "wall_falandays"
-preset = "falandays_wall"
-[targets.evaluation]
-blocks = 1
-trials_per_block = 1
-horizon = 220
-warmup = 20
-construction_scope = "trial"
-reset = "full"
-root_seed = 501
-aggregate = "mean"
-
-[[targets]]
-id = "wall_random"
-[targets.composition]
-id = "wall_random"
-node = "null_random"
-task = "wall"
+id = "tracking_falandays"
+node = "falandays"
+task = "tracking"
 n_nodes = 200
-[targets.evaluation]
-blocks = 1
-trials_per_block = 1
-horizon = 220
-warmup = 20
-construction_scope = "trial"
-reset = "full"
-root_seed = 501
-aggregate = "mean"
-
-[[targets]]
-id = "tracking_falandays"
-[targets.composition]
-id = "tracking_falandays"
-preset = "falandays_tracking"
+[targets.composition.interface]
+input_gain = 1.0
 [targets.evaluation]
 blocks = 1
 trials_per_block = 1
@@ -52,11 +25,14 @@ aggregate = "mean"
 
 [[targets]]
 id = "tracking_random"
+topology_key = "null_random"
 [targets.composition]
 id = "tracking_random"
 node = "null_random"
 task = "tracking"
 n_nodes = 200
+[targets.composition.interface]
+input_gain = 1.0
 [targets.evaluation]
 blocks = 1
 trials_per_block = 1
@@ -69,9 +45,14 @@ aggregate = "mean"
 
 [[targets]]
 id = "pong_falandays"
+topology_key = "falandays"
 [targets.composition]
 id = "pong_falandays"
-preset = "falandays_pong"
+node = "falandays"
+task = "pong"
+n_nodes = 200
+[targets.composition.interface]
+input_gain = 1.0
 [targets.evaluation]
 blocks = 1
 trials_per_block = 1
@@ -84,11 +65,14 @@ aggregate = "mean"
 
 [[targets]]
 id = "pong_random"
+topology_key = "null_random"
 [targets.composition]
 id = "pong_random"
 node = "null_random"
 task = "pong"
-n_nodes = 500
+n_nodes = 200
+[targets.composition.interface]
+input_gain = 1.0
 [targets.evaluation]
 blocks = 1
 trials_per_block = 1
@@ -99,12 +83,47 @@ reset = "full"
 root_seed = 2501
 aggregate = "mean"
 
-[benchmark]
+[[targets]]
+id = "cartpole_falandays"
+topology_key = "falandays"
+[targets.composition]
+id = "cartpole_falandays"
+node = "falandays"
+task = "cartpole_plank_easy"
+n_nodes = 200
+[targets.composition.interface]
+input_gain = 1.0
+[targets.evaluation]
+blocks = 1
+trials_per_block = 1
+horizon = 15000
+warmup = 0
+construction_scope = "trial"
+reset = "full"
+root_seed = 3501
+aggregate = "mean"
 
-[[benchmark.cases]]
-id = "wall"
-conditions = ["wall_falandays", "wall_random"]
-baseline = "wall_random"
+[[targets]]
+id = "cartpole_random"
+topology_key = "null_random"
+[targets.composition]
+id = "cartpole_random"
+node = "null_random"
+task = "cartpole_plank_easy"
+n_nodes = 200
+[targets.composition.interface]
+input_gain = 1.0
+[targets.evaluation]
+blocks = 1
+trials_per_block = 1
+horizon = 15000
+warmup = 0
+construction_scope = "trial"
+reset = "full"
+root_seed = 3501
+aggregate = "mean"
+
+[benchmark]
 
 [[benchmark.cases]]
 id = "tracking"
@@ -115,3 +134,8 @@ baseline = "tracking_random"
 id = "pong"
 conditions = ["pong_falandays", "pong_random"]
 baseline = "pong_random"
+
+[[benchmark.cases]]
+id = "cartpole_plank_easy"
+conditions = ["cartpole_falandays", "cartpole_random"]
+baseline = "cartpole_random"

@@ -304,6 +304,7 @@ n_receptors(environment::PlankCartPoleEnv) =
 n_effectors(environment::PlankCartPoleEnv) = length(environment.level.actions)
 default_ticks(::PlankCartPoleEnv) = PLANK_CARTPOLE_MISSION_STEPS
 default_window(::PlankCartPoleEnv) = PLANK_CARTPOLE_MISSION_STEPS
+terminated(environment::PlankCartPoleEnv) = environment.done
 
 function sense(environment::PlankCartPoleEnv)
     environment.done && return zeros(length(environment.level.observation_indices))

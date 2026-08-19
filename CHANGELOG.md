@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- Add SORN as a stable core-registry node with causal STDP, synaptic normalisation,
+  intrinsic plasticity, deterministic reset/replay, and explicit provenance limits.
+- Add a frozen direct-control benchmark for fixed 200-node Falandays and SORN profiles on
+  Tracking, Pong, and Plank CartPole Easy. Development may select only the external input
+  gain. Selection and confirmation report mean heading error, mean longest rally, and mean
+  balanced steps separately, while retaining each task's formal raw and normalised outcome.
+- Correct `VotingReadout` to choose the largest cumulative effector activity across the
+  interaction cycle. Silent frames no longer become first-index votes. This changes the
+  public readout's previous frame-winner behaviour and matches the pinned Plank CartPole
+  task interface.
+
 ## 0.3.0 — 2026-08-01
 
 BrainlessLab 0.3.0 strips the platform back to a library. It ships the canonical node, the

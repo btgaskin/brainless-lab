@@ -19,7 +19,7 @@ The file below is a valid profile plan. Every comment is optional.
 ```toml
 # Header. All four keys are required.
 format = "brainlesslab-plan"
-format_version = 2
+format_version = 3
 operation = "profile"
 id = "tracking_leak_profile"
 
@@ -81,7 +81,7 @@ The four header keys come before any table.
 | Key | Value |
 | --- | --- |
 | `format` | always `"brainlesslab-plan"` |
-| `format_version` | `1` or `2` |
+| `format_version` | `1`, `2`, or `3`; write new plans as `3` |
 | `operation` | `"profile"`, `"sweep"`, `"ablate"`, `"evolve"`, or `"benchmark"` |
 | `id` | stable name for this plan; the record carries it |
 
@@ -99,7 +99,11 @@ id = "tracking"
 ```
 
 A target requires `id`, a `[targets.composition]` table, and a `[targets.evaluation]`
-table. It accepts an optional `[targets.model]` table.
+table. It accepts an optional `[targets.model]` table and an optional `topology_key`.
+
+`topology_key` derives a stable topology stream from a profile identity. Use the same
+profile key across tasks and a different key for a genuinely different model. Conditions
+inside a paired benchmark still share the world stream.
 
 Operation sections never restate a composition. They name a target by its id.
 
@@ -137,6 +141,9 @@ leak = 0.25
 sensory_gain = 1.0
 randomize_start = true
 
+[targets.composition.interface]
+input_gain = 1.0
+
 [targets.composition.interaction_cycle]
 kind = "fixed_rate"
 neural_frames = 1
@@ -154,6 +161,7 @@ neural_frames = 1
 | `parameters` | no | sub-table of node parameter overrides |
 | `task_options` | no | sub-table of task setup options |
 | `body_options` | no | sub-table of registered body options |
+| `interface` | no | sub-table with the positive external `input_gain` applied after encoding |
 | `interaction_cycle` | no | sub-table with `kind = "fixed_rate"` and `neural_frames` |
 
 ## The `[targets.evaluation]` table
@@ -204,20 +212,21 @@ Both traps below reject the plan during `check`, before any simulation runs.
 error: ArgumentError: task :tracking scored interval is 1800 ticks, but minimum_scored_ticks is 2000. Increase evaluation horizon or reduce warmup.
 ```
 
-The current minimums are 2000 ticks for Tracking, 6000 for Pong, and 200 for Wall. Read the
+The current core minimums are 2000 ticks for Tracking, 6000 for Pong, and 15000 for Plank
+CartPole Easy. CartPole may terminate before that horizon. Read the
 [Core catalogue](/reference/core-catalog/) for each task's default ticks and the reason for
 its minimum.
 
-**A `format_version = 1` plan cannot contain an `[evolve]` section.** Every checked-in
-example under `plans/examples/` is still version 1, so a plan copied from there needs its
-version raised before an evolution run:
+**A `format_version = 1` plan cannot contain an `[evolve]` section.** A legacy plan copied
+from an older record needs its version raised before an evolution run:
 
 ```text
 error: ArgumentError: legacy evolution plans are not supported; rewrite the plan with Evolution.RunConfig and format_version=2
 ```
 
-Declare `format_version = 2` in a new plan. The reader still accepts version 1 for
-profile, sweep, ablation, and benchmark plans, and the writer emits version 2.
+Declare `format_version = 3` in a new plan. The reader still accepts versions 1 and 2 where
+their schemas apply, and the writer emits version 3. Version 3 preserves the external
+interface, profile-keyed topology seed coordinate, and sweep-axis scope.
 
 ## Profile
 
@@ -272,9 +281,10 @@ A sweep evaluates one target across declared parameter cells.
 | `mode` | `"factorial"` | `"factorial"` or `"one_at_a_time"` |
 | `max_rollouts` | `10000` | rollout budget; must be positive |
 
-Each `[[sweep.axes]]` table declares one `parameter` and its `values`. Axis parameters must
-be declared parameters of the target's node, and each axis needs unique values. Validation
-checks every value against that parameter's own validator.
+Each `[[sweep.axes]]` table declares a `scope`, one `parameter`, and its `values`. A
+`scope = "node"` axis must use a registered node parameter. `scope = "interface"` currently
+supports `input_gain`, and `scope = "composition"` currently supports `n_nodes`. Each axis
+needs unique values and validation applies the owning contract.
 
 `plans/examples/sweep_tracking.toml`:
 
@@ -307,10 +317,12 @@ mode = "factorial"
 max_rollouts = 8
 
 [[sweep.axes]]
+scope = "node"
 parameter = "leak"
 values = [0.25, 0.5]
 
 [[sweep.axes]]
+scope = "node"
 parameter = "lrate_wmat"
 values = [0.35, 1.0]
 ```
@@ -378,16 +390,12 @@ Every condition in one case must use the same task, and the same blocks, trials,
 warm-up, construction scope, reset, root seed, streams, and aggregation. The task must also
 declare a scalar outcome.
 
-`plans/examples/benchmark_core.toml` declares six targets and three cases. Its
+`plans/examples/benchmark_core.toml` declares six targets and three software-scale cases.
+It demonstrates the schema rather than the direct-control benchmark's evidence protocol. Its
 `[benchmark]` section is:
 
 ```toml
 [benchmark]
-
-[[benchmark.cases]]
-id = "wall"
-conditions = ["wall_falandays", "wall_random"]
-baseline = "wall_random"
 
 [[benchmark.cases]]
 id = "tracking"
@@ -398,6 +406,11 @@ baseline = "tracking_random"
 id = "pong"
 conditions = ["pong_falandays", "pong_random"]
 baseline = "pong_random"
+
+[[benchmark.cases]]
+id = "cartpole_plank_easy"
+conditions = ["cartpole_falandays", "cartpole_random"]
+baseline = "cartpole_random"
 ```
 
 Each `null_random` condition in that file uses the inline composition form, because no
@@ -406,7 +419,7 @@ preset exists for a control node.
 ## Evolve
 
 An evolution plan searches model coordinates on training targets. It requires
-`format_version = 2`.
+`format_version = 2` or later.
 
 The `[evolve]` table names targets by id.
 
@@ -498,8 +511,8 @@ required keys.
 
 Do not write the two digests by hand. Build the reference with
 `BrainlessLab.Evolution.model_reference`, attach it to an `EvaluationTarget`, and emit the
-plan with `write_plan`. [Benchmark an evolved CTRNN](/tutorials/benchmark-evolved-ctrnn/)
-shows the complete path.
+plan with `write_plan`. This path is experimental and is separate from the direct-control
+benchmark.
 
 ## Related pages
 

@@ -403,6 +403,36 @@ end
     @test occursin("heldout,2,pong", csv)
 end
 
+@testset "legacy trial rows tolerate additive resource fields" begin
+    restored = BrainlessLab._restored_trial_row((
+        condition="tracking",
+        block="1",
+        trial="1",
+        window="2000",
+        seed_ledger_agents="1",
+        topology_seed="",
+        world_seed="",
+        initial_state="",
+        score_key="track_score",
+        raw_score="0.5",
+        normalized_score="0.5",
+        normalized_bound="",
+        normalization_status="calibrated",
+        anchor_scored_ticks="2000",
+        viable="true",
+        liveness="true",
+    ), "legacy trial")
+
+    @test ismissing(restored.executed_scored_ticks)
+    @test ismissing(restored.terminated)
+    @test ismissing(restored.aggregate)
+    @test ismissing(restored.input_gain)
+    @test ismissing(restored.dynamic_nodes)
+    @test ismissing(restored.profile_metric)
+    @test ismissing(restored.profile_value)
+    @test ismissing(restored.profile_direction)
+end
+
 @testset "anchor-only benchmark records omit a baseline" begin
     registry = operation_registry()
     plan = _record_anchor_benchmark_plan()

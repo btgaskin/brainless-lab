@@ -1,0 +1,23 @@
+---
+title: Benchmark tasks
+description: The three frozen direct-control harnesses and the profile coordinates they measure.
+---
+
+A benchmark task is more than an environment name. It fixes the observations, encoder,
+actions, timing, termination rule, public profile coordinate, formal scalar outcome, and
+score anchors used by every model.
+
+| Task | Public profile coordinate | Better | Formal outcome retained in records |
+| --- | --- | --- | --- |
+| [Tracking](/benchmarks/tasks/tracking/) | mean heading error (degrees) | lower | `track_score` |
+| [Pong](/benchmarks/tasks/pong/) | mean longest rally (returns) | higher | `hit_rate` |
+| [Plank CartPole Easy](/benchmarks/tasks/cartpole-plank-easy/) | mean balanced steps | higher | `fitness` |
+
+These coordinates are part of the declared task protocols for this benchmark. Other
+recorded measures remain diagnostics. The formal task outcome still appears with its key,
+raw value, and normalised value, but it is not substituted for the public profile
+coordinate. The benchmark does not average across tasks.
+
+Wall remains an available task, but it is not a coordinate of this benchmark.
+
+<p class="bl-source">Source: <code>src/tasks/Tasks.jl</code>, <code>src/operations/BenchmarkSpecs.jl</code>.</p>

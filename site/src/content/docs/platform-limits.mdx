@@ -4,8 +4,9 @@ description: What BrainlessLab can test, what remains simplified, and where its 
 ---
 
 BrainlessLab tests neural substrates inside declared bodies, tasks, and worlds. The current
-core starts with Falandays nodes in Tracking, Pong, and Wall. The platform also includes
-experimental nodes, physical components, collective worlds, analyses, and challenge tasks.
+benchmark starts with fixed Falandays and SORN profiles in Tracking, Pong, and Plank
+CartPole Easy. The platform also includes other nodes, tasks, physical components,
+collective worlds, analyses, and challenge tasks.
 
 It is not a general robotics simulator, a complete neuroscience model, or an authority that
 turns a task score into a claim about cognition.
@@ -36,6 +37,17 @@ and update path.
 
 They do not validate every body, task outcome, experimental Falandays variant, analysis, or
 biological interpretation. Behavioural performance remains a separate empirical result.
+
+## SORN validation boundary
+
+The `:sorn` node is a stable implementation of the declared threshold dynamics, STDP,
+synaptic normalisation, and intrinsic plasticity rules. Focused tests cover deterministic
+construction, stepping, reset, replay, population accounting, and pruning.
+
+No original authors' Matlab implementation was recovered. The public Python repositories
+reviewed during implementation are later derivatives, not numerical oracles. SORN therefore
+has a software-conformance boundary, not bit-for-bit parity with the 2009 simulations.
+Benchmark performance and biological interpretation remain separate empirical claims.
 
 ## Node and learning limits
 

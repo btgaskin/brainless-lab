@@ -34,9 +34,10 @@ are not automatically independent samples.
 
 ## Core tasks
 
-Tracking, Pong, and Wall are the core benchmark tasks. Each declares a scalar outcome and
-anchors. Wall sits near its analytic ceiling for canonical Falandays, so it is a competence
-floor-check with little upward discrimination.
+Tracking, Pong, and Plank CartPole Easy are the core benchmark tasks. Each declares a scalar
+outcome and anchors. CartPole retains experimental software status while participating in
+the benchmark; those are separate declarations. Wall remains available but is not a core
+benchmark coordinate.
 
 Query the live registry:
 
@@ -47,5 +48,6 @@ BrainlessLab.task_spec(DEFAULT_REGISTRY, :tracking)
 ```
 
 Read the [Core catalogue](/reference/core-catalog/) for current outcome and anchor details.
+Read [Benchmark tasks](/benchmarks/tasks/) for the frozen direct-control harnesses.
 
 <p class="bl-source">Source: <code>src/tasks/Tasks.jl</code>, <code>src/world/Ensemble.jl</code>, <code>src/api/Highlevel.jl</code>.</p>

@@ -1,19 +1,24 @@
 ---
 title: Core catalogue
-description: Inspect the canonical Falandays node, the Tracking, Pong, and Wall tasks, and their declared outcomes and anchors.
+description: Inspect the registered Falandays and SORN nodes and the three benchmark task contracts.
 ---
 
 The core catalogue is intentionally small. Query `DEFAULT_REGISTRY` for the current
 machine-readable definitions.
 
-## Canonical node
+## Registered benchmark nodes
 
 | Key | Status | Boundary |
 | --- | --- | --- |
 | `:falandays` | reference | validated on declared reference trajectories |
+| `:sorn` | stable | equations and software lifecycle tested; no authors' Matlab oracle |
 
 The registered presets `:falandays_tracking`, `:falandays_pong`, and `:falandays_wall`
 select task-specific node counts and parameters.
+
+Benchmark version 1 does not use those task-specific presets. It declares one fixed
+200-node profile for each model and selects only an external input gain per task. See
+[Benchmark models](/benchmarks/models/).
 
 ## Core tasks
 
@@ -21,7 +26,7 @@ select task-specific node counts and parameters.
 | --- | --- | --- | --- |
 | Tracking | `track_score` | analytic chance alignment, `0.0` | perfect alignment, `1.0` |
 | Pong | `hit_rate` | calibrated `null_random` control | analytic interception maximum, `1.0` |
-| Wall | `nav_score` | calibrated `null_random` control | analytic collision-free movement maximum, `1.0` |
+| Plank CartPole Easy | `fitness` | analytic minimum, `0.0` | full 15,000-step mission |
 
 Each task also declares how long a run must be before its outcome means anything. An
 evaluation whose scored interval falls below `minimum_scored_ticks` is rejected during
@@ -31,7 +36,7 @@ plan validation, so check these before writing a horizon and warm-up.
 | --- | --- | --- | --- |
 | Tracking | `2000` | `2000` | `track_score` averages one sample per tick, and the between-seed spread only falls below the mean past roughly this many scored ticks |
 | Pong | `7200` | `6000` | Pong emits about one ball event per 305 ticks, so a shorter interval scores too few events to estimate a hit rate |
-| Wall | `1000` | `200` | `nav_score` is a per-tick rate, so its estimate is stable early |
+| Plank CartPole Easy | `15000` | `15000` | one episode runs until failure or the full mission; the benchmark records the actual terminated length |
 
 The scored interval is `horizon - warmup`, not `horizon`. Pass an explicit `window` to
 acknowledge a deliberately short diagnostic run.
@@ -42,32 +47,26 @@ copying a number into a new protocol:
 ```julia
 tracking = BrainlessLab.task_spec(DEFAULT_REGISTRY, :tracking)
 pong = BrainlessLab.task_spec(DEFAULT_REGISTRY, :pong)
-wall = BrainlessLab.task_spec(DEFAULT_REGISTRY, :wall)
+cartpole = BrainlessLab.task_spec(DEFAULT_REGISTRY, :cartpole_plank_easy)
 
 tracking.floor
 tracking.ceiling
 pong.floor
 pong.ceiling
-wall.floor
-wall.ceiling
+cartpole.floor
+cartpole.ceiling
 ```
 
-Tracking, Pong, and Wall carry `:benchmark`, `:qualification`, and `:core` tags.
-
-The scope-setting Wall measurement is `0.9933` raw and `0.9703` normalised. It is near its
-analytic ceiling, so Wall checks whether a design clears a competence floor but offers
-little room to distinguish improvements above canonical Falandays.
+Tracking, Pong, and Plank CartPole Easy carry `:benchmark`, `:qualification`, and `:core`
+tags. Wall remains registered with `:available` but is not part of this set.
 
 Pong now defaults to 7,200 ticks with a 1,200-tick warm-up and 6,000 scored ticks. Ball
 events arrive about once per 305 ticks. The scored interval therefore contains about 20
 events instead of the two or three available under the old 1,000-tick interval.
 
-## Frontier task
-
-`cartpole_plank_easy` carries the `:frontier` tag but is not a core coordinate. Canonical
-Falandays measured `10.0` raw and `0.0007` normalised. The task is unsolved by the canonical
-node and remains floored, so it cannot yet discriminate neural designs. It must not enter
-the core aggregate unless a design first clears that floor.
+Plank CartPole Easy retains `status=:experimental`. Its benchmark participation describes
+the frozen task harness, not scientific maturity. Poor scores remain valid results; there
+is no cross-task aggregate that lets another task hide them.
 
 ## Score use
 

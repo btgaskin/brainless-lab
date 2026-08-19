@@ -91,8 +91,8 @@ The function returns `nothing` when the task has no scalar outcome. Other fields
 
 Raw outcomes are not comparable across tasks. A measured anchor permits normalisation only
 when `window` matches `anchor_scored_ticks`. Analytic anchors are window-invariant.
-Normalisation does not make the measured capacities identical. Keep Tracking, Pong, Wall,
-CartPole, and ecological outcomes separate.
+Normalisation does not make the measured capacities identical. Keep Tracking, Pong,
+Plank CartPole, Wall, and ecological outcomes separate.
 
 ## Record the channels an analysis needs
 

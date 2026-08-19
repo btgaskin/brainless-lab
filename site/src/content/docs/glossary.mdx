@@ -140,6 +140,13 @@ baseline. It answers whether a registered mechanism is necessary. See
 <strong id="benchmark">benchmark</strong> — The operation that reports task-specific statistics and paired contrasts
 inside each declared case. See [Operations](/handbook/operations/).
 
+<strong id="model-profile">model profile</strong> — One named benchmark assembly with fixed mechanism, resource count,
+parameters, topology policy, and output adapter. A registered node may support more than
+one profile, but benchmark results belong to the declared profile.
+
+<strong id="input-gain">input gain</strong> — A positive `InterfaceSpec` value applied after task encoding and before
+the reservoir step. It is external to a node's internal parameters.
+
 <strong id="evolution">evolution</strong> — The operation that searches registered model coordinates on training
 targets before held-out evaluation. It is experimental. See
 [API, plans, and CLI](/reference/).

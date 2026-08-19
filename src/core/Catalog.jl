@@ -326,6 +326,111 @@ function falandays_node_spec()
     )
 end
 
+function _sorn_parameters()
+    defaults = SORNParams()
+    probability = value -> value isa Float64 && isfinite(value) && 0.0 <= value <= 1.0
+    nonnegative = value -> value isa Float64 && isfinite(value) && value >= 0.0
+    descriptions = Dict(
+        :inhibitory_fraction => "inhibitory-to-excitatory population ratio",
+        :p_ee => "E-to-E connection probability",
+        :p_ei => "I-to-E connection probability",
+        :p_ie => "E-to-I connection probability",
+        :p_input => "fraction of excitatory units reached by each receptor",
+        :p_output => "fraction of excitatory units contributing to each effector",
+        :ee_row_sum => "incoming E-to-E weight sum",
+        :ei_row_sum => "incoming inhibitory weight sum",
+        :ie_row_sum => "incoming E-to-I weight sum",
+        :input_row_sum => "input weight sum for each reached excitatory unit",
+        :T_E_max => "maximum initial excitatory threshold",
+        :T_I_max => "maximum initial inhibitory threshold",
+        :eta_stdp => "causal STDP increment",
+        :eta_ip => "intrinsic-plasticity threshold rate",
+        :H_ip => "target excitatory firing rate",
+    )
+    probabilities = Set((:inhibitory_fraction, :p_ee, :p_ei, :p_ie, :p_input, :p_output, :H_ip))
+    parameters = ParameterSpec[]
+    for name in fieldnames(SORNParams)
+        value = getfield(defaults, name)
+        push!(parameters, ParameterSpec(
+            name,
+            value;
+            validator=name in probabilities ? probability : nonnegative,
+            description=descriptions[name],
+        ))
+    end
+    push!(parameters, ParameterSpec(
+        :learn_on,
+        true;
+        validator=value -> value isa Bool,
+        description="enable STDP, synaptic normalisation, and intrinsic plasticity",
+    ))
+    return Tuple(parameters)
+end
+
+function _sorn_builder(context::NodeBuildContext, values)
+    context.model === nothing || throw(ArgumentError(
+        "node :sorn does not accept a fitted or evolved node model",
+    ))
+    options = Dict{Symbol,Any}(name => values[name] for name in fieldnames(SORNParams))
+    options[:learn_on] = values[:learn_on]
+    keywords = (; (key => value for (key, value) in options)...)
+    return SORNReservoir(
+        context.n_nodes,
+        n_receptors(context.ports),
+        n_effectors(context.ports);
+        seed=_context_seed(context, :topology),
+        keywords...,
+    )
+end
+
+function _sorn_equations()
+    reference = "https://doi.org/10.3389/neuro.10.023.2009"
+    return (
+        EquationSpec(
+            :sorn_excitation,
+            raw"x_i(t+1)=\Theta(\sum_j W^{EE}_{ij}x_j(t)-\sum_k W^{EI}_{ik}y_k(t)+u_i(t)-T_i^E(t))";
+            title="Excitatory threshold update",
+            references=(reference,),
+        ),
+        EquationSpec(
+            :sorn_stdp,
+            raw"\Delta W^{EE}_{ij}=\eta_{STDP}[x_i(t)x_j(t-1)-x_i(t-1)x_j(t)]";
+            title="Causal STDP",
+            references=(reference,),
+        ),
+        EquationSpec(
+            :sorn_intrinsic_plasticity,
+            raw"T_i^E(t+1)=T_i^E(t)+\eta_{IP}[x_i(t)-H_{IP}]";
+            title="Intrinsic plasticity",
+            references=(reference,),
+        ),
+    )
+end
+
+function sorn_node_spec()
+    return NodeSpec(
+        :sorn,
+        _sorn_builder;
+        genome_type=SORNParams,
+        stability=:stable,
+        tags=(:stable,),
+        capabilities=(
+            :spiking,
+            :online_plasticity,
+            :recurrent_weights,
+            :intrinsic_plasticity,
+        ),
+        parameters=_sorn_parameters(),
+        equations=_sorn_equations(),
+        default_analyses=(:fano_factor, :spectral_radius),
+        metadata=(
+            source="Lazar, Pipa, and Triesch (2009), doi:10.3389/neuro.10.023.2009",
+            validation="equation and software conformance; no recovered authors' Matlab oracle",
+            output_adapter="seeded excitatory output masks with mean-rate direct action",
+        ),
+    )
+end
+
 function _generic_registered_node_spec(id::Symbol, constructor)
     genome = try
         genome_type(id)
@@ -390,6 +495,7 @@ function _with_composition_parameters(
         parameters=parameters,
         task_options=copy(source.task_options),
         body_options=copy(source.body_options),
+        interface=source.interface,
         interaction_cycle=source.interaction_cycle,
     )
 end
@@ -421,8 +527,9 @@ end
 
 function register_builtins!(registry::RegistrySet)
     register!(registry, falandays_node_spec())
+    register!(registry, sorn_node_spec())
     for (id, constructor) in sort!(collect(NODES); by=pair -> string(first(pair)))
-        id === :falandays && continue
+        id in (:falandays, :sorn) && continue
         register!(registry, _generic_registered_node_spec(id, constructor))
     end
 

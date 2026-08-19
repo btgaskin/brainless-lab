@@ -71,6 +71,34 @@
 }
 .bl-source code { color: var(--bl-teal-ink); }
 
+.bl-qr-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 24rem);
+  align-items: center;
+  gap: 1rem;
+  margin-block: 1.25rem;
+}
+.bl-qr-card > a {
+  display: block;
+  padding: 0.5rem;
+  border: 1px solid var(--bl-grid);
+  border-radius: 0.5rem;
+  background: #fff;
+  line-height: 0;
+}
+.bl-qr-card img {
+  margin: 0;
+}
+.bl-qr-card p {
+  margin: 0;
+}
+@media (max-width: 32rem) {
+  .bl-qr-card {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+}
+
 /* ---------------------------------------------------------------------------
    Landing page (template: splash + frontmatter hero)
    One centered editorial column: hero, demo card, and prose all share the

@@ -30,6 +30,10 @@ export default defineConfig({
     '/evolution': '/handbook/operations/',
     '/scoring': '/reference/core-catalog/',
     '/agentic-workflow': '/tutorials/extend-project/',
+    '/tutorials/evolve-ctrnn': '/experimental/features/development-evolution/',
+    '/tutorials/resume-evolution': '/experimental/features/development-evolution/',
+    '/tutorials/benchmark-evolved-ctrnn': '/experimental/features/development-evolution/',
+    '/benchmarks/falandays-core-v2': '/benchmarks/',
     '/experimental/reservoirs': '/experimental/',
     '/experimental/embodiment': '/experimental/',
     '/experimental/worlds-tasks': '/experimental/',
@@ -78,15 +82,35 @@ export default defineConfig({
       },
       sidebar: [
         {
-          label: 'Tutorials',
+          label: 'Introduction',
           items: [
             { label: 'Run your first simulation', slug: 'tutorials/first-simulation' },
             { label: 'Create a reproducible profile', slug: 'tutorials/reproducible-profile' },
             { label: 'Compare conditions', slug: 'tutorials/compare-conditions' },
-            { label: 'Evolve a CTRNN', slug: 'tutorials/evolve-ctrnn' },
-            { label: 'Resume evolution', slug: 'tutorials/resume-evolution' },
-            { label: 'Benchmark an evolved CTRNN', slug: 'tutorials/benchmark-evolved-ctrnn' },
             { label: 'Extend from another project', slug: 'tutorials/extend-project' },
+          ],
+        },
+        {
+          label: 'Benchmark',
+          items: [
+            { label: 'Benchmark', slug: 'benchmarks' },
+            {
+              label: 'Tasks',
+              items: [
+                { label: 'Overview', slug: 'benchmarks/tasks' },
+                { label: 'Tracking', slug: 'benchmarks/tasks/tracking' },
+                { label: 'Pong', slug: 'benchmarks/tasks/pong' },
+                { label: 'Plank CartPole Easy', slug: 'benchmarks/tasks/cartpole-plank-easy' },
+              ],
+            },
+            {
+              label: 'Models',
+              items: [
+                { label: 'Overview', slug: 'benchmarks/models' },
+                { label: 'Falandays', slug: 'benchmarks/models/falandays' },
+                { label: 'SORN', slug: 'benchmarks/models/sorn' },
+              ],
+            },
           ],
         },
         {
@@ -120,7 +144,6 @@ export default defineConfig({
           items: [
             { label: 'Record structure', slug: 'research' },
             { label: 'Accepted runs', slug: 'research/catalogue' },
-            { label: 'Benchmarks', slug: 'benchmarks' },
             { label: 'Experiments', slug: 'experiments' },
             { label: 'Experimental capabilities', slug: 'experimental' },
           ],

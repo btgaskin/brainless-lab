@@ -155,11 +155,14 @@ const researchSchema = z
         message: 'research record paths must be unique',
       });
     }
-    if (entry.evidence_state !== 'planned' && entry.record_paths.length === 0) {
+    if (
+      (entry.evidence_state === 'confirmed' || entry.evidence_state === 'promoted') &&
+      entry.record_paths.length === 0
+    ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['record_paths'],
-        message: 'research beyond the planned state requires at least one record path',
+        message: 'confirmed or promoted research requires at least one record path',
       });
     }
     for (const recordPath of entry.record_paths) {

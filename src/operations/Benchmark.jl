@@ -1,3 +1,5 @@
+using Statistics
+
 struct ResolvedBenchmarkCase{C<:Tuple}
     id::Symbol
     conditions::C
@@ -146,6 +148,81 @@ function _benchmark_mean_std(values)
     )
 end
 
+function _benchmark_reduce(values, policy::Symbol)
+    data = Float64[value for value in values if !ismissing(value)]
+    isempty(data) && return missing
+    policy === :none && return missing
+    policy === :mean && return sum(data) / length(data)
+    policy === :median && return Statistics.median(data)
+    policy === :sum && return sum(data)
+    policy === :minimum && return minimum(data)
+    policy === :maximum && return maximum(data)
+    throw(ArgumentError("unsupported benchmark aggregate policy :$(policy)"))
+end
+
+function _benchmark_block_rows(rows)
+    groups = Dict{Int,Vector{NamedTuple}}()
+    for row in rows
+        push!(get!(groups, row.block, NamedTuple[]), row)
+    end
+    output = NamedTuple[]
+    for (block, group) in sort!(collect(groups); by=first)
+        policies = unique(row.aggregate for row in group)
+        length(policies) == 1 || throw(ArgumentError(
+            "benchmark block $(block) mixes aggregate policies",
+        ))
+        bounds = Symbol[
+            row.normalized_bound
+            for row in group
+            if !ismissing(row.normalized_bound) && row.normalized_bound !== :none
+        ]
+        bound = :none
+        :floor in bounds && (bound = :floor)
+        :ceiling in bounds && (bound = :ceiling)
+        profile_rows = [row for row in group if !ismissing(row.profile_value)]
+        profile = if isempty(profile_rows)
+            (
+                profile_metric=missing,
+                profile_value=missing,
+                profile_label=missing,
+                profile_unit=missing,
+                profile_direction=missing,
+            )
+        else
+            metadata = unique([(
+                row.profile_metric,
+                row.profile_label,
+                row.profile_unit,
+                row.profile_direction,
+            ) for row in profile_rows])
+            length(metadata) == 1 || throw(ArgumentError(
+                "benchmark block $(block) mixes profile coordinates",
+            ))
+            metric, label, unit, direction = only(metadata)
+            (
+                profile_metric=metric,
+                profile_value=_benchmark_reduce(
+                    (row.profile_value for row in profile_rows),
+                    only(policies),
+                ),
+                profile_label=label,
+                profile_unit=unit,
+                profile_direction=direction,
+            )
+        end
+        push!(output, merge((
+            block,
+            raw_score=_benchmark_reduce((row.raw_score for row in group), only(policies)),
+            normalized_score=_benchmark_reduce(
+                (row.normalized_score for row in group),
+                only(policies),
+            ),
+            normalized_bound=bound,
+        ), profile))
+    end
+    return output
+end
+
 function _benchmark_statistics(rows)
     groups = Dict{Tuple{Symbol,Symbol},Vector{NamedTuple}}()
     for row in rows
@@ -153,20 +230,36 @@ function _benchmark_statistics(rows)
     end
     output = NamedTuple[]
     for ((case, condition), group) in sort!(collect(groups); by=pair -> string(first(pair)))
-        raw = _benchmark_mean_std(row.raw_score for row in group)
-        normalized = _benchmark_mean_std(row.normalized_score for row in group)
+        blocks = _benchmark_block_rows(group)
+        raw = _benchmark_mean_std(row.raw_score for row in blocks)
+        normalized = _benchmark_mean_std(row.normalized_score for row in blocks)
+        profile = _benchmark_mean_std(row.profile_value for row in blocks)
+        profile_metadata = unique([(
+            row.profile_metric,
+            row.profile_label,
+            row.profile_unit,
+            row.profile_direction,
+        ) for row in blocks if !ismissing(row.profile_value)])
+        length(profile_metadata) <= 1 || throw(ArgumentError(
+            "benchmark case :$(case) condition :$(condition) mixes profile coordinates",
+        ))
+        metric, label, unit, direction = isempty(profile_metadata) ?
+            (missing, missing, missing, missing) : only(profile_metadata)
         censoring = _normalized_censoring_summary(group)
         push!(output, (
             case=case,
             condition=condition,
-            n=normalized.n,
+            n=raw.n,
+            blocks=raw.n,
+            trials=length(group),
             raw_mean=raw.mean,
             raw_std=raw.std,
             raw_ci_lower=raw.lower,
             raw_ci_upper=raw.upper,
             normalized_mean=normalized.mean,
             normalized_censoring=censoring.normalized_censoring,
-            normalized_n=censoring.normalized_n,
+            normalized_n=normalized.n,
+            normalized_censoring_n=censoring.normalized_n,
             normalized_std=normalized.std,
             normalized_ci_lower=normalized.lower,
             normalized_ci_upper=normalized.upper,
@@ -175,7 +268,16 @@ function _benchmark_statistics(rows)
             normalized_censored_count=censoring.normalized_censored_count,
             normalized_censored_fraction=censoring.normalized_censored_fraction,
             normalized_interval_calibrated=false,
+            profile_metric=metric,
+            profile_mean=profile.mean,
+            profile_std=profile.std,
+            profile_ci_lower=profile.lower,
+            profile_ci_upper=profile.upper,
+            profile_label=label,
+            profile_unit=unit,
+            profile_direction=direction,
             interval_method=:student_t_95,
+            inference_unit=:block,
         ))
     end
     return output
@@ -186,10 +288,9 @@ function _benchmark_contrasts(result::BenchmarkResult)
     for case in result.batches
         case.baseline === nothing && continue
         condition_rows = Dict(
-            condition.id => Dict(
-                (row.block, row.trial) => row
-                for row in trial_table(condition.batch)
-            )
+            condition.id => Dict(row.block => row for row in _benchmark_block_rows(
+                trial_table(condition.batch),
+            ))
             for condition in case.conditions
         )
         baseline_rows = condition_rows[case.baseline]
@@ -197,11 +298,12 @@ function _benchmark_contrasts(result::BenchmarkResult)
             condition.id === case.baseline && continue
             differences = Float64[]
             raw_differences = Float64[]
+            profile_differences = Float64[]
             paired_baseline = NamedTuple[]
             paired_condition = NamedTuple[]
-            for key in sort!(collect(keys(baseline_rows)))
-                baseline = baseline_rows[key]
-                candidate = condition_rows[condition.id][key]
+            for block in sort!(collect(keys(baseline_rows)))
+                baseline = baseline_rows[block]
+                candidate = condition_rows[condition.id][block]
                 if !ismissing(baseline.normalized_score) && !ismissing(candidate.normalized_score)
                     push!(differences, candidate.normalized_score - baseline.normalized_score)
                     push!(paired_baseline, baseline)
@@ -210,9 +312,34 @@ function _benchmark_contrasts(result::BenchmarkResult)
                 if !ismissing(baseline.raw_score) && !ismissing(candidate.raw_score)
                     push!(raw_differences, candidate.raw_score - baseline.raw_score)
                 end
+                if !ismissing(baseline.profile_value) && !ismissing(candidate.profile_value)
+                    baseline.profile_metric == candidate.profile_metric || throw(ArgumentError(
+                        "paired benchmark conditions use different profile metrics",
+                    ))
+                    push!(
+                        profile_differences,
+                        candidate.profile_value - baseline.profile_value,
+                    )
+                end
             end
             normalized = _benchmark_mean_std(differences)
             raw = _benchmark_mean_std(raw_differences)
+            profile = _benchmark_mean_std(profile_differences)
+            profile_rows = [
+                row for row in values(condition_rows[condition.id])
+                if !ismissing(row.profile_value)
+            ]
+            profile_metadata = unique([(
+                row.profile_metric,
+                row.profile_label,
+                row.profile_unit,
+                row.profile_direction,
+            ) for row in profile_rows])
+            length(profile_metadata) <= 1 || throw(ArgumentError(
+                "benchmark contrast mixes profile coordinates",
+            ))
+            metric, label, unit, direction = isempty(profile_metadata) ?
+                (missing, missing, missing, missing) : only(profile_metadata)
             baseline_censoring = _normalized_censoring_summary(paired_baseline)
             condition_censoring = _normalized_censoring_summary(paired_condition)
             censored_pair_count = count(
@@ -241,7 +368,15 @@ function _benchmark_contrasts(result::BenchmarkResult)
                 normalized_censored_pair_count=censored_pair_count,
                 normalized_censored_pair_fraction=censored_pair_fraction,
                 normalized_interval_calibrated=false,
+                profile_metric=metric,
+                profile_difference=profile.mean,
+                profile_ci_lower=profile.lower,
+                profile_ci_upper=profile.upper,
+                profile_label=label,
+                profile_unit=unit,
+                profile_direction=direction,
                 interval_method=:paired_student_t_95,
+                inference_unit=:paired_block,
             ))
         end
     end

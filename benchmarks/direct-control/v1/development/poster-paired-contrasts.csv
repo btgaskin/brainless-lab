@@ -1,0 +1,4 @@
+task,n_pairs,profile_metric,profile_direction,profile_difference_sorn_minus_falandays,profile_difference_std,profile_difference_ci_lower,profile_difference_ci_upper,formal_outcome_difference,formal_outcome_difference_std,formal_outcome_difference_ci_lower,formal_outcome_difference_ci_upper
+tracking,16,mean_abs_error_deg,lower,-16.886045667935814,36.32019133189803,-36.23562760000449,2.463536264132859,0.2399480196466782,0.43916222713174813,0.005984343142239418,0.47391169615111695
+pong,16,longest_rally,higher,1.125,2.895398648430529,-0.41752362995136405,2.667523629951364,0.1300131576089814,0.20846758655409245,0.01895205087228867,0.24107426434567414
+cartpole_plank_easy,16,steps_balanced,higher,-9.125,20.234870891606896,-19.905127467503572,1.655127467503572,-9.125,20.234870891606896,-19.905127467503572,1.655127467503572
