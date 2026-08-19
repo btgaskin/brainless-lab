@@ -167,11 +167,11 @@ implementation. This validation covers the tested construction and update path. 
 not automatically cover every body, task, behavioural statistic, analysis, or biological
 interpretation.
 
-Tracking, Pong, and Wall are the core benchmark tasks. Wall is a near-ceiling competence
-floor-check, not a task with much upward headroom. The four Plank CartPole levels are
-experimental challenge tasks. `cartpole_plank_easy` is the declared frontier task and is
-not part of the core aggregate. All use the general `EvaluationSpec`; there is no
-CartPole-specific evaluation protocol.
+Tracking, Pong, and Plank CartPole Easy are the core benchmark tasks. Wall remains
+available but is not a core benchmark coordinate. The four Plank CartPole levels retain
+experimental software status; Easy's benchmark membership is a separate declaration.
+All use the general `EvaluationSpec`. The direct-control benchmark uses one episode per
+CartPole block and never forms a cross-task aggregate.
 
 Performance can reveal a capacity, limit, trade-off, or missing mechanism. Before
 interpreting a poor score, check the task opportunity, body ports, control floor, horizon,
@@ -224,7 +224,7 @@ Use `task_outcome(sim)` for the declared task result. Report its key, raw score,
 score when available, normalisation status, scoring window, blocks, trials, construction
 scope, reset, horizon, warm-up, and seed policy. A measured anchor applies only at its
 declared `scored_ticks`; analytic anchors are window-invariant. Normalised Tracking, Pong,
-and Wall scores remain different quantities.
+and Plank CartPole Easy scores remain different quantities.
 
 Treat criticality and information measures as estimator-dependent analyses. State their
 nulls, assumptions, and finite-sample limits. Shared environmental drive can produce

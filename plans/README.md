@@ -10,8 +10,9 @@ CompositionSpec + EvaluationSpec
   → record
 ```
 
-The current writer emits `format_version = 2`. Version 1 remains readable for
-non-evolution plans. Evolution plans require version 2 and `[evolve.run]`.
+The current writer emits `format_version = 3`. Versions 1 and 2 remain readable where
+their schemas apply. Version 3 records the composition interface, profile-keyed topology
+seed coordinate, and sweep-axis scope.
 
 Validate a plan without simulation:
 

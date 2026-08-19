@@ -225,11 +225,19 @@ end
         @test final_tick.hit_rate == 0.0
         @test final_tick.mean_align == 1.0
         @test full_run.hit_rate ≈ 1 / 3 atol=ENV_ATOL
+        @test final_tick.longest_rally == 0
+        @test full_run.longest_rally == 1
         @test full_run.mean_align ≈ (0.1 + 0.2 + 1.0) / 3 atol=ENV_ATOL
         @test final_tick.hit_rate != full_run.hit_rate
         @test final_tick.mean_align != full_run.mean_align
         @test final_tick.score === final_tick.hit_rate
         @test BrainlessLab.PONG_TASK.score_key === :hit_rate
+        @test BrainlessLab.PONG_TASK.protocol.benchmark_profile.metric === :longest_rally
+
+        pong.hit_flags = [1, 0, 1, 0, 1, 1, 0]
+        pong.miss_flags = [0, 0, 0, 1, 0, 0, 1]
+        pong.align_flags = zeros(7)
+        @test metrics(pong, 7).longest_rally == 2
     end
 end
 

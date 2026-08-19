@@ -51,6 +51,63 @@ function _intervention_segment(interventions, first_tick::Integer, last_tick::In
     return isempty(segment) ? nothing : segment
 end
 
+function _combined_resource_report(reports)
+    isempty(reports) && throw(ArgumentError("evaluation trial has no resource reports"))
+    total(field) = all(report -> getfield(report, field) !== nothing, reports) ?
+        sum(getfield(report, field) for report in reports) : nothing
+    return ResourceReport(
+        sum(report.dynamic_nodes for report in reports);
+        excitatory_nodes=total(:excitatory_nodes),
+        inhibitory_nodes=total(:inhibitory_nodes),
+        recurrent_edges=total(:recurrent_edges),
+        input_edges=total(:input_edges),
+        output_edges=total(:output_edges),
+    )
+end
+
+function _trial_profile_coordinate(simulation::SimResult)
+    contract = simulation.config.task_contract
+    contract === nothing && return (
+        profile_metric=missing,
+        profile_value=missing,
+        profile_label=missing,
+        profile_unit=missing,
+        profile_direction=missing,
+    )
+    protocol = contract.protocol
+    hasproperty(protocol, :benchmark_profile) || return (
+        profile_metric=missing,
+        profile_value=missing,
+        profile_label=missing,
+        profile_unit=missing,
+        profile_direction=missing,
+    )
+    profile = protocol.benchmark_profile
+    required = (:metric, :label, :unit, :direction)
+    all(name -> hasproperty(profile, name), required) || throw(ArgumentError(
+        "task :$(contract.name) benchmark profile requires metric, label, unit, and direction",
+    ))
+    metric = Symbol(profile.metric)
+    hasproperty(simulation.metrics, metric) || throw(ArgumentError(
+        "task :$(contract.name) benchmark profile metric :$(metric) is absent from task metrics",
+    ))
+    value = Float64(getproperty(simulation.metrics, metric))
+    isfinite(value) || throw(ArgumentError(
+        "task :$(contract.name) benchmark profile metric :$(metric) must be finite",
+    ))
+    direction = Symbol(profile.direction)
+    direction in (:lower, :higher) || throw(ArgumentError(
+        "task :$(contract.name) benchmark profile direction must be :lower or :higher",
+    ))
+    return (
+        profile_metric=metric,
+        profile_value=value,
+        profile_label=String(profile.label),
+        profile_unit=String(profile.unit),
+        profile_direction=direction,
+    )
+end
+
 function _normalized_censoring_summary(rows)
     bounds = Symbol[]
     for row in rows
@@ -105,6 +162,7 @@ function _evaluate_trial(
         trial=trial,
         construction_block=construction_block,
         construction_trial=construction_trial,
+        topology_key=target.topology_key,
         model=model,
         record=record,
         every=record_every,
@@ -167,9 +225,13 @@ function _evaluate_trial(
             block=Int(block),
             trial=Int(trial),
             parameters=_composition_namedtuple(resolved.parameters),
+            interface=resolved.interface,
+            resources=setup.resources,
             seed_ledger=setup.seed_ledger,
             evaluation=evaluation,
             compute_every=Dict{Symbol,Int}(compute_every),
+            executed_scored_ticks=outcome.rollout_ticks,
+            terminated=outcome.terminated,
         ),
     )
     simulation = SimResult(
@@ -263,14 +325,26 @@ end
 
 function trial_row(trial::EvaluationTrial)
     outcome = task_outcome(trial.simulation)
+    resources = _combined_resource_report(trial.simulation.config.resources)
+    profile = _trial_profile_coordinate(trial.simulation)
     single_ledger = length(trial.seeds) == 1 ? first(trial.seeds) : nothing
     seed(name) = single_ledger !== nothing && hasproperty(single_ledger, name) ?
         getproperty(single_ledger, name) : missing
-    return (
+    return merge((
         condition=trial.condition,
         block=trial.block,
         trial=trial.trial,
         window=Int(trial.simulation.config.window),
+        executed_scored_ticks=trial.simulation.config.executed_scored_ticks,
+        terminated=trial.simulation.config.terminated,
+        aggregate=trial.simulation.config.evaluation.aggregate,
+        input_gain=trial.simulation.config.interface.input_gain,
+        dynamic_nodes=resources.dynamic_nodes,
+        excitatory_nodes=resources.excitatory_nodes,
+        inhibitory_nodes=resources.inhibitory_nodes,
+        recurrent_edges=resources.recurrent_edges,
+        input_edges=resources.input_edges,
+        output_edges=resources.output_edges,
         seed_ledger_agents=length(trial.seeds),
         topology_seed=seed(:topology),
         world_seed=seed(:world),
@@ -284,7 +358,7 @@ function trial_row(trial::EvaluationTrial)
             missing : outcome.anchor_scored_ticks,
         viable=_trial_viability(trial.simulation.metrics),
         liveness=_trial_liveness(trial.simulation.metrics),
-    )
+    ), profile)
 end
 
 trial_table(batch::EvaluationBatch) = [trial_row(trial) for trial in batch.trials]

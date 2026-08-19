@@ -91,6 +91,9 @@ end
     @test compact.n_cells == 2
     @test compact.n_rollouts == 4
     @test all(row -> isfinite(row.raw_score), output.trials)
+    @test all(row -> row.profile_metric === :mean_abs_error_deg, output.trials)
+    @test all(row -> row.profile_direction === :lower, output.cells)
+    @test all(row -> isfinite(row.profile_value), output.cells)
     @test all(row -> row.normalized_n == 2, output.cells)
     @test all(
         row -> row.normalized_censored_count ==

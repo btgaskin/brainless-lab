@@ -2,23 +2,31 @@ using Random
 
 Base.@kwdef struct SORNParams <: NodeModel
     inhibitory_fraction::Float64 = 0.2
-    p_ee::Float64 = 0.1
-    p_ei::Float64 = 0.2
-    p_ie::Float64 = 0.2
-    p_input::Float64 = 0.2
-    p_output::Float64 = 0.1
+    p_ee::Float64 = 10.0 / 166.0
+    p_ei::Float64 = 1.0
+    p_ie::Float64 = 1.0
+    p_input::Float64 = 0.05
+    p_output::Float64 = 0.05
     ee_row_sum::Float64 = 1.0
     ei_row_sum::Float64 = 1.0
     ie_row_sum::Float64 = 1.0
     input_row_sum::Float64 = 1.0
     T_E_max::Float64 = 0.5
     T_I_max::Float64 = 1.0
-    eta_stdp::Float64 = 0.004
+    eta_stdp::Float64 = 0.001
     eta_ip::Float64 = 0.001
     H_ip::Float64 = 0.1
 end
 
 const SORN_PARAM_DIM = 15
+
+_sorn_probability(raw::Real) = raw == Inf ? 1.0 : raw == -Inf ? 0.0 : _sigmoid_clipped(raw)
+function _sorn_inverse_probability(value::Real)
+    probability = Float64(value)
+    probability == 0.0 && return -Inf
+    probability == 1.0 && return Inf
+    return _inverse_sigmoid(probability)
+end
 
 paramdim(::Type{SORNParams}) = SORN_PARAM_DIM
 paramdim(::SORNParams) = SORN_PARAM_DIM
@@ -27,12 +35,12 @@ function unpack_params(::Type{SORNParams}, raw::AbstractVector{<:Real})::SORNPar
     length(raw) == SORN_PARAM_DIM ||
         throw(DimensionMismatch("SORNParams expects $SORN_PARAM_DIM raw parameters, got $(length(raw))"))
     return SORNParams(
-        inhibitory_fraction=_sigmoid_clipped(raw[1]),
-        p_ee=_sigmoid_clipped(raw[2]),
-        p_ei=_sigmoid_clipped(raw[3]),
-        p_ie=_sigmoid_clipped(raw[4]),
-        p_input=_sigmoid_clipped(raw[5]),
-        p_output=_sigmoid_clipped(raw[6]),
+        inhibitory_fraction=_sorn_probability(raw[1]),
+        p_ee=_sorn_probability(raw[2]),
+        p_ei=_sorn_probability(raw[3]),
+        p_ie=_sorn_probability(raw[4]),
+        p_input=_sorn_probability(raw[5]),
+        p_output=_sorn_probability(raw[6]),
         ee_row_sum=softplus(Float64(raw[7])),
         ei_row_sum=softplus(Float64(raw[8])),
         ie_row_sum=softplus(Float64(raw[9])),
@@ -41,18 +49,18 @@ function unpack_params(::Type{SORNParams}, raw::AbstractVector{<:Real})::SORNPar
         T_I_max=softplus(Float64(raw[12])),
         eta_stdp=softplus(Float64(raw[13])),
         eta_ip=softplus(Float64(raw[14])),
-        H_ip=_sigmoid_clipped(raw[15]),
+        H_ip=_sorn_probability(raw[15]),
     )
 end
 
 function pack_params(p::SORNParams)
     return Float64[
-        _inverse_sigmoid(p.inhibitory_fraction),
-        _inverse_sigmoid(p.p_ee),
-        _inverse_sigmoid(p.p_ei),
-        _inverse_sigmoid(p.p_ie),
-        _inverse_sigmoid(p.p_input),
-        _inverse_sigmoid(p.p_output),
+        _sorn_inverse_probability(p.inhibitory_fraction),
+        _sorn_inverse_probability(p.p_ee),
+        _sorn_inverse_probability(p.p_ei),
+        _sorn_inverse_probability(p.p_ie),
+        _sorn_inverse_probability(p.p_input),
+        _sorn_inverse_probability(p.p_output),
         _inverse_softplus(p.ee_row_sum),
         _inverse_softplus(p.ei_row_sum),
         _inverse_softplus(p.ie_row_sum),
@@ -61,7 +69,7 @@ function pack_params(p::SORNParams)
         _inverse_softplus(p.T_I_max),
         _inverse_softplus(p.eta_stdp),
         _inverse_softplus(p.eta_ip),
-        _inverse_sigmoid(p.H_ip),
+        _sorn_inverse_probability(p.H_ip),
     ]
 end
 
@@ -73,21 +81,21 @@ _as_sorn_params(raw::AbstractVector{<:Real}) = unpack_params(SORNParams, raw)
 """
     SORNReservoir(n_nodes, n_receptors, n_effectors; seed=0, kwargs...)
 
-Experimental research node implementing a Self-Organizing Recurrent Network
+Stable implementation of a Self-Organizing Recurrent Network
 (SORN) after Lazar, Pipa, and Triesch (2009), with binary threshold excitatory
 and inhibitory populations and online STDP, intrinsic plasticity, and synaptic
 normalization on the E->E weights.
 
-This node is intended as an experimental criticality positive-control. It is
-algorithmically faithful to the Lazar/Pipa/Triesch update rules, but this
-BrainlessLab implementation has not yet been validated to reproduce
-avalanche-scaling criticality.
+Software stability covers the declared equations, reset, replay, population
+accounting, and deterministic construction. It does not establish numerical
+parity with the authors' unrecovered Matlab implementation or validate a
+biological interpretation.
 
-Defaults are deliberately small and tunable: `inhibitory_fraction=0.2`,
-`p_ee=0.1`, `p_ei=0.2`, `p_ie=0.2`, `p_input=0.2`, `p_output=0.1`,
+The benchmark profile uses `inhibitory_fraction=0.2`, expected E->E degree 10
+at 167 excitatory units, dense E<->I coupling, and 5% input/output fanout,
 row-normalized E->E/E->I/I->E/input weights with unit row sums,
 `T_E_i ~ Uniform(0, 0.5)`, `T_I_k ~ Uniform(0, 1.0)`,
-`eta_stdp=0.004`, `eta_ip=0.001`, and `H_ip=0.1`. Set
+`eta_stdp=0.001`, `eta_ip=0.001`, and `H_ip=0.1`. Set
 `learn_on=false` to freeze STDP, intrinsic plasticity, and synaptic
 normalization while keeping the binary dynamics active.
 """
@@ -99,6 +107,7 @@ mutable struct SORNReservoir <: Reservoir
     W_EE::Matrix{Float64}
     W_EE0::Matrix{Float64}
     EE_mask::BitMatrix
+    EE_mask0::BitMatrix
     C_E::Vector{Float64}
     W_EI::Matrix{Float64}
     W_IE::Matrix{Float64}
@@ -112,6 +121,7 @@ mutable struct SORNReservoir <: Reservoir
     y::Vector{Float64}
     prev_x::Vector{Float64}
     prev_y::Vector{Float64}
+    output_buffer::Vector{Float64}
     eta_stdp::Float64
     eta_ip::Float64
     H_ip::Float64
@@ -167,6 +177,23 @@ function _sorn_ensure_each_col!(mask::BitMatrix, rng::AbstractRNG)
     return mask
 end
 
+function _sorn_fixed_column_fanout_mask(
+    rows::Integer,
+    cols::Integer,
+    fraction::Real,
+    rng::AbstractRNG,
+)
+    mask = falses(Int(rows), Int(cols))
+    rows == 0 && return mask
+    fanout = clamp(round(Int, Float64(fraction) * rows), 1, rows)
+    @inbounds for column in 1:cols
+        for row in randperm(rng, rows)[1:fanout]
+            mask[row, column] = true
+        end
+    end
+    return mask
+end
+
 function _sorn_row_normalized_weights(mask::BitMatrix, rng::AbstractRNG, row_sum::Real)
     target = Float64(row_sum)
     target >= 0.0 || throw(ArgumentError("row_sum must be non-negative"))
@@ -210,15 +237,12 @@ function _sorn_init_masks(
     ee_mask = bernoulli_mask(N_E, N_E, p_ee, rng; diagonal=false)
     ei_mask = bernoulli_mask(N_E, N_I, p_ei, rng; diagonal=true)
     ie_mask = bernoulli_mask(N_I, N_E, p_ie, rng; diagonal=true)
-    input_mask = bernoulli_mask(N_E, n_receptors_, p_input, rng; diagonal=true)
-    output_mask = bernoulli_mask(N_E, n_effectors_, p_output, rng; diagonal=true)
+    input_mask = _sorn_fixed_column_fanout_mask(N_E, n_receptors_, p_input, rng)
+    output_mask = _sorn_fixed_column_fanout_mask(N_E, n_effectors_, p_output, rng)
 
     _sorn_ensure_each_row!(ee_mask, rng; no_self=true)
     _sorn_ensure_each_row!(ei_mask, rng)
     _sorn_ensure_each_row!(ie_mask, rng)
-    _sorn_ensure_each_row!(input_mask, rng)
-    _sorn_ensure_each_col!(output_mask, rng)
-
     return ee_mask, ei_mask, ie_mask, input_mask, output_mask
 end
 
@@ -228,32 +252,33 @@ function SORNReservoir(
     n_effectors_::Integer;
     seed=0,
     inhibitory_fraction::Real=0.2,
-    p_ee::Real=0.1,
-    p_ei::Real=0.2,
-    p_ie::Real=0.2,
-    p_input::Real=0.2,
-    p_output::Real=0.1,
+    p_ee::Real=10.0 / 166.0,
+    p_ei::Real=1.0,
+    p_ie::Real=1.0,
+    p_input::Real=0.05,
+    p_output::Real=0.05,
     ee_row_sum::Real=1.0,
     ei_row_sum::Real=1.0,
     ie_row_sum::Real=1.0,
     input_row_sum::Real=1.0,
     T_E_max::Real=0.5,
     T_I_max::Real=1.0,
-    eta_stdp::Real=0.004,
+    eta_stdp::Real=0.001,
     eta_ip::Real=0.001,
     H_ip::Real=0.1,
     learn_on::Bool=true,
     kwargs...,
 )
-    N_E = Int(n_nodes)
+    total_nodes = Int(n_nodes)
     n_receptors_i = Int(n_receptors_)
     n_effectors_i = Int(n_effectors_)
-    N_E >= 1 || throw(ArgumentError("n_nodes must be at least 1"))
+    total_nodes >= 1 || throw(ArgumentError("n_nodes must be at least 1"))
     n_receptors_i >= 1 || throw(ArgumentError("n_receptors must be at least 1"))
     n_effectors_i >= 1 || throw(ArgumentError("n_effectors must be at least 1"))
 
     inhibitory_fraction = _sorn_validate_probability(inhibitory_fraction, "inhibitory_fraction")
-    N_I = round(Int, inhibitory_fraction * N_E)
+    N_E = clamp(round(Int, total_nodes / (1.0 + inhibitory_fraction)), 1, total_nodes)
+    N_I = total_nodes - N_E
 
     p_ee = _sorn_validate_probability(p_ee, "p_ee")
     p_ei = _sorn_validate_probability(p_ei, "p_ei")
@@ -302,6 +327,7 @@ function SORNReservoir(
         W_EE,
         W_EE0,
         ee_mask,
+        copy(ee_mask),
         C_E,
         W_EI,
         W_IE,
@@ -315,6 +341,7 @@ function SORNReservoir(
         zeros(Float64, N_I),
         zeros(Float64, N_E),
         zeros(Float64, N_I),
+        zeros(Float64, total_nodes),
         Float64(eta_stdp),
         Float64(eta_ip),
         Float64(H_ip),
@@ -328,7 +355,12 @@ function _sorn_stdp!(r::SORNReservoir)
         if r.EE_mask[i, j]
             delta = eta * (r.x[i] * r.prev_x[j] - r.prev_x[i] * r.x[j])
             w = r.W_EE[i, j] + delta
-            r.W_EE[i, j] = w > 0.0 ? w : 0.0
+            if w > 0.0
+                r.W_EE[i, j] = w
+            else
+                r.W_EE[i, j] = 0.0
+                r.EE_mask[i, j] = false
+            end
         else
             r.W_EE[i, j] = 0.0
         end
@@ -352,13 +384,13 @@ function _sorn_synaptic_normalization!(r::SORNReservoir)
 
         total = 0.0
         for j in 1:r.N_E
-            total += r.W_EE[i, j]
+            r.EE_mask[i, j] && (total += r.W_EE[i, j])
         end
         total > 0.0 || continue
 
         scale = target / total
         for j in 1:r.N_E
-            r.W_EE[i, j] *= scale
+            r.EE_mask[i, j] && (r.W_EE[i, j] *= scale)
         end
     end
     return r
@@ -366,8 +398,8 @@ end
 
 function _sorn_apply_plasticity!(r::SORNReservoir)
     _sorn_stdp!(r)
-    _sorn_intrinsic_plasticity!(r)
     _sorn_synaptic_normalization!(r)
+    _sorn_intrinsic_plasticity!(r)
     return r
 end
 
@@ -407,13 +439,16 @@ function step!(r::SORNReservoir, receptor_currents)
     end
 
     r.learn_on && _sorn_apply_plasticity!(r)
-    return copy(r.x)
+    copyto!(r.output_buffer, 1, r.x, 1, r.N_E)
+    r.N_I == 0 || copyto!(r.output_buffer, r.N_E + 1, r.y, 1, r.N_I)
+    return copy(r.output_buffer)
 end
 
 function effectors(r::SORNReservoir, spikes)
     values = _sorn_float_vector(spikes, "spikes")
-    length(values) == r.N_E ||
-        throw(DimensionMismatch("expected $(r.N_E) spikes, got $(length(values))"))
+    expected = r.N_E + r.N_I
+    length(values) == expected ||
+        throw(DimensionMismatch("expected $(expected) neural outputs, got $(length(values))"))
 
     out = zeros(Float64, r.n_effectors_)
     @inbounds for k in 1:r.n_effectors_
@@ -430,27 +465,44 @@ function effectors(r::SORNReservoir, spikes)
     return out
 end
 
-effectors(r::SORNReservoir) = effectors(r, r.x)
+function effectors(r::SORNReservoir)
+    copyto!(r.output_buffer, 1, r.x, 1, r.N_E)
+    r.N_I == 0 || copyto!(r.output_buffer, r.N_E + 1, r.y, 1, r.N_I)
+    return effectors(r, r.output_buffer)
+end
 n_receptors(r::SORNReservoir) = r.n_receptors_
 n_effectors(r::SORNReservoir) = r.n_effectors_
-n_nodes(r::SORNReservoir) = length(r.x)
+n_nodes(r::SORNReservoir) = r.N_E + r.N_I
+resource_report(r::SORNReservoir) = ResourceReport(
+    n_nodes(r);
+    excitatory_nodes=r.N_E,
+    inhibitory_nodes=r.N_I,
+    recurrent_edges=count(r.EE_mask) +
+                    count(value -> !iszero(value), r.W_EI) +
+                    count(value -> !iszero(value), r.W_IE),
+    input_edges=count(value -> !iszero(value), r.W_EU),
+    output_edges=count(r.output_mask),
+)
 plasticity(r::SORNReservoir) =
     r.learn_on ? OnlinePlasticity() : NoPlasticity()
 
 function reset!(r::SORNReservoir)
     r.W_EE .= r.W_EE0
+    r.EE_mask .= r.EE_mask0
     r.T_E .= r.T_E0
     r.T_I .= r.T_I0
     fill!(r.x, 0.0)
     fill!(r.y, 0.0)
     fill!(r.prev_x, 0.0)
     fill!(r.prev_y, 0.0)
+    fill!(r.output_buffer, 0.0)
     return r
 end
 
 function snapshot_state(r::SORNReservoir)
     return (
         W_EE=copy(r.W_EE),
+        EE_mask=copy(r.EE_mask),
         T_E=copy(r.T_E),
         T_I=copy(r.T_I),
         x=copy(r.x),
@@ -482,11 +534,18 @@ end
 
 function load_state!(r::SORNReservoir, state)
     _sorn_load_matrix!(r.W_EE, _sorn_state_get(state, :W_EE), "state.W_EE")
+    mask = BitMatrix(_sorn_state_get(state, :EE_mask))
+    size(mask) == size(r.EE_mask) || throw(DimensionMismatch(
+        "state.EE_mask size $(size(mask)) must be $(size(r.EE_mask))",
+    ))
+    r.EE_mask .= mask
     _sorn_load_vector!(r.T_E, _sorn_state_get(state, :T_E), "state.T_E")
     _sorn_load_vector!(r.T_I, _sorn_state_get(state, :T_I), "state.T_I")
     _sorn_load_vector!(r.x, _sorn_state_get(state, :x), "state.x")
     _sorn_load_vector!(r.y, _sorn_state_get(state, :y), "state.y")
     _sorn_load_vector!(r.prev_x, _sorn_state_get(state, :prev_x), "state.prev_x")
     _sorn_load_vector!(r.prev_y, _sorn_state_get(state, :prev_y), "state.prev_y")
+    copyto!(r.output_buffer, 1, r.x, 1, r.N_E)
+    r.N_I == 0 || copyto!(r.output_buffer, r.N_E + 1, r.y, 1, r.N_I)
     return r
 end

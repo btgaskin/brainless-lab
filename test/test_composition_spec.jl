@@ -39,8 +39,9 @@ using Test
         task = BrainlessLab.task_spec(DEFAULT_REGISTRY, task_name)
         @test task.minimum_scored_ticks == task.default_window
     end
-    @test Set(tasks(DEFAULT_REGISTRY; tag=:benchmark)) == Set((:tracking, :pong, :wall))
-    @test tasks(DEFAULT_REGISTRY; tag=:frontier) == [:cartpole_plank_easy]
+    @test Set(tasks(DEFAULT_REGISTRY; tag=:benchmark)) ==
+        Set((:tracking, :pong, :cartpole_plank_easy))
+    @test isempty(tasks(DEFAULT_REGISTRY; tag=:frontier))
     @test :branching_ratio_mr in analyses(DEFAULT_REGISTRY; task=:tracking)
     @test :freeze_plasticity in ablations(DEFAULT_REGISTRY)
     @test :pong_hitrate ∉ tasks(DEFAULT_REGISTRY)
@@ -86,6 +87,7 @@ using Test
     @test resolved.task_options[:theta0] === nothing
     @test isempty(resolved.body_options)
     @test resolved.interaction_cycle === nothing
+    @test resolved.interface == InterfaceSpec()
 
     bad_task_option = CompositionSpec(
         :bad_task_option,

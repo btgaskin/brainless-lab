@@ -9,6 +9,11 @@ using Test
     @test isfile(joinpath(docs, "reference", "interfaces.mdx"))
     @test isfile(joinpath(docs, "research", "index.mdx"))
     @test isfile(joinpath(docs, "benchmarks", "index.mdx"))
+    @test isfile(joinpath(docs, "benchmarks", "tasks", "tracking.mdx"))
+    @test isfile(joinpath(docs, "benchmarks", "tasks", "pong.mdx"))
+    @test isfile(joinpath(docs, "benchmarks", "tasks", "cartpole-plank-easy.mdx"))
+    @test isfile(joinpath(docs, "benchmarks", "models", "falandays.mdx"))
+    @test isfile(joinpath(docs, "benchmarks", "models", "sorn.mdx"))
     @test isfile(joinpath(docs, "experiments", "index.mdx"))
     @test isfile(joinpath(docs, "experimental", "index.mdx"))
     @test isfile(joinpath(docs, "research", "catalogue.mdx"))
@@ -17,7 +22,27 @@ using Test
         joinpath(docs, "core", "operations-records.mdx"),
         joinpath(docs, "core", "architecture.mdx"),
         joinpath(docs, "node-mechanisms.mdx"),
+        joinpath(docs, "tutorials", "evolve-ctrnn.mdx"),
+        joinpath(docs, "tutorials", "resume-evolution.mdx"),
+        joinpath(docs, "tutorials", "benchmark-evolved-ctrnn.mdx"),
+        joinpath(docs, "benchmarks", "falandays-core-v2.mdx"),
+        joinpath(docs, "experiments", "structured-ctrnn-smoke.mdx"),
     ))
+
+    benchmark_protocol = joinpath(repository, "benchmarks", "direct-control", "v1")
+    @test isfile(joinpath(benchmark_protocol, "README.md"))
+    @test length(readdir(joinpath(benchmark_protocol, "calibration"))) == 6
+    development = joinpath(benchmark_protocol, "development")
+    @test isfile(joinpath(development, "selection.toml"))
+    @test isfile(joinpath(development, "poster-summary.md"))
+    @test isfile(joinpath(development, "poster-model-statistics.csv"))
+    @test isfile(joinpath(development, "poster-paired-contrasts.csv"))
+    @test count(endswith(".csv"), readdir(development)) == 8
+
+    qr_path = joinpath(repository, "site", "public", "brainless-lab-qr.png")
+    @test isfile(qr_path)
+    @test read(qr_path)[1:8] == UInt8[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+    @test occursin("https://brainless-lab.com", read(joinpath(docs, "index.mdx"), String))
 
     retired_files = (
         "collective.mdx",

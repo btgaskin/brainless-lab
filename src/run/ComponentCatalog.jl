@@ -905,7 +905,12 @@ function _register_builtin_component_catalog!()
         ),
         _builtin_component_descriptor(
             :readout, :voting, _resolve_voting_readout;
-            capabilities=(:config_materialization, :temporal_reduction, :categorical_output),
+            capabilities=(
+                :config_materialization,
+                :temporal_reduction,
+                :cumulative_activity,
+                :categorical_output,
+            ),
             parameters=(required=(), optional=()),
             conformance=:voting_readout_contract,
             conformance_path="test/test_interaction_cycle.jl",

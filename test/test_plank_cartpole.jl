@@ -37,19 +37,19 @@ end
         :cartpole_plank_hardest,
     ))
     @test Set(tasks(tag=:plank_cartpole)) == expected
-    @test Set(tasks(tag=:qualification)) == Set((:tracking, :pong, :wall))
-    @test Set(tasks(tag=:benchmark)) == Set((:tracking, :pong, :wall))
-    @test tasks(tag=:frontier) == [:cartpole_plank_easy]
+    @test Set(tasks(tag=:qualification)) == Set((:tracking, :pong, :cartpole_plank_easy))
+    @test Set(tasks(tag=:benchmark)) == Set((:tracking, :pong, :cartpole_plank_easy))
+    @test isempty(tasks(tag=:frontier))
     @test :pong_hitrate in tasks(tag=:alias)
     @test :wall ∉ tasks(tag=:extended)
-    @test :wall in tasks(tag=:qualification)
+    @test :wall ∉ tasks(tag=:qualification)
 
     for task in expected
         info = BrainlessLab.task_info(task)
         @test info.status === :experimental
         @test info.tags == (
             task === :cartpole_plank_easy ?
-            (:experimental, :plank_cartpole, :frontier) :
+            (:benchmark, :qualification, :core, :plank_cartpole) :
             (:experimental, :plank_cartpole)
         )
         @test info.interaction_cycle == BrainlessLab.FixedRateCycle(24)
@@ -57,6 +57,10 @@ end
         @test info.protocol.evaluation.horizon == 15_000
         @test info.protocol.evaluation.construction_scope === :evaluation
         @test info.protocol.cross_task_aggregate === false
+        @test info.protocol.source_commit ==
+            "c346e743dc42d5b3339c4252e4ab23c7a8139635"
+        @test info.protocol.conformance.voting ===
+            :authors_source_cumulative_activity_lower_index_final_tie
 
         setup = BrainlessLab.setup_task(resolve_task(task); seed=11)
         @test setup.environment isa BrainlessLab.PlankCartPoleEnv
@@ -66,6 +70,67 @@ end
         @test n_receptors(body) == resolve_task(task).n_receptors
         @test n_effectors(body) == resolve_task(task).n_effectors
     end
+end
+
+@testset "Plank CartPole Easy task opportunity" begin
+    seeds = 91_001:91_016
+    oracle_steps = Int[]
+    random_steps = Int[]
+    always_left_steps = Int[]
+    always_right_steps = Int[]
+
+    for seed in seeds
+        oracle = BrainlessLab.PlankCartPoleEnv(rng=MersenneTwister(seed), level=:easy)
+        random = BrainlessLab.PlankCartPoleEnv(rng=MersenneTwister(seed), level=:easy)
+        always_left = BrainlessLab.PlankCartPoleEnv(rng=MersenneTwister(seed), level=:easy)
+        always_right = BrainlessLab.PlankCartPoleEnv(rng=MersenneTwister(seed), level=:easy)
+        action_rng = MersenneTwister(seed + 1_000_000)
+
+        while !BrainlessLab.terminated(oracle)
+            step!(oracle, BrainlessLab.cartpole_balancer(oracle))
+        end
+        while !BrainlessLab.terminated(random)
+            step!(random, rand(action_rng, Bool) ? [1.0, 0.0] : [0.0, 1.0])
+        end
+        while !BrainlessLab.terminated(always_left)
+            step!(always_left, [1.0, 0.0])
+        end
+        while !BrainlessLab.terminated(always_right)
+            step!(always_right, [0.0, 1.0])
+        end
+
+        push!(oracle_steps, oracle.step_count)
+        push!(random_steps, random.step_count)
+        push!(always_left_steps, always_left.step_count)
+        push!(always_right_steps, always_right.step_count)
+    end
+
+    @test all(==(BrainlessLab.PLANK_CARTPOLE_MISSION_STEPS), oracle_steps)
+    @test sum(oracle_steps) > sum(random_steps)
+    @test sum(oracle_steps) > sum(always_left_steps)
+    @test sum(oracle_steps) > sum(always_right_steps)
+end
+
+
+@testset "Plank rollout stops at episode termination" begin
+    task = BrainlessLabTestUtils.task_with_minimum(:cartpole_plank_easy, 1)
+    registry = RegistrySet()
+    register!(registry, node_spec(DEFAULT_REGISTRY, :null_random))
+    register!(registry, task)
+    target = EvaluationTarget(
+        :terminal_cartpole,
+        CompositionSpec(:terminal_cartpole, :null_random, :cartpole_plank_easy; n_nodes=8),
+        EvaluationSpec(horizon=15_000, root_seed=4),
+    )
+    trial = only(BrainlessLab.evaluate(target; registry).trials)
+    row = BrainlessLab.trial_row(trial)
+    @test trial.simulation.config.terminated
+    @test trial.simulation.config.executed_scored_ticks ==
+        trial.simulation.metrics.steps_balanced
+    @test trial.simulation.config.executed_scored_ticks < 15_000
+    @test row.profile_metric === :steps_balanced
+    @test row.profile_value == trial.simulation.metrics.steps_balanced
+    @test row.profile_direction === :higher
 end
 
 @testset "Plank CartPole action and fitness contracts" begin

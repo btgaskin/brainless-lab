@@ -74,6 +74,7 @@ include("operations/Sweep.jl")
 include("operations/Ablation.jl")
 include("operations/Evolution.jl")
 include("operations/Benchmark.jl")
+include("operations/BenchmarkSpecs.jl")
 include("records/PlanIO.jl")
 include("records/ExperimentIO.jl")
 include("records/Records.jl")
@@ -216,5 +217,6 @@ register_ablation!(:clamp_target, ClampTarget)
 register_ablation!(:disable_vision, DisableVision)
 
 register_builtins!(DEFAULT_REGISTRY)
+register_builtin_model_profiles!()
 
 end

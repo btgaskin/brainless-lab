@@ -7,7 +7,7 @@ experimental:
   tags: [development, evolution, genomes, optimization]
   core_page: /handbook/extending/
   source_paths: [src/evolution/Evolution.jl, src/evolution/Artifacts.jl, src/operations/Evolution.jl]
-  example_paths: [site/src/content/docs/tutorials/evolve-ctrnn.mdx]
+  example_paths: [experiments/examples/structured-ctrnn-smoke/experiment.toml]
   test_paths: [test/test_evolution_plan.jl, test/test_evolution_artifacts.jl]
 ---
 
@@ -16,9 +16,9 @@ The public evolution interface searches coordinates for one fixed neural design.
 budget, random seed, measure, direction, initialisation, and strategy options.
 
 Any registered node that declares a reviewed `Evolution.NodeDesignSpec` can use this
-operation. The built-in designs cover `FalandaysParams`, `StructuredCompartmental`, and
-`DenseCompartmental`. The Falandays design searches seven bounded coordinates and keeps
-online plasticity enabled; `learn_on` is not a coordinate.
+operation. The Falandays design searches seven bounded coordinates and keeps online
+plasticity enabled; `learn_on` is not a coordinate. Other registered designs remain
+outside the current introductory and benchmark paths.
 
 Each design fixes its parameter schema during a search. Evolution does not add nodes, alter
 topology, change body components, or change receptor and effector ports.
@@ -69,11 +69,9 @@ successful record contains `DONE` and contains neither `INCOMPLETE` nor `FAILED`
 recorded model. Attach that reference to a new `EvaluationTarget`, then use a
 `BenchmarkPlan` for frozen evaluation.
 
-Follow these purpose-led paths:
-
-- [Evolve a structured CTRNN](/tutorials/evolve-ctrnn/) creates a small SepCMA plan.
-- [Inspect and resume evolution](/tutorials/resume-evolution/) reads and continues its record.
-- [Benchmark an evolved CTRNN](/tutorials/benchmark-evolved-ctrnn/) evaluates the saved model.
+The experimental path remains available through `EvolutionPlan`,
+`Evolution.resume`, and versioned experiment bundles. It is not part of the
+current public benchmark or introductory documentation.
 
 ## Evidence boundary
 

@@ -22,11 +22,16 @@ function _composition_seed_ledger(
     agent::Integer,
     construction_block::Integer=block,
     construction_trial::Integer=trial,
+    topology_key::Union{Nothing,Symbol}=nothing,
 )
     names = seed_stream_names(evaluation)
     values = Tuple(begin
         coordinates = if name === :topology
-            (construction_block, construction_trial, agent)
+            key_coordinate = topology_key === nothing ? nothing :
+                Int(mod(_stable_symbol_word(topology_key), UInt64(typemax(Int))))
+            key_coordinate === nothing ?
+                (construction_block, construction_trial, agent) :
+                (construction_block, construction_trial, agent, key_coordinate)
         elseif name in (:body, :mechanism)
             (block, trial, agent)
         else
@@ -44,6 +49,7 @@ function _build_composition(
     trial::Integer=1,
     construction_block::Integer=block,
     construction_trial::Integer=trial,
+    topology_key::Union{Nothing,Symbol}=nothing,
     model=nothing,
     record=_DEFAULT_RECORD_CHANNELS,
     every::Integer=1,
@@ -68,6 +74,7 @@ function _build_composition(
     bodies = task_setup.bodies
     agents = Vector{Agent}(undef, length(bodies))
     ledgers = Vector{NamedTuple}(undef, length(bodies))
+    resources = Vector{ResourceReport}(undef, length(bodies))
     @inbounds for slot in eachindex(bodies)
         body_at_slot = bodies[slot]
         layout = portspec(body_at_slot)
@@ -80,6 +87,7 @@ function _build_composition(
             slot,
             construction_block,
             construction_trial,
+            topology_key,
         )
         context = NodeBuildContext(
             resolved.n_nodes,
@@ -96,7 +104,9 @@ function _build_composition(
             reservoir,
             body_at_slot;
             cycle=resolved.interaction_cycle,
+            interface=resolved.interface,
         )
+        resources[slot] = resource_report(reservoir)
         ledgers[slot] = seeds
     end
     recorder = Recorder(
@@ -109,6 +119,7 @@ function _build_composition(
         ensemble=ensemble,
         recorder=recorder,
         seed_ledger=Tuple(ledgers),
+        resources=Tuple(resources),
     )
 end
 
@@ -171,7 +182,11 @@ function simulate(
         (
             composition=composition.id,
             parameters=_composition_namedtuple(resolved.parameters),
+            interface=resolved.interface,
+            resources=setup.resources,
             seed_ledger=setup.seed_ledger,
+            executed_ticks=outcome.rollout_ticks,
+            terminated=outcome.terminated,
         ),
     )
     return SimResult(

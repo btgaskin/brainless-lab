@@ -115,6 +115,23 @@ advancing neural state.
 function n_nodes end
 
 """
+    resource_report(reservoir)
+
+Return the realised resource accounting for one constructed reservoir. Node
+families should specialise this when they can distinguish populations and
+connection classes.
+"""
+function resource_report end
+
+"""
+    terminated(environment)
+
+Return `true` when an episodic environment has reached a terminal state. The
+default keeps continuing tasks unchanged.
+"""
+terminated(::Environment) = false
+
+"""
     portspec(body)
 
 Return the receptor/effector port contract exposed by a body.

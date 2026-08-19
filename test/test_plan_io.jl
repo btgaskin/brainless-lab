@@ -156,6 +156,7 @@ end
             ScheduledIntervention(7, :freeze_plasticity),
             ScheduledIntervention(3, :clamp_target),
         ),
+        topology_key=:falandays_tracking,
     )
     plan = ProfilePlan(
         :scheduled_profile,
@@ -174,8 +175,40 @@ end
         (3, :clamp_target),
         (7, :freeze_plasticity),
     ]
+    @test parsed.target.topology_key === :falandays_tracking
     @test parsed.analysis_options[:branching_ratio_mr_windowed][:window] == 5
     @test parsed.compute_every == Dict(:rate => 2)
+end
+
+@testset "plan IO preserves interface axes and topology keys" begin
+    base = CompositionSpec(
+        :gain_tracking,
+        :falandays,
+        :tracking;
+        n_nodes=200,
+        interface=InterfaceSpec(input_gain=8.0),
+    )
+    target = EvaluationTarget(
+        :gain_tracking,
+        base,
+        EvaluationSpec(horizon=2_000);
+        topology_key=:falandays_direct_v1,
+    )
+    plan = SweepPlan(
+        :gain_tracking,
+        target;
+        axes=(BrainlessLab.SweepAxis(
+            :input_gain,
+            (1.0, 8.0);
+            scope=:interface,
+        ),),
+    )
+    path = tempname() * ".toml"
+    write_plan(path, plan)
+    parsed = read_plan(path)
+    @test parsed.target.composition.interface.input_gain == 8.0
+    @test parsed.target.topology_key === :falandays_direct_v1
+    @test only(parsed.axes).scope === :interface
 end
 
 @testset "anchor-only benchmark TOML omits a baseline" begin

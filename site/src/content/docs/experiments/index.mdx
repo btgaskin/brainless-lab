@@ -3,15 +3,16 @@ title: Experiments
 description: Browse versioned scientific questions composed from named conditions and standard operations.
 ---
 
-import ResearchCatalog from '../../../components/ResearchCatalog.astro';
-
 An experiment records a question, version, named conditions, operations, evidence state,
 and limitations. It does not replace operation plans or their records.
 
-The catalogue can include a planned protocol before results exist. Later evidence states
-must point to one or more complete operation records.
+The catalogue can include a planned, tuned, or frozen protocol before confirmation exists.
+Confirmed and promoted entries must point to one or more complete operation records.
 
-<ResearchCatalog kind="experiment" />
+The frozen `direct_control` version 1 experiment contains the untouched confirmation
+operation for the [core benchmark](/benchmarks/). It has no accepted run yet. Example and
+experimental protocol bundles remain in the repository without appearing as core studies
+on this page.
 
 ## How an experiment is retained
 

@@ -96,6 +96,7 @@ function resolve(plan::AblationPlan, registry::RegistrySet)
                 plan.target.evaluation;
                 model=plan.target.model,
                 interventions=plan.target.interventions,
+                topology_key=plan.target.topology_key,
             ),
         ),
     ]
@@ -115,6 +116,7 @@ function resolve(plan::AblationPlan, registry::RegistrySet)
                 plan.target.evaluation;
                 model=plan.target.model,
                 interventions=plan.target.interventions,
+                topology_key=plan.target.topology_key,
             ),
         ))
     end

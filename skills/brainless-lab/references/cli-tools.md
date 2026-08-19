@@ -42,9 +42,10 @@ Unknown keys and duplicate target IDs fail. A composition may refer to a registe
 `preset`, or declare its node, task, node count, body, agent count, parameters, task or
 body options, and fixed-rate interaction cycle.
 
-Versions 1 and 2 remain readable. The writer emits version 3. Evolution plans require
-version 2 or later and `[evolve.run]`. Version 3 adds scheduled target interventions,
-registered profile-analysis options, channel compute strides, and aggregate series output.
+Versions 1 and 2 remain readable where their schemas apply. The writer emits version 3,
+which records the composition interface, topology profile key, sweep-axis scope, scheduled
+target interventions, registered profile-analysis options, channel compute strides, and
+aggregate series output. Evolution plans require version 2 or later and `[evolve.run]`.
 
 The default root-seed policy derives `:topology` and `:world`. `construction_scope`
 controls topology sharing, while each trial receives its own world seed. Declare another
@@ -90,6 +91,7 @@ mode = "factorial" # factorial | one_at_a_time
 max_rollouts = 100
 
 [[sweep.axes]]
+scope = "node"
 parameter = "leak"
 values = [0.25, 0.5]
 ```

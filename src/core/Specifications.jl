@@ -298,6 +298,47 @@ struct ParameterSpec{T,V,S}
     units::Union{Nothing,String}
 end
 
+"""Realised size and connection counts for one constructed reservoir."""
+struct ResourceReport
+    dynamic_nodes::Int
+    excitatory_nodes::Union{Nothing,Int}
+    inhibitory_nodes::Union{Nothing,Int}
+    recurrent_edges::Union{Nothing,Int}
+    input_edges::Union{Nothing,Int}
+    output_edges::Union{Nothing,Int}
+
+    function ResourceReport(
+        dynamic_nodes::Integer;
+        excitatory_nodes=nothing,
+        inhibitory_nodes=nothing,
+        recurrent_edges=nothing,
+        input_edges=nothing,
+        output_edges=nothing,
+    )
+        count = Int(dynamic_nodes)
+        count > 0 || throw(ArgumentError("resource report requires positive dynamic_nodes"))
+        values = (
+            excitatory_nodes,
+            inhibitory_nodes,
+            recurrent_edges,
+            input_edges,
+            output_edges,
+        )
+        all(value -> value === nothing || (value isa Integer && value >= 0), values) ||
+            throw(ArgumentError("resource counts must be non-negative integers or nothing"))
+        return new(
+            count,
+            excitatory_nodes === nothing ? nothing : Int(excitatory_nodes),
+            inhibitory_nodes === nothing ? nothing : Int(inhibitory_nodes),
+            recurrent_edges === nothing ? nothing : Int(recurrent_edges),
+            input_edges === nothing ? nothing : Int(input_edges),
+            output_edges === nothing ? nothing : Int(output_edges),
+        )
+    end
+end
+
+resource_report(reservoir::Reservoir) = ResourceReport(n_nodes(reservoir))
+
 function ParameterSpec(
     name::Union{Symbol,AbstractString},
     default;

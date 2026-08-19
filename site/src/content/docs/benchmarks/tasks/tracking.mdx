@@ -1,0 +1,30 @@
+---
+title: Tracking
+description: Continuous heading control profiled by mean absolute heading error.
+---
+
+Tracking asks an agent to align its heading with a moving target. The task exposes the
+current tracking error through its fixed direct interface and applies the reservoir's
+action on every world step.
+
+| Contract | Value |
+| --- | --- |
+| Registry key | `:tracking` |
+| Benchmark coordinate | mean absolute heading error in degrees, lower is better |
+| Formal outcome | `track_score` |
+| Floor | `0.0`, analytic chance alignment |
+| Ceiling | `1.0`, perfect alignment |
+| Benchmark horizon | 7,200 ticks |
+| Warm-up | 1,200 ticks |
+| Scored interval | 6,000 ticks |
+| Neural frames per world step | 1 |
+
+The public benchmark reports the absolute heading error within each independent block,
+then its mean and interval across blocks. The formal raw outcome remains mean alignment
+over the scored interval. A block is one newly constructed world and reservoir, not one
+tick within that trajectory.
+
+The benchmark may select only the external input gain for each model. It does not tune the
+Tracking dynamics or a model's neural parameters.
+
+<p class="bl-source">Source: <code>src/envs/Envs.jl</code>, <code>src/tasks/Tasks.jl</code>.</p>

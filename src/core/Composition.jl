@@ -150,6 +150,24 @@ node_parameter(spec::NodeSpec, name::Union{Symbol,AbstractString}) = begin
     spec.parameters[index]
 end
 
+"""
+    InterfaceSpec(; input_gain=1.0)
+
+Task-independent adapter applied to encoded receptor values immediately before
+the reservoir update. It deliberately exposes no output gain or fitted readout.
+"""
+struct InterfaceSpec
+    input_gain::Float64
+
+    function InterfaceSpec(; input_gain::Real=1.0)
+        gain = Float64(input_gain)
+        isfinite(gain) && gain > 0.0 || throw(ArgumentError(
+            "interface input_gain must be finite and positive",
+        ))
+        return new(gain)
+    end
+end
+
 function node_parameter_set(spec::NodeSpec, name::Union{Symbol,AbstractString})
     name_ = Symbol(name)
     haskey(spec.parameter_sets, name_) || throw(KeyError(
@@ -184,6 +202,7 @@ struct CompositionSpec
     parameters::Dict{Symbol,Any}
     task_options::Dict{Symbol,Any}
     body_options::Dict{Symbol,Any}
+    interface::InterfaceSpec
     interaction_cycle::Union{Nothing,InteractionCycle}
 
     function CompositionSpec(
@@ -196,6 +215,7 @@ struct CompositionSpec
         parameters::Dict{Symbol,Any},
         task_options::Dict{Symbol,Any},
         body_options::Dict{Symbol,Any},
+        interface::InterfaceSpec,
         interaction_cycle::Union{Nothing,InteractionCycle},
     )
         id_ = _nonempty_symbol(id, "composition id")
@@ -218,6 +238,7 @@ struct CompositionSpec
             parameters,
             task_options,
             body_options,
+            interface,
             interaction_cycle,
         )
     end
@@ -233,6 +254,7 @@ function CompositionSpec(
     parameters=Dict{Symbol,Any}(),
     task_options=Dict{Symbol,Any}(),
     body_options=Dict{Symbol,Any}(),
+    interface::InterfaceSpec=InterfaceSpec(),
     interaction_cycle::Union{Nothing,InteractionCycle}=nothing,
 )
     count = Int(n_nodes)
@@ -248,6 +270,7 @@ function CompositionSpec(
         Dict{Symbol,Any}(Symbol(key) => value for (key, value) in pairs(parameters)),
         Dict{Symbol,Any}(Symbol(key) => value for (key, value) in pairs(task_options)),
         Dict{Symbol,Any}(Symbol(key) => value for (key, value) in pairs(body_options)),
+        interface,
         interaction_cycle,
     )
 end
@@ -262,6 +285,7 @@ function CompositionSpec(;
     parameters=Dict{Symbol,Any}(),
     task_options=Dict{Symbol,Any}(),
     body_options=Dict{Symbol,Any}(),
+    interface::InterfaceSpec=InterfaceSpec(),
     interaction_cycle::Union{Nothing,InteractionCycle}=nothing,
 )
     return CompositionSpec(
@@ -274,6 +298,7 @@ function CompositionSpec(;
         parameters=parameters,
         task_options=task_options,
         body_options=body_options,
+        interface=interface,
         interaction_cycle=interaction_cycle,
     )
 end
@@ -288,6 +313,7 @@ struct ResolvedComposition{N,T,B,C}
     parameters::Dict{Symbol,Any}
     task_options::Dict{Symbol,Any}
     body_options::Dict{Symbol,Any}
+    interface::InterfaceSpec
     interaction_cycle::C
 end
 
@@ -442,6 +468,7 @@ function resolve_composition(spec::CompositionSpec, registry::RegistrySet)
         parameters,
         task_options,
         body_options,
+        spec.interface,
         spec.interaction_cycle === nothing ? task.interaction_cycle : spec.interaction_cycle,
     )
 end

@@ -70,6 +70,9 @@ function _composition_document(composition::CompositionSpec)
         "node" => String(composition.node),
         "task" => String(composition.task),
         "n_nodes" => composition.n_nodes,
+        "interface" => Dict{String,Any}(
+            "input_gain" => composition.interface.input_gain,
+        ),
     )
     composition.body === nothing || (document["body"] = String(composition.body))
     composition.n_agents === nothing || (document["n_agents"] = composition.n_agents)
@@ -115,6 +118,8 @@ function _target_document(target::EvaluationTarget)
         )
         for item in target.interventions
     ])
+    target.topology_key === nothing ||
+        (document["topology_key"] = String(target.topology_key))
     return document
 end
 
@@ -155,6 +160,7 @@ function plan_document(plan::SweepPlan)
         "axes" => [
             Dict{String,Any}(
                 "parameter" => String(axis.parameter),
+                "scope" => String(axis.scope),
                 "values" => collect(axis.values),
             )
             for axis in plan.axes
@@ -219,7 +225,7 @@ end
 function _parse_composition(document, registry::RegistrySet)
     _require_document_keys(
         document,
-        ("id", "preset", "node", "task", "body", "n_agents", "n_nodes", "parameters", "task_options", "body_options", "interaction_cycle"),
+        ("id", "preset", "node", "task", "body", "n_agents", "n_nodes", "parameters", "task_options", "body_options", "interface", "interaction_cycle"),
         "composition",
     )
     parameters = Dict{Symbol,Any}(
@@ -234,6 +240,9 @@ function _parse_composition(document, registry::RegistrySet)
         Symbol(key) => _parse_plan_toml_value(value)
         for (key, value) in get(document, "body_options", Dict{String,Any}())
     )
+    interface_document = get(document, "interface", Dict{String,Any}())
+    _require_document_keys(interface_document, ("input_gain",), "interface")
+    interface = InterfaceSpec(input_gain=get(interface_document, "input_gain", 1.0))
     node_id = haskey(document, "preset") ?
         composition_spec(registry, Symbol(document["preset"])).node :
         (haskey(document, "node") ? Symbol(document["node"]) : nothing)
@@ -262,6 +271,7 @@ function _parse_composition(document, registry::RegistrySet)
             parameters=merge(copy(base.parameters), parameters),
             task_options=merge(copy(base.task_options), task_options),
             body_options=merge(copy(base.body_options), body_options),
+            interface=haskey(document, "interface") ? interface : base.interface,
             interaction_cycle=haskey(document, "interaction_cycle") ?
                 _parse_interaction_cycle(document["interaction_cycle"]) :
                 base.interaction_cycle,
@@ -280,6 +290,7 @@ function _parse_composition(document, registry::RegistrySet)
         parameters=parameters,
         task_options=task_options,
         body_options=body_options,
+        interface=interface,
         interaction_cycle=haskey(document, "interaction_cycle") ?
             _parse_interaction_cycle(document["interaction_cycle"]) : nothing,
     )
@@ -316,7 +327,10 @@ function _parse_targets(
     for entry in document
         _require_document_keys(
             entry,
-            ("id", "composition", "evaluation", "model", "interventions"),
+            (
+                "id", "composition", "evaluation", "model", "interventions",
+                "topology_key",
+            ),
             "target",
         )
         for key in ("id", "composition", "evaluation")
@@ -345,6 +359,7 @@ function _parse_targets(
             model=haskey(entry, "model") ?
                 Evolution.parse_model_reference(entry["model"]) : nothing,
             interventions=interventions,
+            topology_key=haskey(entry, "topology_key") ? Symbol(entry["topology_key"]) : nothing,
         )
     end
     isempty(targets) && throw(ArgumentError("plan requires at least one target"))
@@ -429,8 +444,12 @@ function read_plan(path::AbstractString; registry::RegistrySet=DEFAULT_REGISTRY)
         _require_document_keys(section, ("target", "axes", "mode", "max_rollouts"), "sweep")
         axes = Tuple(
             begin
-                _require_document_keys(axis, ("parameter", "values"), "sweep axis")
-                SweepAxis(Symbol(axis["parameter"]), Tuple(axis["values"]))
+                _require_document_keys(axis, ("scope", "parameter", "values"), "sweep axis")
+                SweepAxis(
+                    Symbol(axis["parameter"]),
+                    Tuple(axis["values"]);
+                    scope=Symbol(get(axis, "scope", "node")),
+                )
             end
             for axis in get(section, "axes", Any[])
         )

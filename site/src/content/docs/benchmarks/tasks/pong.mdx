@@ -1,0 +1,31 @@
+---
+title: Pong
+description: Event-based paddle control profiled by the longest rally in each block.
+---
+
+Pong asks the agent to move a paddle and intercept a stream of balls. Its event-based
+outcome needs a longer scored interval than a per-tick diagnostic.
+
+| Contract | Value |
+| --- | --- |
+| Registry key | `:pong` |
+| Benchmark coordinate | longest rally in returns, higher is better |
+| Formal outcome | `hit_rate` |
+| Floor | `0.2367383756`, calibrated rate-matched random control |
+| Ceiling | `1.0`, intercept every ball |
+| Benchmark horizon | 7,200 ticks |
+| Warm-up | 1,200 ticks |
+| Scored interval | 6,000 ticks |
+| Neural frames per world step | 1 |
+
+One block's longest rally is the greatest number of consecutive paddle returns between
+misses in its scored interval. The public benchmark reports the mean and interval of that
+block-level value. It does not pool all returns into one rally statistic.
+
+The formal hit-rate floor is an empirical anchor, not zero. Records retain its provenance
+and any normalisation censoring alongside the raw hit rate.
+
+The benchmark does not choose Pong-specific neural parameters. It selects only the generic
+input gain from the shared grid.
+
+<p class="bl-source">Source: <code>src/envs/Envs.jl</code>, <code>src/tasks/Tasks.jl</code>.</p>

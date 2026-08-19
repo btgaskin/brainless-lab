@@ -134,9 +134,11 @@ id = "my_plan"
 ```
 
 They then contain one or more `[[targets]]` tables and one operation section.
-Versions 1 and 2 remain readable. The current writer emits version 3. Version 2 introduced
-the public evolution schema; version 3 adds scheduled target interventions, registered
-analysis options, compute strides, and aggregate analysis-series tables.
+Versions 1 and 2 remain readable where their schemas apply. The current writer emits
+version 3. Version 2 introduced the public evolution schema. Version 3 records the
+composition interface, topology profile key, sweep-axis scope, scheduled target
+interventions, registered analysis options, compute strides, and aggregate analysis-series
+tables.
 
 | Operation | Type | Section |
 | --- | --- | --- |
@@ -182,10 +184,9 @@ julia --project=. bin/brainlesslab.jl index-research [--root DIR] [--output FILE
 
 Run the script with no arguments for the current usage text.
 
-New plans should declare `format_version = 3`. The checked-in `plans/examples/*.toml`
-files are `format_version = 1`, which does not accept an `[evolve]` section — copy one as
-a starting point for a profile, sweep, ablation or benchmark, but raise the version before
-adding an evolution run.
+New plans should declare `format_version = 3`. Legacy version 1 plans do not accept an
+`[evolve]` section. Version 3 also records the composition interface, topology profile key,
+sweep-axis scope, scheduled interventions, and configurable profile analyses.
 
 See [Operations](/handbook/operations/) for the complete workflow.
 
@@ -256,9 +257,9 @@ target = EvaluationTarget(:saved_model, composition, evaluation; model=model)
 Use the target in a later `BenchmarkPlan`. The model reference remains attached to the
 recorded model instead of copying coordinates into another protocol.
 
-See [Evolve a structured CTRNN](/tutorials/evolve-ctrnn/) for the complete path. Evolution
-is experimental software. A completed search and selected model do not establish a
-scientific claim.
+Evolution is experimental software and is not part of the current introductory or
+benchmark paths. A completed search and selected model do not establish a scientific
+claim.
 
 ## ExperimentSpec
 

@@ -636,9 +636,10 @@ function _make_agent(
     reservoir::Reservoir,
     body::AbstractBody;
     cycle::Union{Nothing,InteractionCycle}=nothing,
+    interface::InterfaceSpec=InterfaceSpec(),
 )
     _validate_agent_ports(reservoir, body)
-    return Agent(reservoir, body; cycle=cycle)
+    return Agent(reservoir, body; cycle=cycle, interface=interface)
 end
 
 function _setup_for_node_count(
@@ -981,6 +982,7 @@ _readout_config(readout_component::InstantReadout) = (
 )
 _readout_config(readout_component::VotingReadout) = (
     kind=:voting,
+    aggregation=:cumulative_activity,
     tie_break=:lowest_index,
     policy=_motor_config(readout_policy(readout_component)),
 )
