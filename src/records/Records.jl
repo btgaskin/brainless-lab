@@ -1255,6 +1255,11 @@ function _record_optional_integer(text::AbstractString, context::AbstractString)
     return isempty(text) ? missing : _record_integer(text, context)
 end
 
+_record_optional_string(text::AbstractString) = isempty(text) ? missing : String(text)
+
+_record_optional_field(row, name::Symbol) =
+    name in propertynames(row) ? getproperty(row, name) : ""
+
 _record_initial_state_value(value::Vector) =
     Tuple(_record_initial_state_value(item) for item in value)
 _record_initial_state_value(value) = value
@@ -1307,6 +1312,43 @@ function _restored_trial_row(row, context::AbstractString)
         block=_record_integer(row.block, "$(context) block"),
         trial=_record_integer(row.trial, "$(context) trial"),
         window=_record_integer(row.window, "$(context) window"),
+        executed_scored_ticks=_record_optional_integer(
+            _record_optional_field(row, :executed_scored_ticks),
+            "$(context) executed_scored_ticks",
+        ),
+        terminated=_record_optional_bool(
+            _record_optional_field(row, :terminated),
+            "$(context) terminated",
+        ),
+        aggregate=_record_optional_symbol(_record_optional_field(row, :aggregate)),
+        input_gain=_record_float(
+            _record_optional_field(row, :input_gain),
+            "$(context) input_gain",
+        ),
+        dynamic_nodes=_record_optional_integer(
+            _record_optional_field(row, :dynamic_nodes),
+            "$(context) dynamic_nodes",
+        ),
+        excitatory_nodes=_record_optional_integer(
+            _record_optional_field(row, :excitatory_nodes),
+            "$(context) excitatory_nodes",
+        ),
+        inhibitory_nodes=_record_optional_integer(
+            _record_optional_field(row, :inhibitory_nodes),
+            "$(context) inhibitory_nodes",
+        ),
+        recurrent_edges=_record_optional_integer(
+            _record_optional_field(row, :recurrent_edges),
+            "$(context) recurrent_edges",
+        ),
+        input_edges=_record_optional_integer(
+            _record_optional_field(row, :input_edges),
+            "$(context) input_edges",
+        ),
+        output_edges=_record_optional_integer(
+            _record_optional_field(row, :output_edges),
+            "$(context) output_edges",
+        ),
         seed_ledger_agents=_record_integer(
             row.seed_ledger_agents,
             "$(context) seed_ledger_agents",
@@ -1337,6 +1379,16 @@ function _restored_trial_row(row, context::AbstractString)
         ),
         viable=_record_optional_bool(row.viable, "$(context) viable"),
         liveness=_record_optional_bool(row.liveness, "$(context) liveness"),
+        profile_metric=_record_optional_symbol(_record_optional_field(row, :profile_metric)),
+        profile_value=_record_float(
+            _record_optional_field(row, :profile_value),
+            "$(context) profile_value",
+        ),
+        profile_label=_record_optional_string(_record_optional_field(row, :profile_label)),
+        profile_unit=_record_optional_string(_record_optional_field(row, :profile_unit)),
+        profile_direction=_record_optional_symbol(
+            _record_optional_field(row, :profile_direction),
+        ),
     )
 end
 
@@ -1435,8 +1487,8 @@ function _restore_evolution_candidates(
 
     trial_columns = (
         :phase, :iteration, :candidate, :condition, :block, :trial,
-        :window, :seed_ledger_agents, :topology_seed, :world_seed,
-        :initial_state, :score_key, :raw_score, :normalized_score,
+        :window, :seed_ledger_agents, :topology_seed, :world_seed, :initial_state,
+        :score_key, :raw_score, :normalized_score,
         :normalized_bound, :normalization_status, :anchor_scored_ticks,
         :viable, :liveness, :measure_value,
     )

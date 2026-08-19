@@ -452,10 +452,30 @@ function reset!(env::PongEnv)
     return env
 end
 
+function _pong_longest_rally(hits, misses)
+    length(hits) == length(misses) || throw(DimensionMismatch(
+        "Pong hit and miss histories must have the same length",
+    ))
+    longest = 0
+    current = 0
+    @inbounds for index in eachindex(hits, misses)
+        misses[index] > 0 && (current = 0)
+        if hits[index] > 0
+            current += Int(hits[index])
+            longest = max(longest, current)
+        end
+    end
+    return longest
+end
+
 function metrics(env::PongEnv, window::Integer=default_window(env))
     bounds = _tail_bounds(length(env.hit_flags), Int(window))
     hits = isempty(bounds) ? 0 : Int(sum(@view env.hit_flags[bounds]))
     misses = isempty(bounds) ? 0 : Int(sum(@view env.miss_flags[bounds]))
+    longest_rally = isempty(bounds) ? 0 : _pong_longest_rally(
+        @view(env.hit_flags[bounds]),
+        @view(env.miss_flags[bounds]),
+    )
     denom = hits + misses
     hit_rate = denom == 0 ? 0.0 : hits / denom
     align_values = @view env.align_flags[bounds]
@@ -467,6 +487,7 @@ function metrics(env::PongEnv, window::Integer=default_window(env))
         hit_rate=Float64(hit_rate),
         hits=hits,
         misses=misses,
+        longest_rally=longest_rally,
         xy_path=nothing,
     )
 end

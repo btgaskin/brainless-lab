@@ -355,6 +355,15 @@ end
 FalandaysModel(params::FalandaysParams, drive::Drive, sign, rectify::Bool) =
     FalandaysModel(params, drive, sign, rectify, 1)
 
+resource_report(r::ReservoirInstance{<:FalandaysModel}) = ResourceReport(
+    n_nodes(r);
+    excitatory_nodes=n_nodes(r),
+    inhibitory_nodes=0,
+    recurrent_edges=count(r.connectome.recurrent_mask),
+    input_edges=count(value -> !iszero(value), r.connectome.input_wmat),
+    output_edges=count(value -> !iszero(value), r.connectome.output_mask),
+)
+
 struct DenseConnectome <: FalandaysConnectome
     recurrent_mask::BitMatrix
     input_wmat::Matrix{Float64}

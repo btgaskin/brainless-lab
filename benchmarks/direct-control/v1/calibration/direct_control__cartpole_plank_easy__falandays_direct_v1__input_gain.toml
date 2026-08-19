@@ -1,0 +1,53 @@
+format = "brainlesslab-plan"
+format_version = 3
+id = "direct_control__cartpole_plank_easy__falandays_direct_v1__input_gain"
+operation = "sweep"
+
+[sweep]
+max_rollouts = 160
+mode = "factorial"
+target = "cartpole_plank_easy__falandays_direct_v1__development"
+
+    [[sweep.axes]]
+    parameter = "input_gain"
+    scope = "interface"
+    values = [0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0]
+
+[[targets]]
+id = "cartpole_plank_easy__falandays_direct_v1__development"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "cartpole_plank_easy__falandays_direct_v1"
+    n_nodes = 200
+    node = "falandays"
+    task = "cartpole_plank_easy"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 16
+    construction_scope = "trial"
+    horizon = 15000
+    reset = "full"
+    root_seed = 0x011d29
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0

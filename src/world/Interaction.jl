@@ -57,9 +57,9 @@ end
 """
     VotingReadout(policy=PASSTHROUGH_MOTOR)
 
-Project each neural frame to effectors, award one vote to the first maximal
-effector, and emit a one-hot signal for the first maximal vote total. The stable
-first-index tie rule matches the Plank CartPole protocol.
+Project each neural frame to effectors, accumulate each effector's signal over
+the interaction cycle, and emit a one-hot signal for the largest cumulative
+total. The stable first-index tie rule matches the Plank CartPole protocol.
 """
 struct VotingReadout{P} <: AbstractReadout
     policy::P
@@ -85,7 +85,7 @@ end
 mutable struct VotingReadoutState
     neural_sum::Vector{Float64}
     neural_mean::Vector{Float64}
-    votes::Vector{Int}
+    votes::Vector{Float64}
     signal::Vector{Float64}
 end
 
@@ -105,7 +105,7 @@ function readout_state(::VotingReadout, reservoir::Reservoir)
     return VotingReadoutState(
         zeros(n_nodes(reservoir)),
         zeros(n_nodes(reservoir)),
-        zeros(Int, n_effectors(reservoir)),
+        zeros(n_effectors(reservoir)),
         zeros(n_effectors(reservoir)),
     )
 end
@@ -183,8 +183,9 @@ function observe_frame!(
     length(projected) == length(state.votes) || throw(DimensionMismatch(
         "voting readout expected $(length(state.votes)) effectors, got $(length(projected))",
     ))
-    _, winner = findmax(projected)
-    state.votes[winner] += 1
+    @inbounds for index in eachindex(state.votes, projected)
+        state.votes[index] += Float64(projected[index])
+    end
     return state
 end
 

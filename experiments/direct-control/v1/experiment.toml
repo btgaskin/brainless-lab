@@ -1,0 +1,18 @@
+conditions = ["tracking__falandays_direct_v1", "tracking__sorn_direct_v1", "pong__falandays_direct_v1", "pong__sorn_direct_v1", "cartpole_plank_easy__falandays_direct_v1", "cartpole_plank_easy__sorn_direct_v1"]
+evidence_state = "frozen"
+format = "brainlesslab-experiment"
+format_version = 1
+id = "direct_control"
+limitations = ["Tasks remain separate; there is no cross-task aggregate.", "Only input gain is selected per model-task cell.", "The profiles include different fixed input and output pool policies; contrasts do not isolate the neuronal update rule.", "The benchmark measures untrained random-assembly direct control, not a fitted or reward-trained controller.", "CartPole uses 32 one-episode confirmation blocks, not the source repository's 1,000-episode protocol."]
+question = "How do the frozen Falandays and SORN profiles compare on each declared direct-control task?"
+title = "Falandays and SORN direct-control benchmark"
+version = "1.0.0"
+
+[metadata]
+n_nodes = 200
+programme = "core_benchmark"
+selection = "development_input_gain_only"
+
+[[operations]]
+id = "direct_control__v1"
+plan = "01-direct_control__v1.toml"

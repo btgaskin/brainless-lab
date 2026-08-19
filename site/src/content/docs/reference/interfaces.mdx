@@ -38,6 +38,27 @@ sweep values. Named parameter sets such as `:sweep` select values for parameter 
 Experimental neuron design uses a separate `Evolution.NodeDesignSpec`; runtime state must
 not enter either surface.
 
+## Composition interface and resources
+
+`CompositionSpec.interface` is an `InterfaceSpec`. Its `input_gain` is a finite positive
+multiplier applied after a body encoder produces one neural frame and before `step!`
+receives that frame. It is deliberately outside the node parameter dictionary.
+
+`resource_report(reservoir)` returns a `ResourceReport` with total dynamic nodes,
+excitatory and inhibitory counts when meaningful, and recurrent, input, and output edge
+counts. The generic method reports total nodes. A reservoir with a richer population or
+connection structure should specialise it so benchmark resource rules remain explicit.
+
+```julia
+composition = CompositionSpec(
+    :sorn_tracking,
+    :sorn,
+    :tracking;
+    n_nodes=200,
+    interface=InterfaceSpec(input_gain=2.0),
+)
+```
+
 ## Task
 
 `TaskSpec` holds a setup callable, its accepted option defaults, and task metadata. The

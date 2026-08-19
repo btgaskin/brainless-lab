@@ -47,6 +47,10 @@ The default root-seed policy derives topology and world streams. Declare another
 stream only when an implementation consumes it. Records retain every declared realised
 seed.
 
+An `EvaluationTarget` may also declare a `topology_key`. This key makes one model profile's
+topology stream stable across tasks while keeping different profiles distinct. Conditions
+inside a paired benchmark still share the world seed for their block.
+
 Separate calibration, development, variance-pilot, confirmation, and robustness seed
 ledgers. A reproducible seed does not make reused development data independent evidence.
 
@@ -54,5 +58,11 @@ ledgers. A reproducible seed does not make reused development data independent e
 
 Aggregation combines declared trial values inside an operation. It does not authorise a
 cross-task aggregate. Keep task-native results and missing or failed trials visible.
+
+A task protocol may also declare one interpretable benchmark profile coordinate, including
+its unit and whether lower or higher is better. Benchmark selection and charts may use
+that coordinate when the versioned benchmark contract says so. The record must still keep
+the task outcome's key, raw value, and normalised value. Declaring a coordinate for one
+benchmark does not turn every diagnostic into a task score.
 
 <p class="bl-source">Source: <code>src/core/Specifications.jl</code>, <code>src/api/Composition.jl</code>.</p>

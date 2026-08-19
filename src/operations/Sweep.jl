@@ -41,8 +41,22 @@ end
 
 function _validate_sweep_axes(axes::Tuple, node::NodeSpec)
     for axis in axes
-        parameter = node_parameter(node, axis.parameter)
-        foreach(value -> validate_parameter(parameter, value), axis.values)
+        if axis.scope === :node
+            parameter = node_parameter(node, axis.parameter)
+            foreach(value -> validate_parameter(parameter, value), axis.values)
+        elseif axis.scope === :interface
+            axis.parameter === :input_gain || throw(ArgumentError(
+                "interface sweeps currently support only :input_gain",
+            ))
+            foreach(value -> InterfaceSpec(input_gain=value), axis.values)
+        elseif axis.scope === :composition
+            axis.parameter === :n_nodes || throw(ArgumentError(
+                "composition sweeps currently support only :n_nodes",
+            ))
+            all(value -> value isa Integer && value > 0, axis.values) || throw(ArgumentError(
+                "composition :n_nodes sweep values must be positive integers",
+            ))
+        end
     end
     return axes
 end
@@ -80,19 +94,32 @@ function _sweep_composition(
     source::CompositionSpec,
     id::Symbol,
     parameter_updates,
+    axes::Tuple,
 )
     parameters = copy(source.parameters)
-    merge!(parameters, parameter_updates)
+    interface = source.interface
+    n_nodes = source.n_nodes
+    for (name, value) in parameter_updates
+        axis = only(axis for axis in axes if axis.parameter === name)
+        if axis.scope === :node
+            parameters[name] = value
+        elseif axis.scope === :interface
+            interface = InterfaceSpec(input_gain=value)
+        elseif axis.scope === :composition
+            n_nodes = Int(value)
+        end
+    end
     return CompositionSpec(
         id,
         source.node,
         source.task;
         body=source.body,
         n_agents=source.n_agents,
-        n_nodes=source.n_nodes,
+        n_nodes,
         parameters=parameters,
         task_options=source.task_options,
         body_options=source.body_options,
+        interface,
         interaction_cycle=source.interaction_cycle,
     )
 end
@@ -122,9 +149,16 @@ function resolve(plan::SweepPlan, registry::RegistrySet)
             plan.target.composition,
             Symbol(plan.target.composition.id, "__", cell_id),
             parameters,
+            axes,
         )
         resolve_composition(composition, registry)
-        target = EvaluationTarget(cell_id, composition, plan.target.evaluation)
+        target = EvaluationTarget(
+            cell_id,
+            composition,
+            plan.target.evaluation;
+            model=plan.target.model,
+            topology_key=plan.target.topology_key,
+        )
         cells[index] = ResolvedSweepCell(cell_id, parameters, target)
     end
     return ResolvedSweepPlan(
@@ -151,6 +185,42 @@ function _sweep_aggregate(values, policy::Symbol)
     throw(ArgumentError("unsupported aggregate policy :$(policy)"))
 end
 
+function _sweep_coordinate_pairs(axes::Tuple, parameters::Dict{Symbol,Any})
+    return Tuple(
+        (scope=axis.scope, parameter=axis.parameter, value=parameters[axis.parameter])
+        for axis in axes
+        if haskey(parameters, axis.parameter)
+    )
+end
+
+function _sweep_profile_summary(rows, policy::Symbol)
+    selected = [row for row in rows if !ismissing(row.profile_value)]
+    isempty(selected) && return (
+        profile_metric=missing,
+        profile_value=missing,
+        profile_label=missing,
+        profile_unit=missing,
+        profile_direction=missing,
+    )
+    metadata = unique([(
+        row.profile_metric,
+        row.profile_label,
+        row.profile_unit,
+        row.profile_direction,
+    ) for row in selected])
+    length(metadata) == 1 || throw(ArgumentError(
+        "sweep cell mixes benchmark profile coordinates",
+    ))
+    metric, label, unit, direction = only(metadata)
+    return (
+        profile_metric=metric,
+        profile_value=_sweep_aggregate((row.profile_value for row in selected), policy),
+        profile_label=label,
+        profile_unit=unit,
+        profile_direction=direction,
+    )
+end
+
 function _sweep_trial_rows(
     plan::ResolvedSweepPlan,
     batches::Tuple,
@@ -164,6 +234,7 @@ function _sweep_trial_rows(
                     operation=plan.source.id,
                     cell=cell.id,
                     parameters=parameters,
+                    coordinates=_sweep_coordinate_pairs(plan.axes, cell.parameters),
                 ),
                 row,
             ))
@@ -182,10 +253,12 @@ function _sweep_cell_summaries(
         selected = filter(row -> row.cell === cell.id, rows)
         viability = [row.viable for row in selected if !ismissing(row.viable)]
         censoring = _normalized_censoring_summary(selected)
-        push!(summaries, (
+        profile = _sweep_profile_summary(selected, policy)
+        push!(summaries, merge((
             operation=plan.source.id,
             cell=cell.id,
             parameters=_sweep_parameter_pairs(cell.parameters),
+            coordinates=_sweep_coordinate_pairs(plan.axes, cell.parameters),
             n_trials=length(selected),
             aggregate=policy,
             raw_score=_sweep_aggregate((row.raw_score for row in selected), policy),
@@ -200,7 +273,7 @@ function _sweep_cell_summaries(
             normalized_censored_fraction=censoring.normalized_censored_fraction,
             normalized_censoring=censoring.normalized_censoring,
             viable_fraction=isempty(viability) ? missing : mean(viability),
-        ))
+        ), profile))
     end
     return summaries
 end

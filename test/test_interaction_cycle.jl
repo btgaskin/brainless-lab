@@ -66,8 +66,28 @@ end
     for (frame, output) in enumerate(([0.5, 0.5], [0.0, 1.0], [1.0, 0.0]))
         BrainlessLab.observe_frame!(voting_state, voting, reservoir, output, frame)
     end
-    # Both the frame-one tie and the final vote tie choose the lower index.
+    # Equal cumulative activity chooses the lower index.
     @test BrainlessLab.finish_readout!(voting_state, voting, reservoir, cycle) == [1.0, 0.0]
+    @test BrainlessLab._readout_config(voting).aggregation === :cumulative_activity
+
+    silent_cycle = BrainlessLab.FixedRateCycle(24)
+    BrainlessLab.begin_readout!(voting_state, voting, silent_cycle)
+    outputs = vcat(
+        fill([0.0, 0.0], 15),
+        fill([1.0, 0.0], 4),
+        fill([0.0, 1.0], 5),
+    )
+    for (frame, output) in enumerate(outputs)
+        BrainlessLab.observe_frame!(voting_state, voting, reservoir, output, frame)
+    end
+    # Silent frames do not become first-index votes. Cumulative output spikes
+    # are 4 left and 5 right, so the source-compatible action is right.
+    @test BrainlessLab.finish_readout!(
+        voting_state,
+        voting,
+        reservoir,
+        silent_cycle,
+    ) == [0.0, 1.0]
 end
 
 @testset "Embodiment owns its readout component" begin

@@ -1,0 +1,23 @@
+---
+title: Benchmark models
+description: The named, frozen neural assemblies compared by the direct-control benchmark.
+---
+
+A benchmark model is a complete, named assembly: mechanism, node count, topology policy,
+initialisation, plasticity, and output adapter. A registry node can support many profiles;
+the benchmark admits only the profile declared here.
+
+| Model | Profile | Dynamic neurons | Software status |
+| --- | --- | ---: | --- |
+| [Falandays](/benchmarks/models/falandays/) | `falandays_direct_v1` | 200 | reference implementation |
+| [SORN](/benchmarks/models/sorn/) | `sorn_direct_v1` | 200 | stable implementation |
+
+Both profiles act directly through each task's fixed readout. Neither receives a fitted
+linear readout. Each independent block constructs a new random topology and weights from
+the profile's fixed policy.
+
+Software status and study evidence are separate. “Reference” describes the Falandays
+fixture boundary; “stable” describes the supported SORN implementation. Neither predicts
+the benchmark result.
+
+<p class="bl-source">Source: <code>src/operations/BenchmarkSpecs.jl</code>, <code>src/core/Catalog.jl</code>.</p>

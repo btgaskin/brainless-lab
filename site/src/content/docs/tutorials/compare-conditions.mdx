@@ -3,8 +3,9 @@ title: Compare conditions
 description: Run a small paired benchmark and interpret its task-specific statistics and contrasts.
 ---
 
-This tutorial compares Falandays with a random-output control on Tracking, Pong, and Wall.
-It is a software-scale example, not the canonical Falandays benchmark.
+This tutorial compares Falandays with a random-output control on Tracking, Pong, and Plank
+CartPole Easy. It is a software-scale example of plan mechanics, not the published
+direct-control benchmark.
 
 ## Inspect and validate the comparison
 
@@ -34,8 +35,12 @@ Inspect two tables:
   intervals for each condition;
 - `summary/contrasts.csv` gives paired differences from the declared baseline.
 
-Keep Tracking, Pong, and Wall separate. Their raw outcomes differ, and normalisation does
-not turn them into one competence scale.
+Keep Tracking, Pong, and CartPole separate. Their raw outcomes differ, and normalisation
+does not turn them into one competence scale.
+
+The example uses one block so that its structure is easy to inspect. That is not enough
+for a performance claim. The [direct-control benchmark](/benchmarks/) declares development
+selection and untouched confirmation with independent block-level inference.
 
 Use an [anchor](/glossary/#anchor)-only case when you want to describe one condition
 without a comparator.

@@ -37,6 +37,39 @@ reference points, not comparison conditions.
 No benchmark operation creates a cross-task aggregate. A leaderboard or qualification
 policy is a separate choice from registry membership and record publication.
 
+## Design a benchmark
+
+A reusable benchmark needs a contract above the ordinary execution plan. Declare:
+
+1. the question and the task harnesses that operationalise it;
+2. one named `ModelProfileSpec` per admitted assembly, including its mechanism,
+   provenance, limitations, node count, topology policy, and output adapter;
+3. a resource rule that every profile satisfies;
+4. the development coordinates that may be selected and the exact selection rule;
+5. disjoint development and confirmation seed ledgers;
+6. the independent unit, paired randomisation, failure handling, statistics, and reporting
+   policy, including one task-native profile coordinate per chart.
+
+`BenchmarkSpec` captures these choices for the direct-control benchmark. Its resource rule
+is 200 total dynamic neurons. It holds every neural and topology parameter fixed across
+tasks and permits only the external `InterfaceSpec.input_gain` to be selected per
+model-task cell. `calibration_plans` produces ordinary `SweepPlan`s. `freeze_benchmark`
+requires one selected gain for every cell before `benchmark_plan` will emit the untouched
+confirmation plan.
+
+Its public profile is mean heading error, mean longest rally, and mean balanced steps.
+Those values are selected and reported independently. The operation also preserves every
+task's formal outcome, but no formula combines the three coordinates.
+
+This separation is deliberate. Internal model parameters define the submitted model
+profile. Generic interface settings can be development coordinates only when the benchmark
+declares them in advance and gives every model the same budget and rule. A change after
+confirmation begins creates a new benchmark version.
+
+Read the [direct-control benchmark](/benchmarks/) for the concrete contract. A fitted
+linear readout would change the question from direct control to representation quality and
+belongs in a separate benchmark family.
+
 ## Plans and experiments
 
 Files under `plans/examples/` are small executable examples. Versioned scientific protocols

@@ -8,6 +8,7 @@ struct EvaluationTarget{C<:CompositionSpec,E<:EvaluationSpec,M}
     composition::C
     evaluation::E
     model::M
+    topology_key::Union{Nothing,Symbol}
 
     function EvaluationTarget(
         id::Union{Symbol,AbstractString},
@@ -15,12 +16,21 @@ struct EvaluationTarget{C<:CompositionSpec,E<:EvaluationSpec,M}
         evaluation::E,
         ;
         model=nothing,
+        topology_key=nothing,
     ) where {C<:CompositionSpec,E<:EvaluationSpec}
         id_ = _nonempty_symbol(id, "evaluation target id")
         model === nothing || model isa Evolution.ModelReference || throw(ArgumentError(
             "evaluation target model must be an Evolution.ModelReference or nothing",
         ))
-        return new{C,E,typeof(model)}(id_, composition, evaluation, model)
+        topology_key_ = topology_key === nothing ? nothing :
+            _nonempty_symbol(topology_key, "evaluation target topology key")
+        return new{C,E,typeof(model)}(
+            id_,
+            composition,
+            evaluation,
+            model,
+            topology_key_,
+        )
     end
 end
 
@@ -45,26 +55,35 @@ function ProfilePlan(
 end
 
 struct SweepAxis{V<:Tuple}
+    scope::Symbol
     parameter::Symbol
     values::V
 
-    function SweepAxis{V}(parameter::Symbol, values::V) where {V<:Tuple}
+    function SweepAxis{V}(scope::Symbol, parameter::Symbol, values::V) where {V<:Tuple}
+        scope in (:node, :interface, :composition) || throw(ArgumentError(
+            "sweep axis scope must be :node, :interface, or :composition",
+        ))
         isempty(values) && throw(ArgumentError("sweep axis :$(parameter) must not be empty"))
         length(unique(values)) == length(values) || throw(ArgumentError(
             "sweep axis :$(parameter) values must be unique",
         ))
-        return new{V}(parameter, values)
+        return new{V}(scope, parameter, values)
     end
 end
 
-function SweepAxis(parameter::Union{Symbol,AbstractString}, values)
+function SweepAxis(
+    parameter::Union{Symbol,AbstractString},
+    values;
+    scope::Union{Symbol,AbstractString}=:node,
+)
+    scope_ = _nonempty_symbol(scope, "sweep scope")
     parameter_ = _nonempty_symbol(parameter, "sweep parameter")
     values_ = Tuple(values)
     isempty(values_) && throw(ArgumentError("sweep axis :$(parameter_) must not be empty"))
     length(unique(values_)) == length(values_) || throw(ArgumentError(
         "sweep axis :$(parameter_) values must be unique",
     ))
-    return SweepAxis{typeof(values_)}(parameter_, values_)
+    return SweepAxis{typeof(values_)}(scope_, parameter_, values_)
 end
 
 struct SweepPlan{T<:EvaluationTarget,A<:Tuple} <: AbstractOperationPlan
@@ -380,6 +399,7 @@ function _experiment_target_signature(target::EvaluationTarget)
             parameters=composition.parameters,
             task_options=composition.task_options,
             body_options=composition.body_options,
+            interface=composition.interface,
             interaction_cycle=cycle === nothing ? nothing :
                 (kind=Symbol(nameof(typeof(cycle))), neural_frames=neural_frames(cycle)),
         ),
@@ -393,6 +413,7 @@ function _experiment_target_signature(target::EvaluationTarget)
             root_seed=evaluation.root_seed,
             streams=seed_stream_names(evaluation),
             aggregate=evaluation.aggregate,
+            topology_key=target.topology_key,
         ),
     )
 end

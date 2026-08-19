@@ -1,5 +1,5 @@
 format = "brainlesslab-plan"
-format_version = 2
+format_version = 3
 id = "documentation_example"
 operation = "profile"
 
@@ -16,6 +16,9 @@ id = "example_wall"
     n_nodes = 24
     node = "null_random"
     task = "wall"
+
+        [targets.composition.interface]
+        input_gain = 1.0
 
     [targets.evaluation]
     aggregate = "mean"

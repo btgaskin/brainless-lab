@@ -364,7 +364,7 @@ const WALL_TASK = TaskSpec(
     :wall,
     WallEnv;
     status=:reference,
-    tags=(:benchmark, :qualification, :core),
+    tags=(:available,),
     minimum_scored_ticks=200,
     options=WALL_TASK_OPTIONS,
     floor=null_anchor(0.8106249999999999, "task=wall, null=null_random, rate_reference=falandays, null_target_rate=0.34008828124999996, n_nodes=200, score_key=nav_score, scored_ticks=200, sem=0.0084, sd=0.0477, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git ca09082, 2026-08-05"; scored_ticks=200),
@@ -378,6 +378,12 @@ const TRACKING_TASK = TaskSpec(
     TrackingEnv;
     status=:reference,
     tags=(:benchmark, :qualification, :core),
+    protocol=(benchmark_profile=(
+        metric=:mean_abs_error_deg,
+        label="Mean heading error",
+        unit="degrees",
+        direction=:lower,
+    ),),
     minimum_scored_ticks=2000,
     options=TRACKING_TASK_OPTIONS,
     floor=analytic(0.0; note="E[cos]=0 chance; a rate-matched null over 40 seeds at scored_ticks=2000 measures 0.0022 (sd 0.0167 across five 8-seed blocks), consistent with zero, so the analytic anchor stands. The earlier 0.0599 +/- 0.0691 (sd 0.3907) figure was measured over a 200-tick window, where the estimator is dominated by sampling noise"),
@@ -390,6 +396,12 @@ const PONG_TASK = TaskSpec(
     PongEnv;
     status=:reference,
     tags=(:benchmark, :qualification, :core),
+    protocol=(benchmark_profile=(
+        metric=:longest_rally,
+        label="Mean longest rally",
+        unit="returns",
+        direction=:higher,
+    ),),
     minimum_scored_ticks=6000,
     options=PONG_TASK_OPTIONS,
     floor=null_anchor(0.23673837560386476, "task=pong, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, n_nodes=500, score_key=hit_rate, scored_ticks=6000, sem=0.0141, sd=0.0798, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git ca09082, 2026-08-05"; scored_ticks=6000),
@@ -402,6 +414,12 @@ const PONG_HITRATE_TASK = TaskSpec(
     PongEnv;
     status=:alias,
     tags=(:alias,),
+    protocol=(benchmark_profile=(
+        metric=:longest_rally,
+        label="Mean longest rally",
+        unit="returns",
+        direction=:higher,
+    ),),
     minimum_scored_ticks=6000,
     options=PONG_TASK_OPTIONS,
     floor=null_anchor(0.23673837560386476, "task=pong_hitrate, null=null_random, rate_reference=falandays, null_target_rate=0.16227604166666712, n_nodes=500, score_key=hit_rate, scored_ticks=6000, sem=0.0141, sd=0.0798, n=32, rng=MersenneTwister, julia=1.12.6, seeds 0:31, git ca09082, 2026-08-05"; scored_ticks=6000),
@@ -475,6 +493,7 @@ const PLANK_CARTPOLE_PROTOCOL = (
     family=:plank_cartpole_2025,
     source_doi="10.3390/jlpea15010005",
     source_repository="TENNLab-UTK/framework-open",
+    source_commit="c346e743dc42d5b3339c4252e4ab23c7a8139635",
     source_path="markdown/cartpole_example.md",
     neural_frames=PLANK_CARTPOLE_NEURAL_FRAMES,
     evaluation=EvaluationSpec(
@@ -491,7 +510,13 @@ const PLANK_CARTPOLE_PROTOCOL = (
         dynamics=:gym_default_explicit_euler,
         spike_ff_2=:authors_source_example_matched,
         argyle_4=:paper_specified_adjacent_bins_brainlesslab_schedule_v1,
-        voting=:authors_source_lower_index_tie,
+        voting=:authors_source_cumulative_activity_lower_index_final_tie,
+    ),
+    benchmark_profile=(
+        metric=:steps_balanced,
+        label="Mean balanced steps",
+        unit="steps",
+        direction=:higher,
     ),
 )
 
@@ -511,7 +536,7 @@ function _plank_cartpole_task(level_name::Symbol)
         interaction_cycle=FixedRateCycle(PLANK_CARTPOLE_NEURAL_FRAMES),
         status=:experimental,
         tags=level.name === :easy ?
-             (:experimental, :plank_cartpole, :frontier) :
+             (:benchmark, :qualification, :core, :plank_cartpole) :
              (:experimental, :plank_cartpole),
         options=(
             initial_ranges=(

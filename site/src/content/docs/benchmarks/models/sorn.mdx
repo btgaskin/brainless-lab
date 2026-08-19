@@ -1,0 +1,70 @@
+---
+title: SORN
+description: The paper-aligned 200-node SORN profile used by direct-control benchmark version 1.
+---
+
+`sorn_direct_v1` is the Self-Organising Recurrent Network admitted to benchmark version 1.
+It contains binary excitatory and inhibitory threshold units. Three local rules act on the
+excitatory population during behaviour:
+
+1. causal spike-timing-dependent plasticity strengthens forward temporal transitions and
+   weakens the reverse transitions;
+2. synaptic normalisation keeps each excitatory unit's incoming recurrent drive fixed;
+3. intrinsic plasticity adjusts each excitatory threshold towards a target firing rate.
+
+The combination follows Lazar, Pipa, and Triesch (2009). Every update uses local pre- and
+post-synaptic activity, the incoming weights of one unit, or that unit's own threshold and
+spike. The mechanism therefore has the locality and online-plasticity properties claimed
+for this implementation. That does not establish biological fidelity.
+
+## Fixed profile
+
+| Parameter | Value |
+| --- | ---: |
+| Total dynamic neurons | 200 |
+| Excitatory / inhibitory units | 167 / 33 |
+| Expected incoming E-to-E degree | 10 |
+| E-to-I and I-to-E connectivity | dense |
+| Input and output fanout | 5% of excitatory units per channel |
+| Incoming E-to-E, E-to-I, I-to-E, and input sums | 1.0 |
+| Initial excitatory threshold maximum | 0.5 |
+| Initial inhibitory threshold maximum | 1.0 |
+| STDP rate | 0.001 |
+| Intrinsic-plasticity rate | 0.001 |
+| Target excitatory firing rate | 0.1 |
+| Online plasticity | on |
+
+These internal values do not vary by task. Only the external `InterfaceSpec.input_gain`
+may be selected from the benchmark grid.
+
+## BrainlessLab adapter
+
+The paper presented discrete symbols through groups of input units and trained a separate
+linear readout on reservoir pseudo-states. This benchmark uses continuous task sensors. Each
+sensor reaches a seeded 5% subset of excitatory units, with incoming input weights normalised
+per excitatory unit. Each task action receives the mean activity of another seeded 5% subset.
+These input and direct-action mappings are BrainlessLab adapters, fixed as part of the profile
+and redrawn from their declared policy in each block.
+
+A linear-readout comparison would answer a different representation question and should
+be a separate probe benchmark.
+
+## Stability and provenance
+
+SORN is a stable core registry node: construction, stepping, all three plasticity rules,
+reset, replay, population accounting, pruning, and deterministic seeds have focused tests.
+It is not the canonical Falandays node and does not inherit the Falandays oracle boundary.
+
+No original authors' Matlab implementation was recovered. The implementation was checked
+against the paper and two later public repositories, but neither repository is an original
+numerical oracle. Accordingly, BrainlessLab claims equation and software conformance, not
+bit-for-bit parity with the 2009 simulations.
+
+- Lazar, Pipa, and Triesch,
+  [“SORN: a self-organizing recurrent neural network”](https://doi.org/10.3389/neuro.10.023.2009)
+- [`heychristoph/SORN`](https://github.com/heychristoph/SORN), audited at
+  `1d0ea64108a38ece3eaa5b192a6c5f916f8ed2d6`
+- [`delpapa/SORN_V2`](https://github.com/delpapa/SORN_V2), audited at
+  `40b42c3810345460636fe14785a4d74aa0c12f87`
+
+<p class="bl-source">Source: <code>src/nodes/SORN.jl</code>, <code>src/operations/BenchmarkSpecs.jl</code>, <code>test/test_sorn.jl</code>.</p>
