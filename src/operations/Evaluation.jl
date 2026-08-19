@@ -39,6 +39,18 @@ function _trial_viability(metrics)
     return missing
 end
 
+function _intervention_segment(interventions, first_tick::Integer, last_tick::Integer)
+    first_ = Int(first_tick)
+    last_ = Int(last_tick)
+    first_ <= last_ || return nothing
+    segment = Tuple{Int,Symbol}[]
+    for item in interventions
+        first_ <= item.tick <= last_ || continue
+        push!(segment, (item.tick - first_ + 1, item.verb))
+    end
+    return isempty(segment) ? nothing : segment
+end
+
 function _combined_resource_report(reports)
     isempty(reports) && throw(ArgumentError("evaluation trial has no resource reports"))
     total(field) = all(report -> getfield(report, field) !== nothing, reports) ?
@@ -130,9 +142,11 @@ function _evaluate_trial(
     resolved::ResolvedComposition,
     block::Integer,
     trial::Integer;
+    registry::RegistrySet,
     model=nothing,
     record=(),
     record_every::Integer=1,
+    compute_every=Dict{Symbol,Int}(),
     metrics=nothing,
 )
     evaluation = target.evaluation
@@ -152,21 +166,40 @@ function _evaluate_trial(
         model=model,
         record=record,
         every=record_every,
+        compute_every=compute_every,
     )
     initial_state = realized_initial_state(setup.ensemble.environment)
+    warmup_interventions = _intervention_segment(
+        target.interventions,
+        1,
+        evaluation.warmup,
+    )
     if evaluation.warmup > 0
         recorder = setup.ensemble.recorder
         setup.ensemble.recorder = nothing
-        rollout!(setup.ensemble, evaluation.warmup; window=evaluation.warmup)
+        rollout!(
+            setup.ensemble,
+            evaluation.warmup;
+            window=evaluation.warmup,
+            interventions=warmup_interventions,
+            intervention_registry=registry,
+        )
         setup.ensemble.recorder = recorder
         reset!(recorder)
     end
     scored_ticks = evaluation.horizon - evaluation.warmup
+    scored_interventions = _intervention_segment(
+        target.interventions,
+        evaluation.warmup + 1,
+        evaluation.horizon,
+    )
     outcome = rollout!(
         setup.ensemble,
         scored_ticks;
         window=scored_ticks,
         metrics=metrics,
+        interventions=scored_interventions,
+        intervention_registry=registry,
     )
     base_config = _simulation_config(
         setup.ensemble;
@@ -178,7 +211,10 @@ function _evaluate_trial(
         n_nodes=resolved.n_nodes,
         ablation=:none,
         ablation_notes=(),
-        interventions=nothing,
+        interventions=Tuple(
+            (item.tick, item.verb)
+            for item in target.interventions
+        ),
         task_spec=resolved.task,
     )
     config = merge(
@@ -193,6 +229,7 @@ function _evaluate_trial(
             resources=setup.resources,
             seed_ledger=setup.seed_ledger,
             evaluation=evaluation,
+            compute_every=Dict{Symbol,Int}(compute_every),
             executed_scored_ticks=outcome.rollout_ticks,
             terminated=outcome.terminated,
         ),
@@ -229,6 +266,7 @@ function evaluate(
     model=nothing,
     record=(),
     record_every::Integer=1,
+    compute_every=Dict{Symbol,Int}(),
     metrics=nothing,
 )
     evaluation = target.evaluation
@@ -237,6 +275,7 @@ function evaluate(
         "must be exposed through a declared reset hook before using :$(evaluation.reset)",
     ))
     resolved = resolve_composition(target.composition, registry)
+    _validate_target_interventions(target, resolved.node, registry)
     _validate_minimum_scored_ticks(
         resolved.task,
         evaluation.horizon - evaluation.warmup;
@@ -271,9 +310,11 @@ function evaluate(
                 resolved,
                 block,
                 trial;
+                registry=registry,
                 model=resolved_model,
                 record=record,
                 record_every=record_every,
+                compute_every=compute_every,
                 metrics=metrics,
             )
             index += 1

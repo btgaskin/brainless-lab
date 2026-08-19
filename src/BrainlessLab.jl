@@ -88,6 +88,7 @@ include("analysis/SecondOrder.jl")
 include("analysis/SwarmAnalysis.jl")
 include("analysis/NullTest.jl")
 include("analysis/TaskSignals.jl")
+include("analysis/TrackingPlasticity.jl")
 include("analysis/TransferEntropy.jl")
 include("analysis/ForageTransfer.jl")
 include("analysis/OwnColour.jl")
@@ -174,6 +175,20 @@ register_analysis!(:own_colour_decodability, own_colour_decodability; task=:toru
 register_analysis!(:wall_distance, wall_distance; task=:wall, label="distance to nearest wall")
 register_analysis!(:heading_error, heading_error; task=:tracking, label="heading error (rad)")
 register_analysis!(:object_in_view, object_in_view; task=:tracking, label="stimulus-in-view indicator (experimental)")
+register_analysis!(
+    :tracking_plasticity_diagnostics,
+    tracking_plasticity_diagnostics;
+    task=:tracking,
+    label="Tracking plasticity and branching diagnostics (exploratory)",
+    options=Dict{Symbol,Any}(
+        :window => 400,
+        :stride => 100,
+        :kmax => 20,
+        :min_r2 => 0.0,
+        :heading_bins => 18,
+    ),
+    required_channels=(:rate, :scene, :percepts, :spectral_radius),
+)
 register_analysis!(:ball_paddle_distance, ball_paddle_distance; task=:pong, label="ball–paddle distance")
 register_analysis!(:shoal_need_satisfaction, shoal_need_satisfaction; task=:shoal_forage, label="material and association need satisfaction (exploratory)")
 register_analysis!(:shoal_contact_summary, shoal_contact_summary; task=:shoal_forage, label="resource contact and alternation summary (exploratory)")

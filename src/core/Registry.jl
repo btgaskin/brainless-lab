@@ -222,12 +222,23 @@ function register_analysis!(
     f;
     task::Union{Nothing,Symbol}=nothing,
     label::AbstractString=string(sym),
+    options=Dict{Symbol,Any}(),
+    required_channels=(),
 )
     _register!(
         ANALYSES,
         "analysis",
         sym,
-        (f=f, task=task, label=String(label)),
+        (
+            f=f,
+            task=task,
+            label=String(label),
+            options=_option_defaults(options, "analysis :$(sym)"),
+            required_channels=_symbol_tuple(
+                required_channels,
+                "analysis :$(sym) required channels",
+            ),
+        ),
     )
     return sym
 end

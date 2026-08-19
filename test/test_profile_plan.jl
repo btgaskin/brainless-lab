@@ -26,6 +26,19 @@ function _profile_tracking_target(; blocks=1, trials=2, horizon=8)
     return EvaluationTarget(:tracking, composition, evaluation)
 end
 
+function _profile_series_fixture(sim; scale=1.0)
+    block = Float64(sim.config.block)
+    return AnalysisResult(
+        statistics=(scale=Float64(scale),),
+        series=AnalysisSeries(
+            :fixture,
+            :tick,
+            [2.0, 4.0],
+            (value=Float64(scale) .* [block, block + 1.0],),
+        ),
+    )
+end
+
 @testset "profile resolves registry contracts once" begin
     registry = BrainlessLabTestUtils.diagnostic_registry((:tracking,))
     target = _profile_tracking_target()
@@ -55,7 +68,75 @@ end
     )
 end
 
-@testset "profile executes every trial and emits two tables" begin
+
+@testset "profile resolves options and aggregates aligned series" begin
+    registry = operation_registry()
+    register!(
+        registry,
+        :analyses,
+        BrainlessLab.ImplementationSpec(
+            :profile_series_fixture,
+            _profile_series_fixture;
+            options=Dict(:scale => 1.0),
+            metadata=(task=:tracking, required_channels=(:rate,)),
+        ),
+    )
+    plan = ProfilePlan(
+        :series_profile,
+        operation_target(
+            :tracking,
+            :tracking;
+            blocks=2,
+            trials=2,
+            horizon=8,
+            root_seed=611,
+        );
+        analyses=(:profile_series_fixture,),
+        analysis_options=Dict(
+            :profile_series_fixture => Dict(:scale => 2.0),
+        ),
+        compute_every=Dict(:rate => 2),
+    )
+    resolved = resolve(plan, registry)
+    @test resolved.analysis_options[:profile_series_fixture][:scale] == 2.0
+    @test resolved.compute_every == Dict(:rate => 2)
+
+    result = execute(resolved)
+    series = BrainlessLab.tables(result).analysis_series
+    @test length(series) == 2
+    @test all(row -> row.n_trials == 4, series)
+    @test series[1].mean == 3.0
+    @test series[2].mean == 5.0
+    @test series[1].median == 3.0
+    @test length(result.analysis_series_rows) == 8
+
+    record = write_record(
+        plan,
+        result;
+        registry,
+        root=mktempdir(),
+        id="profile-series-record",
+    )
+    @test isfile(joinpath(record, "data", "analysis_series.csv"))
+    @test occursin(
+        "data/analysis_series.csv",
+        read(joinpath(record, "record.toml"), String),
+    )
+
+    @test_throws ArgumentError resolve(
+        ProfilePlan(
+            :bad_options,
+            operation_target(:tracking, :tracking; horizon=8);
+            analyses=(:profile_series_fixture,),
+            analysis_options=Dict(
+                :profile_series_fixture => Dict(:unknown => 2.0),
+            ),
+        ),
+        registry,
+    )
+end
+
+@testset "profile executes every trial and emits standard tables" begin
     registry = operation_registry()
     target = operation_target(
         :tracking,

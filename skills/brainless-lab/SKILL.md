@@ -83,13 +83,18 @@ or operation-specific protocol format.
 
 ## Use the five operations precisely
 
-- `ProfilePlan` characterises one node/task composition with declared analyses. It records
-  the channels required by those analyses and reports analysis failures.
+- `ProfilePlan` characterises one node/task composition with declared analyses. Registered
+  analysis options and recorder compute strides belong in the plan. Aligned analysis
+  series are summarised across independent trials; raw tick traces are not a default
+  record surface. It records the required channels and reports analysis failures.
 - `SweepPlan` evaluates explicit or node-default parameter axes. Seeds are paired across
   cells. Call the output a development grid, not a confirmed optimum.
 - `AblationPlan` compares an implicit baseline with registered interventions. Validation
   checks the intervention stage and required node capabilities. Inapplicable or unchanged
   interventions are errors, not silent no-ops.
+- `ScheduledIntervention` applies a registered live intervention before one absolute trial
+  tick. Keep the schedule on `EvaluationTarget`; validation must check the horizon, live
+  hook, and node capabilities.
 - `EvolutionPlan` searches any node that declares a reviewed
   `Evolution.NodeDesignSpec` through the experimental `BrainlessLab.Evolution` namespace.
   Built-in designs include Falandays and the dense and structured compartmental models.

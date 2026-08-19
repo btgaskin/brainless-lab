@@ -29,6 +29,11 @@ search one fixed node design on a development target and evaluate the selected m
 held-out target. Its one-generation budget validates the protocol only. It does not support
 a performance or generality claim.
 
+`tracking-plasticity-branching-v1/` is a planned three-condition Falandays Tracking
+protocol. It compares plasticity frozen at tick 1, plasticity frozen at tick 1800, and
+continuous plasticity across paired 7200-tick trials. Its profile operations retain the
+declared full-run task outcome and aggregate branching-diagnostic series.
+
 ## Validate and run
 
 Validate the whole bundle without simulation:

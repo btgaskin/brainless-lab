@@ -1,0 +1,61 @@
+---
+title: Tracking plasticity and branching diagnostics
+description: A registered three-condition protocol for task score and exploratory branching dynamics in canonical Falandays Tracking.
+research:
+  kind: experiment
+  id: tracking-plasticity-branching
+  version: v1
+  evidence_state: planned
+  tasks: [Tracking]
+  nodes: [Falandays]
+  tags: [criticality, plasticity, tracking]
+  protocol_path: experiments/tracking-plasticity-branching-v1/experiment.toml
+---
+
+This registered experiment asks how stopping plasticity at different times changes the
+declared Tracking outcome and estimated branching dynamics. It uses the canonical
+`falandays_tracking` preset: the paper-matched Falandays node configuration with 200 nodes
+on the standard Tracking task.
+
+The resolved node settings are `leak = 0.25`, `lrate_wmat = 1.0`,
+`lrate_targ = 0.01`, `threshold_mult = 2.0`, `targ_min = 1.0`,
+`input_weight = 0.75`, `weight_init_std = 1.0`, `link_p = 0.1`, excitatory
+weight initialisation, Bernoulli topology, no activation rectification, and no mask repair.
+The retained `resolved.toml` repeats these values and the resolved task settings for every
+operation record.
+
+| Condition | Plasticity rule |
+| --- | --- |
+| `freeze_tick_1` | Disable recurrent and target updates before the first step |
+| `freeze_tick_1800` | Run steps 1–1799 with plasticity, then freeze before step 1800 |
+| `continuous_plasticity` | Keep both update mechanisms active for all 7200 steps |
+
+Each condition uses the same root seed and 60 paired, independently constructed blocks.
+Every block contains one trial. The declared seed streams are `topology` and `world`, the
+reset policy is `full`, and there is no warm-up interval.
+
+The primary task result is the full-run `track_score`, reported with its raw and normalised
+values. The registered `tracking_plasticity_diagnostics` analysis also produces:
+
+- 400-tick branching windows every 100 ticks, using the MR estimator with `kmax = 20`;
+- fit quality, a legacy through-origin estimate, population rate, heading error,
+  object visibility, and spectral radius aligned to those windows;
+- branching ratio and change in branching ratio binned by absolute heading error.
+
+Spectral radius is recomputed every 100 ticks. The record retains trial scores, seed
+ledgers, scalar analysis statistics, and aggregate series summaries. It does not retain raw
+tick traces. These diagnostics can describe estimator behaviour; they do not by themselves
+establish that the network is critical.
+
+Validate the complete protocol without running it:
+
+```bash
+julia --project=. bin/brainlesslab.jl check-experiment \
+  experiments/tracking-plasticity-branching-v1
+```
+
+The evidence state is `planned`, and no result record is attached yet. After a run from a
+clean, committed source revision, its standard records can be listed here and used to draw
+the score, time-series, and heading-error charts directly from the retained CSV tables.
+
+Read the [protocol bundle](https://github.com/btgaskin/brainless-lab/tree/main/experiments/tracking-plasticity-branching-v1).

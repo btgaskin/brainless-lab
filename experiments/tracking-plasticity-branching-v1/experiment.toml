@@ -1,0 +1,27 @@
+conditions = ["freeze_tick_1", "freeze_tick_1800", "continuous_plasticity"]
+evidence_state = "planned"
+format = "brainlesslab-experiment"
+format_version = 1
+id = "tracking_plasticity_branching"
+limitations = ["The branching-ratio estimators are exploratory diagnostics and do not by themselves establish criticality.", "The three conditions use one canonical task and node configuration; they do not establish robustness across tasks, nodes, or parameterisations.", "The protocol retains per-trial outcomes and aggregate diagnostic series, but not raw tick traces."]
+question = "How does stopping recurrent and target plasticity at different points in canonical Falandays Tracking affect full-run task score and estimated branching dynamics?"
+title = "Tracking plasticity and branching diagnostics"
+version = "1.0.0"
+
+[metadata]
+analysis = "tracking_plasticity_diagnostics"
+node_configuration = "falandays_tracking"
+programme = "criticality_across_nested_collectives"
+role = "exploratory_protocol"
+
+[[operations]]
+id = "profile_freeze_tick_1"
+plan = "01-profile_freeze_tick_1.toml"
+
+[[operations]]
+id = "profile_freeze_tick_1800"
+plan = "02-profile_freeze_tick_1800.toml"
+
+[[operations]]
+id = "profile_continuous_plasticity"
+plan = "03-profile_continuous_plasticity.toml"

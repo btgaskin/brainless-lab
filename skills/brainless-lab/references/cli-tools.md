@@ -43,8 +43,9 @@ Unknown keys and duplicate target IDs fail. A composition may refer to a registe
 body options, and fixed-rate interaction cycle.
 
 Versions 1 and 2 remain readable where their schemas apply. The writer emits version 3,
-which records the composition interface, topology profile key, and sweep-axis scope.
-Evolution plans require version 2 or later and `[evolve.run]`.
+which records the composition interface, topology profile key, sweep-axis scope, scheduled
+target interventions, registered profile-analysis options, channel compute strides, and
+aggregate series output. Evolution plans require version 2 or later and `[evolve.run]`.
 
 The default root-seed policy derives `:topology` and `:world`. `construction_scope`
 controls topology sharing, while each trial receives its own world seed. Declare another
@@ -61,6 +62,25 @@ target = "tracking"
 analyses = ["branching_ratio_mr", "node_target_error"]
 record_every = 1
 ```
+
+Format version 3 profiles can configure registered analyses and expensive channel
+computation:
+
+```toml
+[profile.analysis_options.tracking_plasticity_diagnostics]
+window = 400
+stride = 100
+kmax = 20
+min_r2 = 0.0
+heading_bins = 18
+
+[profile.compute_every]
+spectral_radius = 100
+```
+
+Add `interventions = [{ tick = 1800, verb = "freeze_plasticity" }]` to a target to
+apply a registered live intervention before that absolute trial tick. Plan validation
+checks the horizon, live hook, and node capabilities.
 
 Sweep declared node parameters:
 

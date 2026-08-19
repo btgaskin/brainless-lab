@@ -104,7 +104,12 @@ evaluation = EvaluationSpec(
     aggregate=:mean,
 )
 
-target = EvaluationTarget(:tracking, composition, evaluation)
+target = EvaluationTarget(
+    :tracking,
+    composition,
+    evaluation;
+    interventions=(ScheduledIntervention(1800, :freeze_plasticity),),
+)
 ```
 
 Allowed construction scopes are `:evaluation`, `:block`, and `:trial`. `EvaluationSpec`
@@ -130,7 +135,10 @@ id = "my_plan"
 
 They then contain one or more `[[targets]]` tables and one operation section.
 Versions 1 and 2 remain readable where their schemas apply. The current writer emits
-version 3, and the public evolution schema requires version 2 or later.
+version 3. Version 2 introduced the public evolution schema. Version 3 records the
+composition interface, topology profile key, sweep-axis scope, scheduled target
+interventions, registered analysis options, compute strides, and aggregate analysis-series
+tables.
 
 | Operation | Type | Section |
 | --- | --- | --- |
@@ -178,7 +186,7 @@ Run the script with no arguments for the current usage text.
 
 New plans should declare `format_version = 3`. Legacy version 1 plans do not accept an
 `[evolve]` section. Version 3 also records the composition interface, topology profile key,
-and sweep-axis scope.
+sweep-axis scope, scheduled interventions, and configurable profile analyses.
 
 See [Operations](/handbook/operations/) for the complete workflow.
 

@@ -53,6 +53,7 @@ function _build_composition(
     model=nothing,
     record=_DEFAULT_RECORD_CHANNELS,
     every::Integer=1,
+    compute_every=Dict{Symbol,Int}(),
 )
     stream_names = seed_stream_names(evaluation)
     for required in (:topology, :world)
@@ -108,7 +109,11 @@ function _build_composition(
         resources[slot] = resource_report(reservoir)
         ledgers[slot] = seeds
     end
-    recorder = Recorder(enabled=_record_symbols(record), every=Int(every))
+    recorder = Recorder(
+        enabled=_record_symbols(record),
+        every=Int(every),
+        compute_every=compute_every,
+    )
     ensemble = Ensemble(agents, task_setup.environment; recorder=recorder)
     return (
         ensemble=ensemble,

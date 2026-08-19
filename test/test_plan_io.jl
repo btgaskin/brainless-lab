@@ -114,6 +114,71 @@ end
     end
 end
 
+@testset "plan format version gates preserve version-two evolution" begin
+    evolution = BrainlessLab.plan_document(_io_evolution_plan())
+    evolution["format_version"] = 2
+    path = tempname() * ".toml"
+    open(path, "w") do io
+        TOML.print(io, evolution; sorted=true)
+    end
+    @test read_plan(path) isa EvolutionPlan
+
+    scheduled = BrainlessLab.plan_document(ProfilePlan(
+        :scheduled,
+        EvaluationTarget(
+            :tracking,
+            _io_target(:tracking, :tracking).composition,
+            _io_target(:tracking, :tracking).evaluation;
+            interventions=(ScheduledIntervention(3, :freeze_plasticity),),
+        );
+        analyses=(:branching_ratio_mr,),
+    ))
+    scheduled["format_version"] = 2
+    @test _read_plan_error(scheduled) isa ArgumentError
+
+    configured = BrainlessLab.plan_document(ProfilePlan(
+        :configured,
+        _io_target(:tracking, :tracking);
+        analyses=(:branching_ratio_mr,),
+        analysis_options=Dict(:branching_ratio_mr => Dict(:kmax => 5)),
+    ))
+    configured["format_version"] = 2
+    @test _read_plan_error(configured) isa ArgumentError
+end
+
+@testset "plan IO preserves scheduled interventions and profile settings" begin
+    base = _io_target(:tracking, :tracking)
+    target = EvaluationTarget(
+        base.id,
+        base.composition,
+        base.evaluation;
+        interventions=(
+            ScheduledIntervention(7, :freeze_plasticity),
+            ScheduledIntervention(3, :clamp_target),
+        ),
+        topology_key=:falandays_tracking,
+    )
+    plan = ProfilePlan(
+        :scheduled_profile,
+        target;
+        analyses=(:branching_ratio_mr_windowed,),
+        record_every=1,
+        analysis_options=Dict(
+            :branching_ratio_mr_windowed => Dict(:window => 5),
+        ),
+        compute_every=Dict(:rate => 2),
+    )
+    path = tempname() * ".toml"
+    write_plan(path, plan)
+    parsed = read_plan(path)
+    @test [(item.tick, item.verb) for item in parsed.target.interventions] == [
+        (3, :clamp_target),
+        (7, :freeze_plasticity),
+    ]
+    @test parsed.target.topology_key === :falandays_tracking
+    @test parsed.analysis_options[:branching_ratio_mr_windowed][:window] == 5
+    @test parsed.compute_every == Dict(:rate => 2)
+end
 
 @testset "plan IO preserves interface axes and topology keys" begin
     base = CompositionSpec(

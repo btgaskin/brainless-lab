@@ -480,6 +480,7 @@ function _table_path(name::Symbol)
     name === :trials && return joinpath("data", "trials.csv")
     name === :task && return joinpath("data", "task_metrics.csv")
     name === :analyses && return joinpath("data", "analyses.csv")
+    name === :analysis_series && return joinpath("data", "analysis_series.csv")
     name === :cells && return joinpath("data", "sweep_cells.csv")
     name === :convergence && return joinpath("data", "evolution_history.csv")
     name === :candidate_trials && return joinpath("data", "candidate_trials.csv")
@@ -491,6 +492,11 @@ end
 
 function _empty_table_columns(name::Symbol)
     name === :analyses && return (:condition, :block, :trial, :analysis, :statistic, :value)
+    name === :analysis_series && return (
+        :condition, :analysis, :series, :coordinate, :index, :coordinate_value,
+        :statistic, :n_trials, :n_finite, :mean, :std, :median, :q25, :q75,
+        :minimum, :maximum,
+    )
     name === :convergence && return (
         :iteration, :target, :candidates, :valid_candidates,
         :score_best, :score_mean, :score_worst,
@@ -707,6 +713,10 @@ function _resolved_target_document(batch::EvaluationBatch)
         "body_options" => _string_dict(resolved.body_options),
         "interaction_cycle" => _resolved_cycle_document(resolved.interaction_cycle),
         "evaluation" => _evaluation_document(target.evaluation),
+        "interventions" => [Dict{String,Any}(
+            "tick" => item.tick,
+            "verb" => String(item.verb),
+        ) for item in target.interventions],
         "effective_window" => target.evaluation.horizon - target.evaluation.warmup,
     )
     resolved.body === nothing || (document["body"] = String(resolved.body.key))
@@ -732,6 +742,10 @@ function _resolved_target_document(
         "body_options" => _string_dict(resolved.body_options),
         "interaction_cycle" => _resolved_cycle_document(resolved.interaction_cycle),
         "evaluation" => _evaluation_document(target.evaluation),
+        "interventions" => [Dict{String,Any}(
+            "tick" => item.tick,
+            "verb" => String(item.verb),
+        ) for item in target.interventions],
         "effective_window" => target.evaluation.horizon - target.evaluation.warmup,
     )
     resolved.body === nothing || (document["body"] = String(resolved.body.key))
@@ -744,8 +758,16 @@ end
 function _resolution_details(result::ProfileResult)
     return Dict{String,Any}(
         "analyses" => collect(String.(getfield.(result.plan.analyses, :key))),
+        "analysis_options" => Dict{String,Any}(
+            String(id) => _string_dict(options)
+            for (id, options) in result.plan.analysis_options
+        ),
         "record_channels" => collect(String.(result.plan.record_channels)),
         "record_every" => result.plan.plan.record_every,
+        "compute_every" => Dict{String,Any}(
+            String(channel) => stride
+            for (channel, stride) in result.plan.compute_every
+        ),
     )
 end
 

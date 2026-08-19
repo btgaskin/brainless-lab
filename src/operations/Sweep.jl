@@ -157,6 +157,7 @@ function resolve(plan::SweepPlan, registry::RegistrySet)
             composition,
             plan.target.evaluation;
             model=plan.target.model,
+            interventions=plan.target.interventions,
             topology_key=plan.target.topology_key,
         )
         cells[index] = ResolvedSweepCell(cell_id, parameters, target)

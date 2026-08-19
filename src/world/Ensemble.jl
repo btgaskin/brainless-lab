@@ -886,20 +886,44 @@ end
 # Reuses the guarded build-time verb dispatch (`_apply_postbuild_ablation!`), so a
 # verb that does not apply to a given node is a documented no-op. `schedule` is a
 # tick-sorted `Vector{Tuple{Int,Symbol}}` resolved in `_build_ensemble`.
-function _apply_tick_interventions!(c::Ensemble, t::Integer, schedule)
+function _apply_tick_interventions!(
+    c::Ensemble,
+    t::Integer,
+    schedule,
+    registry,
+)
     @inbounds for entry in schedule
         first(entry) == t || continue
         sym = last(entry)
         foreach_group(c) do group
             for agent in group_agents(group)
-                _apply_postbuild_ablation!(agent.reservoir, sym)
+                if registry === nothing
+                    _apply_postbuild_ablation!(agent.reservoir, sym)
+                else
+                    entry = resolve(registry.ablations, sym).implementation
+                    if entry isa AblationSpec && entry.live_apply !== nothing
+                        _apply_runtime_intervention!(registry, agent.reservoir, sym)
+                    else
+                        # Preserve the interactive facade's legacy intervention
+                        # vocabulary. Typed evaluation plans reject these entries
+                        # during validation unless they declare a live hook.
+                        _apply_postbuild_ablation!(agent.reservoir, sym)
+                    end
+                end
             end
         end
     end
     return c
 end
 
-function rollout!(c::Ensemble, ticks::Integer; window::Integer=ticks, metrics=nothing, interventions=nothing)
+function rollout!(
+    c::Ensemble,
+    ticks::Integer;
+    window::Integer=ticks,
+    metrics=nothing,
+    interventions=nothing,
+    intervention_registry=nothing,
+)
     ticks = Int(ticks)
     ticks >= 0 || throw(ArgumentError("ticks must be non-negative"))
     window = Int(window)
@@ -909,7 +933,12 @@ function rollout!(c::Ensemble, ticks::Integer; window::Integer=ticks, metrics=no
     node_count = 0
     for t in 1:ticks
         terminated(c.environment) && break
-        interventions === nothing || _apply_tick_interventions!(c, t, interventions)
+        interventions === nothing || _apply_tick_interventions!(
+            c,
+            t,
+            interventions,
+            intervention_registry,
+        )
         spikes = step!(c)
         rate, width = _rollout_rate_and_width(spikes)
         push!(rates, rate)
