@@ -1,6 +1,6 @@
 ---
 title: Nodes and reservoirs
-description: Understand the shared reservoir interface, the canonical Falandays node, and its validation boundary.
+description: Understand the shared reservoir interface, the Falandays reference, and the experimental SORN node.
 ---
 
 A node is the local neural unit model. A reservoir is a runtime population of nodes with
@@ -40,6 +40,22 @@ The canonical implementation is validated on declared reference trajectories. Th
 the tested construction and update path. It does not establish behavioural equivalence,
 biological validity, or performance on every task.
 
+## Experimental SORN node
+
+Use `node=:sorn` for the registered Self-Organizing Recurrent Network. SORN separates
+binary excitatory and inhibitory populations. Spike timing changes recurrent excitatory
+weights, synaptic normalisation regulates their incoming sums, and intrinsic plasticity
+adapts each excitatory threshold towards a target activity.
+
+```julia
+simulate(:tracking; node=:sorn, ticks=2_000, seed=26)
+```
+
+Focused tests cover construction, deterministic reruns, state replay, and the combined
+plasticity freeze. They do not establish paper-level prediction performance, biological
+plausibility, or avalanche-scaling criticality. Treat SORN as an experimental comparison,
+not as a second validated reference.
+
 ## Other node families
 
 Other registered nodes may use fixed weights, different plasticity, noise, drives, delays,
@@ -49,4 +65,4 @@ Software registration does not qualify a node for a benchmark.
 Add a new reservoir subtype when state, stepping, plasticity, or readout changes
 materially. Use a parameter, preset, wrapper, or ablation when the interface stays the same.
 
-<p class="bl-source">Source: <code>src/core/Registry.jl</code>, <code>src/nodes/Falandays.jl</code>, <code>test/oracle/authors_falandays.jl</code>.</p>
+<p class="bl-source">Source: <code>src/core/Registry.jl</code>, <code>src/nodes/Falandays.jl</code>, <code>src/nodes/SORN.jl</code>, <code>test/test_sorn.jl</code>, <code>test/oracle/authors_falandays.jl</code>.</p>

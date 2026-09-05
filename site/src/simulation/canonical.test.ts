@@ -1,10 +1,21 @@
 import { describe, expect, test } from 'bun:test';
-import { CANONICAL_CORE_V2, CORE_TASK_NAMES, canonicalParamsFor, displayRootCandidates } from './canonical';
+import {
+  CANONICAL_CORE_V2,
+  CORE_TASK_NAMES,
+  DEMO_TASK_NAMES,
+  canonicalParamsFor,
+  displayRootCandidates,
+} from './canonical';
 import { createCoreSimulation, runCoreTicks } from './coreRuntime';
 import { DISPLAY_CASES } from './displayCases';
 import { derivePortSeed } from './rng';
 
 describe('canonical core v2 browser contract', () => {
+  test('keeps the landing task set separate from the core benchmark', () => {
+    expect(DEMO_TASK_NAMES).toEqual(['pong', 'tracking', 'cartpole_plank_easy']);
+    expect(DEMO_TASK_NAMES).not.toContain('wall');
+  });
+
   test('matches the registered composition and evaluation values', () => {
     expect(CANONICAL_CORE_V2.pong).toMatchObject({
       preset: 'falandays_pong',

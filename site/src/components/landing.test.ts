@@ -11,16 +11,19 @@ describe('landing-page structure', () => {
     const landing = await source('../content/docs/index.mdx');
 
     expect(hero).toContain('class="bl-landing-stage"');
-    expect(hero).toContain('<FalandaysDemo client:load />');
+    expect(hero).toContain('<BrainlessDemo client:load />');
     expect(theme).toContain('min-block-size: calc(100dvh - var(--sl-nav-height))');
     expect(landing).toContain('<div id="more"></div>');
     expect(landing).not.toContain('<FalandaysDemo');
   });
 
-  test('keeps CartPole outside the landing import path', async () => {
+  test('offers CartPole and both neuron designs without the Wall task', async () => {
     const demo = await source('./demo/SimDemo.tsx');
     const canvas = await source('./demo/TaskCanvas.tsx');
-    expect(demo).not.toMatch(/cartpole/i);
-    expect(canvas).not.toMatch(/cartpole/i);
+    expect(demo).toMatch(/cartpole/i);
+    expect(demo).toContain("label: 'Falandays'");
+    expect(demo).toContain("label: 'SORN'");
+    expect(canvas).toContain('CartPoleRenderer');
+    expect(canvas).not.toContain('WallRenderer');
   });
 });

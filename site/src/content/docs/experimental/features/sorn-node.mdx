@@ -1,0 +1,22 @@
+---
+title: SORN node
+description: Binary excitatory and inhibitory dynamics with online STDP, intrinsic threshold plasticity, and synaptic normalisation.
+experimental:
+  family: reservoirs
+  readiness: available
+  tags: [sorn, online-plasticity, intrinsic-plasticity, recurrent-weights]
+  core_page: /handbook/nodes-reservoirs/
+  source_paths: [src/nodes/SORN.jl, src/core/Catalog.jl]
+  example_paths: []
+  test_paths: [test/test_sorn.jl]
+---
+
+The registered `:sorn` node separates binary excitatory and inhibitory populations. Its
+excitatory recurrent weights use spike-timing-dependent plasticity and incoming synaptic
+normalisation. Intrinsic plasticity adapts each excitatory threshold towards a target
+activity.
+
+The standard runtime can construct, step, replay, and freeze the node. The current tests do
+not establish paper-level prediction performance, biological plausibility, or
+avalanche-scaling criticality. No accepted benchmark record qualifies SORN as a reference
+node.
