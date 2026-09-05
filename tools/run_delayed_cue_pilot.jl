@@ -9,6 +9,8 @@ block but are not confirmation records or accepted research contributions.
 """
 function main(; root="records/delayed-cue-development",
     output="benchmarks/direct-control/v2/development")
+    source_sha = readchomp(`git rev-parse HEAD`)
+    source_state = isempty(readchomp(`git status --porcelain`)) ? "clean" : "dirty"
     mkpath(output)
     profiles = (DIRECT_CONTROL_FALANDAYS_PROFILE, DIRECT_CONTROL_SORN_PROFILE)
     selections = Dict{String,Any}()
@@ -58,8 +60,7 @@ function main(; root="records/delayed-cue-development",
     open(joinpath(output, "selection.toml"), "w") do io
         TOML.print(io, Dict("evidence_state" => "tuned", "profiles" => selections,
             "pilot_seconds" => elapsed, "pilot_record" => basename(record.directory),
-            "source_sha" => readchomp(`git rev-parse HEAD`),
-            "source_state" => isempty(readchomp(`git status --porcelain`)) ? "clean" : "dirty"); sorted=true)
+            "source_sha" => source_sha, "source_state" => source_state); sorted=true)
     end
     println(BrainlessLab.summary(record.result))
 end

@@ -82,9 +82,9 @@ end
     @test outcome.key === :recall_accuracy
     @test outcome.raw in (0.0, 1.0)
     @test outcome.normalized == outcome.raw
-    @test trial.initial_state.delay in BrainlessLab.DELAYED_CUE_DELAYS
+    @test trial.initial_state[2] in BrainlessLab.DELAYED_CUE_DELAYS
     @test trial.simulation.metrics.completed
-    @test trial.simulation.config.executed_scored_ticks == trial.initial_state.delay + 16
+    @test trial.simulation.config.executed_scored_ticks == trial.initial_state[2] + 16
     @test BrainlessLab.trial_row(trial).profile_metric === :recall_accuracy
     @test_throws ArgumentError evaluate(EvaluationTarget(:short, composition,
         EvaluationSpec(horizon=143, root_seed=917)))

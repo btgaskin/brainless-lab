@@ -295,13 +295,18 @@ function _evaluate_evolution_target(
         for trial in batch.trials
     ]
     aggregate = _evolution_aggregate(values, target.evaluation.aggregate)
+    descriptor_keys = Tuple(batch.resolved.task.descriptor_keys)
+    rows = NamedTuple[merge(trial_row(trial), (
+        task_diagnostics=_json(NamedTuple{descriptor_keys}(Tuple(
+            getproperty(trial.simulation.metrics, key) for key in descriptor_keys))),
+    )) for trial in batch.trials]
     return EvolutionEvaluation(
         target.id,
         measure,
         values,
         aggregate,
         nothing,
-        NamedTuple[trial_table(batch)...],
+        rows,
         _evolution_seed_rows(batch),
     )
 end
@@ -509,8 +514,14 @@ function execute(
             _evolution_rng(plan.run.search_seed, iteration),
         )
         evaluated = parallel_map(proposals) do proposal
-            _candidate_observation(plan, proposal, check_budget)
+            try
+                _candidate_observation(plan, proposal, check_budget)
+            catch error
+                error isa EvolutionBudgetExceeded || rethrow()
+                error
+            end
         end
+        any(item -> item isa EvolutionBudgetExceeded, evaluated) && throw(EvolutionBudgetExceeded())
         Evolution.observe!(
             state_,
             [item.observation for item in evaluated],

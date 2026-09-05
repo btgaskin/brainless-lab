@@ -1416,6 +1416,7 @@ function _restored_trial_row(row, context::AbstractString)
         profile_direction=_record_optional_symbol(
             _record_optional_field(row, :profile_direction),
         ),
+        task_diagnostics=_record_optional_string(_record_optional_field(row, :task_diagnostics)),
     )
 end
 
@@ -1448,11 +1449,15 @@ function _restore_evolution_candidates(
     committed_candidate_count::Integer,
     dimension::Integer,
 )
-    data_directory = joinpath(directory, "data")
+    journal = joinpath(directory, "generation-data")
+    marker = joinpath(journal, "format.toml")
+    table_root = isfile(marker) && TOML.parsefile(marker)["first_iteration"] <= completed_iteration ?
+        joinpath(journal, lpad(completed_iteration, 8, '0')) : directory
+    data_directory = joinpath(table_root, "data")
     candidate_path = joinpath(data_directory, "candidates.csv")
     score_path = joinpath(data_directory, "candidate_scores.csv")
     trial_path = joinpath(data_directory, "candidate_trials.csv")
-    seed_path = joinpath(directory, "seeds.csv")
+    seed_path = joinpath(table_root, "seeds.csv")
 
     candidate_rows = _require_record_columns(
         _evolution_record_rows(directory, "data/candidates.csv", completed_iteration),

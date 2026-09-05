@@ -1,0 +1,53 @@
+---
+title: Delayed cue
+description: Recall a binary cue after a blank interval, using controller state to retain the answer.
+---
+
+Delayed-cue recall asks whether a controller can retain an observation after it disappears.
+One trial displays a left or right cue for eight neural frames, waits through a blank
+delay, then requests a choice for eight frames. The delay is drawn uniformly from 8, 32,
+and 128 frames. Each world starts one fresh reservoir and ends after this episode.
+
+## Observations and actions
+
+The direct body has three receptors: left cue, right cue, and go. Its two effectors express
+left and right evidence. The default transient cue is absent throughout the delay and response.
+Only go is visible during the response. Neither delay nor the correct answer is supplied
+through another observation.
+
+The environment discards every pre-response action. It sums each effector's activity only
+during the response and chooses the larger sum. An exact tie chooses left and is recorded.
+This prevents the task from storing an early answer on the controller's behalf.
+
+## Run a diagnostic
+
+```bash
+julia --project=. examples/delayed_cue.jl
+```
+
+The example prints each trial's initial `(cue, delay)` and declared task outcome.
+`recall_accuracy` is 1 for a correct complete episode and 0 for an incorrect one. Its
+normalised value is identical because the analytic anchors are 0 and 1. Chance is 0.5;
+it is not the lower anchor. An incomplete episode has no score.
+
+Typed evaluations require zero warm-up and a horizon covering the longest configured
+episode: 144 frames with the defaults. A shorter diagnostic simulation may produce a
+missing outcome. Episode completion, decision, exact ties, cue, and delay remain diagnostics.
+
+## Controls and admission
+
+The control tests use only the declared receptor values. A controller that remembers the
+cue succeeds on every tested block. A memoryless controller succeeds when `cue_mode=:persistent`
+keeps the cue visible. With transient or hidden cues it stays near chance. Visibility
+changes preserve the same seeded cue and delay.
+
+The fixed Falandays and SORN profiles remain near chance in the fresh 256-block development
+pilot. This supports using the task to expose a missing memory capability. It does not
+establish successful memory, cognition, or biological fidelity in either model.
+
+Version 2 reserves 512 fresh confirmation blocks. Its frozen gains are 0.125 for Falandays
+and 1 for SORN. Confirmation has not been collected by the development scripts.
+
+Return to the [benchmark protocol](/benchmarks/) for the four task coordinates and evidence boundary.
+
+<p class="bl-source">Source: <code>src/envs/DelayedCue.jl</code>, <code>src/tasks/Tasks.jl</code>, <code>test/test_delayed_cue.jl</code>, <code>tools/run_delayed_cue_pilot.jl</code>.</p>

@@ -1,6 +1,6 @@
 ---
 title: Core catalogue
-description: Inspect the registered Falandays and SORN nodes and the three benchmark task contracts.
+description: Inspect the registered Falandays and SORN nodes and the four v2 benchmark task contracts.
 ---
 
 The core catalogue is intentionally small. Query `DEFAULT_REGISTRY` for the current
@@ -16,7 +16,7 @@ machine-readable definitions.
 The registered presets `:falandays_tracking`, `:falandays_pong`, and `:falandays_wall`
 select task-specific node counts and parameters.
 
-Benchmark version 1 does not use those task-specific presets. It declares one fixed
+Benchmark versions 1 and 2 do not use those task-specific presets. Each declares one fixed
 200-node profile for each model and selects only an external input gain per task. See
 [Benchmark models](/benchmarks/models/).
 
@@ -27,6 +27,7 @@ Benchmark version 1 does not use those task-specific presets. It declares one fi
 | Tracking | `track_score` | analytic chance alignment, `0.0` | perfect alignment, `1.0` |
 | Pong | `hit_rate` | calibrated `null_random` control | analytic interception maximum, `1.0` |
 | Plank CartPole Easy | `fitness` | analytic minimum, `0.0` | full 15,000-step mission |
+| Delayed cue | `recall_accuracy` | analytic minimum, `0.0` | correct recall, `1.0` |
 
 Each task also declares how long a run must be before its outcome means anything. An
 evaluation whose scored interval falls below `minimum_scored_ticks` is rejected during
@@ -37,6 +38,7 @@ plan validation, so check these before writing a horizon and warm-up.
 | Tracking | `2000` | `2000` | `track_score` averages one sample per tick, and the between-seed spread only falls below the mean past roughly this many scored ticks |
 | Pong | `7200` | `6000` | Pong emits about one ball event per 305 ticks, so a shorter interval scores too few events to estimate a hit rate |
 | Plank CartPole Easy | `15000` | `15000` | one episode runs until failure or the full mission; the benchmark records the actual terminated length |
+| Delayed cue | `144` | complete episode | zero warm-up and enough horizon for the longest configured delay; completion may occur early |
 
 The scored interval is `horizon - warmup`, not `horizon`. Pass an explicit `window` to
 acknowledge a deliberately short diagnostic run.
@@ -59,6 +61,8 @@ cartpole.ceiling
 
 Tracking, Pong, and Plank CartPole Easy carry `:benchmark`, `:qualification`, and `:core`
 tags. Wall remains registered with `:available` but is not part of this set.
+Delayed cue carries `:benchmark`, `:memory`, and `:experimental`; benchmark membership
+does not change its experimental software status. Its chance accuracy is 0.5.
 
 Pong now defaults to 7,200 ticks with a 1,200-tick warm-up and 6,000 scored ticks. Ball
 events arrive about once per 305 ticks. The scored interval therefore contains about 20

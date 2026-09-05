@@ -1,0 +1,21 @@
+---
+title: Delayed-cue recall
+description: A binary memory task with explicit cue, blank delay, and response phases.
+experimental:
+  family: worlds-tasks
+  readiness: integrated
+  tags: [memory, delayed-cue, benchmark]
+  core_page: /reference/core-catalog/
+  source_paths: [src/envs/DelayedCue.jl, src/tasks/Tasks.jl]
+  example_paths: [examples/delayed_cue.jl]
+  test_paths: [test/test_delayed_cue.jl]
+---
+
+The `:delayed_cue` task tests whether controller state retains a binary cue through a blank
+interval. Only response-period actions contribute to the decision. Persistent and hidden
+cue modes support controls with identical seeded worlds.
+
+The software is integrated into the four-task v2 benchmark. Its initial model results are
+development observations near chance; confirmation remains pending. Read the
+[task guide](/benchmarks/tasks/delayed-cue/) for a runnable example, outcome definition,
+controls, and interpretation limits.

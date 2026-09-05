@@ -170,6 +170,10 @@ end
         :DIRECT_CONTROL_GAIN_GRID,
         :DIRECT_CONTROL_INPUT_GAINS,
         :DIRECT_CONTROL_EXPERIMENT,
+        :DIRECT_CONTROL_BENCHMARK_V2,
+        :DIRECT_CONTROL_EXPERIMENT_V2,
+        :benchmark_evolution_targets,
+        :validate_task_evaluation,
         :calibration_plans,
         :select_input_gain,
         :freeze_benchmark,
@@ -203,7 +207,7 @@ end
     )
 
     @test actual_exports == expected_exports
-    @test length(public_only) == 491
+    @test length(public_only) == 493
     @test all(name -> name in public_only, (
         :explore,
         :Evolution,

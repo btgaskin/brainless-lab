@@ -2,6 +2,8 @@ using BrainlessLab, Random, Statistics, TOML
 
 """Warmed kernel costs and paired synthetic input sensitivity; development diagnostics only."""
 function profile_ctrnn(; output="benchmarks/ctrnn-readiness/development")
+    source_sha = readchomp(`git rev-parse HEAD`)
+    source_state = isempty(readchomp(`git status --porcelain`)) ? "clean" : "dirty"
     mkpath(output)
     costs = NamedTuple[]
     responses = NamedTuple[]
@@ -64,8 +66,7 @@ function profile_ctrnn(; output="benchmarks/ctrnn-readiness/development")
     open(joinpath(output, "initialisation.toml"), "w") do io
         TOML.print(io, Dict("evidence_state" => "exploratory", "nodes" => selections,
             "julia_version" => string(VERSION), "samples_per_scale" => 24,
-            "source_sha" => readchomp(`git rev-parse HEAD`),
-            "source_state" => isempty(readchomp(`git status --porcelain`)) ? "clean" : "dirty"); sorted=true)
+            "source_sha" => source_sha, "source_state" => source_state); sorted=true)
     end
     return selections
 end

@@ -60,9 +60,9 @@ export const DEFAULT_PARAMS: FalandaysParams = {
   learnTargets: true,
 };
 
-/** Browser-facing parameters for the registered experimental SORN node. */
+/** SORN display parameters; these differ from the frozen benchmark profile. */
 export interface SornParams {
-  /** Reservoir node count belongs to the composition in the Julia runtime. */
+  /** Total excitatory plus inhibitory nodes, as in the Julia composition. */
   N: number;
   inhibitoryFraction: number;
   pEe: number;

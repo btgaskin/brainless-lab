@@ -41,7 +41,7 @@ export function SornControlPanel({
           format={(value) => String(Math.round(value))}
           onChange={(value) => set('N', Math.round(value))}
         />
-        <Slider label="inhibitory fraction" value={params.inhibitoryFraction} min={0.05} max={0.5} step={0.01} format={fmt2} onChange={(value) => set('inhibitoryFraction', value)} />
+        <Slider label="inhibitory / excitatory ratio" value={params.inhibitoryFraction} min={0.05} max={0.5} step={0.01} format={fmt2} onChange={(value) => set('inhibitoryFraction', value)} />
         <Slider label="E→E connection p" value={params.pEe} min={0.02} max={0.5} step={0.01} format={fmt2} onChange={(value) => set('pEe', value)} />
         <Slider label="STDP rate" value={params.etaStdp} min={0} max={0.02} step={0.0005} format={fmt4} onChange={(value) => set('etaStdp', value)} />
         <Slider label="threshold rate" value={params.etaIp} min={0} max={0.01} step={0.0002} format={fmt4} onChange={(value) => set('etaIp', value)} />
@@ -67,8 +67,8 @@ export function SornControlPanel({
       <div className="h-px bg-grid" />
 
       <p className="text-[10px] font-light leading-relaxed text-ink-muted">
-        Browser reimplementation of the registered SORN defaults; experimental and illustrative.{' '}
-        <a href="/handbook/nodes-reservoirs/#experimental-sorn-node" className="text-teal-ink underline underline-offset-2 hover:text-teal">
+        Illustrative SORN display; parameters differ from the benchmark profile.{' '}
+        <a href="/handbook/nodes-reservoirs/#sorn" className="text-teal-ink underline underline-offset-2 hover:text-teal">
           Node boundary&nbsp;→
         </a>
       </p>

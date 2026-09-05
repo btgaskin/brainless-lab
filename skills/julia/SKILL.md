@@ -167,6 +167,13 @@ guess at API details from memory once you're past the principle level.
 
 ## A note on scope
 
+In BrainlessLab CTRNN work, warm `step!` before measuring it with `tools/profile_ctrnn.jl`.
+Preserve immutable fixture parity separately from timing and behavioural performance.
+Keep scratch buffers private to each reservoir and returned activity arrays independently
+owned. Cached static kernels must refresh when the complete genome is replaced. Evolution
+uses compact trial records and atomic generation journals; one shared design supplies all
+targets generated from the versioned benchmark. The v2 task list includes delayed-cue recall.
+
 This skill is written to be useful for any Julia work, not only computational neuroscience or
 artificial life — the two pillars and the inspect/debug/clarify/optimize workflow apply identically
 to a data-cleaning script or a web backend. The domain ecosystem file exists because those are the

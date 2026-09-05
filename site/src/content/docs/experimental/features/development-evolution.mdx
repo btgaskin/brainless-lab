@@ -7,8 +7,8 @@ experimental:
   tags: [development, evolution, genomes, optimization]
   core_page: /handbook/extending/
   source_paths: [src/evolution/Evolution.jl, src/evolution/Artifacts.jl, src/operations/Evolution.jl]
-  example_paths: [experiments/examples/structured-ctrnn-smoke/experiment.toml]
-  test_paths: [test/test_evolution_plan.jl, test/test_evolution_artifacts.jl]
+  example_paths: [experiments/examples/structured-ctrnn-smoke/experiment.toml, tools/run_shared_ctrnn_pilot.jl]
+  test_paths: [test/test_evolution_plan.jl, test/test_evolution_artifacts.jl, test/test_ctrnn_runtime.jl, test/test_shared_evolution.jl, test/test_records.jl]
 ---
 
 The public evolution interface searches coordinates for one fixed neural design. Use
@@ -17,11 +17,53 @@ budget, random seed, measure, direction, initialisation, and strategy options.
 
 Any registered node that declares a reviewed `Evolution.NodeDesignSpec` can use this
 operation. The Falandays design searches seven bounded coordinates and keeps online
-plasticity enabled; `learn_on` is not a coordinate. Other registered designs remain
-outside the current introductory and benchmark paths.
+plasticity enabled; `learn_on` is not a coordinate. Structured and Dense CTRNNs supply
+220-coordinate and 404-coordinate designs for experimental shared-task searches.
 
 Each design fixes its parameter schema during a search. Evolution does not add nodes, alter
 topology, change body components, or change receptor and effector ports.
+
+## Prepare a shared CTRNN search
+
+Use one design across the full versioned task list. Each candidate is evaluated on Tracking,
+Pong, Plank CartPole Easy, and delayed cue. The genome, 200-node count, construction policy,
+integration settings, and input gain remain the same across tasks.
+
+```julia
+using BrainlessLab
+targets = benchmark_evolution_targets(DIRECT_CONTROL_BENCHMARK_V2,
+    :compartmental_structured; root_seed=961_000, blocks=2,
+    parameters=Dict(:dt => 1.0, :substeps => 5))
+run = BrainlessLab.Evolution.RunConfig(
+    strategy=:nsga2, iterations=2, search_seed=971_001,
+    measure=:benchmark_profile, direction=:maximise,
+    initialisation=BrainlessLab.Evolution.NormalInitialisation(centre=:zero, scale=1.0),
+    options=(population=4,))
+plan = EvolutionPlan(:shared_ctrnn, targets; run)
+validate(plan, DEFAULT_REGISTRY)
+```
+
+This command validates the plan without starting the search. `measure=:benchmark_profile`
+keeps native task coordinates separate. Tracking error is negated so that higher is better
+for every NSGA-II objective. Raw coordinates, outcome keys, and normalised outcomes remain
+in the trial records. A scalar average across incompatible units is rejected for this measure.
+
+Typed CTRNN parameters include `dt`, `substeps`, `hill_tau`, `hill_reset`, `link_p`, `rho`,
+`k_rec`, `k_in`, `output_fanout`, `init_random`, and `state_scale`. Exact connection counts
+override the probability-derived counts. `output_fanout` fixes the number of source nodes
+per effector; its default retains the seeded mask policy. Integration uses forward Euler.
+Five substeps per neural frame is the default, not a guarantee of numerical accuracy.
+
+The runtime caches static model coefficients and owns reusable scratch buffers. Treat a
+constructed genome as fixed. Assign a complete replacement through `reservoir.genome = model`
+to refresh the cache; do not mutate the genome's coefficient arrays in place.
+
+Run `tools/profile_ctrnn.jl` before `tools/run_shared_ctrnn_pilot.jl`. The first script
+measures warmed costs and selects an initialisation scale from paired synthetic input
+diagnostics. The second runs three search seeds per family, two generations, four candidates,
+and two development blocks per task, under a combined two-hour wall-time budget.
+It then nominates one shared design per family and tests its saved artifact on fresh
+development blocks. These small pilots test software and search readiness, not competitive success.
 
 ## Search strategies
 
@@ -61,17 +103,39 @@ An evolution operation writes the standard full record, including the submitted 
 resolved plans, realised seeds, authoritative tables, model artifacts, provenance, and
 checksums. It also records a continuation point at each completed generation.
 
+Candidate history retains compact trial and seed rows rather than full simulation objects.
+Each completed generation writes an atomic, checksummed data directory. Older flat-table
+records remain readable. Completed runs also provide the usual flat CSV tables.
+
 If execution stops, `Evolution.resume` validates the record and continues the same
 directory from the last complete generation. It reruns incomplete generation work. A
 successful record contains `DONE` and contains neither `INCOMPLETE` nor `FAILED`.
+
+`run_operation(plan; max_seconds=7200)` and `Evolution.resume(path; max_seconds=7200)`
+check the wall-time budget between episodes. A running episode can finish after the limit.
+A budget stop retains `INCOMPLETE`; continuation requires at least one complete generation
+and matching source/environment provenance. Non-finite CTRNN dynamics are recorded as
+invalid candidate evaluations. Unexpected software errors still stop the operation.
+
+Training and held-out realised world seeds must be disjoint. Search randomness uses a
+separate stream. Development selection and confirmation remain the study author's explicit
+responsibility; software validation is not a sealed-data service.
 
 `Evolution.model_reference(record_directory, model_id)` returns a portable reference to one
 recorded model. Attach that reference to a new `EvaluationTarget`, then use a
 `BenchmarkPlan` for frozen evaluation.
 
-The experimental path remains available through `EvolutionPlan`,
-`Evolution.resume`, and versioned experiment bundles. It is not part of the
-current public benchmark or introductory documentation.
+`ModelProfileSpec(model=reference, ...)` also carries the same saved artifact into generated
+calibration and benchmark targets. Each task receives the model unchanged.
+
+Read the [CTRNN readiness record](https://github.com/btgaskin/brainless-lab/tree/main/benchmarks/ctrnn-readiness)
+for the implementation audit, measured costs, pilot results, and remaining search risks.
+
+The first bounded pilot completed three searches per family and evaluated one saved nominee
+per family on eight fresh development blocks per task. Neither produced a competitive
+shared design. Most initial models were insensitive to the synthetic input probe, and many
+candidate recall responses tied. Further development should address input sensitivity and
+coverage of all delay lengths before increasing the search budget.
 
 ## Evidence boundary
 

@@ -104,6 +104,17 @@ body-body collision response, and species-specific vision.
 `Evolution.NodeDesignSpec`. Node count and composition structure remain fixed. The included
 optimiser is experimental infrastructure. One run does not measure search variance.
 
+Structured and Dense CTRNNs can now use one saved genome across all four v2 benchmark
+tasks. Their kernels have fixture checks and allocation diagnostics. Random initialisations
+often produce silent or input-insensitive outputs, so efficient execution does not imply
+an effective search landscape. Small development pilots do not establish competitive performance.
+
+Native task coordinates remain separate NSGA-II objectives. Generation journals reduce
+checkpoint writes, but candidate trial and seed history still grows with the search budget.
+Wall-time stops are checked between episodes. A single long episode can exceed the limit.
+Changing node count, topology policy, integration settings, or input gain after selection
+changes the declared design assembly and requires a new development comparison.
+
 `DevelopmentSpec` varies bounded scalar paths on a fixed embodiment graph. It does not add
 or remove components, vary port count, encode runtime state, or schedule developmental
 events.

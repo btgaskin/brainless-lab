@@ -1,0 +1,83 @@
+coordinates = "coordinates.csv"
+coordinates_sha256 = "ef83bed2dfb3aa906beb1b3945f44a22cbc2ccd62cd825b9f90841886aea29c1"
+format = "brainlesslab-model-artifact"
+format_version = 2
+model_index = "models.csv"
+model_index_sha256 = "5b826e5009bb0ca4abbb57c81243e9040f42439d9991019b8a1d60b4fba5bb9b"
+node = "compartmental_dense"
+
+[design]
+dimension = 404
+model_type = "BrainlessLab.DenseCompartmental"
+stability = "experimental"
+
+    [[design.blocks]]
+    first = 1
+    last = 6
+    name = "w_aff_d"
+    shape = [6]
+    [[design.blocks]]
+    first = 7
+    last = 42
+    name = "W_dd"
+    shape = [6, 6]
+    [[design.blocks]]
+    first = 43
+    last = 114
+    name = "W_s_d"
+    shape = [12, 6]
+    [[design.blocks]]
+    first = 115
+    last = 186
+    name = "W_d_s"
+    shape = [6, 12]
+    [[design.blocks]]
+    first = 187
+    last = 330
+    name = "W_ss"
+    shape = [12, 12]
+    [[design.blocks]]
+    first = 331
+    last = 336
+    name = "b_d"
+    shape = [6]
+    [[design.blocks]]
+    first = 337
+    last = 342
+    name = "raw_tau_d"
+    shape = [6]
+    [[design.blocks]]
+    first = 343
+    last = 354
+    name = "b_s"
+    shape = [12]
+    [[design.blocks]]
+    first = 355
+    last = 366
+    name = "raw_tau_s"
+    shape = [12]
+    [[design.blocks]]
+    first = 367
+    last = 378
+    name = "w_s_drv"
+    shape = [12]
+    [[design.blocks]]
+    first = 379
+    last = 390
+    name = "w_s_thr"
+    shape = [12]
+    [[design.blocks]]
+    first = 391
+    last = 402
+    name = "w_h_s"
+    shape = [12]
+    [[design.blocks]]
+    first = 403
+    last = 403
+    name = "thr_base"
+    shape = [1]
+    [[design.blocks]]
+    first = 404
+    last = 404
+    name = "thr_gain"
+    shape = [1]

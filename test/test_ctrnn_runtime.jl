@@ -26,6 +26,8 @@ using BrainlessLab: resource_report, resolve_composition
         @test report.internal_states == 20 * (6 * 6 + 12 + 1)
         @test report.integration_updates_per_frame == 5 * report.internal_states
         step!(multi, input)
+        @test (@inferred step!(multi, input)) isa Vector{Float64}
+        @test (@inferred effectors(multi, output)) isa Vector{Float64}
         @test (@allocated step!(multi, input)) < 1500
         @test_throws ArgumentError BrainlessLab.CompartmentalReservoir(model, wiring; substeps=0)
         @test_throws ArgumentError BrainlessLab.CompartmentalReservoir(model, wiring; dt=NaN)

@@ -1,0 +1,170 @@
+format = "brainlesslab-plan"
+format_version = 3
+id = "compartmental_structured__fresh_selection"
+operation = "benchmark"
+
+[[benchmark.cases]]
+conditions = ["tracking__shared_design"]
+id = "tracking"
+[[benchmark.cases]]
+conditions = ["pong__shared_design"]
+id = "pong"
+[[benchmark.cases]]
+conditions = ["cartpole_plank_easy__shared_design"]
+id = "cartpole_plank_easy"
+[[benchmark.cases]]
+conditions = ["delayed_cue__shared_design"]
+id = "delayed_cue"
+
+[[targets]]
+id = "tracking__shared_design"
+topology_key = "compartmental_structured"
+
+    [targets.composition]
+    id = "tracking__shared_design"
+    n_nodes = 200
+    node = "compartmental_structured"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        dt = 1.0
+        init_random = true
+        link_p = 0.1
+        rho = 0.2
+        state_scale = 0.05
+        substeps = 5
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 8
+    construction_scope = "trial"
+    horizon = 7200
+    reset = "full"
+    root_seed = 0x0efbf0
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 1200
+
+    [targets.model]
+    coordinates_sha256 = "4e80dfdd1ce6be6eec3b87c3a82bb942d428513e89f40ac0e3ceebb718fe3ab0"
+    model_id = "selected"
+    node = "compartmental_structured"
+    path = "benchmarks/ctrnn-readiness/development/compartmental_structured-nominee"
+    schema_sha256 = "da6f469b59f40cef50f0e754a487822d7311fca18bf9bc9427c0d667e5620aa6"
+[[targets]]
+id = "pong__shared_design"
+topology_key = "compartmental_structured"
+
+    [targets.composition]
+    id = "pong__shared_design"
+    n_nodes = 200
+    node = "compartmental_structured"
+    task = "pong"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        dt = 1.0
+        init_random = true
+        link_p = 0.1
+        rho = 0.2
+        state_scale = 0.05
+        substeps = 5
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 8
+    construction_scope = "trial"
+    horizon = 7200
+    reset = "full"
+    root_seed = 0x0effd8
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 1200
+
+    [targets.model]
+    coordinates_sha256 = "4e80dfdd1ce6be6eec3b87c3a82bb942d428513e89f40ac0e3ceebb718fe3ab0"
+    model_id = "selected"
+    node = "compartmental_structured"
+    path = "benchmarks/ctrnn-readiness/development/compartmental_structured-nominee"
+    schema_sha256 = "da6f469b59f40cef50f0e754a487822d7311fca18bf9bc9427c0d667e5620aa6"
+[[targets]]
+id = "cartpole_plank_easy__shared_design"
+topology_key = "compartmental_structured"
+
+    [targets.composition]
+    id = "cartpole_plank_easy__shared_design"
+    n_nodes = 200
+    node = "compartmental_structured"
+    task = "cartpole_plank_easy"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        dt = 1.0
+        init_random = true
+        link_p = 0.1
+        rho = 0.2
+        state_scale = 0.05
+        substeps = 5
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 8
+    construction_scope = "trial"
+    horizon = 15000
+    reset = "full"
+    root_seed = 0x0f03c0
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [targets.model]
+    coordinates_sha256 = "4e80dfdd1ce6be6eec3b87c3a82bb942d428513e89f40ac0e3ceebb718fe3ab0"
+    model_id = "selected"
+    node = "compartmental_structured"
+    path = "benchmarks/ctrnn-readiness/development/compartmental_structured-nominee"
+    schema_sha256 = "da6f469b59f40cef50f0e754a487822d7311fca18bf9bc9427c0d667e5620aa6"
+[[targets]]
+id = "delayed_cue__shared_design"
+topology_key = "compartmental_structured"
+
+    [targets.composition]
+    id = "delayed_cue__shared_design"
+    n_nodes = 200
+    node = "compartmental_structured"
+    task = "delayed_cue"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        dt = 1.0
+        init_random = true
+        link_p = 0.1
+        rho = 0.2
+        state_scale = 0.05
+        substeps = 5
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 8
+    construction_scope = "trial"
+    horizon = 144
+    reset = "full"
+    root_seed = 0x0f07a8
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [targets.model]
+    coordinates_sha256 = "4e80dfdd1ce6be6eec3b87c3a82bb942d428513e89f40ac0e3ceebb718fe3ab0"
+    model_id = "selected"
+    node = "compartmental_structured"
+    path = "benchmarks/ctrnn-readiness/development/compartmental_structured-nominee"
+    schema_sha256 = "da6f469b59f40cef50f0e754a487822d7311fca18bf9bc9427c0d667e5620aa6"

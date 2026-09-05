@@ -38,7 +38,7 @@ end
     ))
     @test Set(tasks(tag=:plank_cartpole)) == expected
     @test Set(tasks(tag=:qualification)) == Set((:tracking, :pong, :cartpole_plank_easy))
-    @test Set(tasks(tag=:benchmark)) == Set((:tracking, :pong, :cartpole_plank_easy))
+    @test Set(tasks(tag=:benchmark)) == Set((:tracking, :pong, :cartpole_plank_easy, :delayed_cue))
     @test isempty(tasks(tag=:frontier))
     @test :pong_hitrate in tasks(tag=:alias)
     @test :wall ∉ tasks(tag=:extended)

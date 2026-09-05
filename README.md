@@ -10,8 +10,12 @@ operations, and portable records.
 
 The canonical `:falandays` node is validated on declared reference trajectories. `:sorn`
 is a stable, paper-aligned implementation with a separate software-conformance boundary.
-Tracking, Pong, and Plank CartPole Easy are the core benchmark tasks. These declarations
+Tracking, Pong, Plank CartPole Easy, and delayed-cue recall are the v2 benchmark tasks. These declarations
 do not establish general competence or biological fidelity.
+
+The [v2 protocol](benchmarks/direct-control/v2/README.md) is frozen; confirmation remains
+pending. [Shared CTRNN development](benchmarks/ctrnn-readiness/README.md) evaluates one
+fixed design across all four tasks. Its pilots remain development evidence.
 
 ## Quick start
 

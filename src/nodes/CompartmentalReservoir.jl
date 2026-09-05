@@ -184,12 +184,6 @@ end
     return SVector{N,Float64}(ntuple(i -> _compartmental_sigmoid(v[i]), Val(N)))
 end
 
-@inline function _zero_mvector_s()
-    out = MVector{COMPARTMENTAL_S,Float64}(undef)
-    fill!(out, 0.0)
-    return out
-end
-
 @inline function _dense_kernel(g::DenseCompartmental)
     return (
         w_aff_d=SVector{COMPARTMENTAL_D,Float64}(g.w_aff_d),
@@ -416,7 +410,8 @@ function _step_compartmental!(r::CompartmentalReservoir, receptor_c::Vector{Floa
 
     @inbounds for n in 1:w.N
         prev_soma_out = _sigmoid_svector(_svector_s_from_prev_soma(r, n))
-        conv_sum = _zero_mvector_s()
+        conv_sum = r.state.convolution
+        fill!(conv_sum, 0.0)
 
         for k in 1:w.K
             y_old = _svector_d_from_state(r, n, k)

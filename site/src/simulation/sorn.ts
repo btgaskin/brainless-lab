@@ -26,18 +26,23 @@ function ensureEachRow(mask: Uint8Array, rows: number, cols: number, rng: Rng, n
   }
 }
 
-function ensureEachColumn(mask: Uint8Array, rows: number, cols: number, rng: Rng): void {
-  if (rows === 0) return;
+function roundToEven(value: number): number {
+  const lower = Math.floor(value);
+  return value - lower === 0.5 ? lower + (lower % 2) : Math.round(value);
+}
+
+function fixedColumnFanout(rows: number, cols: number, fraction: number, rng: Rng): Uint8Array {
+  const mask = new Uint8Array(rows * cols);
+  const fanout = Math.max(1, Math.min(rows, roundToEven(fraction * rows)));
   for (let col = 0; col < cols; col++) {
-    let connected = false;
-    for (let row = 0; row < rows; row++) {
-      if (mask[row * cols + col]) {
-        connected = true;
-        break;
-      }
+    const sources = Array.from({ length: rows }, (_, row) => row);
+    for (let index = 0; index < fanout; index++) {
+      const selected = index + rng.int(rows - index);
+      [sources[index], sources[selected]] = [sources[selected], sources[index]];
+      mask[sources[index] * cols + col] = 1;
     }
-    if (!connected) mask[rng.int(rows) * cols + col] = 1;
   }
+  return mask;
 }
 
 function rowNormalisedWeights(
@@ -68,16 +73,17 @@ function rowNormalisedWeights(
 }
 
 /**
- * Browser reimplementation of the registered experimental SORN node.
+ * Illustrative browser implementation of the registered SORN equations.
  *
  * The update order follows `src/nodes/SORN.jl`: binary excitatory and
- * inhibitory dynamics, E-to-E STDP, intrinsic threshold plasticity, then
- * incoming E-to-E synaptic normalisation. The browser uses its own seeded
- * PRNG, so this is an illustrative deterministic port rather than a Julia
- * trajectory fixture.
+ * inhibitory dynamics, E-to-E STDP with permanent pruning, incoming E-to-E
+ * synaptic normalisation, then intrinsic threshold plasticity. The browser
+ * uses its own seeded PRNG and display parameters; Julia trajectory parity
+ * has not been established.
  */
 export class SornReservoir {
   readonly nNodes: number;
+  readonly nExcitatory: number;
   readonly nReceptors: number;
   readonly nEffectors: number;
   readonly nInhibitory: number;
@@ -102,24 +108,23 @@ export class SornReservoir {
     this.nNodes = params.N;
     this.nReceptors = nReceptors;
     this.nEffectors = nEffectors;
-    this.nInhibitory = Math.round(params.inhibitoryFraction * params.N);
+    this.nExcitatory = Math.max(1, Math.min(params.N, roundToEven(params.N / (1 + params.inhibitoryFraction))));
+    this.nInhibitory = params.N - this.nExcitatory;
     this.params = { ...params };
 
     const rng = new Rng(seed);
-    const nE = this.nNodes;
+    const nE = this.nExcitatory;
     const nI = this.nInhibitory;
 
     this.eeMask = bernoulliMask(nE, nE, params.pEe, rng, true);
     const eiMask = bernoulliMask(nE, nI, params.pEi, rng);
     const ieMask = bernoulliMask(nI, nE, params.pIe, rng);
-    const inputMask = bernoulliMask(nE, nReceptors, params.pInput, rng);
-    this.outputMask = bernoulliMask(nE, nEffectors, params.pOutput, rng);
+    const inputMask = fixedColumnFanout(nE, nReceptors, params.pInput, rng);
+    this.outputMask = fixedColumnFanout(nE, nEffectors, params.pOutput, rng);
 
     ensureEachRow(this.eeMask, nE, nE, rng, true);
     ensureEachRow(eiMask, nE, nI, rng);
     ensureEachRow(ieMask, nI, nE, rng);
-    ensureEachRow(inputMask, nE, nReceptors, rng);
-    ensureEachColumn(this.outputMask, nE, nEffectors, rng);
 
     this.wEe = rowNormalisedWeights(this.eeMask, nE, nE, params.eeRowSum, rng);
     this.cE = new Float64Array(nE);
@@ -151,7 +156,7 @@ export class SornReservoir {
       throw new RangeError(`expected ${this.nReceptors} receptor currents, got ${receptors.length}`);
     }
 
-    const nE = this.nNodes;
+    const nE = this.nExcitatory;
     const nI = this.nInhibitory;
     this.prevX.set(this.x);
     this.prevY.set(this.y);
@@ -182,7 +187,10 @@ export class SornReservoir {
 
     if (this.params.learnOn) this.applyPlasticity();
     this.tick += 1;
-    return this.x;
+    const spikes = new Float64Array(this.nNodes);
+    spikes.set(this.x);
+    spikes.set(this.y, nE);
+    return spikes;
   }
 
   effectorOutputs(): number[] {
@@ -190,7 +198,7 @@ export class SornReservoir {
     for (let effector = 0; effector < this.nEffectors; effector++) {
       let count = 0;
       let total = 0;
-      for (let node = 0; node < this.nNodes; node++) {
+      for (let node = 0; node < this.nExcitatory; node++) {
         if (!this.outputMask[node * this.nEffectors + effector]) continue;
         count += 1;
         total += this.x[node];
@@ -208,11 +216,12 @@ export class SornReservoir {
       this.y.reduce((sum, value) => sum + value, 0),
       this.tE.reduce((sum, value) => sum + value, 0),
       this.wEe.reduce((sum, value) => sum + value, 0),
+      this.eeMask.reduce((sum, value) => sum + value, 0),
     ];
   }
 
   private applyPlasticity(): void {
-    const nE = this.nNodes;
+    const nE = this.nExcitatory;
     const etaStdp = this.params.etaStdp;
 
     for (let row = 0; row < nE; row++) {
@@ -227,11 +236,8 @@ export class SornReservoir {
           this.x[row] * this.prevX[col] - this.prevX[row] * this.x[col]
         );
         this.wEe[index] = Math.max(0, this.wEe[index] + delta);
+        if (this.wEe[index] === 0) this.eeMask[index] = 0;
       }
-    }
-
-    for (let row = 0; row < nE; row++) {
-      this.tE[row] += this.params.etaIp * (this.x[row] - this.params.hIp);
     }
 
     for (let row = 0; row < nE; row++) {
@@ -243,6 +249,9 @@ export class SornReservoir {
       if (total <= 0) continue;
       const scale = target / total;
       for (let col = 0; col < nE; col++) this.wEe[offset + col] *= scale;
+    }
+    for (let row = 0; row < nE; row++) {
+      this.tE[row] += this.params.etaIp * (this.x[row] - this.params.hIp);
     }
   }
 }

@@ -1,0 +1,26 @@
+budget_seconds = 7200.0
+elapsed_seconds = 2250.045473625
+evidence_state = "tuned"
+source_sha = "54b95e20790111d5cde6ace8947c8105b182bcde"
+
+[nodes.compartmental_dense]
+baseline_relative_margins = [-1.067549230630711, -0.7777777777777778, -0.40540540540540543, 0.0]
+candidate = 3
+iteration = 1
+model_path = "benchmarks/ctrnn-readiness/development/compartmental_dense-nominee"
+scores = [-90.38667877282157, 1.0, 11.0, 1.0]
+search_seed = 971002
+selection_record = "compartmental_dense__fresh_selection-20260905T094612-5c198164"
+selection_status = "complete"
+source_record = "compartmental_dense__971002-20260905T092940-4adff939"
+
+[nodes.compartmental_structured]
+baseline_relative_margins = [-1.0520190474502158, -0.6666666666666666, -0.2702702702702703, 0.0]
+candidate = 7
+iteration = 2
+model_path = "benchmarks/ctrnn-readiness/development/compartmental_structured-nominee"
+scores = [-89.70774854101747, 1.5, 13.5, 1.0]
+search_seed = 971003
+selection_record = "compartmental_structured__fresh_selection-20260905T092131-82a4902b"
+selection_status = "complete"
+source_record = "compartmental_structured__971003-20260905T091618-8e133f62"

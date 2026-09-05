@@ -8,7 +8,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 // BrainlessLab docs + outputs site.
 // Math: remark-math (source) -> rehype-katex (render); KaTeX CSS is pulled in via
-// customCss below. The interactive Falandays demo mounts as a React island.
+// customCss below. The illustrative neural-substrate demo mounts as a React island.
 export default defineConfig({
   site: 'https://brainless-lab.pages.dev',
   redirects: {
@@ -101,6 +101,7 @@ export default defineConfig({
                 { label: 'Tracking', slug: 'benchmarks/tasks/tracking' },
                 { label: 'Pong', slug: 'benchmarks/tasks/pong' },
                 { label: 'Plank CartPole Easy', slug: 'benchmarks/tasks/cartpole-plank-easy' },
+                { label: 'Delayed cue', slug: 'benchmarks/tasks/delayed-cue' },
               ],
             },
             {

@@ -1,14 +1,14 @@
 ---
-title: SORN node
+title: SORN browser comparison
 description: Binary excitatory and inhibitory dynamics with online STDP, intrinsic threshold plasticity, and synaptic normalisation.
 experimental:
   family: reservoirs
-  readiness: available
+  readiness: integrated
   tags: [sorn, online-plasticity, intrinsic-plasticity, recurrent-weights]
   core_page: /handbook/nodes-reservoirs/
-  source_paths: [src/nodes/SORN.jl, src/core/Catalog.jl]
-  example_paths: []
-  test_paths: [test/test_sorn.jl]
+  source_paths: [src/nodes/SORN.jl, src/core/Catalog.jl, site/src/simulation/sorn.ts, site/src/simulation/demoRuntime.ts]
+  example_paths: [site/src/components/BrainlessDemo.tsx]
+  test_paths: [test/test_sorn.jl, site/src/simulation/sorn.test.ts, site/src/simulation/demoRuntime.test.ts]
 ---
 
 The registered `:sorn` node separates binary excitatory and inhibitory populations. Its
@@ -20,3 +20,12 @@ The standard runtime can construct, step, replay, and freeze the node. The curre
 not establish paper-level prediction performance, biological plausibility, or
 avalanche-scaling criticality. No accepted benchmark record qualifies SORN as a reference
 node.
+
+SORN is a stable Julia registry node with its own software-conformance boundary. The
+landing-page browser port is an illustrative comparison in Pong, Tracking, and CartPole
+Easy. Its display parameters and seeds differ from the fixed 200-node benchmark profile.
+Browser replay tests do not establish numerical parity with Julia or benchmark performance.
+
+Choose SORN in the landing demo, select a task, and use reset to reconstruct the same
+display world. Read the [benchmark profile](/benchmarks/models/sorn/) for the research
+assembly and its separate evidence boundary.

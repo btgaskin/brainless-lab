@@ -1,6 +1,6 @@
 ---
 title: Benchmark tasks
-description: The three frozen direct-control harnesses and the profile coordinates they measure.
+description: The four frozen direct-control harnesses and the profile coordinates they measure.
 ---
 
 A benchmark task is more than an environment name. It fixes the observations, encoder,
@@ -12,6 +12,7 @@ score anchors used by every model.
 | [Tracking](/benchmarks/tasks/tracking/) | mean heading error (degrees) | lower | `track_score` |
 | [Pong](/benchmarks/tasks/pong/) | mean longest rally (returns) | higher | `hit_rate` |
 | [Plank CartPole Easy](/benchmarks/tasks/cartpole-plank-easy/) | mean balanced steps | higher | `fitness` |
+| [Delayed cue](/benchmarks/tasks/delayed-cue/) | recall accuracy | higher | `recall_accuracy` |
 
 These coordinates are part of the declared task protocols for this benchmark. Other
 recorded measures remain diagnostics. The formal task outcome still appears with its key,

@@ -1,0 +1,63 @@
+coordinates = "coordinates.csv"
+coordinates_sha256 = "4e80dfdd1ce6be6eec3b87c3a82bb942d428513e89f40ac0e3ceebb718fe3ab0"
+format = "brainlesslab-model-artifact"
+format_version = 2
+model_index = "models.csv"
+model_index_sha256 = "0c401638152d16618572bf010b44aa12531ffb85e2545669b0e64381fb870982"
+node = "compartmental_structured"
+
+[design]
+dimension = 220
+model_type = "BrainlessLab.StructuredCompartmental"
+stability = "experimental"
+
+    [[design.blocks]]
+    first = 1
+    last = 1
+    name = "w_aff"
+    shape = [1]
+    [[design.blocks]]
+    first = 2
+    last = 37
+    name = "W_dd"
+    shape = [6, 6]
+    [[design.blocks]]
+    first = 38
+    last = 38
+    name = "w_back"
+    shape = [1]
+    [[design.blocks]]
+    first = 39
+    last = 182
+    name = "W_ss"
+    shape = [12, 12]
+    [[design.blocks]]
+    first = 183
+    last = 188
+    name = "b_d"
+    shape = [6]
+    [[design.blocks]]
+    first = 189
+    last = 194
+    name = "raw_tau_d"
+    shape = [6]
+    [[design.blocks]]
+    first = 195
+    last = 206
+    name = "b_s"
+    shape = [12]
+    [[design.blocks]]
+    first = 207
+    last = 218
+    name = "raw_tau_s"
+    shape = [12]
+    [[design.blocks]]
+    first = 219
+    last = 219
+    name = "w_drv"
+    shape = [1]
+    [[design.blocks]]
+    first = 220
+    last = 220
+    name = "w_hb"
+    shape = [1]

@@ -1,103 +1,104 @@
 ---
 title: Benchmark
-description: The frozen structure for comparing neural substrates on BrainlessLab's direct-control tasks.
+description: Four task coordinates for comparing fixed neural substrates, with development separated from pending confirmation.
 research:
   kind: benchmark
   id: direct-control
-  version: v1
+  version: v2
   evidence_state: frozen
-  tasks: [Tracking, Pong, Plank CartPole Easy]
+  tasks: [Tracking, Pong, Plank CartPole Easy, Delayed cue]
   nodes: [Falandays, SORN]
-  tags: [direct-control, parameter-specific]
-  protocol_path: benchmarks/direct-control/v1/README.md
+  tags: [direct-control, parameter-specific, memory]
+  protocol_path: benchmarks/direct-control/v2/README.md
   record_paths: []
 ---
 
-The direct-control benchmark asks one narrow question: how well does a fixed neural
-substrate control each task through its declared sensor and action interface? It compares
-[Falandays](/benchmarks/models/falandays/) and [SORN](/benchmarks/models/sorn/) on
-[Tracking](/benchmarks/tasks/tracking/), [Pong](/benchmarks/tasks/pong/), and
-[Plank CartPole Easy](/benchmarks/tasks/cartpole-plank-easy/).
+The direct-control benchmark asks how well a fixed neural substrate controls each task
+through its declared observations and actions. Version 2 compares
+[Falandays](/benchmarks/models/falandays/) and [SORN](/benchmarks/models/sorn/) on four tasks:
+[Tracking](/benchmarks/tasks/tracking/), [Pong](/benchmarks/tasks/pong/),
+[Plank CartPole Easy](/benchmarks/tasks/cartpole-plank-easy/), and
+[delayed-cue recall](/benchmarks/tasks/delayed-cue/).
 
-These are untrained, from-scratch direct-control profiles. A fresh random assembly starts
-each block and may use only its declared online local plasticity. There is no reward
-training, task-loss optimisation, or fitted output layer.
+Both are untrained direct-control profiles. Each block starts a fresh random assembly
+with its declared online local plasticity. There is no reward training or fitted output layer.
 
-The protocol is **frozen**. Development selected the six external input gains below. The
-untouched confirmation run has not yet been accepted, so the benchmark charts remain
-pending.
+The v2 protocol and its eight input gains are frozen. Confirmation remains pending.
+Development tables explain the selections; they are not accepted benchmark results.
+The three-task v1 definition and its records remain unchanged.
 
 ## What is held fixed
 
 | Coordinate | Rule |
 | --- | --- |
-| Dynamic neurons | 200 for both models |
-| Model mechanism | One named profile per model, unchanged across tasks |
-| Input and output assembly | Fixed within each named profile; the two profiles need not use the same pool policy |
-| Neural parameters | Fixed by the profile; not tuned per task |
-| Topology policy | Fixed by the profile; a fresh random realisation is built in each block |
-| Task harness | Frozen sensors, encoder, direct action rule, timing, outcome, and anchors |
-| Learning | Online local plasticity stays on for both profiles |
-| Readout training | None |
+| Dynamic neurons | 200 for both profiles |
+| Mechanism and neural parameters | One named profile per model, unchanged across tasks |
+| Input, output, and topology policy | Fixed within each profile, with a fresh seeded realisation per block |
+| Task harness | Fixed observations, actions, timing, termination, outcome, and anchors |
+| Learning | Declared online local plasticity stays on |
 | Independent unit | One randomised world and fresh reservoir per block |
-| Public profile | Mean heading error, mean longest rally, and mean balanced steps |
-| Record detail | Formal outcome key, raw value, and normalised value for every task |
+| Record detail | Outcome key, raw and normalised values, native profile coordinate, and resources |
 
-There is one chart per task. Tracking is better when mean heading error is lower; Pong and
-CartPole are better when mean longest rally and mean balanced steps are higher. The three
-coordinates are not normalised into a shared competence scale and are never averaged.
-This compares complete declared profiles, not neuronal update rules in isolation.
+There is one coordinate per task. Lower heading error is better on Tracking. Higher
+longest rally, balanced steps, and recall accuracy are better on the other tasks.
+These four coordinates retain their own units and are never averaged into a competence score.
+Contrasts compare complete profiles; they do not isolate the neuronal update rule.
 
-## What may be selected
+## Development selections
 
-Only `InterfaceSpec.input_gain` varies. It multiplies the task encoder output immediately
-before the reservoir receives it. It does not change a node's internal parameters.
+Only `InterfaceSpec.input_gain` varies by task. It multiplies encoded input before it
+reaches the reservoir. Every cell uses the grid `0.125, 0.25, 0.5, 1, 2, 4, 8, 16, 32, 64`.
+Selection takes the best mean native task coordinate; exact ties choose the smaller gain.
 
-Each model-task cell uses the same declared grid:
+| Task | Blocks per gain | Falandays selected gain | SORN selected gain |
+| --- | ---: | ---: | ---: |
+| Tracking | 16 | 1 | 4 |
+| Pong | 16 | 1 | 32 |
+| Plank CartPole Easy | 16 | 8 | 8 |
+| Delayed cue | 64 | 0.125 | 1 |
 
-```text
-0.125, 0.25, 0.5, 1, 2, 4, 8, 16, 32, 64
+The first three selections carry forward from v1. Recall adds a fresh 256-block paired
+pilot after gain selection. Falandays scored 123/256 (48.0%) and SORN 126/256 (49.2%).
+Both are near the 50% chance level, and the paired difference is inconclusive.
+The task was admitted because its controls establish an observable memory requirement,
+not because either profile demonstrated successful memory.
+
+## Frozen confirmation
+
+The models share each task's world seed within a block and use distinct profile-keyed
+topology streams. Every v2 confirmation root is fresh, including those for the first three tasks.
+Statistics use independent blocks rather than ticks or neurons.
+
+| Task | Blocks | Maximum horizon | Warm-up | Neural frames per world step |
+| --- | ---: | ---: | ---: | ---: |
+| Tracking | 32 | 7,200 | 1,200 | 1 |
+| Pong | 32 | 7,200 | 1,200 | 1 |
+| Plank CartPole Easy | 32 | 15,000 | 0 | 24 |
+| Delayed cue | 512 | 144 | 0 | 1 |
+
+CartPole and recall each use one episode per block and stop at episode completion.
+The CartPole protocol does not reproduce the source repository's 1,000-episode evaluation.
+
+Inspect the submitted protocol without executing confirmation:
+
+```julia
+using BrainlessLab
+plan = benchmark_plan(DIRECT_CONTROL_BENCHMARK_V2)
+validate(plan, DEFAULT_REGISTRY)
 ```
 
-Each gain receives 16 development blocks. Selection uses the same coordinate that the
-public task chart reports: minimum mean heading error for Tracking, maximum mean longest
-rally for Pong, and maximum mean balanced steps for CartPole. An exact tie selects the
-smaller gain. All six values are then frozen before confirmation begins.
+Validation checks the software contract. It does not collect observations or confirm a result.
 
-| Task | Falandays | SORN |
-| --- | --- | --- |
-| Tracking | gain `1`; 55.75° | gain `4`; 38.86° |
-| Pong | gain `1`; 4.000 returns | gain `32`; 5.125 returns |
-| Plank CartPole Easy | gain `8`; 24.25 steps | gain `8`; 15.125 steps |
+## Results and next steps
 
-The coordinate values above are means over development blocks. They chose the gains but
-are not benchmark results. The full 60-cell selection table and exact run commands are in
-the versioned protocol.
+Confirmation is pending for all four coordinates. No accepted v2 record supplies chart
+values yet. After human contribution review, each task can display its own estimate and interval.
 
-## Confirmation
+Experimental [CTRNN development searches](/experimental/features/development-evolution/)
+use this same four-task list. A single saved design serves all tasks. Those searches and
+their later development selection blocks remain outside confirmed benchmark evidence.
 
-The confirmation run uses 32 untouched paired blocks per task. The two models share each
-task's world seed within a block and receive distinct, profile-keyed topology streams.
-Statistics and paired model contrasts use blocks, not ticks or neurons, as their
-inferential units.
+Read the [versioned protocol](https://github.com/btgaskin/brainless-lab/tree/main/benchmarks/direct-control/v2)
+for controls, seed partitions, compact development tables, and reproduction commands.
 
-| Task | Horizon | Warm-up | Scored interval | Neural frames per world step |
-| --- | ---: | ---: | ---: | ---: |
-| Tracking | 7,200 | 1,200 | 6,000 | 1 |
-| Pong | 7,200 | 1,200 | 6,000 | 1 |
-| Plank CartPole Easy | at most 15,000 | 0 | until termination | 24 |
-
-CartPole uses one episode per block. This benchmark therefore does not reproduce the
-source CartPole repository's 1,000-episode evaluation.
-
-## Results
-
-**Confirmation pending.** There are no accepted benchmark records or performance values.
-After the frozen run passes contribution review, this section will show one
-coordinate-and-interval chart per task, followed by the formal task outcome, selected gain,
-and resource details for every cell.
-
-The executable development plans and full limitations are in the
-[versioned protocol](https://github.com/btgaskin/brainless-lab/tree/main/benchmarks/direct-control/v1).
-
-<p class="bl-source">Source: <code>src/operations/BenchmarkSpecs.jl</code>, <code>benchmarks/direct-control/v1/</code>.</p>
+<p class="bl-source">Source: <code>src/operations/BenchmarkSpecs.jl</code>, <code>benchmarks/direct-control/v2/</code>.</p>

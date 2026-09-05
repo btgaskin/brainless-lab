@@ -40,7 +40,7 @@ using Test
         @test task.minimum_scored_ticks == task.default_window
     end
     @test Set(tasks(DEFAULT_REGISTRY; tag=:benchmark)) ==
-        Set((:tracking, :pong, :cartpole_plank_easy))
+        Set((:tracking, :pong, :cartpole_plank_easy, :delayed_cue))
     @test isempty(tasks(DEFAULT_REGISTRY; tag=:frontier))
     @test :branching_ratio_mr in analyses(DEFAULT_REGISTRY; task=:tracking)
     @test :freeze_plasticity in ablations(DEFAULT_REGISTRY)

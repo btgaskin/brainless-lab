@@ -1,0 +1,148 @@
+format = "brainlesslab-plan"
+format_version = 3
+id = "compartmental_dense__971001"
+operation = "evolve"
+
+[evolve]
+heldout = []
+training = ["tracking__shared_design", "pong__shared_design", "cartpole_plank_easy__shared_design", "delayed_cue__shared_design"]
+
+    [evolve.run]
+    direction = "maximise"
+    iterations = 2
+    measure = "benchmark_profile"
+    search_seed = "971001"
+    strategy = "nsga2"
+
+        [evolve.run.initialisation]
+        centre = "zero"
+        kind = "normal"
+        scale = 0.25
+
+        [evolve.run.options]
+        population = 4
+
+[[targets]]
+id = "tracking__shared_design"
+topology_key = "compartmental_dense"
+
+    [targets.composition]
+    id = "tracking__shared_design"
+    n_nodes = 200
+    node = "compartmental_dense"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        dt = 1.0
+        init_random = true
+        link_p = 0.1
+        rho = 0.2
+        state_scale = 0.05
+        substeps = 5
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 2
+    construction_scope = "trial"
+    horizon = 7200
+    reset = "full"
+    root_seed = 0x0eadd0
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 1200
+[[targets]]
+id = "pong__shared_design"
+topology_key = "compartmental_dense"
+
+    [targets.composition]
+    id = "pong__shared_design"
+    n_nodes = 200
+    node = "compartmental_dense"
+    task = "pong"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        dt = 1.0
+        init_random = true
+        link_p = 0.1
+        rho = 0.2
+        state_scale = 0.05
+        substeps = 5
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 2
+    construction_scope = "trial"
+    horizon = 7200
+    reset = "full"
+    root_seed = 0x0eb1b8
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 1200
+[[targets]]
+id = "cartpole_plank_easy__shared_design"
+topology_key = "compartmental_dense"
+
+    [targets.composition]
+    id = "cartpole_plank_easy__shared_design"
+    n_nodes = 200
+    node = "compartmental_dense"
+    task = "cartpole_plank_easy"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        dt = 1.0
+        init_random = true
+        link_p = 0.1
+        rho = 0.2
+        state_scale = 0.05
+        substeps = 5
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 2
+    construction_scope = "trial"
+    horizon = 15000
+    reset = "full"
+    root_seed = 0x0eb5a0
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "delayed_cue__shared_design"
+topology_key = "compartmental_dense"
+
+    [targets.composition]
+    id = "delayed_cue__shared_design"
+    n_nodes = 200
+    node = "compartmental_dense"
+    task = "delayed_cue"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        dt = 1.0
+        init_random = true
+        link_p = 0.1
+        rho = 0.2
+        state_scale = 0.05
+        substeps = 5
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 2
+    construction_scope = "trial"
+    horizon = 144
+    reset = "full"
+    root_seed = 0x0eb988
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0

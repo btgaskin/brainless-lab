@@ -10,6 +10,30 @@ const INPUTS = [
 ] as const;
 
 describe('browser SORN reservoir', () => {
+  test('counts both populations in N and returns independently owned spikes', () => {
+    const reservoir = new SornReservoir(2, 2, { ...DEFAULT_SORN_PARAMS, N: 200 }, 17);
+    expect(reservoir.nExcitatory).toBe(167);
+    expect(reservoir.nInhibitory).toBe(33);
+    const spikes = reservoir.step(INPUTS[0]);
+    const saved = Array.from(spikes);
+    expect(spikes.length).toBe(200);
+    reservoir.step(INPUTS[1]);
+    expect(Array.from(spikes)).toEqual(saved);
+  });
+
+  test('permanently prunes synapses depressed to zero', () => {
+    const reservoir = new SornReservoir(2, 2, { ...DEFAULT_SORN_PARAMS, N: 40, etaStdp: 2 }, 17);
+    const initial = reservoir.stateFingerprint()[5];
+    let previous = initial;
+    for (let step = 0; step < 100; step++) {
+      reservoir.step(INPUTS[step % INPUTS.length]);
+      const remaining = reservoir.stateFingerprint()[5];
+      expect(remaining).toBeLessThanOrEqual(previous);
+      previous = remaining;
+    }
+    expect(previous).toBeLessThan(initial);
+  });
+
   test('is deterministic for a fixed topology seed and receptor sequence', () => {
     const first = new SornReservoir(2, 2, { ...DEFAULT_SORN_PARAMS, N: 40 }, 17);
     const second = new SornReservoir(2, 2, { ...DEFAULT_SORN_PARAMS, N: 40 }, 17);

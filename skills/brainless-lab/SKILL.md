@@ -167,11 +167,23 @@ implementation. This validation covers the tested construction and update path. 
 not automatically cover every body, task, behavioural statistic, analysis, or biological
 interpretation.
 
-Tracking, Pong, and Plank CartPole Easy are the core benchmark tasks. Wall remains
+Tracking, Pong, Plank CartPole Easy, and delayed-cue recall are the v2 benchmark tasks. Wall remains
 available but is not a core benchmark coordinate. The four Plank CartPole levels retain
 experimental software status; Easy's benchmark membership is a separate declaration.
 All use the general `EvaluationSpec`. The direct-control benchmark uses one episode per
 CartPole block and never forms a cross-task aggregate.
+
+Delayed cue requires zero warm-up and enough horizon to finish the longest configured
+episode (144 frames by default). Its accuracy anchors are 0 and 1; chance is 0.5.
+The v2 confirmation protocol is pending. Do not substitute the development pilot for it.
+
+For CTRNN evolution, generate targets with `benchmark_evolution_targets` and use one
+shared genome across the versioned task list. `measure=:benchmark_profile` requires
+maximising NSGA-II and keeps native task units separate. Use disjoint development and
+selection blocks, explicit runtime parameters, and a bounded pilot before larger searches.
+Generation journals support continuation; a stopped run needs a complete checkpoint and
+matching source/environment provenance to resume. Cached model kernels are fixed during
+stepping; replace the complete genome through `reservoir.genome = model` to refresh them.
 
 Performance can reveal a capacity, limit, trade-off, or missing mechanism. Before
 interpreting a poor score, check the task opportunity, body ports, control floor, horizon,

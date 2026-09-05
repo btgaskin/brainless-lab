@@ -3,7 +3,7 @@ using BrainlessLab, Random, Statistics, TOML
 const CTRNN_PILOT_PARAMETERS = Dict{Symbol,Any}(:dt => 1.0, :substeps => 5,
     :link_p => 0.1, :rho => 0.2, :init_random => true, :state_scale => 0.05)
 
-function pilot_baselines(spec, targets)
+function pilot_baselines(spec, targets; check_budget=() -> nothing)
     rows = NamedTuple[]
     scores = Dict{Symbol,Float64}()
     for (protocol, target) in zip(spec.task_protocols, targets)
@@ -13,7 +13,7 @@ function pilot_baselines(spec, targets)
             baseline = EvaluationTarget(Symbol(protocol.task, :__, profile.id, :__pilot_baseline),
                 BrainlessLab._benchmark_composition(profile, protocol.task, entry.input_gain),
                 target.evaluation; topology_key=profile.id)
-            batch = evaluate(baseline)
+            batch = evaluate(baseline; check_budget)
             append!(rows, BrainlessLab.trial_table(batch))
             push!(values, mean(BrainlessLab._evolution_trial_value(trial, :benchmark_profile) for trial in batch.trials))
         end
@@ -30,9 +30,13 @@ No confirmation protocol is executed by this script.
 """
 function main(; root="records/shared-ctrnn-pilot", output="benchmarks/ctrnn-readiness/development",
     max_seconds=7200.0)
+    max_seconds > 0 || throw(ArgumentError("max_seconds must be positive"))
+    source_sha = readchomp(`git rev-parse HEAD`)
+    source_state = isempty(readchomp(`git status --porcelain`)) ? "clean" : "dirty"
     mkpath(output)
     started = time_ns()
     remaining() = max_seconds - (time_ns() - started) / 1e9
+    check_budget() = remaining() > 0 ? nothing : throw(BrainlessLab.EvolutionBudgetExceeded())
     spec = DIRECT_CONTROL_BENCHMARK_V2
     initialisation = TOML.parsefile(joinpath(output, "initialisation.toml"))["nodes"]
     trial_rows = NamedTuple[]
@@ -42,7 +46,7 @@ function main(; root="records/shared-ctrnn-pilot", output="benchmarks/ctrnn-read
     task_ids = getfield.(spec.task_protocols, :task)
     template = benchmark_evolution_targets(spec, :compartmental_structured;
         root_seed=961_000, blocks=2, parameters=CTRNN_PILOT_PARAMETERS)
-    baseline_rows, baseline_scores = pilot_baselines(spec, template)
+    baseline_rows, baseline_scores = pilot_baselines(spec, template; check_budget)
     BrainlessLab._write_csv(joinpath(output, "baseline-trials.csv"), baseline_rows)
     for node in (:compartmental_structured, :compartmental_dense)
         scale = initialisation[String(node)]["scale"]
@@ -63,7 +67,7 @@ function main(; root="records/shared-ctrnn-pilot", output="benchmarks/ctrnn-read
                     scale .* randn(MersenneTwister(970_001), resolved.design.dimension))
                 seconds = @elapsed for (target, composition) in zip(targets, resolved.targets)
                     BrainlessLab._evaluate_evolution_target(target, model, :benchmark_profile,
-                        DEFAULT_REGISTRY, composition)
+                        DEFAULT_REGISTRY, composition; check_budget)
                 end
                 estimate = 24 * seconds
                 println((; node, seconds_per_candidate=seconds, estimated_family_seconds=estimate, remaining_seconds=remaining()))
@@ -118,8 +122,7 @@ function main(; root="records/shared-ctrnn-pilot", output="benchmarks/ctrnn-read
             write_plan(joinpath(output, "$(node)-selection-plan.toml"), selection)
             # Keep the same explicit episode budget for this later evaluation.
             try
-                result = execute(resolve(selection, DEFAULT_REGISTRY);
-                    check_budget=() -> remaining() > 0 ? nothing : throw(BrainlessLab.EvolutionBudgetExceeded()))
+                result = execute(resolve(selection, DEFAULT_REGISTRY); check_budget)
                 directory = write_record(selection, result; root)
                 selection_tables = BrainlessLab.tables(result)
                 BrainlessLab._write_csv(joinpath(output, "$(node)-selection-trials.csv"), selection_tables.trials)
@@ -134,7 +137,7 @@ function main(; root="records/shared-ctrnn-pilot", output="benchmarks/ctrnn-read
         open(joinpath(output, "nominations.toml"), "w") do io
             TOML.print(io, Dict("evidence_state" => "tuned", "nodes" => nominations,
                 "elapsed_seconds" => (time_ns() - started) / 1e9, "budget_seconds" => max_seconds,
-                "source_sha" => readchomp(`git rev-parse HEAD`)); sorted=true)
+                "source_sha" => source_sha, "source_state" => source_state); sorted=true)
         end
     end
     return nominations
