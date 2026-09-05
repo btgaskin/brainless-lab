@@ -60,6 +60,53 @@ export const DEFAULT_PARAMS: FalandaysParams = {
   learnTargets: true,
 };
 
+/** Browser-facing parameters for the registered experimental SORN node. */
+export interface SornParams {
+  /** Reservoir node count belongs to the composition in the Julia runtime. */
+  N: number;
+  inhibitoryFraction: number;
+  pEe: number;
+  pEi: number;
+  pIe: number;
+  pInput: number;
+  pOutput: number;
+  eeRowSum: number;
+  eiRowSum: number;
+  ieRowSum: number;
+  inputRowSum: number;
+  tEMax: number;
+  tIMax: number;
+  etaStdp: number;
+  etaIp: number;
+  hIp: number;
+  learnOn: boolean;
+}
+
+export const DEFAULT_SORN_PARAMS: SornParams = {
+  N: 100,
+  inhibitoryFraction: 0.2,
+  pEe: 0.1,
+  pEi: 0.2,
+  pIe: 0.2,
+  pInput: 0.2,
+  pOutput: 0.1,
+  eeRowSum: 1,
+  eiRowSum: 1,
+  ieRowSum: 1,
+  inputRowSum: 1,
+  tEMax: 0.5,
+  tIMax: 1,
+  etaStdp: 0.004,
+  etaIp: 0.001,
+  hIp: 0.1,
+  learnOn: true,
+};
+
+export type DemoNodeName = 'falandays' | 'sorn';
+export type DemoNodeParams =
+  | { node: 'falandays'; value: FalandaysParams }
+  | { node: 'sorn'; value: SornParams };
+
 export type PlankCartPoleTaskName =
   | 'cartpole_plank_easy'
   | 'cartpole_plank_medium'
@@ -69,6 +116,8 @@ export type PlankCartPoleTaskName =
 export type CoreTaskName = 'wall' | 'tracking' | 'pong';
 
 export type TaskName = CoreTaskName | PlankCartPoleTaskName;
+
+export type DemoTaskName = 'pong' | 'tracking' | 'cartpole_plank_easy';
 
 export interface TaskEnv<Snapshot = unknown> {
   readonly nReceptors: number;

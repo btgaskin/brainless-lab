@@ -1,15 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowCounterClockwise, GearSix, Pause, Play, SkipForward } from '@phosphor-icons/react';
-import { CANONICAL_CORE_V2, CORE_TASK_NAMES, canonicalParamsFor } from '../../simulation/canonical';
+import { DEMO_TASK_NAMES } from '../../simulation/canonical';
 import {
-  createCoreSimulationFromSeeds,
-  runCoreWorldStep,
-  type CoreSimulation,
-} from '../../simulation/coreRuntime';
-import { DISPLAY_CASES } from '../../simulation/displayCases';
-import { coreTaskSnapshot, type CoreTaskSnapshot } from '../../simulation/tasks/core';
-import type { CoreTaskName, FalandaysParams } from '../../simulation/types';
+  createDemoSimulation,
+  defaultDemoNodeParams,
+  DEMO_PROTOCOLS,
+  runDemoWorldStep,
+  type DemoSimulation,
+} from '../../simulation/demoRuntime';
+import { demoTaskSnapshot, type DemoTaskSnapshot } from '../../simulation/tasks/demo';
+import type {
+  DemoNodeName,
+  DemoNodeParams,
+  DemoTaskName,
+  FalandaysParams,
+  SornParams,
+} from '../../simulation/types';
 import { ControlPanel } from './ControlPanel';
+import { SornControlPanel } from './SornControlPanel';
 import { TaskCanvas } from './TaskCanvas';
 import { SegmentedControl } from './ui/SegmentedControl';
 
@@ -18,21 +26,23 @@ const MAX_TICKS_PER_FRAME = 8;
 const MAIN_THREAD_SLICE_MS = 8;
 const PARAMETER_DEBOUNCE_MS = 180;
 
-const TASK_OPTIONS = CORE_TASK_NAMES.map((value) => ({
+const TASK_OPTIONS = DEMO_TASK_NAMES.map((value) => ({
   value,
-  label: value === 'tracking' ? 'Track' : value[0].toUpperCase() + value.slice(1),
+  label: value === 'tracking' ? 'Track' : value === 'cartpole_plank_easy' ? 'CartPole' : 'Pong',
 }));
 
-function paramsEqual(left: FalandaysParams, right: FalandaysParams): boolean {
-  return (Object.keys(left) as Array<keyof FalandaysParams>).every((key) => left[key] === right[key]);
-}
+const NODE_OPTIONS: Array<{ value: DemoNodeName; label: string }> = [
+  { value: 'falandays', label: 'Falandays' },
+  { value: 'sorn', label: 'SORN' },
+];
 
-function createDisplaySimulation(task: CoreTaskName, params: FalandaysParams): CoreSimulation {
-  const display = DISPLAY_CASES[task];
-  return createCoreSimulationFromSeeds(task, params, display.rootSeed, {
-    topology: display.topologySeed,
-    world: display.worldSeed,
-  });
+function paramsEqual(left: DemoNodeParams, right: DemoNodeParams): boolean {
+  if (left.node !== right.node) return false;
+  const leftValues = left.value as unknown as Record<string, unknown>;
+  const rightValues = right.value as unknown as Record<string, unknown>;
+  const keys = Object.keys(leftValues);
+  return keys.length === Object.keys(rightValues).length
+    && keys.every((key) => leftValues[key] === rightValues[key]);
 }
 
 function ToolbarButton({
@@ -61,24 +71,27 @@ function ToolbarButton({
 }
 
 export function SimDemo() {
-  const initialTask: CoreTaskName = 'pong';
-  const initialParams = canonicalParamsFor(initialTask);
-  const simRef = useRef<CoreSimulation | null>(null);
+  const initialTask: DemoTaskName = 'pong';
+  const initialNode: DemoNodeName = 'falandays';
+  const initialParams = defaultDemoNodeParams(initialNode, initialTask);
+  const simRef = useRef<DemoSimulation | null>(null);
   if (simRef.current === null) {
-    simRef.current = createDisplaySimulation(initialTask, initialParams);
+    simRef.current = createDemoSimulation(initialTask, initialParams);
   }
 
-  const [task, setTask] = useState<CoreTaskName>(initialTask);
-  const [params, setParams] = useState<FalandaysParams>(initialParams);
+  const [task, setTask] = useState<DemoTaskName>(initialTask);
+  const [node, setNode] = useState<DemoNodeName>(initialNode);
+  const [params, setParams] = useState<DemoNodeParams>(initialParams);
   const [running, setRunning] = useState(true);
   const [preparing, setPreparing] = useState(true);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [tick, setTick] = useState(0);
-  const [worldSnapshot, setWorldSnapshot] = useState<CoreTaskSnapshot>(() =>
-    coreTaskSnapshot(initialTask, simRef.current!.env),
+  const [worldSnapshot, setWorldSnapshot] = useState<DemoTaskSnapshot>(() =>
+    demoTaskSnapshot(initialTask, simRef.current!.env),
   );
 
   const taskRef = useRef(task);
+  const nodeRef = useRef(node);
   const paramsRef = useRef(params);
   const preparationTokenRef = useRef(0);
   const parameterTimerRef = useRef<number | null>(null);
@@ -86,35 +99,36 @@ export function SimDemo() {
   const syncDisplay = useCallback(() => {
     const simulation = simRef.current;
     if (!simulation) return;
-    setTick(simulation.reservoir.currentTick);
-    setWorldSnapshot(coreTaskSnapshot(simulation.task, simulation.env));
+    setTick(simulation.worldTick);
+    setWorldSnapshot(demoTaskSnapshot(simulation.task, simulation.env));
   }, []);
 
   const prepareSimulation = useCallback((
-    nextTask: CoreTaskName,
-    nextParams: FalandaysParams,
+    nextTask: DemoTaskName,
+    nextParams: DemoNodeParams,
     reuseInitial = false,
   ) => {
     const token = ++preparationTokenRef.current;
     const current = simRef.current;
     const simulation = reuseInitial
       && current?.task === nextTask
-      && current.reservoir.currentTick === 0
+      && current.node === nextParams.node
+      && current.worldTick === 0
       ? current
-      : createDisplaySimulation(nextTask, nextParams);
+      : createDemoSimulation(nextTask, nextParams);
     simRef.current = simulation;
     setPreparing(true);
     setTick(0);
-    setWorldSnapshot(coreTaskSnapshot(nextTask, simulation.env));
+    setWorldSnapshot(demoTaskSnapshot(nextTask, simulation.env));
 
-    const warmup = CANONICAL_CORE_V2[nextTask].warmup;
+    const warmup = DEMO_PROTOCOLS[nextTask].warmup;
     const advanceWarmup = () => {
       if (preparationTokenRef.current !== token) return;
       const deadline = performance.now() + MAIN_THREAD_SLICE_MS;
-      while (simulation.reservoir.currentTick < warmup && performance.now() < deadline) {
-        runCoreWorldStep(simulation);
+      while (simulation.worldTick < warmup && performance.now() < deadline) {
+        runDemoWorldStep(simulation);
       }
-      if (simulation.reservoir.currentTick < warmup) {
+      if (simulation.worldTick < warmup) {
         window.setTimeout(advanceWarmup, 0);
         return;
       }
@@ -143,8 +157,8 @@ export function SimDemo() {
   const advanceFrame = useCallback(() => {
     const simulation = simRef.current;
     if (!simulation || preparing) return;
-    const protocol = CANONICAL_CORE_V2[simulation.task];
-    if (simulation.reservoir.currentTick >= protocol.horizon) {
+    const protocol = DEMO_PROTOCOLS[simulation.task];
+    if (simulation.worldTick >= protocol.horizon || simulation.env.isTerminal?.()) {
       resetCurrentRun();
       return;
     }
@@ -153,10 +167,11 @@ export function SimDemo() {
     let advanced = 0;
     while (
       advanced < MAX_TICKS_PER_FRAME
-      && simulation.reservoir.currentTick < protocol.horizon
+      && simulation.worldTick < protocol.horizon
+      && !simulation.env.isTerminal?.()
       && performance.now() < deadline
     ) {
-      runCoreWorldStep(simulation);
+      runDemoWorldStep(simulation);
       advanced += 1;
     }
     syncDisplay();
@@ -171,17 +186,20 @@ export function SimDemo() {
   const advanceOneTick = () => {
     const simulation = simRef.current;
     if (!simulation || preparing) return;
-    if (simulation.reservoir.currentTick >= CANONICAL_CORE_V2[simulation.task].horizon) {
+    if (
+      simulation.worldTick >= DEMO_PROTOCOLS[simulation.task].horizon
+      || simulation.env.isTerminal?.()
+    ) {
       resetCurrentRun();
       return;
     }
-    runCoreWorldStep(simulation);
+    runDemoWorldStep(simulation);
     syncDisplay();
   };
 
-  const handleTaskChange = (nextTask: CoreTaskName) => {
+  const handleTaskChange = (nextTask: DemoTaskName) => {
     if (parameterTimerRef.current !== null) window.clearTimeout(parameterTimerRef.current);
-    const nextParams = canonicalParamsFor(nextTask);
+    const nextParams = defaultDemoNodeParams(nodeRef.current, nextTask);
     taskRef.current = nextTask;
     paramsRef.current = nextParams;
     setTask(nextTask);
@@ -189,7 +207,17 @@ export function SimDemo() {
     prepareSimulation(nextTask, nextParams);
   };
 
-  const handleParamsChange = (nextParams: FalandaysParams) => {
+  const handleNodeChange = (nextNode: DemoNodeName) => {
+    if (parameterTimerRef.current !== null) window.clearTimeout(parameterTimerRef.current);
+    const nextParams = defaultDemoNodeParams(nextNode, taskRef.current);
+    nodeRef.current = nextNode;
+    paramsRef.current = nextParams;
+    setNode(nextNode);
+    setParams(nextParams);
+    prepareSimulation(taskRef.current, nextParams);
+  };
+
+  const queueParamsChange = (nextParams: DemoNodeParams) => {
     paramsRef.current = nextParams;
     setParams(nextParams);
     preparationTokenRef.current += 1;
@@ -201,14 +229,17 @@ export function SimDemo() {
     }, PARAMETER_DEBOUNCE_MS);
   };
 
-  const restoreCanonical = () => {
-    const nextParams = canonicalParamsFor(taskRef.current);
+  const restoreDefault = () => {
+    const nextParams = defaultDemoNodeParams(nodeRef.current, taskRef.current);
     paramsRef.current = nextParams;
     setParams(nextParams);
     prepareSimulation(taskRef.current, nextParams);
   };
 
-  const isCanonical = paramsEqual(params, canonicalParamsFor(task));
+  const isDefault = paramsEqual(params, defaultDemoNodeParams(node, task));
+  const status = node === 'falandays' && task !== 'cartpole_plank_easy'
+    ? 'canonical v2'
+    : 'experimental';
 
   return (
     <section className="overflow-hidden rounded-xl border border-grid bg-paper text-ink shadow-[0_1px_2px_rgba(30,30,25,0.06),0_10px_28px_-18px_rgba(30,30,25,0.25)]">
@@ -234,7 +265,21 @@ export function SimDemo() {
           <div className="mx-0.5 h-4 w-px shrink-0 bg-grid" aria-hidden="true" />
 
           <div className="min-w-0 overflow-x-auto">
-            <SegmentedControl options={TASK_OPTIONS} value={task} onChange={handleTaskChange} />
+            <div className="flex min-w-max items-center gap-1.5">
+              <SegmentedControl
+                options={NODE_OPTIONS}
+                value={node}
+                onChange={handleNodeChange}
+                ariaLabel="Neuron design"
+              />
+              <span className="font-mono text-[10px] text-ink-muted" aria-hidden="true">in</span>
+              <SegmentedControl
+                options={TASK_OPTIONS}
+                value={task}
+                onChange={handleTaskChange}
+                ariaLabel="Task"
+              />
+            </div>
           </div>
 
           <span className="ml-auto hidden shrink-0 font-mono text-[10px] tabular-nums text-ink-muted sm:inline">
@@ -248,7 +293,7 @@ export function SimDemo() {
           <TaskCanvas snapshot={worldSnapshot} />
           {preparing ? (
             <div className="pointer-events-none absolute inset-2.5 grid place-items-center rounded-lg bg-paper/70 font-mono text-[10px] text-ink-muted backdrop-blur-[1px] sm:inset-3">
-              Preparing the scored interval…
+              Preparing the display…
             </div>
           ) : null}
         </div>
@@ -261,8 +306,8 @@ export function SimDemo() {
           onClick={() => setDetailsOpen((value) => !value)}
         >
           <span className="flex items-center gap-1.5"><GearSix size={13} /> Settings</span>
-          <span className={`font-mono text-[9px] ${isCanonical ? 'text-teal-ink' : 'text-amber'}`}>
-            {isCanonical ? 'canonical v2' : 'modified'}
+          <span className={`font-mono text-[9px] ${isDefault && status === 'canonical v2' ? 'text-teal-ink' : 'text-amber'}`}>
+            {isDefault ? status : 'modified'}
           </span>
         </button>
 
@@ -271,12 +316,22 @@ export function SimDemo() {
           className="bl-demo-settings min-h-0 border-t border-grid bg-card"
           data-open={detailsOpen ? 'true' : 'false'}
         >
-          <ControlPanel
-            params={params}
-            isCanonical={isCanonical}
-            onParamsChange={handleParamsChange}
-            onRestoreCanonical={restoreCanonical}
-          />
+          {params.node === 'falandays' ? (
+            <ControlPanel
+              task={task}
+              params={params.value as FalandaysParams}
+              isDefault={isDefault}
+              onParamsChange={(value) => queueParamsChange({ node: 'falandays', value })}
+              onRestoreDefault={restoreDefault}
+            />
+          ) : (
+            <SornControlPanel
+              params={params.value as SornParams}
+              isDefault={isDefault}
+              onParamsChange={(value) => queueParamsChange({ node: 'sorn', value })}
+              onRestoreDefault={restoreDefault}
+            />
+          )}
         </aside>
       </div>
     </section>

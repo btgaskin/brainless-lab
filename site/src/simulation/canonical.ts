@@ -1,4 +1,9 @@
-import { DEFAULT_PARAMS, type CoreTaskName, type FalandaysParams } from './types';
+import {
+  DEFAULT_PARAMS,
+  type CoreTaskName,
+  type DemoTaskName,
+  type FalandaysParams,
+} from './types';
 
 export interface CanonicalCoreCase {
   task: CoreTaskName;
@@ -76,6 +81,13 @@ export const CANONICAL_CORE_V2: Record<CoreTaskName, CanonicalCoreCase> = {
 };
 
 export const CORE_TASK_NAMES = ['pong', 'tracking', 'wall'] as const satisfies readonly CoreTaskName[];
+
+/** Landing tasks: two established cases and one experimental capacity challenge. */
+export const DEMO_TASK_NAMES = [
+  'pong',
+  'tracking',
+  'cartpole_plank_easy',
+] as const satisfies readonly DemoTaskName[];
 
 export function canonicalParamsFor(task: CoreTaskName): FalandaysParams {
   return { ...CANONICAL_CORE_V2[task].params };

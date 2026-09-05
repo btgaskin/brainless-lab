@@ -51,7 +51,7 @@ function main(; root="records/shared-ctrnn-pilot", output="benchmarks/ctrnn-read
         candidates = NamedTuple[]
         for search_seed in (971_001, 971_002, 971_003)
             remaining() > 0 || break
-            run = BrainlessLab.Evolution.RunConfig(strategy=:nsga2, iterations=2,
+            run = BrainlessLab.Evolution.RunConfig(; strategy=:nsga2, iterations=2,
                 search_seed, measure=:benchmark_profile, direction=:maximise,
                 initialisation=BrainlessLab.Evolution.NormalInitialisation(centre=:zero, scale=scale),
                 options=(population=4,))

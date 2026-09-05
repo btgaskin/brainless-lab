@@ -1,6 +1,6 @@
 ---
 import { LinkButton } from '@astrojs/starlight/components';
-import FalandaysDemo from './FalandaysDemo';
+import BrainlessDemo from './BrainlessDemo';
 
 const { data } = Astro.locals.starlightRoute.entry;
 const { title = data.title, tagline, actions = [] } = data.hero || {};
@@ -30,5 +30,5 @@ const { title = data.title, tagline, actions = [] } = data.hero || {};
     </div>
   </div>
 
-  <FalandaysDemo client:load />
+  <BrainlessDemo client:load />
 </section>

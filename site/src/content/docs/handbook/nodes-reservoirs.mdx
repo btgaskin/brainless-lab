@@ -49,7 +49,7 @@ synaptic normalisation, and intrinsic threshold plasticity.
 ```julia
 spec = BrainlessLab.node_spec(DEFAULT_REGISTRY, :sorn)
 reservoir = SORNReservoir(200, 8, 2; seed=26)
-resource_report(reservoir)
+BrainlessLab.resource_report(reservoir)
 ```
 
 The software contract covers deterministic construction, stepping, plasticity, reset,
@@ -58,7 +58,7 @@ implementation was recovered, so SORN has equation and software conformance rath
 numerical oracle. It does not inherit the Falandays reference-trajectory boundary.
 
 Read the [benchmark SORN profile](/benchmarks/models/sorn/) for the exact 200-node assembly,
-direct-action adapter, provenance, and limits used in benchmark version 1.
+direct-action adapter, provenance, and limits used in benchmark versions 1 and 2.
 
 ## Other node families
 
@@ -69,4 +69,4 @@ Software registration does not qualify a node for a benchmark.
 Add a new reservoir subtype when state, stepping, plasticity, or readout changes
 materially. Use a parameter, preset, wrapper, or ablation when the interface stays the same.
 
-<p class="bl-source">Source: <code>src/core/Catalog.jl</code>, <code>src/nodes/Falandays.jl</code>, <code>src/nodes/SORN.jl</code>, <code>test/oracle/authors_falandays.jl</code>.</p>
+<p class="bl-source">Source: <code>src/core/Catalog.jl</code>, <code>src/nodes/Falandays.jl</code>, <code>src/nodes/SORN.jl</code>, <code>test/test_sorn.jl</code>, <code>test/oracle/authors_falandays.jl</code>.</p>
