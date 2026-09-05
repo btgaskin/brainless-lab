@@ -1,17 +1,17 @@
 evidence_state = "tuned"
-pilot_record = "delayed_cue_performance_pilot-20260905T084953-7da5e8e0"
-pilot_seconds = 25.322496458
-source_sha = "aa497b922600e8ee26bb14f2d3ed7469afdf5fcc"
-source_state = "dirty"
+pilot_record = "delayed_cue_performance_pilot-20260905T100231-1b245bc0"
+pilot_seconds = 18.218042208
+source_sha = "7fa454465a0caa3bb47e16e3244c866d728e4b9c"
+source_state = "clean"
 
 [profiles.falandays_direct_v1]
 development_accuracy = 0.546875
 gain = 0.125
-record = "falandays_direct_v1__cue_gain-20260905T084843-4efb8692"
-sweep_seconds = 39.162883792
+record = "falandays_direct_v1__cue_gain-20260905T100128-8435b26e"
+sweep_seconds = 32.762784916
 
 [profiles.sorn_direct_v1]
 development_accuracy = 0.453125
 gain = 1.0
-record = "sorn_direct_v1__cue_gain-20260905T084927-61a0baab"
-sweep_seconds = 22.913906917
+record = "sorn_direct_v1__cue_gain-20260905T100205-08486a3d"
+sweep_seconds = 22.879249875

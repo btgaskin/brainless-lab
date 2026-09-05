@@ -32,8 +32,12 @@ arrays is unsupported. Scratch arrays are per-reservoir and are not persistent n
 `development/kernel-costs.csv` contains warmed local Julia 1.12.6 measurements. At 200 nodes,
 both families allocate 1,664 bytes per `step!` and 80 bytes for two effectors. The pre-change
 diagnostic allocated 123,904 and 3,408 bytes respectively. Dense median stepping fell from
-approximately 4.77 ms to 1.39 ms; Structured remained approximately 0.69 ms. These are local
+approximately 4.77 ms to 1.37 ms; Structured remained approximately 0.69 ms. These are local
 diagnostics, not controlled hardware benchmarks or end-to-end search speedups.
+
+The committed initialisation tables were reproduced from clean source commit `7fa45446`.
+All input-sensitivity responses matched the initial diagnostic. This replay refreshes
+provenance and warmed timing; it adds no independent observations.
 
 The immutable Dense and Structured reference trajectories and intervention fixtures pass.
 Maximum observed state deviations were below 8e-15. This is numerical conformance for those

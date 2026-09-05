@@ -8,6 +8,11 @@ unchanged. Only external input gain is selected per task. No output layer is tra
 The protocol is frozen. Confirmation is pending for all four tasks. The existing v1
 definition and artifacts remain unchanged; v1 observations are not relabelled as v2 data.
 
+The committed recall development tables were reproduced from clean source commit
+`7fa45446`. Every gain-sweep and pilot outcome, response diagnostic, and statistic matched
+the initial run. The replay updates the portable initial-state representation and resource
+columns; it supplies no additional independent observations.
+
 ## Delayed-cue contract and admission
 
 Each independent block constructs one randomised world and one fresh reservoir. A fair

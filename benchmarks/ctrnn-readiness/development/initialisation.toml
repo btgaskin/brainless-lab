@@ -1,8 +1,8 @@
 evidence_state = "exploratory"
 julia_version = "1.12.6"
 samples_per_scale = 24
-source_sha = "aa497b922600e8ee26bb14f2d3ed7469afdf5fcc"
-source_state = "dirty"
+source_sha = "7fa454465a0caa3bb47e16e3244c866d728e4b9c"
+source_state = "clean"
 
 [nodes.compartmental_dense]
 responsive_fraction = 0.041666666666666664
