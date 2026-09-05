@@ -478,17 +478,16 @@ function _native_compartmental_wiring(
     n_receptors_ >= 1 || throw(ArgumentError("n_receptors must be at least 1"))
     n_effectors_ >= 1 || throw(ArgumentError("n_effectors must be at least 1"))
 
-    link_p_ = k_rec === nothing ? Float64(link_p) : Float64(Int(k_rec)) / Float64(max(n_nodes - 1, 1))
-    K_rec_ = min(n_nodes - 1, max(1, round(Int, link_p_ * (n_nodes - 1))))
-    rho_ = k_in === nothing ? Float64(rho) : Float64(Int(k_in)) / Float64(max(K_rec_, 1))
-
     return build_wiring(
         n_nodes,
         seed;
-        link_p=link_p_,
+        link_p,
         n_receptors=n_receptors_,
         n_effectors=n_effectors_,
-        rho=rho_,
+        rho,
+        k_rec,
+        k_in,
+        output_fanout,
         mode=mode,
     )
 end
@@ -530,12 +529,14 @@ function _compartmental_native(
     init_random::Bool=true,
     state_scale::Real=0.05,
     dt::Real=1.0,
+    substeps::Integer=5,
     hill_tau::Real=HILL_TAU,
     hill_reset::Real=HILL_RESET,
     ablation=nothing,
     intervention=nothing,
-    kwargs...,
 )
+    isfinite(raw_scale) && raw_scale >= 0 || throw(ArgumentError("raw_scale must be finite and non-negative"))
+    isfinite(state_scale) && state_scale >= 0 || throw(ArgumentError("state_scale must be finite and non-negative"))
     rng = _sim_rng(seed)
     mode = _compartmental_mode(genome_type)
 
@@ -564,6 +565,7 @@ function _compartmental_native(
         genome_,
         wiring_;
         dt=dt,
+        substeps,
         hill_tau=hill_tau,
         hill_reset=hill_reset,
         intervention=_resolve_compartmental_intervention(ablation, intervention),

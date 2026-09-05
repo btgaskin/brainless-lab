@@ -306,6 +306,8 @@ struct ResourceReport
     recurrent_edges::Union{Nothing,Int}
     input_edges::Union{Nothing,Int}
     output_edges::Union{Nothing,Int}
+    internal_states::Union{Nothing,Int}
+    integration_updates_per_frame::Union{Nothing,Int}
 
     function ResourceReport(
         dynamic_nodes::Integer;
@@ -314,6 +316,8 @@ struct ResourceReport
         recurrent_edges=nothing,
         input_edges=nothing,
         output_edges=nothing,
+        internal_states=nothing,
+        integration_updates_per_frame=nothing,
     )
         count = Int(dynamic_nodes)
         count > 0 || throw(ArgumentError("resource report requires positive dynamic_nodes"))
@@ -323,6 +327,8 @@ struct ResourceReport
             recurrent_edges,
             input_edges,
             output_edges,
+            internal_states,
+            integration_updates_per_frame,
         )
         all(value -> value === nothing || (value isa Integer && value >= 0), values) ||
             throw(ArgumentError("resource counts must be non-negative integers or nothing"))
@@ -333,6 +339,8 @@ struct ResourceReport
             recurrent_edges === nothing ? nothing : Int(recurrent_edges),
             input_edges === nothing ? nothing : Int(input_edges),
             output_edges === nothing ? nothing : Int(output_edges),
+            internal_states === nothing ? nothing : Int(internal_states),
+            integration_updates_per_frame === nothing ? nothing : Int(integration_updates_per_frame),
         )
     end
 end

@@ -264,6 +264,36 @@ function Base.getproperty(task::TaskSpec, key::Symbol)
     return getfield(task, key)
 end
 
+"""Validate task-specific episode requirements before constructing a runtime.
+
+Extend this generic on a task's setup type. The default adds no restrictions.
+"""
+validate_task_evaluation(setup, options, evaluation::EvaluationSpec) = nothing
+
+function validate_task_evaluation(::DelayedCueSetup, options, evaluation::EvaluationSpec)
+    cue_ticks, delays, response_ticks, _ = _delayed_cue_options(
+        options[:cue_ticks], options[:delays], options[:response_ticks], options[:cue_mode])
+    evaluation.warmup == 0 || throw(ArgumentError("delayed-cue requires warmup=0"))
+    evaluation.horizon >= cue_ticks + maximum(delays) + response_ticks ||
+        throw(ArgumentError("delayed-cue horizon must contain the longest complete episode"))
+    return nothing
+end
+
+const DELAYED_CUE_TASK = TaskSpec(
+    :delayed_cue, DelayedCueSetup();
+    env_type=DelayedCueEnv, n_receptors=3, n_effectors=2,
+    default_ticks=DELAYED_CUE_HORIZON, default_window=DELAYED_CUE_HORIZON,
+    minimum_scored_ticks=1, interaction_cycle=FixedRateCycle(1),
+    status=:experimental, tags=(:experimental, :memory, :benchmark),
+    options=(cue_ticks=8, delays=DELAYED_CUE_DELAYS, response_ticks=8, cue_mode=:transient),
+    protocol=(chance_accuracy=0.5, benchmark_profile=(metric=:recall_accuracy,
+        label="Recall accuracy", unit="fraction", direction=:higher)),
+    score_key=:recall_accuracy,
+    floor=analytic(0.0; note="minimum recall accuracy; chance is separately 0.5"),
+    ceiling=analytic(1.0; note="every response matches its observed cue"),
+    descriptor_keys=(:cue, :delay, :decision, :tied, :completed, :cue_mode),
+)
+
 score_floor(task::TaskSpec) = task.floor.value
 score_ceiling(task::TaskSpec) = task.ceiling.value
 has_objective(task::TaskSpec) = task.score_key !== nothing

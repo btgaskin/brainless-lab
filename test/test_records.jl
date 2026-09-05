@@ -117,11 +117,11 @@ end
     @test isfile(joinpath(directory, "resolved.toml"))
     @test occursin(
         "development",
-        read(joinpath(directory, "seeds.csv"), String),
+        read(joinpath(directory, "generation-data", "00000002", "seeds.csv"), String),
     )
     @test "measure_value" in split(
         first(split(
-            read(joinpath(directory, "data", "candidate_trials.csv"), String),
+            read(joinpath(directory, "generation-data", "00000002", "data", "candidate_trials.csv"), String),
             '\n',
         )),
         ',',

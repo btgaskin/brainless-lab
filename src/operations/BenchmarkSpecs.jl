@@ -11,6 +11,7 @@ struct ModelProfileSpec{M<:NamedTuple}
     provenance::Tuple{Vararg{String}}
     limitations::Tuple{Vararg{String}}
     metadata::M
+    model::Union{Nothing,Evolution.ModelReference}
 end
 
 function ModelProfileSpec(
@@ -23,6 +24,7 @@ function ModelProfileSpec(
     provenance=(),
     limitations=(),
     metadata::NamedTuple=NamedTuple(),
+    model::Union{Nothing,Evolution.ModelReference}=nothing,
 )
     id_ = _nonempty_symbol(id, "model profile id")
     node_ = _nonempty_symbol(node, "model profile node")
@@ -42,6 +44,7 @@ function ModelProfileSpec(
         Tuple(String(value) for value in provenance),
         Tuple(String(value) for value in limitations),
         metadata,
+        model,
     )
 end
 
@@ -232,7 +235,7 @@ function _benchmark_composition(profile::ModelProfileSpec, task::Symbol, input_g
     )
 end
 
-"""Generate the six ordinary development sweeps for a benchmark definition."""
+"""Generate ordinary development sweeps for every benchmark cell."""
 function calibration_plans(spec::BenchmarkSpec)
     plans = SweepPlan[]
     for entry in spec.entries
@@ -244,6 +247,7 @@ function calibration_plans(spec::BenchmarkSpec)
             composition,
             protocol.development;
             topology_key=profile.id,
+            model=profile.model,
         )
         push!(plans, SweepPlan(
             Symbol(spec.id, :__, entry.task, :__, entry.profile, :__input_gain),
@@ -359,6 +363,7 @@ function benchmark_plan(spec::BenchmarkSpec)
                 composition,
                 protocol.confirmation;
                 topology_key=profile.id,
+                model=profile.model,
             )
         end for entry in entries)
         baseline = Symbol(protocol.task, :__, spec.baseline_profile)
@@ -531,6 +536,45 @@ end
 
 """The frozen, untouched-confirmation experiment for direct-control v1."""
 const DIRECT_CONTROL_EXPERIMENT = _direct_control_experiment(DIRECT_CONTROL_BENCHMARK)
+
+"""Four-task v2 protocol. Gains are frozen; v2 confirmation has not been collected."""
+const DIRECT_CONTROL_BENCHMARK_V2 = BenchmarkSpec(
+    :direct_control, v"2.0.0";
+    title="Four-task direct-control benchmark",
+    n_nodes=200,
+    profiles=DIRECT_CONTROL_BENCHMARK.profiles,
+    task_protocols=(
+        _direct_control_protocol(:tracking, 71_001, 951_001),
+        _direct_control_protocol(:pong, 72_001, 952_001),
+        _direct_control_protocol(:cartpole_plank_easy, 73_001, 953_001),
+        BenchmarkTaskProtocol(:delayed_cue;
+            development=EvaluationSpec(blocks=64, horizon=144, root_seed=942_001),
+            confirmation=EvaluationSpec(blocks=512, horizon=144, root_seed=954_001)),
+    ),
+    entries=(DIRECT_CONTROL_BENCHMARK.entries...,
+        BenchmarkEntrySpec(:falandays_direct_v1, :delayed_cue; input_gain=0.125),
+        BenchmarkEntrySpec(:sorn_direct_v1, :delayed_cue; input_gain=1.0)),
+    gain_grid=DIRECT_CONTROL_GAIN_GRID,
+    baseline_profile=DIRECT_CONTROL_BENCHMARK.baseline_profile,
+    state=:frozen,
+    limitations=(DIRECT_CONTROL_BENCHMARK.limitations...,
+        "Delayed-cue development pilots are near chance; admission establishes task utility, not model success.",
+        "All v2 confirmation blocks remain pending; v1 results are not v2 observations."),
+)
+
+const DIRECT_CONTROL_EXPERIMENT_V2 = _direct_control_experiment(DIRECT_CONTROL_BENCHMARK_V2)
+
+"""Build one shared-design target per versioned task, without task-specific model parameters."""
+function benchmark_evolution_targets(spec::BenchmarkSpec, node::Symbol;
+    root_seed::Integer, blocks::Integer=2, parameters=Dict{Symbol,Any}(), input_gain::Real=1.0)
+    return Tuple(EvaluationTarget(Symbol(protocol.task, :__shared_design),
+        CompositionSpec(Symbol(protocol.task, :__shared_design), node, protocol.task;
+            n_nodes=spec.n_nodes, parameters=copy(parameters), interface=InterfaceSpec(; input_gain)),
+        EvaluationSpec(; blocks, horizon=protocol.development.horizon,
+            warmup=protocol.development.warmup, root_seed=root_seed + 1000 * index);
+        topology_key=node)
+        for (index, protocol) in enumerate(spec.task_protocols))
+end
 
 function register_builtin_model_profiles!()
     isempty(DEFAULT_MODEL_PROFILES) || return DEFAULT_MODEL_PROFILES

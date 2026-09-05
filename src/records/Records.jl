@@ -1221,6 +1221,7 @@ function _partial_candidate_scores(candidates)
             candidate=candidate.id,
             target=evaluation.target,
             measure=evaluation.measure,
+            failure=evaluation.failure,
             valid=candidate.valid && !ismissing(evaluation.aggregate),
             score=evaluation.aggregate,
         ))
@@ -1274,7 +1275,7 @@ function _record_optional_uint64(text::AbstractString, context::AbstractString)
 end
 
 function _record_optional_integer(text::AbstractString, context::AbstractString)
-    return isempty(text) ? missing : _record_integer(text, context)
+    return isempty(text) ? missing : text == "nothing" ? nothing : _record_integer(text, context)
 end
 
 _record_optional_string(text::AbstractString) = isempty(text) ? missing : String(text)
@@ -1371,6 +1372,10 @@ function _restored_trial_row(row, context::AbstractString)
             _record_optional_field(row, :output_edges),
             "$(context) output_edges",
         ),
+        internal_states=_record_optional_integer(
+            _record_optional_field(row, :internal_states), "$(context) internal_states"),
+        integration_updates_per_frame=_record_optional_integer(
+            _record_optional_field(row, :integration_updates_per_frame), "$(context) integration_updates_per_frame"),
         seed_ledger_agents=_record_integer(
             row.seed_ledger_agents,
             "$(context) seed_ledger_agents",
@@ -1414,6 +1419,28 @@ function _restored_trial_row(row, context::AbstractString)
     )
 end
 
+function _evolution_record_rows(directory, relative, completed)
+    journal = joinpath(directory, "generation-data")
+    marker = joinpath(journal, "format.toml")
+    isfile(marker) || return _read_record_csv(joinpath(directory, relative))
+    first_iteration = TOML.parsefile(marker)["first_iteration"]
+    rows = NamedTuple[]
+    if first_iteration > 1
+        append!(rows, filter(row -> parse(Int, relative == "seeds.csv" ? row.generation : row.iteration) < first_iteration,
+            _read_record_csv(joinpath(directory, relative))))
+    end
+    for iteration in first_iteration:completed
+        generation = joinpath(journal, lpad(iteration, 8, '0'))
+        checksums = TOML.parsefile(joinpath(generation, "checksums.toml"))
+        path = joinpath(generation, relative)
+        digest = open(io -> bytes2hex(SHA.sha256(io)), path)
+        get(checksums, relative, nothing) == digest || throw(ArgumentError(
+            "evolution generation $(iteration) has corrupted $(relative)"))
+        append!(rows, _read_record_csv(path))
+    end
+    return rows
+end
+
 function _restore_evolution_candidates(
     directory::AbstractString,
     plan::EvolutionPlan,
@@ -1428,7 +1455,7 @@ function _restore_evolution_candidates(
     seed_path = joinpath(directory, "seeds.csv")
 
     candidate_rows = _require_record_columns(
-        _read_record_csv(candidate_path),
+        _evolution_record_rows(directory, "data/candidates.csv", completed_iteration),
         (:iteration, :candidate, :valid, :coordinates, :scores),
         candidate_path,
     )
@@ -1467,7 +1494,7 @@ function _restore_evolution_candidates(
     targets = Dict(target.id => target for target in plan.training_targets)
     expected_target_order = Tuple(target.id for target in plan.training_targets)
     score_rows = _require_record_columns(
-        _read_record_csv(score_path),
+        _evolution_record_rows(directory, "data/candidate_scores.csv", completed_iteration),
         (:iteration, :candidate, :target, :measure, :valid, :score),
         score_path,
     )
@@ -1498,6 +1525,9 @@ function _restore_evolution_candidates(
         valid = _record_bool(row.valid, "candidate score $(key) valid")
         evaluation_metadata[key] = (
             measure=measure,
+            failure=let value = _record_optional_field(row, :failure)
+                isempty(value) || value == "nothing" ? nothing : Symbol(value)
+            end,
             aggregate=aggregate,
             valid=valid,
             trial_rows=NamedTuple[],
@@ -1515,7 +1545,7 @@ function _restore_evolution_candidates(
         :viable, :liveness, :measure_value,
     )
     trial_rows = _require_record_columns(
-        _read_record_csv(trial_path),
+        _evolution_record_rows(directory, "data/candidate_trials.csv", completed_iteration),
         trial_columns,
         trial_path,
     )
@@ -1541,7 +1571,7 @@ function _restore_evolution_candidates(
     end
 
     seed_rows = _require_record_columns(
-        _read_record_csv(seed_path),
+        _evolution_record_rows(directory, "seeds.csv", completed_iteration),
         _SEED_ROW_NAMES,
         seed_path,
     )
@@ -1577,7 +1607,8 @@ function _restore_evolution_candidates(
             metadata = evaluation_metadata[key]
             target = targets[target_id]
             expected_trials =
-                target.evaluation.blocks * target.evaluation.trials_per_block
+                metadata.failure === nothing ? target.evaluation.blocks * target.evaluation.trials_per_block : 0
+            metadata.failure in (nothing, :nonfinite_dynamics) || throw(ArgumentError("unknown candidate failure reason"))
             length(metadata.trial_rows) == expected_trials || throw(ArgumentError(
                 "candidate evaluation $(key) has $(length(metadata.trial_rows)) trials; " *
                 "expected $(expected_trials)",
@@ -1590,7 +1621,7 @@ function _restore_evolution_candidates(
                 (row.block, row.trial)
                 for row in metadata.trial_rows
             ]
-            expected_trial_ids = [
+            expected_trial_ids = expected_trials == 0 ? Tuple{Int,Int}[] : [
                 (block, trial)
                 for block in 1:target.evaluation.blocks
                 for trial in 1:target.evaluation.trials_per_block
@@ -1632,6 +1663,7 @@ function _restore_evolution_candidates(
                 nothing,
                 copy(metadata.trial_rows),
                 copy(metadata.seed_rows),
+                metadata.failure,
             ))
         end
         metadata = candidate_metadata[candidate_key]
@@ -1654,13 +1686,19 @@ function _write_incomplete_record_manifest(
     _write_record_manifest(directory, git)
     artifacts = String[]
     checksums = Dict{String,String}()
+    previous = isfile(joinpath(directory, "record.toml")) ?
+        get(TOML.parsefile(joinpath(directory, "record.toml")), "artifact_sha256", Dict()) : Dict()
     for (root, _, files) in walkdir(directory), file in sort(files)
         relative = replace(relpath(joinpath(root, file), directory), '\\' => '/')
         relative in ("record.toml", "DONE", "FAILED", "INCOMPLETE") &&
             continue
         push!(artifacts, relative)
-        checksums[relative] = open(joinpath(root, file), "r") do io
-            bytes2hex(SHA.sha256(io))
+        checksums[relative] = if startswith(relative, "generation-data/") && haskey(previous, relative)
+            previous[relative]
+        else
+            open(joinpath(root, file), "r") do io
+                bytes2hex(SHA.sha256(io))
+            end
         end
     end
     sort!(artifacts)
@@ -1700,6 +1738,7 @@ function _write_partial_evolution_state(
     candidates,
 )
     mkpath(joinpath(directory, "data"))
+    trial_rows = _partial_candidate_trials(candidates)
     _write_csv_atomic(
         joinpath(directory, "data", "candidates.csv"),
         _partial_candidates(candidates);
@@ -1708,8 +1747,8 @@ function _write_partial_evolution_state(
     )
     _write_csv_atomic(
         joinpath(directory, "data", "candidate_trials.csv"),
-        _partial_candidate_trials(candidates);
-        columns=isempty(candidates) ?
+        trial_rows;
+        columns=isempty(trial_rows) ?
             _empty_table_columns(:candidate_trials) : nothing,
     )
     _write_csv_atomic(
@@ -1734,7 +1773,33 @@ function _evolution_checkpoint_callback(
     git,
 )
     return function (iteration, state, candidates)
-        _write_partial_evolution_state(directory, candidates)
+        journal = joinpath(directory, "generation-data")
+        mkpath(journal)
+        marker = joinpath(journal, "format.toml")
+        if !isfile(marker)
+            open(marker, "w") do io
+                TOML.print(io, Dict("version" => 1, "first_iteration" => iteration))
+            end
+        end
+        pending = mktempdir(journal; prefix=".pending-")
+        generation = joinpath(journal, lpad(iteration, 8, '0'))
+        try
+            _write_partial_evolution_state(pending,
+                filter(candidate -> candidate.iteration == iteration, candidates))
+            checksums = Dict(relative => open(io -> bytes2hex(SHA.sha256(io)), joinpath(pending, relative))
+                for relative in ("data/candidates.csv", "data/candidate_trials.csv", "data/candidate_scores.csv", "seeds.csv"))
+            open(joinpath(pending, "checksums.toml"), "w") do io
+                TOML.print(io, checksums; sorted=true)
+            end
+            if isdir(generation)
+                TOML.parsefile(joinpath(generation, "checksums.toml")) == checksums ||
+                    throw(ArgumentError("replayed generation differs from its uncommitted data"))
+            else
+                mv(pending, generation)
+            end
+        finally
+            isdir(pending) && rm(pending; recursive=true)
+        end
         Evolution.write_checkpoint(
             directory;
             completed_iteration=iteration,
@@ -1754,6 +1819,7 @@ function run_operation(
     registry::RegistrySet=DEFAULT_REGISTRY,
     root::AbstractString="records",
     id::Union{Nothing,AbstractString}=nothing,
+    max_seconds::Real=Inf,
 )
     git = _record_git()
     directory = _reserve_operation_record_directory(plan, root, id)
@@ -1772,7 +1838,7 @@ function run_operation(
             plan,
             git,
         )
-        result = execute(resolved; checkpoint)
+        result = execute(resolved; checkpoint, max_seconds)
         _clear_evolution_markers(directory)
         _write_record_contents(
             directory,
@@ -1783,6 +1849,7 @@ function run_operation(
         )
         return (result=result, directory=String(directory))
     catch error
+        error isa EvolutionBudgetExceeded && rethrow()
         open(joinpath(directory, "FAILED"), "w") do io
             write(io, string(nameof(typeof(error))), "\n")
             write(io, "The calling process contains the detailed error.\n")
@@ -1797,6 +1864,7 @@ isdefined(Evolution, :resume) ||
 function Evolution.resume(
     record_directory::AbstractString;
     registry::RegistrySet=DEFAULT_REGISTRY,
+    max_seconds::Real=Inf,
 )
     directory = String(record_directory)
     isdir(directory) || throw(ArgumentError(
@@ -1864,6 +1932,7 @@ function Evolution.resume(
             state,
             candidates,
             checkpoint=callback,
+            max_seconds,
         )
         _clear_evolution_markers(directory)
         _write_record_contents(
@@ -1875,6 +1944,7 @@ function Evolution.resume(
         )
         return (result=result, directory=directory)
     catch error
+        error isa EvolutionBudgetExceeded && rethrow()
         open(joinpath(directory, "FAILED"), "w") do io
             write(io, string(nameof(typeof(error))), "\n")
             write(io, "The calling process contains the detailed error.\n")

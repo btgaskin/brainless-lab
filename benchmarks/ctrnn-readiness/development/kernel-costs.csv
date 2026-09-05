@@ -1,0 +1,5 @@
+node,n_nodes,substeps,dendrites,step_bytes,effector_bytes,median_step_seconds,internal_states,integration_updates_per_frame
+compartmental_structured,60,5,7,576,80,8.3625e-5,3300,16500
+compartmental_structured,200,5,24,1664,80,0.000685417,31400,157000
+compartmental_dense,60,5,7,576,80,0.000130125,3300,16500
+compartmental_dense,200,5,24,1664,80,0.001386959,31400,157000

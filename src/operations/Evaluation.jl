@@ -1,6 +1,7 @@
 """Explicit initial state retained for audit when an environment exposes one."""
 realized_initial_state(::Environment) = nothing
 realized_initial_state(environment::PlankCartPoleEnv) = Tuple(environment.state)
+realized_initial_state(environment::DelayedCueEnv) = (environment.cue, environment.delay)
 
 struct EvaluationTrial{S<:SimResult,I,L}
     condition::Symbol
@@ -62,6 +63,8 @@ function _combined_resource_report(reports)
         recurrent_edges=total(:recurrent_edges),
         input_edges=total(:input_edges),
         output_edges=total(:output_edges),
+        internal_states=total(:internal_states),
+        integration_updates_per_frame=total(:integration_updates_per_frame),
     )
 end
 
@@ -263,18 +266,29 @@ rejected until the composed task declares the corresponding reset hooks.
 function evaluate(
     target::EvaluationTarget;
     registry::RegistrySet=DEFAULT_REGISTRY,
+    kwargs...,
+)
+    resolved = resolve_composition(target.composition, registry)
+    return _evaluate_resolved(target, resolved; registry, kwargs...)
+end
+
+function _evaluate_resolved(
+    target::EvaluationTarget,
+    resolved::ResolvedComposition;
+    registry::RegistrySet,
     model=nothing,
     record=(),
     record_every::Integer=1,
     compute_every=Dict{Symbol,Int}(),
     metrics=nothing,
+    check_budget=() -> nothing,
 )
     evaluation = target.evaluation
     evaluation.reset === :full || throw(ArgumentError(
         "generic evaluation currently requires reset=:full; task-specific state retention " *
         "must be exposed through a declared reset hook before using :$(evaluation.reset)",
     ))
-    resolved = resolve_composition(target.composition, registry)
+    validate_task_evaluation(resolved.task.setup, resolved.task_options, evaluation)
     _validate_target_interventions(target, resolved.node, registry)
     _validate_minimum_scored_ticks(
         resolved.task,
@@ -305,6 +319,7 @@ function evaluate(
     index = 1
     for block in 1:evaluation.blocks
         for trial in 1:evaluation.trials_per_block
+            check_budget()
             trial_results[index] = _evaluate_trial(
                 target,
                 resolved,
@@ -345,6 +360,8 @@ function trial_row(trial::EvaluationTrial)
         recurrent_edges=resources.recurrent_edges,
         input_edges=resources.input_edges,
         output_edges=resources.output_edges,
+        internal_states=resources.internal_states,
+        integration_updates_per_frame=resources.integration_updates_per_frame,
         seed_ledger_agents=length(trial.seeds),
         topology_seed=seed(:topology),
         world_seed=seed(:world),

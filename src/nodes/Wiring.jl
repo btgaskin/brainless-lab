@@ -228,6 +228,9 @@ function build_wiring(
     n_effectors::Integer,
     rho::Real=0.2,
     mode=:structured,
+    k_rec::Union{Nothing,Integer}=nothing,
+    k_in::Union{Nothing,Integer}=nothing,
+    output_fanout::Union{Nothing,Integer}=nothing,
 )
     N_ = Int(N)
     n_receptors_ = Int(n_receptors)
@@ -240,11 +243,15 @@ function build_wiring(
     n_receptors_ >= 1 || throw(ArgumentError("n_receptors must be at least 1"))
     n_effectors_ >= 1 || throw(ArgumentError("n_effectors must be at least 1"))
     0.0 <= link_p_ <= 1.0 || throw(ArgumentError("link_p must be in [0, 1]"))
-    rho_ >= 0.0 || throw(ArgumentError("rho must be non-negative"))
+    isfinite(rho_) && rho_ >= 0.0 || throw(ArgumentError("rho must be finite and non-negative"))
 
     rng = _wiring_rng(seed)
-    K_rec_ = min(N_ - 1, max(1, round(Int, link_p_ * (N_ - 1))))
-    K_in_ = max(1, round(Int, rho_ * K_rec_))
+    K_rec_ = k_rec === nothing ? min(N_ - 1, max(1, round(Int, link_p_ * (N_ - 1)))) : Int(k_rec)
+    K_in_ = k_in === nothing ? max(1, round(Int, rho_ * K_rec_)) : Int(k_in)
+    0 <= K_rec_ < N_ || throw(ArgumentError("k_rec must be between 0 and N-1"))
+    K_in_ >= 1 || throw(ArgumentError("k_in must be positive"))
+    output_fanout === nothing || 1 <= output_fanout <= N_ ||
+        throw(ArgumentError("output_fanout must be between 1 and N"))
     K_ = K_rec_ + K_in_
 
     node_sources = Matrix{Int}(undef, N_, K_rec_)
@@ -276,6 +283,14 @@ function build_wiring(
 
     M_ne = falses(N_, n_effectors_)
     @inbounds for eff in 1:n_effectors_
+        if output_fanout !== nothing
+            selected = zeros(Int, output_fanout)
+            _sample_0based_without_replacement!(selected, rng, collect(0:(N_ - 1)))
+            for source in selected
+                M_ne[source + 1, eff] = true
+            end
+            continue
+        end
         any_source = false
         for n in 1:N_
             connected = rand(rng) < link_p_

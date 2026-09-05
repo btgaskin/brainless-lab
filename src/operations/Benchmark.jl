@@ -82,7 +82,7 @@ function resolve(plan::BenchmarkPlan, registry::RegistrySet)
     return ResolvedBenchmarkPlan(plan, plan.id, cases, registry)
 end
 
-function execute(plan::ResolvedBenchmarkPlan)
+function execute(plan::ResolvedBenchmarkPlan; check_budget=() -> nothing)
     batches = Tuple(
         (
             case=case.id,
@@ -90,7 +90,8 @@ function execute(plan::ResolvedBenchmarkPlan)
             conditions=Tuple(
                 (
                     id=condition.target.id,
-                    batch=evaluate(condition.target; registry=plan.registry),
+                    batch=_evaluate_resolved(condition.target, condition.composition;
+                        registry=plan.registry, check_budget),
                 )
                 for condition in case.conditions
             ),

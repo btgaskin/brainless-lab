@@ -1,0 +1,13 @@
+evidence_state = "exploratory"
+julia_version = "1.12.6"
+samples_per_scale = 24
+source_sha = "aa497b922600e8ee26bb14f2d3ed7469afdf5fcc"
+source_state = "dirty"
+
+[nodes.compartmental_dense]
+responsive_fraction = 0.041666666666666664
+scale = 0.25
+
+[nodes.compartmental_structured]
+responsive_fraction = 0.08333333333333333
+scale = 1.0

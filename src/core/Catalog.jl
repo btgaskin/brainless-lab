@@ -53,7 +53,29 @@ _node_model_keyword(::Any) = :genome
 _node_model_required(::Any) = true
 
 function _generic_registered_node_parameters(id::Symbol, genome)
-    if genome === FalandaysParams
+    if id in (:compartmental_dense, :compartmental_structured)
+        positive = value -> isfinite(value) && value > 0
+        nonnegative = value -> isfinite(value) && value >= 0
+        return (
+            ParameterSpec(:dt, 1.0; datatype=Real, validator=positive,
+                description="integration interval per neural frame"),
+            ParameterSpec(:substeps, 5; datatype=Integer, validator=positive,
+                description="Euler substeps per neural frame"),
+            ParameterSpec(:hill_tau, HILL_TAU; datatype=Real, validator=positive),
+            ParameterSpec(:hill_reset, HILL_RESET; datatype=Real, validator=isfinite),
+            ParameterSpec(:link_p, 0.1; datatype=Real, validator=value -> 0 <= value <= 1),
+            ParameterSpec(:rho, 0.2; datatype=Real, validator=nonnegative),
+            ParameterSpec(:k_rec, nothing; datatype=Union{Nothing,Integer},
+                validator=value -> value === nothing || value >= 0),
+            ParameterSpec(:k_in, nothing; datatype=Union{Nothing,Integer},
+                validator=value -> value === nothing || value > 0),
+            ParameterSpec(:output_fanout, nothing; datatype=Union{Nothing,Integer},
+                validator=value -> value === nothing || value > 0,
+                description="exact source count per effector; nothing uses the seeded mask"),
+            ParameterSpec(:init_random, true),
+            ParameterSpec(:state_scale, 0.05; datatype=Real, validator=nonnegative),
+        )
+    elseif genome === FalandaysParams
         defaults = FalandaysParams()
         return (
             ParameterSpec(

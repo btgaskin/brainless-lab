@@ -13,6 +13,7 @@ struct ResolvedEvolutionPlan{
     D<:Evolution.NodeDesignSpec,
     S<:Evolution.SearchStrategySpec,
     R<:Evolution.RunConfig,
+    T<:Tuple,
 } <: AbstractResolvedOperationPlan
     plan::P
     registry::RegistrySet
@@ -20,6 +21,7 @@ struct ResolvedEvolutionPlan{
     design::D
     strategy::S
     run::R
+    targets::T
 end
 
 """One target score and its raw trial and seed records for a candidate."""
@@ -31,7 +33,11 @@ struct EvolutionEvaluation
     batch
     trial_rows::Vector{NamedTuple}
     seed_rows::Vector{NamedTuple}
+    failure::Union{Nothing,Symbol}
 end
+
+EvolutionEvaluation(target, measure, values, aggregate, batch, trial_rows, seed_rows) =
+    EvolutionEvaluation(target, measure, values, aggregate, batch, trial_rows, seed_rows, nothing)
 
 """One proposed node model and every training evaluation made for it."""
 struct EvolutionCandidate
@@ -129,6 +135,16 @@ function _resolved_run_config(
     )
 end
 
+"""A bounded development run stopped between episodes; its checkpoint remains resumable."""
+struct EvolutionBudgetExceeded <: Exception end
+Base.showerror(io::IO, ::EvolutionBudgetExceeded) = print(io, "evolution wall-time budget exhausted")
+
+function _evolution_world_seeds(targets)
+    return Set(_seed_to_int(derive_seed(target.evaluation, :world, block, trial))
+        for target in targets for block in 1:target.evaluation.blocks
+        for trial in 1:target.evaluation.trials_per_block)
+end
+
 function validate(plan::EvolutionPlan, registry::RegistrySet)
     first_target = first(plan.training_targets)
     resolved = resolve_composition(first_target.composition, registry)
@@ -142,6 +158,18 @@ function validate(plan::EvolutionPlan, registry::RegistrySet)
     end
     for target in plan.heldout_targets
         _validate_evolution_target(target, node.id, "held-out")
+    end
+    isempty(intersect(_evolution_world_seeds(plan.training_targets),
+        _evolution_world_seeds(plan.heldout_targets))) || throw(ArgumentError(
+        "training and held-out targets reuse realised world seeds"))
+    if plan.run.measure === :benchmark_profile
+        plan.run.strategy === :nsga2 && plan.run.direction === :maximise ||
+            throw(ArgumentError("benchmark_profile requires maximising NSGA-II; task units stay separate"))
+        for target in plan.training_targets
+            task = resolve_composition(target.composition, registry).task
+            hasproperty(task.protocol, :benchmark_profile) || throw(ArgumentError(
+                "task :$(task.name) declares no benchmark profile"))
+        end
     end
     strategy = Evolution.search_strategy(registry, plan.run.strategy)
     Evolution.validate_strategy(
@@ -177,12 +205,17 @@ function resolve(plan::EvolutionPlan, registry::RegistrySet)
         design,
         strategy,
         run,
+        Tuple(resolve_composition(target.composition, registry) for target in plan.training_targets),
     )
 end
 
 function _evolution_trial_value(trial::EvaluationTrial, measure::Symbol)
     outcome = task_outcome(trial.simulation)
-    value = if measure === :normalized_score
+    value = if measure === :benchmark_profile
+        profile = _trial_profile_coordinate(trial.simulation)
+        ismissing(profile.profile_value) ? missing :
+            profile.profile_value * (profile.profile_direction === :lower ? -1.0 : 1.0)
+    elseif measure === :normalized_score
         outcome === nothing ? missing : outcome.normalized
     elseif measure === :raw_score
         outcome === nothing ? missing : outcome.raw
@@ -247,8 +280,16 @@ function _evaluate_evolution_target(
     model::NodeModel,
     measure::Symbol,
     registry::RegistrySet,
+    resolved::ResolvedComposition=resolve_composition(target.composition, registry);
+    check_budget=() -> nothing,
 )
-    batch = evaluate(target; registry, model)
+    batch = try
+        _evaluate_resolved(target, resolved; registry, model, check_budget)
+    catch error
+        error isa NonfiniteDynamics || rethrow()
+        return EvolutionEvaluation(target.id, measure, Union{Missing,Float64}[], missing,
+            nothing, NamedTuple[], NamedTuple[], :nonfinite_dynamics)
+    end
     values = Union{Missing,Float64}[
         _evolution_trial_value(trial, measure)
         for trial in batch.trials
@@ -259,7 +300,7 @@ function _evaluate_evolution_target(
         measure,
         values,
         aggregate,
-        batch,
+        nothing,
         NamedTuple[trial_table(batch)...],
         _evolution_seed_rows(batch),
     )
@@ -268,6 +309,7 @@ end
 function _candidate_observation(
     plan::ResolvedEvolutionPlan,
     proposal::Evolution.CandidateProposal,
+    check_budget=() -> nothing,
 )
     model = Evolution.decode(plan.design, proposal.coordinates)
     evaluations = EvolutionEvaluation[
@@ -276,8 +318,10 @@ function _candidate_observation(
             model,
             plan.run.measure,
             plan.registry,
+            resolved;
+            check_budget,
         )
-        for target in plan.plan.training_targets
+        for (target, resolved) in zip(plan.plan.training_targets, plan.targets)
     ]
     valid = all(evaluation -> !ismissing(evaluation.aggregate), evaluations)
     scores = Float64[
@@ -441,7 +485,11 @@ function execute(
     state=nothing,
     candidates=EvolutionCandidate[],
     checkpoint=nothing,
+    max_seconds::Real=Inf,
 )
+    max_seconds > 0 || throw(ArgumentError("max_seconds must be positive"))
+    started = time_ns()
+    check_budget() = (time_ns() - started) / 1e9 < max_seconds ? nothing : throw(EvolutionBudgetExceeded())
     init_parallelism!()
     state_ = state === nothing ?
         Evolution.initialise(
@@ -454,13 +502,14 @@ function execute(
     history = copy(candidates)
     completed = Int(Evolution.snapshot(state_)["iteration"])
     while completed < plan.run.iterations
+        check_budget()
         iteration = completed + 1
         proposals = Evolution.propose!(
             state_,
             _evolution_rng(plan.run.search_seed, iteration),
         )
         evaluated = parallel_map(proposals) do proposal
-            _candidate_observation(plan, proposal)
+            _candidate_observation(plan, proposal, check_budget)
         end
         Evolution.observe!(
             state_,
@@ -540,6 +589,7 @@ function tables(result::EvolutionResult)
                 candidate=candidate.id,
                 target=evaluation.target,
                 measure=evaluation.measure,
+                failure=evaluation.failure,
                 valid=candidate.valid && !ismissing(evaluation.aggregate),
                 score=evaluation.aggregate,
                 normalized_n=censoring.normalized_n,

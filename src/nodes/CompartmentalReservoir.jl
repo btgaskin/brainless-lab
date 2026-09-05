@@ -1,7 +1,11 @@
 using StaticArrays: MVector, SMatrix, SVector
 
-struct CompartmentalModel{G<:AbstractCompartmental} <: NodeModel
+struct NonfiniteDynamics <: Exception end
+Base.showerror(io::IO, ::NonfiniteDynamics) = print(io, "CTRNN integration produced non-finite state")
+
+struct CompartmentalModel{G<:AbstractCompartmental,K} <: NodeModel
     genome::G
+    kernel::K
     dt::Float64
     substeps::Int      # forward-Euler integration sub-steps per env update
     dt_sub::Float64    # = dt / substeps (the actual per-sub-step Euler dt)
@@ -19,10 +23,13 @@ mutable struct CompartmentalNodeState
     prev_soma_y::Matrix{Float64}
     prev_spike::Vector{Float64}
     spike_buffer::Vector{Float64}
+    receptor_buffer::Vector{Float64}
+    convolution::Vector{Float64}
+    dendrite_output::Matrix{Float64}
 end
 
 const CompartmentalReservoir{G<:AbstractCompartmental} =
-    ReservoirInstance{CompartmentalModel{G}, <:Wiring, <:CompartmentalConnState, <:CompartmentalNodeState}
+    ReservoirInstance{<:CompartmentalModel{G}, <:Wiring, <:CompartmentalConnState, <:CompartmentalNodeState}
 
 function Base.getproperty(r::CompartmentalReservoir, s::Symbol)
     if s === :model
@@ -52,6 +59,7 @@ function Base.setproperty!(r::CompartmentalReservoir, s::Symbol, value)
         model = getfield(r, :model)
         updated = CompartmentalModel(
             value,
+            _compartmental_kernel(value),
             getfield(model, :dt),
             getfield(model, :substeps),
             getfield(model, :dt_sub),
@@ -79,11 +87,16 @@ function CompartmentalReservoir(
     wiring.mode == expected_mode ||
         throw(ArgumentError("genome mode $expected_mode does not match wiring mode $(wiring.mode)"))
 
-    substeps_ = max(1, Int(substeps))
+    substeps_ = Int(substeps)
+    substeps_ > 0 || throw(ArgumentError("substeps must be positive"))
+    isfinite(dt) && dt > 0 || throw(ArgumentError("dt must be finite and positive"))
+    isfinite(hill_tau) && hill_tau > 0 || throw(ArgumentError("hill_tau must be finite and positive"))
+    isfinite(hill_reset) || throw(ArgumentError("hill_reset must be finite"))
     intervention_ = _compartmental_intervention(intervention)
     reservoir = ReservoirInstance(
         CompartmentalModel(
             genome,
+            _compartmental_kernel(genome),
             Float64(dt),
             substeps_,
             Float64(dt) / substeps_,
@@ -100,6 +113,9 @@ function CompartmentalReservoir(
             zeros(Float64, wiring.N, COMPARTMENTAL_S),
             zeros(Float64, wiring.N),
             zeros(Float64, wiring.N),
+            zeros(Float64, wiring.n_receptors),
+            zeros(Float64, COMPARTMENTAL_S),
+            zeros(Float64, wiring.K, COMPARTMENTAL_D),
         ),
         PortSpec(wiring.n_receptors, wiring.n_effectors),
     )
@@ -202,6 +218,9 @@ end
     )
 end
 
+_compartmental_kernel(g::DenseCompartmental) = _dense_kernel(g)
+_compartmental_kernel(g::StructuredCompartmental) = _structured_kernel(g)
+
 @inline function _compartmental_dendrite_signal(w::Wiring, spike_buffer::Vector{Float64}, receptor_c::Vector{Float64}, n::Int, k::Int)
     src = w.dend_source[n, k]
     if 0 <= src < w.N
@@ -233,11 +252,15 @@ end
 end
 
 function _dense_conv(r::CompartmentalReservoir, n::Int, K::Int, W_d_s)
-    conv = MVector{COMPARTMENTAL_S,Float64}(undef)
+    conv = r.state.convolution
+    output = r.state.dendrite_output
+    @inbounds for d in 1:COMPARTMENTAL_D, k in 1:K
+        output[k, d] = _compartmental_sigmoid(r.dend_y[n, k, d])
+    end
     @inbounds for s in 1:COMPARTMENTAL_S
         total = 0.0
         for k in 1:K, d in 1:COMPARTMENTAL_D
-            total += _compartmental_sigmoid(r.dend_y[n, k, d]) * W_d_s[d, s]
+            total += output[k, d] * W_d_s[d, s]
         end
         conv[s] = total / Float64(K)
     end
@@ -271,6 +294,7 @@ function _update_dense_soma_and_hillock!(r::CompartmentalReservoir, g::DenseComp
 
     phi = g.thr_base + g.thr_gain * thr_readout
     v_after = r.V[n] + r.dt_sub * (-r.V[n] + drive) / r.hill_tau
+    isfinite(v_after) && isfinite(phi) || throw(NonfiniteDynamics())
     if v_after >= phi
         r.prev_spike[n] = 1.0
         r.V[n] = r.hill_reset
@@ -310,6 +334,7 @@ function _update_structured_soma_and_hillock!(r::CompartmentalReservoir, g::Stru
     drive = g.w_drv * soma_out[drive_idx]
     phi = soma_out[thr_idx]
     v_after = r.V[n] + r.dt_sub * (-r.V[n] + drive) / r.hill_tau
+    isfinite(v_after) && isfinite(phi) || throw(NonfiniteDynamics())
     if v_after >= phi
         r.prev_spike[n] = 1.0
         r.V[n] = r.hill_reset
@@ -326,30 +351,30 @@ function _update_structured_soma_and_hillock!(r::CompartmentalReservoir, g::Stru
 end
 
 function step!(r::CompartmentalReservoir, receptor_currents)
-    receptor_c = _compartmental_float_vector(receptor_currents, "receptor_currents")
-    length(receptor_c) == r.wiring.n_receptors ||
-        throw(DimensionMismatch("expected $(r.wiring.n_receptors) receptor currents, got $(length(receptor_c))"))
+    length(receptor_currents) == r.wiring.n_receptors ||
+        throw(DimensionMismatch("expected $(r.wiring.n_receptors) receptor currents, got $(length(receptor_currents))"))
+    receptor_c = r.state.receptor_buffer
+    for (i, value) in enumerate(receptor_currents)
+        receptor_c[i] = Float64(value)
+    end
 
     # Integrate the CTRNN with `substeps` forward-Euler sub-steps of dt_sub per env
     # update (afferent input held constant; recurrence propagates per sub-step).
     # The env-step output is the per-node spike RATE over the sub-steps; at
     # substeps=1 this is the single-tick binary spike vector (== legacy behaviour).
-    if r.substeps <= 1
-        spikes = _step_compartmental!(r, receptor_c, r.genome)
-    else
-        acc = zeros(Float64, r.wiring.N)
-        for _ in 1:r.substeps
-            acc .+= _step_compartmental!(r, receptor_c, r.genome)
-        end
-        spikes = acc ./ r.substeps
+    spikes = zeros(Float64, r.wiring.N)
+    for _ in 1:r.substeps
+        _step_compartmental!(r, receptor_c, r.genome)
+        spikes .+= r.prev_spike
     end
+    spikes ./= r.substeps
     _compartmental_tick_intervention!(r.intervention, r)
     return spikes
 end
 
 function _step_compartmental!(r::CompartmentalReservoir, receptor_c::Vector{Float64}, g::DenseCompartmental)
     w = r.wiring
-    kernel = _dense_kernel(g)
+    kernel = r.model.kernel
 
     @inbounds for n in 1:w.N
         prev_soma_out = _sigmoid_svector(_svector_s_from_prev_soma(r, n))
@@ -372,7 +397,7 @@ function _step_compartmental!(r::CompartmentalReservoir, receptor_c::Vector{Floa
     end
 
     copyto!(r.spike_buffer, r.prev_spike)
-    return copy(r.prev_spike)
+    return r
 end
 
 function _step_compartmental!(r::CompartmentalReservoir, receptor_c::Vector{Float64}, g::StructuredCompartmental)
@@ -384,7 +409,7 @@ function _step_compartmental!(r::CompartmentalReservoir, receptor_c::Vector{Floa
     back_src !== nothing || throw(ArgumentError("structured reservoir requires back_src wiring"))
     fwd_count !== nothing || throw(ArgumentError("structured reservoir requires fwd_count wiring"))
 
-    kernel = _structured_kernel(g)
+    kernel = r.model.kernel
     in_idx = IN_UNIT + 1
     out_idx = OUT_UNIT + 1
     fb_idx = FB_UNIT + 1
@@ -411,7 +436,7 @@ function _step_compartmental!(r::CompartmentalReservoir, receptor_c::Vector{Floa
             conv_sum[unit] += _compartmental_sigmoid(r.dend_y[n, k, out_idx])
         end
 
-        conv = MVector{COMPARTMENTAL_S,Float64}(undef)
+        conv = r.state.convolution
         for s in 1:COMPARTMENTAL_S
             count = fwd_count[n, s]
             conv[s] = count > 0.0 ? conv_sum[s] / count : 0.0
@@ -420,25 +445,21 @@ function _step_compartmental!(r::CompartmentalReservoir, receptor_c::Vector{Floa
     end
 
     copyto!(r.spike_buffer, r.prev_spike)
-    return copy(r.prev_spike)
+    return r
 end
 
 function effectors(r::CompartmentalReservoir, spikes)
-    spikes = _compartmental_float_vector(spikes, "spikes")
     length(spikes) == r.wiring.N ||
         throw(DimensionMismatch("expected $(r.wiring.N) spikes, got $(length(spikes))"))
 
     out = zeros(Float64, r.wiring.n_effectors)
     @inbounds for k in 1:r.wiring.n_effectors
-        count = 0
+        sources = r.wiring.effector_sources[k]
         total = 0.0
-        for n in 1:r.wiring.N
-            if r.wiring.M_ne[n, k]
-                count += 1
-                total += spikes[n]
-            end
+        for n in sources
+            total += spikes[n]
         end
-        out[k] = count > 0 ? total / Float64(count) : 0.0
+        out[k] = isempty(sources) ? 0.0 : total / length(sources)
     end
     return out
 end
@@ -503,6 +524,15 @@ function load_state!(r::CompartmentalReservoir, state)
 end
 
 plasticity(::CompartmentalReservoir) = NoPlasticity()
+
+function resource_report(r::CompartmentalReservoir)
+    w = r.wiring
+    states = w.N * (w.K * COMPARTMENTAL_D + COMPARTMENTAL_S + 1)
+    return ResourceReport(w.N;
+        recurrent_edges=w.N * w.K_rec, input_edges=w.N * w.K_in,
+        output_edges=sum(length, w.effector_sources), internal_states=states,
+        integration_updates_per_frame=states * r.substeps)
+end
 
 # The compartmental node integrates its own `substeps` sub-steps inside a single
 # `step!` (holding the afferent, reporting the mean spike rate), so it owns its

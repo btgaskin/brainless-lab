@@ -497,6 +497,8 @@ function _validate_plan_evaluations(
         ))
         task = task_spec(registry, target.composition.task)
         node = node_spec(registry, target.composition.node)
+        resolved = resolve_composition(target.composition, registry)
+        validate_task_evaluation(task.setup, resolved.task_options, evaluation)
         _validate_target_interventions(target, node, registry)
         _validate_minimum_scored_ticks(
             task,
