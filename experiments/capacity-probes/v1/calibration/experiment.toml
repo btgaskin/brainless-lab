@@ -1,0 +1,101 @@
+conditions = ["delayed_cue__delay_32__falandays_direct_v1__calibration", "delayed_cue__delay_32__sorn_direct_v1__calibration", "delayed_cue__delay_32__compartmental_dense_nominee_v1__calibration", "delayed_cue__delay_32__compartmental_structured_nominee_v1__calibration", "recall_interference__delay_32_distractors_1__falandays_direct_v1__calibration", "recall_interference__delay_32_distractors_1__sorn_direct_v1__calibration", "recall_interference__delay_32_distractors_1__compartmental_dense_nominee_v1__calibration", "recall_interference__delay_32_distractors_1__compartmental_structured_nominee_v1__calibration", "delayed_xor__gap_32__falandays_direct_v1__calibration", "delayed_xor__gap_32__sorn_direct_v1__calibration", "delayed_xor__gap_32__compartmental_dense_nominee_v1__calibration", "delayed_xor__gap_32__compartmental_structured_nominee_v1__calibration", "evidence_accumulation__pulses_32_evidence_250__falandays_direct_v1__calibration", "evidence_accumulation__pulses_32_evidence_250__sorn_direct_v1__calibration", "evidence_accumulation__pulses_32_evidence_250__compartmental_dense_nominee_v1__calibration", "evidence_accumulation__pulses_32_evidence_250__compartmental_structured_nominee_v1__calibration", "context_integration__pulses_32_evidence_250_conflicting_transient__falandays_direct_v1__calibration", "context_integration__pulses_32_evidence_250_conflicting_transient__sorn_direct_v1__calibration", "context_integration__pulses_32_evidence_250_conflicting_transient__compartmental_dense_nominee_v1__calibration", "context_integration__pulses_32_evidence_250_conflicting_transient__compartmental_structured_nominee_v1__calibration", "temporal_order__gap_8__falandays_direct_v1__calibration", "temporal_order__gap_8__sorn_direct_v1__calibration", "temporal_order__gap_8__compartmental_dense_nominee_v1__calibration", "temporal_order__gap_8__compartmental_structured_nominee_v1__calibration", "reversal_adaptation__single_reversal__falandays_direct_v1__calibration", "reversal_adaptation__single_reversal__sorn_direct_v1__calibration", "reversal_adaptation__single_reversal__compartmental_dense_nominee_v1__calibration", "reversal_adaptation__single_reversal__compartmental_structured_nominee_v1__calibration"]
+evidence_state = "planned"
+format = "brainlesslab-experiment"
+format_version = 1
+id = "capacity_calibration"
+limitations = ["Unexecuted development proposal. No confirmation seeds or core promotion are defined.", "Run a timed preflight before calibration; revise sample sizes from a variance pilot.", "Native gain 1 is provisional. Apply development selections in a new pilot protocol before comparison.", "Fixed 200-node profiles differ in connections, internal states and integration cost.", "Decoder accuracy is a separate readout diagnostic; no general capability claim follows."]
+question = "Which input gain should each fixed profile use on each declared probe cell?"
+title = "capacity calibration"
+version = "1.0.0"
+
+[metadata]
+core_membership = "candidate"
+n_nodes = 200
+no_cross_task_aggregate = true
+programme = "capacity_probes"
+stage = "development_proposal"
+
+[[operations]]
+id = "delayed_cue__delay_32__falandays_direct_v1__gain"
+plan = "01-delayed_cue__delay_32__falandays_direct_v1__gain.toml"
+[[operations]]
+id = "delayed_cue__delay_32__sorn_direct_v1__gain"
+plan = "02-delayed_cue__delay_32__sorn_direct_v1__gain.toml"
+[[operations]]
+id = "delayed_cue__delay_32__compartmental_dense_nominee_v1__gain"
+plan = "03-delayed_cue__delay_32__compartmental_dense_nominee_v1__gain.toml"
+[[operations]]
+id = "delayed_cue__delay_32__compartmental_structured_nominee_v1__gain"
+plan = "04-delayed_cue__delay_32__compartmental_structured_nominee_v1__gain.toml"
+[[operations]]
+id = "recall_interference__delay_32_distractors_1__falandays_direct_v1__gain"
+plan = "05-recall_interference__delay_32_distractors_1__falandays_direct_v1__gain.toml"
+[[operations]]
+id = "recall_interference__delay_32_distractors_1__sorn_direct_v1__gain"
+plan = "06-recall_interference__delay_32_distractors_1__sorn_direct_v1__gain.toml"
+[[operations]]
+id = "recall_interference__delay_32_distractors_1__compartmental_dense_nominee_v1__gain"
+plan = "07-recall_interference__delay_32_distractors_1__compartmental_dense_nominee_v1__gain.toml"
+[[operations]]
+id = "recall_interference__delay_32_distractors_1__compartmental_structured_nominee_v1__gain"
+plan = "08-recall_interference__delay_32_distractors_1__compartmental_structured_nominee_v1__gain.toml"
+[[operations]]
+id = "delayed_xor__gap_32__falandays_direct_v1__gain"
+plan = "09-delayed_xor__gap_32__falandays_direct_v1__gain.toml"
+[[operations]]
+id = "delayed_xor__gap_32__sorn_direct_v1__gain"
+plan = "10-delayed_xor__gap_32__sorn_direct_v1__gain.toml"
+[[operations]]
+id = "delayed_xor__gap_32__compartmental_dense_nominee_v1__gain"
+plan = "11-delayed_xor__gap_32__compartmental_dense_nominee_v1__gain.toml"
+[[operations]]
+id = "delayed_xor__gap_32__compartmental_structured_nominee_v1__gain"
+plan = "12-delayed_xor__gap_32__compartmental_structured_nominee_v1__gain.toml"
+[[operations]]
+id = "evidence_accumulation__pulses_32_evidence_250__falandays_direct_v1__gain"
+plan = "13-evidence_accumulation__pulses_32_evidence_250__falandays_direct_v1__gain.toml"
+[[operations]]
+id = "evidence_accumulation__pulses_32_evidence_250__sorn_direct_v1__gain"
+plan = "14-evidence_accumulation__pulses_32_evidence_250__sorn_direct_v1__gain.toml"
+[[operations]]
+id = "evidence_accumulation__pulses_32_evidence_250__compartmental_dense_nominee_v1__gain"
+plan = "15-evidence_accumulation__pulses_32_evidence_250__compartmental_dense_nominee_v1__gain.toml"
+[[operations]]
+id = "evidence_accumulation__pulses_32_evidence_250__compartmental_structured_nominee_v1__gain"
+plan = "16-evidence_accumulation__pulses_32_evidence_250__compartmental_structured_nominee_v1__gain.toml"
+[[operations]]
+id = "context_integration__pulses_32_evidence_250_conflicting_transient__falandays_direct_v1__gain"
+plan = "17-context_integration__pulses_32_evidence_250_conflicting_transient__falandays_direct_v1__gain.toml"
+[[operations]]
+id = "context_integration__pulses_32_evidence_250_conflicting_transient__sorn_direct_v1__gain"
+plan = "18-context_integration__pulses_32_evidence_250_conflicting_transient__sorn_direct_v1__gain.toml"
+[[operations]]
+id = "context_integration__pulses_32_evidence_250_conflicting_transient__compartmental_dense_nominee_v1__gain"
+plan = "19-context_integration__pulses_32_evidence_250_conflicting_transient__compartmental_dense_nominee_v1__gain.toml"
+[[operations]]
+id = "context_integration__pulses_32_evidence_250_conflicting_transient__compartmental_structured_nominee_v1__gain"
+plan = "20-context_integration__pulses_32_evidence_250_conflicting_transient__compartmental_structured_nominee_v1__gain.toml"
+[[operations]]
+id = "temporal_order__gap_8__falandays_direct_v1__gain"
+plan = "21-temporal_order__gap_8__falandays_direct_v1__gain.toml"
+[[operations]]
+id = "temporal_order__gap_8__sorn_direct_v1__gain"
+plan = "22-temporal_order__gap_8__sorn_direct_v1__gain.toml"
+[[operations]]
+id = "temporal_order__gap_8__compartmental_dense_nominee_v1__gain"
+plan = "23-temporal_order__gap_8__compartmental_dense_nominee_v1__gain.toml"
+[[operations]]
+id = "temporal_order__gap_8__compartmental_structured_nominee_v1__gain"
+plan = "24-temporal_order__gap_8__compartmental_structured_nominee_v1__gain.toml"
+[[operations]]
+id = "reversal_adaptation__single_reversal__falandays_direct_v1__gain"
+plan = "25-reversal_adaptation__single_reversal__falandays_direct_v1__gain.toml"
+[[operations]]
+id = "reversal_adaptation__single_reversal__sorn_direct_v1__gain"
+plan = "26-reversal_adaptation__single_reversal__sorn_direct_v1__gain.toml"
+[[operations]]
+id = "reversal_adaptation__single_reversal__compartmental_dense_nominee_v1__gain"
+plan = "27-reversal_adaptation__single_reversal__compartmental_dense_nominee_v1__gain.toml"
+[[operations]]
+id = "reversal_adaptation__single_reversal__compartmental_structured_nominee_v1__gain"
+plan = "28-reversal_adaptation__single_reversal__compartmental_structured_nominee_v1__gain.toml"

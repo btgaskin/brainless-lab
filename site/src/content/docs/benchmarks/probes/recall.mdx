@@ -1,0 +1,43 @@
+---
+title: Recall duration and interference
+description: Retain a binary cue through blank intervals and competing signals.
+---
+
+Recall probes ask how long a controller retains a cue and how competing input affects
+that retention. `:delayed_cue` keeps its existing behaviour. The new
+`:recall_interference` task inserts distractors on the same two cue channels.
+
+```text
+cue (8) → delay (0, 8, 32, 128 or 256) → go and response (8)
+                  ↳ interference: one or three distractors, four frames each
+```
+
+The receptors are left cue, right cue and go. Outputs choose left or right. Only the
+response window contributes to `recall_accuracy` on delayed cue or `probe_accuracy`
+on interference. Both use raw and normalised accuracy in [0, 1], with chance 0.5.
+
+```julia
+using BrainlessLab
+cell = only(c for c in capacity_probe_presets()
+    if c.id == :recall_interference__delay_32_distractors_3)
+target = EvaluationTarget(cell.id,
+    CompositionSpec(cell.id, :null_random, cell.task; n_nodes=8, task_options=cell.task_options),
+    EvaluationSpec(horizon=cell.horizon, root_seed=1610200))
+task_outcome(only(evaluate(target).trials).simulation)
+```
+
+Distractors require at least 32 delay frames and blank spacing between events.
+`distractor_mode` accepts `:random`, `:matched`, `:opposite` and `:absent`.
+The seeded random distractor sequence stays fixed when visibility changes.
+`cue_mode` accepts `:transient`, `:persistent` and `:hidden`. Hidden-cue controls
+should use random or absent distractors: matched or opposite distractors reveal the cue.
+
+An observation-only `probe_control(:recall_interference)` remembers the initial cue and
+ignores later distractors. It should answer every completed trial correctly. A memoryless
+controller succeeds when the cue remains visible through response. Hidden cue and constant
+response establish the balanced-label chance reference. A short successful delay alone
+does not establish long-duration retention or resistance to interference.
+
+Use the [decoding diagnostic](/benchmarks/probes/decoding/) to locate recoverable cue
+information, then compare the declared delay and distractor cells in the
+[planned study](/benchmarks/probes/study/). Interference has not entered the core benchmark.

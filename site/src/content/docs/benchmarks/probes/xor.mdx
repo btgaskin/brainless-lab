@@ -1,0 +1,35 @@
+---
+title: Delayed XOR
+description: Combine two binary cues across a delay.
+---
+
+Delayed XOR asks whether a controller can retain one binary cue and combine it with a
+second. The left answer means equal; the right answer means different. All four cue
+combinations are sampled with equal probability.
+
+```text
+first cue (8) → gap (0, 8, 32 or 128) → second cue (8) → go and response (8)
+```
+
+`:delayed_xor` has five receptors: first-cue left/right, second-cue left/right, and go.
+The two cue banks distinguish their roles. Neither cue alone determines the answer.
+The outcome is `probe_accuracy`, raw and normalised in [0, 1]; chance is 0.5.
+
+```julia
+using BrainlessLab
+target = EvaluationTarget(:xor,
+    CompositionSpec(:xor, :null_random, :delayed_xor; n_nodes=8, task_options=Dict(:gap => 32)),
+    EvaluationSpec(horizon=56, root_seed=1610300))
+task_outcome(only(evaluate(target).trials).simulation)
+```
+
+`probe_control(:delayed_xor)` retains both cues and computes XOR. For an instantaneous
+comparison control, use `cue_mode=:persistent` and `policy=:memoryless` in `probe_control`.
+Both cues then remain available during response. Transient and hidden modes remove that
+shortcut; constant responses provide the chance reference. Even a zero gap retains a
+separate response window, so it is not the instantaneous control.
+
+The reference controller should achieve full accuracy across all four combinations.
+Success establishes this temporal binary computation, not general logical reasoning.
+Inspect [decoding](/benchmarks/probes/decoding/) separately from native responses and
+use the [study protocol](/benchmarks/probes/study/) for later comparisons. This is a candidate task.

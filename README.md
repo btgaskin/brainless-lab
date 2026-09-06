@@ -5,7 +5,7 @@
 <p align="center"><img src="brainless-lab.png" alt="BrainlessLab" width="760"></p>
 
 BrainlessLab is a Julia platform for studying simple neural substrates in closed
-sensorimotor loops. It separates runtime composition, repeated evaluation, research
+sensorimotor loops and controlled capacity probes. It separates runtime composition, repeated evaluation, research
 operations, and portable records.
 
 The canonical `:falandays` node is validated on declared reference trajectories. `:sorn`
@@ -16,6 +16,11 @@ do not establish general competence or biological fidelity.
 The [v2 protocol](benchmarks/direct-control/v2/README.md) is frozen; confirmation remains
 pending. [Shared CTRNN development](benchmarks/ctrnn-readiness/README.md) evaluates one
 fixed design across all four tasks. Its pilots remain development evidence.
+
+The [capacity-probe library](https://brainless-lab.pages.dev/benchmarks/probes/) adds six
+experimental families and 64 difficulty cells, with observation-only controls and separate
+linear decoding diagnostics. [Stage 2 study bundles](experiments/capacity-probes/README.md)
+are planned, not executed model comparisons. Core membership remains versioned separately.
 
 ## Quick start
 

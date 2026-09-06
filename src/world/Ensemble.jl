@@ -549,6 +549,9 @@ function _record_ensemble!(rec::Recorder, c::Ensemble, bodies, percepts, recepto
     if _record_wants(rec, :spikes)
         record!(rec, :spikes, _entity_frame(c, _record_payload(spikes)))
     end
+    if _record_wants(rec, :probe_events)
+        _record_probe_events!(rec, c, spikes)
+    end
     if _record_wants(rec, :rate)
         record!(rec, :rate, _entity_frame(c, copy(rates)))
     end

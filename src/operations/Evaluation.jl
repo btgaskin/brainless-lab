@@ -2,6 +2,7 @@
 realized_initial_state(::Environment) = nothing
 realized_initial_state(environment::PlankCartPoleEnv) = Tuple(environment.state)
 realized_initial_state(environment::DelayedCueEnv) = (environment.cue, environment.delay)
+realized_initial_state(environment::CapacityProbeEnv) = environment.metadata
 
 struct EvaluationTrial{S<:SimResult,I,L}
     condition::Symbol

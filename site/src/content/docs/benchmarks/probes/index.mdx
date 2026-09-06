@@ -1,0 +1,93 @@
+---
+title: Capacity probes
+description: A task library for measuring specific capacities, with controls and selective benchmark admission.
+---
+
+Capacity probes ask which information a controller can retain, combine or use to change
+its behaviour. The library extends beyond physical control to timed input and response
+tasks. Each task tests a stated requirement through observable inputs and native outputs.
+
+The main [benchmark](/benchmarks/) remains the four-task v2 protocol. Tracking, Pong and
+Plank CartPole Easy retain their visual demonstrations. Delayed-cue recall retains its
+existing contract. The six new probe families are implemented experimental candidates;
+model comparisons and admission decisions are pending.
+
+## Coverage and membership
+
+| Family | Requirement | Essential controls | Software | Core membership |
+| --- | --- | --- | --- | --- |
+| [Tracking](/benchmarks/tasks/tracking/) | Continuous orientation from visual input | Random action, blind input | Integrated | v1, v2 |
+| [Pong](/benchmarks/tasks/pong/) | Predictive interception | Random action, blind input, task reference | Integrated | v1, v2 |
+| [Plank CartPole Easy](/benchmarks/tasks/cartpole-plank-easy/) | Feedback stabilisation | Random action, task controller | Integrated | v1, v2 |
+| [Recall](/benchmarks/probes/recall/) | Retention duration and interference resistance | Remembering, persistent cue, hidden cue, matched distractors | Integrated | Original delayed cue in v2; interference candidate |
+| [Delayed XOR](/benchmarks/probes/xor/) | Retention plus nonlinear combination | Remembering XOR, instantaneous comparison, constant response | Integrated | Candidate |
+| [Evidence accumulation](/benchmarks/probes/evidence/) | Integrating a noisy stream | Counting, first pulse, last pulse, blind input | Integrated | Candidate |
+| [Context integration](/benchmarks/probes/context/) | Selecting relevant evidence using context | Context-aware, context-blind, irrelevant stream | Integrated | Candidate |
+| [Temporal order](/benchmarks/probes/order/) | Sensitivity to sequence order | Order-aware, bag/count, terminal-symbol response | Integrated | Candidate |
+| [Reversal adaptation](/benchmarks/probes/reversal/) | Updating a response rule from feedback | Feedback-aware, fixed mapping, absent feedback, plasticity ablations | Integrated | Candidate |
+
+Integrated describes executable software and conformance checks. It does not establish
+a model's capacity or promote scientific evidence. The versioned `BenchmarkSpec` defines
+membership; registry tags help discovery.
+
+## Try the library
+
+List the 64 named difficulty cells without running simulations:
+
+```julia
+using BrainlessLab
+cells = capacity_probe_presets()
+first(cells) # id, task, task_options, horizon
+```
+
+Run small random-controller checks for the six new tasks:
+
+```bash
+julia --project=. examples/capacity_probes.jl records/capacity-smoke
+```
+
+This writes six profile records and one benchmark-operation record. Each uses eight
+nodes and two independent blocks. Check `DONE`, `data/task_metrics.csv`, and
+`data/trials.csv`. These are software checks, not model performance estimates.
+
+For a single trial, pass a cell's options explicitly:
+
+```julia
+cell = only(c for c in capacity_probe_presets() if c.id == :delayed_xor__gap_32)
+target = EvaluationTarget(cell.id,
+    CompositionSpec(cell.id, :null_random, cell.task;
+        n_nodes=8, task_options=cell.task_options),
+    EvaluationSpec(horizon=cell.horizon, root_seed=1610100))
+trial = only(evaluate(target; record=(:probe_events,)).trials)
+task_outcome(trial.simulation) # key, raw and normalised values together
+getchannel(trial.simulation.recorder, :probe_events)
+```
+
+All new tasks use one neural frame per world step, eight-frame cues and response
+windows unless a pulse duration is specified, zero warm-up, and complete episodes.
+Pre-response outputs are discarded. Response outputs are summed; an exact tie selects
+the first/left answer and is recorded. Accuracy anchors are 0 and 1; chance is separately
+0.5. Incomplete episodes have a missing scalar value. Labels are never receptor inputs.
+
+## Native performance and decoding
+
+Native task outcomes answer whether the controller produces the required response.
+A separately fitted [linear decoder](/benchmarks/probes/decoding/) asks whether task
+information is recoverable from emitted node activity. Keep these results separate.
+The decoder neither drives the task nor supplies a score to the core benchmark.
+
+## How a candidate can enter the core
+
+Select a compact set that covers distinct requirements. A candidate needs an explicit
+contract, a feasible observation-only reference controller, informative negative controls,
+and a reproducible protocol. Low scores from current models do not disqualify a useful task.
+Near-identical tasks should justify the extra information they provide.
+
+Before admission, measure runtime, calibrate allowed input gains on development seeds,
+estimate variance across independent blocks, and freeze a new version. Reserve disjoint
+seeds for confirmation and robustness. Interpret each coordinate separately; there is no
+cross-task competence average. Human review governs accepted public evidence.
+
+The [planned study](/benchmarks/probes/study/) provides executable starting protocols.
+Comparisons, confirmation and promotion remain future work. See
+[platform limits](/platform-limits/) for the wider scientific boundary.

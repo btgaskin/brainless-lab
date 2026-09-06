@@ -1,0 +1,38 @@
+---
+title: Evidence accumulation
+description: Integrate left and right pulses before responding.
+---
+
+Evidence accumulation asks whether a controller uses information distributed across a
+stream. Each trial has more left or more right pulses; the correct response selects the
+majority. Stream length and evidence strength set the difficulty.
+
+```text
+16, 32 or 64 one-frame pulses → go and response (8)
+signed count difference / pulse count: ±0.125, ±0.25 or ±0.5
+```
+
+`:evidence_accumulation` exposes left pulse, right pulse and go. The answer label is
+balanced in expectation. The final pulse is drawn independently of that label, then the
+remaining sequence is shuffled to produce the exact count difference. A final-pulse
+response therefore has no systematic answer advantage. The first pulse can carry partial
+evidence and is an informative limited-observation control, not necessarily a chance policy.
+
+```julia
+using BrainlessLab
+target = EvaluationTarget(:evidence,
+    CompositionSpec(:evidence, :null_random, :evidence_accumulation;
+        n_nodes=8, task_options=Dict(:pulse_count => 32, :evidence_fraction => 0.25)),
+    EvaluationSpec(horizon=40, root_seed=1610400))
+task_outcome(only(evaluate(target).trials).simulation)
+```
+
+The outcome is `probe_accuracy`, raw and normalised in [0, 1], with chance 0.5.
+`probe_control(:evidence_accumulation)` counts observed evidence and should achieve full
+accuracy. Compare its `:first`, `:last` and constant policies. `input_mode=:hidden`
+removes the pulses while preserving the seeded world and response timing.
+
+Reject pulse counts and evidence fractions that cannot produce integral counts.
+This task tests integration of a designed stream; it does not establish probabilistic
+reasoning in other settings. Continue to [context integration](/benchmarks/probes/context/)
+or the [planned study](/benchmarks/probes/study/). Core admission is pending.

@@ -1,0 +1,62 @@
+format = "brainlesslab-plan"
+format_version = 3
+id = "recall_interference__delay_32_distractors_1__compartmental_dense_nominee_v1__gain"
+operation = "sweep"
+
+[sweep]
+max_rollouts = 10000
+mode = "factorial"
+target = "recall_interference__delay_32_distractors_1__compartmental_dense_nominee_v1__calibration"
+
+    [[sweep.axes]]
+    parameter = "input_gain"
+    scope = "interface"
+    values = [0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0]
+
+[[targets]]
+id = "recall_interference__delay_32_distractors_1__compartmental_dense_nominee_v1__calibration"
+topology_key = "compartmental_dense_nominee_v1"
+
+    [targets.composition]
+    id = "recall_interference__delay_32_distractors_1__compartmental_dense_nominee_v1"
+    n_nodes = 200
+    node = "compartmental_dense"
+    task = "recall_interference"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        dt = 1.0
+        init_random = true
+        link_p = 0.1
+        rho = 0.2
+        state_scale = 0.05
+        substeps = 5
+
+        [targets.composition.task_options]
+        cue_mode = "transient"
+        cue_ticks = 8
+        delay = 32
+        distractor_mode = "random"
+        distractor_ticks = 4
+        distractors = 1
+        response_ticks = 8
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 16
+    construction_scope = "trial"
+    horizon = 48
+    reset = "full"
+    root_seed = 0x1a3ec0
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [targets.model]
+    coordinates_sha256 = "ef83bed2dfb3aa906beb1b3945f44a22cbc2ccd62cd825b9f90841886aea29c1"
+    model_id = "selected"
+    node = "compartmental_dense"
+    path = "benchmarks/ctrnn-readiness/development/compartmental_dense-nominee"
+    schema_sha256 = "78f414a31005cddedff5b88f6d4b4f8e4191148d42694d15fb4aa113edd9db64"

@@ -1,0 +1,45 @@
+---
+title: Planned capacity study
+description: Executable development proposals, with runtime and model comparisons pending.
+---
+
+Stage 1 supplies the library, conformance controls, sparse recordings and decoding.
+Its small software checks do not estimate model performance. Stage 2 will determine
+which probes supply useful benchmark coordinates and at what difficulty.
+
+The `experiments/capacity-probes/v1/` bundles are ordinary `ExperimentSpec` values with
+`evidence_state=planned`. They start with one cell per family, including original delayed
+cue. They reuse fixed 200-node Falandays and SORN profiles and the exact saved Dense and
+Structured CTRNN development nominees. No new genome search is part of these proposals.
+
+```bash
+julia --project=. bin/brainlesslab.jl check-experiment \
+  experiments/capacity-probes/v1/native_pilot
+```
+
+This validates a bundle without running trials. Expect a successful contract check, not
+result tables. Generate fresh plans elsewhere with:
+
+```bash
+julia --project=. tools/capacity_probes/plan_study.jl /tmp/capacity-study-plans
+```
+
+| Bundle | Proposed operation | Independent units |
+| --- | --- | --- |
+| `calibration` | Input-gain sweeps, 16 blocks per gain | Fresh world and reservoir per block |
+| `native_pilot` | Paired native comparison, 32 blocks per cell | Fresh world and reservoir per block |
+| `decoding` | Profiles with 256/128/256 trial splits | Four wiring blocks per model and cell |
+
+Gain 1 in the native and decoding proposals is provisional. Run a timed preflight, calibrate
+on development seeds, and carry selections into a new pilot protocol. The current pilot
+is executable as an explicitly uncalibrated diagnostic. No confirmation seed set is included.
+
+The generator accepts `cells=capacity_probe_presets()` for all 64 difficulty cells.
+Select a justified subset before spending that compute. Report connections, internal
+states, integration work and runtime alongside node counts and performance.
+
+Stage 2 should compare reference and negative controls, measure variance and sensitivity,
+then select a compact set using the [coverage criteria](/benchmarks/probes/). Pair worlds
+for causal controls and use applicable plasticity ablations for reversal. Confirmation
+and admission require a new frozen protocol and later human evidence review. Existing
+benchmark versions and the three visual tasks remain intact.

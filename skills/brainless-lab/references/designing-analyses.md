@@ -4,6 +4,14 @@ An analysis reads a completed `SimResult`. It must not alter the simulation. Kee
 code outside the runtime loop so the same recorded run can support several measures and
 null tests.
 
+For a measure that needs repeated trials of one reservoir wiring, register `scope=:block`
+or typed metadata `(scope=:block,)`. The implementation receives `ProfileBlock` and can
+return `BlockAnalysisResult(statistics=..., tables=...)`. Existing registrations remain
+per-trial. Block tables and `n_blocks` summaries are separate from trial statistics.
+`probe_decodability` uses sparse `:probe_events` with `construction_scope=:block` and
+`reset=:full`. Whole-trial fit/validation/evaluation splits prevent timestamp leakage.
+See `site/src/content/docs/benchmarks/probes/decoding.mdx` for the exact contract.
+
 ## Analysis interface
 
 An analysis function accepts a `SimResult` and returns a `Number` or named tuple:

@@ -1,0 +1,35 @@
+---
+title: Temporal order
+description: Distinguish sequences with identical item counts and terminal observations.
+---
+
+Temporal order asks whether a controller distinguishes A then B from B then A. Both
+sequences contain the same number of each item. An identical terminal stimulus removes
+the final visible item as a response cue.
+
+```text
+A (8) → gap (0, 8 or 32) → B (8) → terminal C (8) → response (8)
+B (8) → gap (0, 8 or 32) → A (8) → terminal C (8) → response (8)
+```
+
+`:temporal_order` exposes A, B, terminal C and go. The left response means A→B; the
+right means B→A. `probe_accuracy` reports raw and normalised accuracy in [0, 1]; chance is 0.5.
+
+```julia
+using BrainlessLab
+target = EvaluationTarget(:order,
+    CompositionSpec(:order, :null_random, :temporal_order; n_nodes=8, task_options=Dict(:gap => 8)),
+    EvaluationSpec(horizon=40, root_seed=1610600))
+task_outcome(only(evaluate(target).trials).simulation)
+```
+
+`probe_control(:temporal_order)` remembers the first item and should achieve full
+accuracy. Its `:bag` policy counts items and produces a deterministic tied answer.
+Its `:last` policy replaces remembered input with the identical terminal symbol.
+`input_mode=:hidden` removes A and B. Across both labels, stimulus totals and final
+observations must match exactly.
+
+Because there are only two sequences, retaining the first item solves this task.
+It tests sensitivity to these temporal histories, not a general sequence grammar or
+arbitrary ordering ability. Read [decoding](/benchmarks/probes/decoding/) and the
+[planned study](/benchmarks/probes/study/) before extending the sequences. Core admission is pending.

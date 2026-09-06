@@ -119,6 +119,28 @@ struct ProfileAnalysisRow
     value::Float64
 end
 
+"""Independent block supplied to an analysis registered with `scope=:block`."""
+struct ProfileBlock{T<:Tuple,E<:EvaluationSpec}
+    condition::Symbol
+    block::Int
+    trials::T
+    evaluation::E
+end
+
+"""Block statistics and optional named diagnostic tables from one analysis."""
+struct BlockAnalysisResult{S<:NamedTuple,T<:NamedTuple}
+    statistics::S
+    tables::T
+end
+BlockAnalysisResult(; statistics=NamedTuple(), tables=NamedTuple()) =
+    BlockAnalysisResult(statistics, tables)
+
+function _profile_analysis_scope(spec::ImplementationSpec)
+    scope = get(spec.metadata, :scope, :trial)
+    scope in (:trial, :block) || throw(ArgumentError("analysis scope must be :trial or :block"))
+    return scope
+end
+
 """One per-trial value from an aligned registered analysis series."""
 struct ProfileAnalysisSeriesRow
     condition::Symbol
@@ -201,6 +223,8 @@ struct ProfileResult{
     analysis_series_rows::R
     analysis_series_summaries::G
     profile_summary::S
+    block_analysis_rows::Vector{NamedTuple}
+    block_analysis_tables::Dict{Symbol,Vector{NamedTuple}}
 end
 
 """Context-rich wrapper for an analysis that could not produce profile rows."""
@@ -221,10 +245,8 @@ function Base.showerror(io::IO, error::ProfileAnalysisError)
         error.analysis,
         " failed at block ",
         error.block,
-        ", trial ",
-        error.trial,
-        ": ",
     )
+    error.trial == 0 ? print(io, " (block analysis): ") : print(io, ", trial ", error.trial, ": ")
     showerror(io, error.cause)
 end
 
@@ -259,6 +281,7 @@ function _resolve_profile_analyses(plan::ProfilePlan, registry::RegistrySet)
     ids = _profile_analysis_ids(plan, registry)
     specs = Tuple(resolve(registry.analyses, id) for id in ids)
     for spec in specs
+        _profile_analysis_scope(spec)
         scope = _profile_task_scope(spec)
         scope === nothing || scope === task || throw(ArgumentError(
             "analysis :$(spec.key) is scoped to task :$(scope), not :$(task)",
@@ -311,11 +334,18 @@ end
 function validate(plan::ProfilePlan, registry::RegistrySet)
     resolve_composition(plan.target.composition, registry)
     specs = _resolve_profile_analyses(plan, registry)
-    _resolve_profile_analysis_options(plan, specs)
+    options = _resolve_profile_analysis_options(plan, specs)
+    for spec in specs
+        _validate_profile_analysis(spec.implementation, plan.target, options[spec.key])
+    end
     channels = _profile_record_channels(specs)
+    :probe_events in channels && plan.record_every != 1 &&
+        throw(ArgumentError("probe event profiles require record_every=1"))
     _validate_profile_compute_every(plan, channels)
     return _validate_plan_evaluations(plan, registry)
 end
+
+_validate_profile_analysis(implementation, target, options) = nothing
 
 function resolve(plan::ProfilePlan, registry::RegistrySet)
     validate(plan, registry)
@@ -456,6 +486,7 @@ function _profile_analysis_rows(
     series_rows = ProfileAnalysisSeriesRow[]
     for trial in batch.trials
         for spec in plan.analyses
+            _profile_analysis_scope(spec) === :block && continue
             output = try
                 options = plan.analysis_options[spec.key]
                 spec.implementation(trial.simulation; options...)
@@ -500,6 +531,65 @@ function _profile_analysis_rows(
         end
     end
     return rows, series_rows
+end
+
+function _profile_block_analysis_rows(plan::ResolvedProfilePlan, batch::EvaluationBatch)
+    rows = NamedTuple[]
+    diagnostic_tables = Dict{Symbol,Vector{NamedTuple}}()
+    for spec in plan.analyses
+        _profile_analysis_scope(spec) === :block || continue
+        for block in sort!(unique([trial.block for trial in batch.trials]))
+            trials = Tuple(trial for trial in batch.trials if trial.block == block)
+            context = ProfileBlock(batch.target.id, block, trials, batch.target.evaluation)
+            try
+                output = spec.implementation(context; plan.analysis_options[spec.key]...)
+                statistics = output isa BlockAnalysisResult ? output.statistics : output
+                for (statistic, value) in _profile_result_statistics(statistics)
+                    push!(rows, (condition=context.condition, block, analysis=spec.key,
+                        statistic, value, n_trials=length(trials)))
+                end
+                if output isa BlockAnalysisResult
+                    for (table, data) in pairs(output.tables)
+                        table in (:trials, :task, :statistics, :contrasts, :analyses,
+                            :analysis_series, :block_analyses, :block_statistics, :probe_events) && throw(ArgumentError(
+                            "block analysis table :$table is reserved"))
+                        destination = get!(diagnostic_tables, table, NamedTuple[])
+                        for row in data
+                            push!(destination, merge(row, (condition=context.condition,
+                                block, analysis=spec.key)))
+                        end
+                    end
+                end
+            catch error
+                throw(ProfileAnalysisError(plan.plan.id, spec.key, block, 0, error))
+            end
+        end
+    end
+    return rows, diagnostic_tables
+end
+
+function _profile_block_statistics(rows)
+    keys = unique([(row.analysis, row.statistic) for row in rows])
+    return [begin
+        group = filter(row -> (row.analysis, row.statistic) == key, rows)
+        values = _profile_finite_summary([row.value for row in group])
+        (analysis=key[1], statistic=key[2], n_blocks=length(group),
+            n_finite=Int(values.finite_n), mean=values.mean, std=values.std,
+            minimum=values.minimum, maximum=values.maximum)
+    end for key in keys]
+end
+
+function _profile_probe_event_rows(batch)
+    rows = NamedTuple[]
+    for trial in batch.trials, event in getchannel(trial.simulation.recorder, :probe_events)
+        for (entity, features) in zip(event.features.ids, event.features)
+            push!(rows, (condition=trial.condition, block=trial.block, trial=trial.trial,
+                task=event.task, point=event.point, tick=event.tick, round=event.round,
+                label=event.label, entity=entity.value, channel=event.channel,
+                feature_count=length(features), features, metadata=event.metadata))
+        end
+    end
+    return rows
 end
 
 function _profile_optional_mean(rows, field::Symbol)
@@ -662,6 +752,7 @@ function execute(plan::ResolvedProfilePlan)
     )
     task_rows = trial_table(batch)
     analysis_rows, analysis_series_rows = _profile_analysis_rows(plan, batch)
+    block_analysis_rows, block_analysis_tables = _profile_block_analysis_rows(plan, batch)
     analysis_series_summaries = _profile_analysis_series_summaries(
         analysis_series_rows,
     )
@@ -674,13 +765,24 @@ function execute(plan::ResolvedProfilePlan)
         analysis_series_rows,
         analysis_series_summaries,
         profile_summary,
+        block_analysis_rows,
+        block_analysis_tables,
     )
 end
 
-tables(result::ProfileResult) = (
-    task=result.task_rows,
-    analyses=result.analysis_rows,
-    analysis_series=result.analysis_series_summaries,
-)
+function tables(result::ProfileResult)
+    output = (task=result.task_rows, analyses=result.analysis_rows,
+        analysis_series=result.analysis_series_summaries)
+    if !isempty(result.block_analysis_rows) || !isempty(result.block_analysis_tables)
+        output = merge(output, (block_analyses=result.block_analysis_rows,
+            block_statistics=_profile_block_statistics(result.block_analysis_rows)),
+            (; (key => result.block_analysis_tables[key]
+                for key in sort!(collect(keys(result.block_analysis_tables)); by=string))...))
+    end
+    if :probe_events in result.plan.record_channels
+        output = merge(output, (probe_events=_profile_probe_event_rows(result.batch),))
+    end
+    return output
+end
 
 summary(result::ProfileResult) = result.profile_summary

@@ -1,0 +1,62 @@
+format = "brainlesslab-plan"
+format_version = 3
+id = "context_integration__pulses_32_evidence_250_conflicting_transient__falandays_direct_v1__gain"
+operation = "sweep"
+
+[sweep]
+max_rollouts = 10000
+mode = "factorial"
+target = "context_integration__pulses_32_evidence_250_conflicting_transient__falandays_direct_v1__calibration"
+
+    [[sweep.axes]]
+    parameter = "input_gain"
+    scope = "interface"
+    values = [0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0]
+
+[[targets]]
+id = "context_integration__pulses_32_evidence_250_conflicting_transient__falandays_direct_v1__calibration"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "context_integration__pulses_32_evidence_250_conflicting_transient__falandays_direct_v1"
+    n_nodes = 200
+    node = "falandays"
+    task = "context_integration"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        congruency = "conflicting"
+        context_mode = "transient"
+        cue_ticks = 8
+        evidence_fraction = 0.25
+        pulse_count = 32
+        pulse_ticks = 1
+        response_ticks = 8
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 16
+    construction_scope = "trial"
+    horizon = 48
+    reset = "full"
+    root_seed = 0x1ab3f0
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0

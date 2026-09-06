@@ -94,6 +94,7 @@ export default defineConfig({
           label: 'Benchmark',
           items: [
             { label: 'Benchmark', slug: 'benchmarks' },
+            { label: 'Capacity probes', slug: 'benchmarks/probes' },
             {
               label: 'Tasks',
               items: [

@@ -8,6 +8,10 @@ export simulate,
     Recorder,
     getchannel
 
+# Experimental capacity probes and observation-only conformance controls.
+export capacity_probe_presets, probe_control, ProbeEvent, probe_decodability
+export ProfileBlock, BlockAnalysisResult
+
 # Core specifications, registries, and discovery.
 export NodeSpec,
     TaskSpec,

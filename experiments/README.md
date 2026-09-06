@@ -13,6 +13,10 @@ An experiment gives a stable identity and version to:
 evolution, or benchmark plan uses the same validator, executor, and record writer as a
 standalone plan.
 
+The [capacity-probe proposals](capacity-probes/README.md) provide calibration, native
+comparison and block-scoped decoding plans. These are unexecuted development proposals,
+with core admission and confirmation still pending.
+
 ## Layout
 
 ```text

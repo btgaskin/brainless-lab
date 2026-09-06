@@ -1,0 +1,59 @@
+format = "brainlesslab-plan"
+format_version = 3
+id = "evidence_accumulation__pulses_32_evidence_250__falandays_direct_v1__decoding"
+operation = "profile"
+
+[profile]
+analyses = ["probe_decodability"]
+record_every = 1
+target = "evidence_accumulation__pulses_32_evidence_250__falandays_direct_v1__decoding"
+
+    [profile.analysis_options]
+
+    [profile.compute_every]
+
+[[targets]]
+id = "evidence_accumulation__pulses_32_evidence_250__falandays_direct_v1__decoding"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "evidence_accumulation__pulses_32_evidence_250__falandays_direct_v1"
+    n_nodes = 200
+    node = "falandays"
+    task = "evidence_accumulation"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        evidence_fraction = 0.25
+        input_mode = "visible"
+        pulse_count = 32
+        pulse_ticks = 1
+        response_ticks = 8
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "block"
+    horizon = 40
+    reset = "full"
+    root_seed = 0x1a94b0
+    streams = ["topology", "world"]
+    trials_per_block = 640
+    warmup = 0

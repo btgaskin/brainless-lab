@@ -53,12 +53,17 @@ struct BenchmarkTaskProtocol
     task::Symbol
     development::EvaluationSpec
     confirmation::EvaluationSpec
+    task_options::Dict{Symbol,Any}
 end
+
+BenchmarkTaskProtocol(task::Symbol, development::EvaluationSpec, confirmation::EvaluationSpec) =
+    BenchmarkTaskProtocol(task; development, confirmation)
 
 function BenchmarkTaskProtocol(
     task::Union{Symbol,AbstractString};
     development::EvaluationSpec,
     confirmation::EvaluationSpec,
+    task_options=Dict{Symbol,Any}(),
 )
     task_ = _nonempty_symbol(task, "benchmark task")
     for (stage, evaluation) in (
@@ -81,7 +86,8 @@ function BenchmarkTaskProtocol(
     development.root_seed != confirmation.root_seed || throw(ArgumentError(
         "benchmark task :$(task_) must keep development and confirmation seeds disjoint",
     ))
-    return BenchmarkTaskProtocol(task_, development, confirmation)
+    return BenchmarkTaskProtocol(task_, development, confirmation,
+        Dict{Symbol,Any}(Symbol(k) => deepcopy(v) for (k, v) in pairs(task_options)))
 end
 
 """One model-task cell, with only the generic input gain left task-specific."""
@@ -224,7 +230,8 @@ _benchmark_profile(spec::BenchmarkSpec, id::Symbol) =
 _benchmark_protocol(spec::BenchmarkSpec, task::Symbol) =
     only(protocol for protocol in spec.task_protocols if protocol.task === task)
 
-function _benchmark_composition(profile::ModelProfileSpec, task::Symbol, input_gain::Real)
+function _benchmark_composition(profile::ModelProfileSpec, task::Symbol, input_gain::Real;
+    task_options=Dict{Symbol,Any}())
     return CompositionSpec(
         Symbol(task, :__, profile.id),
         profile.node,
@@ -232,6 +239,7 @@ function _benchmark_composition(profile::ModelProfileSpec, task::Symbol, input_g
         n_nodes=profile.n_nodes,
         parameters=copy(profile.parameters),
         interface=InterfaceSpec(input_gain=input_gain),
+        task_options=deepcopy(task_options),
     )
 end
 
@@ -241,7 +249,7 @@ function calibration_plans(spec::BenchmarkSpec)
     for entry in spec.entries
         profile = _benchmark_profile(spec, entry.profile)
         protocol = _benchmark_protocol(spec, entry.task)
-        composition = _benchmark_composition(profile, entry.task, 1.0)
+        composition = _benchmark_composition(profile, entry.task, 1.0; task_options=protocol.task_options)
         target = EvaluationTarget(
             Symbol(entry.task, :__, entry.profile, :__development),
             composition,
@@ -357,7 +365,8 @@ function benchmark_plan(spec::BenchmarkSpec)
         entries = Tuple(entry for entry in spec.entries if entry.task === protocol.task)
         conditions = Tuple(begin
             profile = _benchmark_profile(spec, entry.profile)
-            composition = _benchmark_composition(profile, entry.task, something(entry.input_gain))
+            composition = _benchmark_composition(profile, entry.task, something(entry.input_gain);
+                task_options=protocol.task_options)
             EvaluationTarget(
                 Symbol(entry.task, :__, entry.profile),
                 composition,
@@ -569,7 +578,8 @@ function benchmark_evolution_targets(spec::BenchmarkSpec, node::Symbol;
     root_seed::Integer, blocks::Integer=2, parameters=Dict{Symbol,Any}(), input_gain::Real=1.0)
     return Tuple(EvaluationTarget(Symbol(protocol.task, :__shared_design),
         CompositionSpec(Symbol(protocol.task, :__shared_design), node, protocol.task;
-            n_nodes=spec.n_nodes, parameters=copy(parameters), interface=InterfaceSpec(; input_gain)),
+            n_nodes=spec.n_nodes, parameters=copy(parameters), interface=InterfaceSpec(; input_gain),
+            task_options=deepcopy(protocol.task_options)),
         EvaluationSpec(; blocks, horizon=protocol.development.horizon,
             warmup=protocol.development.warmup, root_seed=root_seed + 1000 * index);
         topology_key=node)

@@ -6,6 +6,12 @@ description: Inspect the registered Falandays and SORN nodes and the four v2 ben
 The core catalogue is intentionally small. Query `DEFAULT_REGISTRY` for the current
 machine-readable definitions.
 
+Core benchmark membership comes from a versioned `BenchmarkSpec`, not task tags.
+The separate [capacity-probe library](/benchmarks/probes/) contains additional integrated
+experimental candidates. `BenchmarkTaskProtocol(task; development, confirmation,
+task_options=...)` carries explicit task settings into calibration and benchmark compositions.
+Its default empty options preserve existing definitions.
+
 ## Registered benchmark nodes
 
 | Key | Status | Boundary |
