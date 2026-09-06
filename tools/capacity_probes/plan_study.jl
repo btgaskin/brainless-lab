@@ -4,7 +4,7 @@ using BrainlessLab
 function capacity_study_profiles()
     nominees = map((:compartmental_dense, :compartmental_structured)) do node
         path = joinpath("benchmarks", "ctrnn-readiness", "development", "$(node)-selection-plan.toml")
-        source = first(first(read_plan(path).cases).conditions)
+        source = first(first(read_plan(joinpath(@__DIR__, "..", "..", path)).cases).conditions)
         ModelProfileSpec(Symbol(node, :_nominee_v1), node; n_nodes=200,
             parameters=source.composition.parameters, model=source.model,
             label="$(node) development nominee",

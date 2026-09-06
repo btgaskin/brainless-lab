@@ -76,12 +76,33 @@ end
         end
     end
     profiles = capacity_study_profiles()
+    mktempdir() do directory
+        elsewhere = cd(capacity_study_profiles, directory)
+        @test getproperty.(elsewhere, :id) == getproperty.(profiles, :id)
+    end
     @test all(p -> p.n_nodes == 200, profiles)
     @test all(p -> p.model !== nothing, profiles[3:4])
     for profile in profiles
         conditions = filter(c -> c.topology_key == profile.id, bundles.native_pilot.conditions)
         @test all(c -> c.composition.parameters == profile.parameters, conditions)
         @test all(c -> c.model == profile.model, conditions)
+    end
+end
+
+@testset "console probe examples produce task outcomes and complete records" begin
+    example = Module(:DelayedCueConsoleExample)
+    Base.include(example, joinpath(@__DIR__, "..", "examples", "delayed_cue.jl"))
+    @test length(example.result.trials) == 4
+    @test all(t -> task_outcome(t.simulation).key === :recall_accuracy &&
+        task_outcome(t.simulation).raw in (0.0, 1.0), example.result.trials)
+    include(joinpath(@__DIR__, "..", "examples", "capacity_probes.jl"))
+    mktempdir() do root
+        directories = capacity_probe_smoke(; root)
+        @test length(directories) == 7
+        for directory in directories
+            @test isfile(joinpath(directory, "DONE"))
+            @test isfile(joinpath(directory, "data", "task_metrics.csv"))
+        end
     end
 end
 

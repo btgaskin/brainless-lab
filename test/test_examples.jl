@@ -4,10 +4,11 @@ using Test
 
 @testset "Runnable examples" begin
     examples_dir = normpath(joinpath(@__DIR__, "..", "examples"))
-    # The shoal quickstart is a console-only runtime smoke test. It is included
-    # and exercised separately in test_shoal_forage.jl.
+    # Console examples have semantic checks in test_shoal_forage.jl and
+    # test_probe_decodability.jl. Only plotting examples must produce PNGs.
+    console_examples = Set(("shoal_forage_quickstart.jl", "delayed_cue.jl", "capacity_probes.jl"))
     scripts = sort(filter(
-        path -> endswith(path, ".jl") && basename(path) != "shoal_forage_quickstart.jl",
+        path -> endswith(path, ".jl") && !(basename(path) in console_examples),
         readdir(examples_dir; join=true),
     ))
     @test !isempty(scripts)

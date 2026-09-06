@@ -13,21 +13,25 @@ function capacity_episode(task, seed; policy=:oracle, kwargs...)
 end
 
 @testset "capacity task interface works with every study substrate" begin
-    for node in (:falandays, :sorn, :compartmental_dense, :compartmental_structured)
-        source = node in (:compartmental_dense, :compartmental_structured) ?
-            first(first(read_plan(joinpath(@__DIR__, "..", "benchmarks", "ctrnn-readiness",
-                "development", "$(node)-selection-plan.toml")).cases).conditions) : nothing
-        model = source === nothing ? nothing : source.model
-        parameters = source === nothing ? Dict{Symbol,Any}() : source.composition.parameters
-        for task in keys(BrainlessLab.CAPACITY_PROBE_DEFAULTS)
-            target = EvaluationTarget(:conformance,
-                CompositionSpec(:conformance, node, task; n_nodes=16, parameters),
-                EvaluationSpec(horizon=resolve_task(task).default_ticks, root_seed=1610900); model)
-            sim = only(evaluate(target; record=(:probe_events,)).trials).simulation
-            @test sim.metrics.completed
-            @test task_outcome(sim).key in (:probe_accuracy, :adaptation_accuracy)
-            @test task_outcome(sim).raw == task_outcome(sim).normalized
-            @test all(e -> length(only(e.features)) == 16, getchannel(sim.recorder, :probe_events))
+    # Saved model references are intentionally repository-relative. Pkg.test()
+    # runs from test/, so enter the declared artifact base only for these trials.
+    cd(normpath(joinpath(@__DIR__, ".."))) do
+        for node in (:falandays, :sorn, :compartmental_dense, :compartmental_structured)
+            source = node in (:compartmental_dense, :compartmental_structured) ?
+                first(first(read_plan(joinpath("benchmarks", "ctrnn-readiness",
+                    "development", "$(node)-selection-plan.toml")).cases).conditions) : nothing
+            model = source === nothing ? nothing : source.model
+            parameters = source === nothing ? Dict{Symbol,Any}() : source.composition.parameters
+            for task in keys(BrainlessLab.CAPACITY_PROBE_DEFAULTS)
+                target = EvaluationTarget(:conformance,
+                    CompositionSpec(:conformance, node, task; n_nodes=16, parameters),
+                    EvaluationSpec(horizon=resolve_task(task).default_ticks, root_seed=1610900); model)
+                sim = only(evaluate(target; record=(:probe_events,)).trials).simulation
+                @test sim.metrics.completed
+                @test task_outcome(sim).key in (:probe_accuracy, :adaptation_accuracy)
+                @test task_outcome(sim).raw == task_outcome(sim).normalized
+                @test all(e -> length(only(e.features)) == 16, getchannel(sim.recorder, :probe_events))
+            end
         end
     end
 end
