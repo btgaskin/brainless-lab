@@ -174,6 +174,11 @@ owned. Cached static kernels must refresh when the complete genome is replaced. 
 uses compact trial records and atomic generation journals; one shared design supplies all
 targets generated from the versioned benchmark. The v2 task list includes delayed-cue recall.
 
+Capacity-probe event features must own their storage. Accumulate response-window activity
+only when the optional channel is enabled; retain the homogeneous runtime path. Fit decoder
+scaling on training trials only, split by whole trial, and keep independent wiring-block
+summaries separate from within-block sample counts.
+
 This skill is written to be useful for any Julia work, not only computational neuroscience or
 artificial life — the two pillars and the inspect/debug/clarify/optimize workflow apply identically
 to a data-cleaning script or a web backend. The domain ecosystem file exists because those are the

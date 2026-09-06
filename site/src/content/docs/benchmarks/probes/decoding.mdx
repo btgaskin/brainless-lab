@@ -1,0 +1,80 @@
+---
+title: Probe decoding
+description: Fit a separate linear diagnostic across whole trials of one fixed reservoir wiring.
+---
+
+Probe decoding asks whether a task label can be recovered from emitted node activity.
+A successful decoder can expose information that the native output does not use.
+It does not show that the controller produces the correct response.
+
+The optional `:probe_events` recorder stores cue-end activity, activity immediately before
+response, and mean activity across the response window. For pulse accumulation, cue-end
+means the end of the first pulse. Events retain labels, timing, metadata, stable entity
+IDs and owned feature vectors. A zero delay can place two declared points at the same frame.
+
+The common channel is `:emitted_activity`: one value per node returned by the substrate.
+Report the actual feature count. This does not expose every compartment voltage, synaptic
+variable or other internal state.
+
+## Declare an independent wiring block
+
+```julia
+using BrainlessLab
+target = EvaluationTarget(:recall_decode,
+    CompositionSpec(:recall_decode, :falandays, :delayed_cue;
+        n_nodes=200, parameters=copy(DIRECT_CONTROL_FALANDAYS_PROFILE.parameters),
+        task_options=Dict(:delays => (32,))),
+    EvaluationSpec(blocks=4, trials_per_block=640, horizon=48,
+        construction_scope=:block, reset=:full, root_seed=1742000))
+plan = ProfilePlan(:recall_decode, target;
+    analyses=(:probe_decodability,), record_every=1)
+validate(plan, DEFAULT_REGISTRY) # no study execution
+```
+
+This is a study-sized proposal. Measure runtime before calling `run_operation`.
+The [small software example](/benchmarks/probes/) and package tests exercise the interfaces
+with smaller diagnostic settings. Each trial reconstructs the same seeded wiring within
+its block and fully resets the substrate. World seeds differ. Blocks have independent wiring.
+
+Sparse event recording avoids full activity trajectories. Evaluation still retains each
+trial's result and final network snapshot where the substrate supplies one. Include that
+memory cost in the preflight before increasing block and trial counts.
+
+The decoder rejects mixed wiring, repeated trial IDs, missing events, incompatible
+feature layouts and action-dependent tasks such as reversal adaptation.
+
+## Fit and test separately
+
+Defaults are 256 fit, 128 validation and 256 evaluation trials per wiring. One seeded
+permutation assigns whole trials, and all observation points share that split. Timestamps
+from a trial cannot enter different splits. Each split must contain both classes; otherwise
+the analysis reports an error.
+
+Centring and scaling use fit trials only. Ridge regression selects among `1e-4, 1e-2, 1, 100`
+on validation accuracy; exact ties choose the smaller value. The intercept is unpenalised.
+Evaluation labels never select the model. A control repeats the procedure with independently
+permuted fit and validation labels. A constant control uses the fit majority label, with
+first/left tie-breaking.
+
+Decoder, matched native, constant and permutation accuracies use the same evaluation
+trials. Selecting an observation point after inspecting those accuracies would require
+another held-out test for the selected claim.
+
+## Inspect the record
+
+Analyses registered with `scope=:block` receive a `ProfileBlock` and can return
+`BlockAnalysisResult` tables. Existing registrations retain per-trial behaviour.
+
+| Table | Contents |
+| --- | --- |
+| `data/task_metrics.csv` | Native outcome key, raw and normalised values |
+| `data/probe_events.csv` | Sparse features and event metadata |
+| `data/probe_decoders.csv` | Scores, ridge values, channel, feature and split counts per block and point |
+| `data/probe_predictions.csv` | Whole-trial splits, labels and predictions |
+| `data/probe_coefficients.csv` | Fit transforms, weights and intercepts |
+| `data/block_analyses.csv` | Numeric statistics per block |
+| `data/block_statistics.csv` | Descriptive summaries with `n_blocks` |
+
+Evaluation trials are not independent reservoir wirings. Keep block counts separate from
+within-block samples. These experimental diagnostics do not enter the core benchmark score.
+Continue to the [planned study](/benchmarks/probes/study/).

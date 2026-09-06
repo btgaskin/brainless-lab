@@ -1,0 +1,89 @@
+conditions = ["delayed_cue__delay_32__falandays_direct_v1__decoding", "delayed_cue__delay_32__sorn_direct_v1__decoding", "delayed_cue__delay_32__compartmental_dense_nominee_v1__decoding", "delayed_cue__delay_32__compartmental_structured_nominee_v1__decoding", "recall_interference__delay_32_distractors_1__falandays_direct_v1__decoding", "recall_interference__delay_32_distractors_1__sorn_direct_v1__decoding", "recall_interference__delay_32_distractors_1__compartmental_dense_nominee_v1__decoding", "recall_interference__delay_32_distractors_1__compartmental_structured_nominee_v1__decoding", "delayed_xor__gap_32__falandays_direct_v1__decoding", "delayed_xor__gap_32__sorn_direct_v1__decoding", "delayed_xor__gap_32__compartmental_dense_nominee_v1__decoding", "delayed_xor__gap_32__compartmental_structured_nominee_v1__decoding", "evidence_accumulation__pulses_32_evidence_250__falandays_direct_v1__decoding", "evidence_accumulation__pulses_32_evidence_250__sorn_direct_v1__decoding", "evidence_accumulation__pulses_32_evidence_250__compartmental_dense_nominee_v1__decoding", "evidence_accumulation__pulses_32_evidence_250__compartmental_structured_nominee_v1__decoding", "context_integration__pulses_32_evidence_250_conflicting_transient__falandays_direct_v1__decoding", "context_integration__pulses_32_evidence_250_conflicting_transient__sorn_direct_v1__decoding", "context_integration__pulses_32_evidence_250_conflicting_transient__compartmental_dense_nominee_v1__decoding", "context_integration__pulses_32_evidence_250_conflicting_transient__compartmental_structured_nominee_v1__decoding", "temporal_order__gap_8__falandays_direct_v1__decoding", "temporal_order__gap_8__sorn_direct_v1__decoding", "temporal_order__gap_8__compartmental_dense_nominee_v1__decoding", "temporal_order__gap_8__compartmental_structured_nominee_v1__decoding"]
+evidence_state = "planned"
+format = "brainlesslab-experiment"
+format_version = 1
+id = "capacity_decoding"
+limitations = ["Unexecuted development proposal. No confirmation seeds or core promotion are defined.", "Run a timed preflight before calibration; revise sample sizes from a variance pilot.", "Native gain 1 is provisional. Apply development selections in a new pilot protocol before comparison.", "Fixed 200-node profiles differ in connections, internal states and integration cost.", "Decoder accuracy is a separate readout diagnostic; no general capability claim follows."]
+question = "Is task information linearly recoverable from emitted activity of each fixed wiring?"
+title = "capacity decoding"
+version = "1.0.0"
+
+[metadata]
+core_membership = "candidate"
+n_nodes = 200
+no_cross_task_aggregate = true
+programme = "capacity_probes"
+stage = "development_proposal"
+
+[[operations]]
+id = "delayed_cue__delay_32__falandays_direct_v1__decoding"
+plan = "01-delayed_cue__delay_32__falandays_direct_v1__decoding.toml"
+[[operations]]
+id = "delayed_cue__delay_32__sorn_direct_v1__decoding"
+plan = "02-delayed_cue__delay_32__sorn_direct_v1__decoding.toml"
+[[operations]]
+id = "delayed_cue__delay_32__compartmental_dense_nominee_v1__decoding"
+plan = "03-delayed_cue__delay_32__compartmental_dense_nominee_v1__decoding.toml"
+[[operations]]
+id = "delayed_cue__delay_32__compartmental_structured_nominee_v1__decoding"
+plan = "04-delayed_cue__delay_32__compartmental_structured_nominee_v1__decoding.toml"
+[[operations]]
+id = "recall_interference__delay_32_distractors_1__falandays_direct_v1__decoding"
+plan = "05-recall_interference__delay_32_distractors_1__falandays_direct_v1__decoding.toml"
+[[operations]]
+id = "recall_interference__delay_32_distractors_1__sorn_direct_v1__decoding"
+plan = "06-recall_interference__delay_32_distractors_1__sorn_direct_v1__decoding.toml"
+[[operations]]
+id = "recall_interference__delay_32_distractors_1__compartmental_dense_nominee_v1__decoding"
+plan = "07-recall_interference__delay_32_distractors_1__compartmental_dense_nominee_v1__decoding.toml"
+[[operations]]
+id = "recall_interference__delay_32_distractors_1__compartmental_structured_nominee_v1__decoding"
+plan = "08-recall_interference__delay_32_distractors_1__compartmental_structured_nominee_v1__decoding.toml"
+[[operations]]
+id = "delayed_xor__gap_32__falandays_direct_v1__decoding"
+plan = "09-delayed_xor__gap_32__falandays_direct_v1__decoding.toml"
+[[operations]]
+id = "delayed_xor__gap_32__sorn_direct_v1__decoding"
+plan = "10-delayed_xor__gap_32__sorn_direct_v1__decoding.toml"
+[[operations]]
+id = "delayed_xor__gap_32__compartmental_dense_nominee_v1__decoding"
+plan = "11-delayed_xor__gap_32__compartmental_dense_nominee_v1__decoding.toml"
+[[operations]]
+id = "delayed_xor__gap_32__compartmental_structured_nominee_v1__decoding"
+plan = "12-delayed_xor__gap_32__compartmental_structured_nominee_v1__decoding.toml"
+[[operations]]
+id = "evidence_accumulation__pulses_32_evidence_250__falandays_direct_v1__decoding"
+plan = "13-evidence_accumulation__pulses_32_evidence_250__falandays_direct_v1__decoding.toml"
+[[operations]]
+id = "evidence_accumulation__pulses_32_evidence_250__sorn_direct_v1__decoding"
+plan = "14-evidence_accumulation__pulses_32_evidence_250__sorn_direct_v1__decoding.toml"
+[[operations]]
+id = "evidence_accumulation__pulses_32_evidence_250__compartmental_dense_nominee_v1__decoding"
+plan = "15-evidence_accumulation__pulses_32_evidence_250__compartmental_dense_nominee_v1__decoding.toml"
+[[operations]]
+id = "evidence_accumulation__pulses_32_evidence_250__compartmental_structured_nominee_v1__decoding"
+plan = "16-evidence_accumulation__pulses_32_evidence_250__compartmental_structured_nominee_v1__decoding.toml"
+[[operations]]
+id = "context_integration__pulses_32_evidence_250_conflicting_transient__falandays_direct_v1__decoding"
+plan = "17-context_integration__pulses_32_evidence_250_conflicting_transient__falandays_direct_v1__decoding.toml"
+[[operations]]
+id = "context_integration__pulses_32_evidence_250_conflicting_transient__sorn_direct_v1__decoding"
+plan = "18-context_integration__pulses_32_evidence_250_conflicting_transient__sorn_direct_v1__decoding.toml"
+[[operations]]
+id = "context_integration__pulses_32_evidence_250_conflicting_transient__compartmental_dense_nominee_v1__decoding"
+plan = "19-context_integration__pulses_32_evidence_250_conflicting_transient__compartmental_dense_nominee_v1__decoding.toml"
+[[operations]]
+id = "context_integration__pulses_32_evidence_250_conflicting_transient__compartmental_structured_nominee_v1__decoding"
+plan = "20-context_integration__pulses_32_evidence_250_conflicting_transient__compartmental_structured_nominee_v1__decoding.toml"
+[[operations]]
+id = "temporal_order__gap_8__falandays_direct_v1__decoding"
+plan = "21-temporal_order__gap_8__falandays_direct_v1__decoding.toml"
+[[operations]]
+id = "temporal_order__gap_8__sorn_direct_v1__decoding"
+plan = "22-temporal_order__gap_8__sorn_direct_v1__decoding.toml"
+[[operations]]
+id = "temporal_order__gap_8__compartmental_dense_nominee_v1__decoding"
+plan = "23-temporal_order__gap_8__compartmental_dense_nominee_v1__decoding.toml"
+[[operations]]
+id = "temporal_order__gap_8__compartmental_structured_nominee_v1__decoding"
+plan = "24-temporal_order__gap_8__compartmental_structured_nominee_v1__decoding.toml"

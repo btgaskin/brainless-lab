@@ -1,0 +1,20 @@
+conditions = ["delayed_cue__delay_32__falandays_direct_v1__native_pilot", "delayed_cue__delay_32__sorn_direct_v1__native_pilot", "delayed_cue__delay_32__compartmental_dense_nominee_v1__native_pilot", "delayed_cue__delay_32__compartmental_structured_nominee_v1__native_pilot", "recall_interference__delay_32_distractors_1__falandays_direct_v1__native_pilot", "recall_interference__delay_32_distractors_1__sorn_direct_v1__native_pilot", "recall_interference__delay_32_distractors_1__compartmental_dense_nominee_v1__native_pilot", "recall_interference__delay_32_distractors_1__compartmental_structured_nominee_v1__native_pilot", "delayed_xor__gap_32__falandays_direct_v1__native_pilot", "delayed_xor__gap_32__sorn_direct_v1__native_pilot", "delayed_xor__gap_32__compartmental_dense_nominee_v1__native_pilot", "delayed_xor__gap_32__compartmental_structured_nominee_v1__native_pilot", "evidence_accumulation__pulses_32_evidence_250__falandays_direct_v1__native_pilot", "evidence_accumulation__pulses_32_evidence_250__sorn_direct_v1__native_pilot", "evidence_accumulation__pulses_32_evidence_250__compartmental_dense_nominee_v1__native_pilot", "evidence_accumulation__pulses_32_evidence_250__compartmental_structured_nominee_v1__native_pilot", "context_integration__pulses_32_evidence_250_conflicting_transient__falandays_direct_v1__native_pilot", "context_integration__pulses_32_evidence_250_conflicting_transient__sorn_direct_v1__native_pilot", "context_integration__pulses_32_evidence_250_conflicting_transient__compartmental_dense_nominee_v1__native_pilot", "context_integration__pulses_32_evidence_250_conflicting_transient__compartmental_structured_nominee_v1__native_pilot", "temporal_order__gap_8__falandays_direct_v1__native_pilot", "temporal_order__gap_8__sorn_direct_v1__native_pilot", "temporal_order__gap_8__compartmental_dense_nominee_v1__native_pilot", "temporal_order__gap_8__compartmental_structured_nominee_v1__native_pilot", "reversal_adaptation__single_reversal__falandays_direct_v1__native_pilot", "reversal_adaptation__single_reversal__sorn_direct_v1__native_pilot", "reversal_adaptation__single_reversal__compartmental_dense_nominee_v1__native_pilot", "reversal_adaptation__single_reversal__compartmental_structured_nominee_v1__native_pilot"]
+evidence_state = "planned"
+format = "brainlesslab-experiment"
+format_version = 1
+id = "capacity_native_pilot"
+limitations = ["Unexecuted development proposal. No confirmation seeds or core promotion are defined.", "Run a timed preflight before calibration; revise sample sizes from a variance pilot.", "Native gain 1 is provisional. Apply development selections in a new pilot protocol before comparison.", "Fixed 200-node profiles differ in connections, internal states and integration cost.", "Decoder accuracy is a separate readout diagnostic; no general capability claim follows."]
+question = "How variable is native task performance across independent paired blocks?"
+title = "capacity native pilot"
+version = "1.0.0"
+
+[metadata]
+core_membership = "candidate"
+n_nodes = 200
+no_cross_task_aggregate = true
+programme = "capacity_probes"
+stage = "development_proposal"
+
+[[operations]]
+id = "capacity_native_pilot"
+plan = "01-capacity_native_pilot.toml"

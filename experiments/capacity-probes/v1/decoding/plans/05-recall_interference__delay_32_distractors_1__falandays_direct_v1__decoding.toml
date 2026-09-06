@@ -1,0 +1,61 @@
+format = "brainlesslab-plan"
+format_version = 3
+id = "recall_interference__delay_32_distractors_1__falandays_direct_v1__decoding"
+operation = "profile"
+
+[profile]
+analyses = ["probe_decodability"]
+record_every = 1
+target = "recall_interference__delay_32_distractors_1__falandays_direct_v1__decoding"
+
+    [profile.analysis_options]
+
+    [profile.compute_every]
+
+[[targets]]
+id = "recall_interference__delay_32_distractors_1__falandays_direct_v1__decoding"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "recall_interference__delay_32_distractors_1__falandays_direct_v1"
+    n_nodes = 200
+    node = "falandays"
+    task = "recall_interference"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_mode = "transient"
+        cue_ticks = 8
+        delay = 32
+        distractor_mode = "random"
+        distractor_ticks = 4
+        distractors = 1
+        response_ticks = 8
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "block"
+    horizon = 48
+    reset = "full"
+    root_seed = 0x1a4690
+    streams = ["topology", "world"]
+    trials_per_block = 640
+    warmup = 0

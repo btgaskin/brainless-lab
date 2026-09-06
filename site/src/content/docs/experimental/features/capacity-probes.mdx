@@ -1,0 +1,20 @@
+---
+title: Capacity-probe library
+description: Experimental recall, computation, integration, order and adaptation tasks with separate decoding diagnostics.
+experimental:
+  family: worlds-tasks
+  readiness: integrated
+  tags: [capacity-probes, memory, integration, adaptation]
+  core_page: /reference/core-catalog/
+  source_paths: [src/envs/CapacityProbes.jl, src/tasks/CapacityProbes.jl, src/core/ProbeEvents.jl, src/analysis/ProbeDecodability.jl, src/operations/Profile.jl]
+  example_paths: [examples/capacity_probes.jl, tools/capacity_probes/plan_study.jl]
+  test_paths: [test/test_capacity_probes.jl, test/test_probe_decodability.jl]
+---
+
+Six probe families extend coverage beyond closed sensorimotor control. Native responses
+define performance. An optional decoder measures recoverable task information separately,
+using whole-trial splits within independent wiring blocks.
+
+The [capacity-probe guide](/benchmarks/probes/) lists controls, 64 difficulty presets and
+membership status. Software is integrated; model comparisons, confirmation and selective
+core admission remain pending. The existing benchmark v2 is unchanged.

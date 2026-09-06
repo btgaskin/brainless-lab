@@ -611,10 +611,10 @@ function register_builtins!(registry::RegistrySet)
                 entry.f;
                 label=entry.label,
                 options=entry.options,
-                metadata=(
+                metadata=merge((
                     task=entry.task,
                     required_channels=entry.required_channels,
-                ),
+                ), entry.scope === :trial ? NamedTuple() : (scope=entry.scope,)),
             ),
         )
     end

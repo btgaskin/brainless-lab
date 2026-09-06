@@ -7,6 +7,12 @@ An analysis describes recorded behaviour or dynamics. It does not establish capa
 mechanism by itself. Read each analysis beside the task outcome, sampling protocol,
 diagnostics, and a control that matches the claim.
 
+For stimulus-driven tasks, [probe decoding](/benchmarks/probes/decoding/) adds an optional
+block-scoped analysis. `scope=:block` registrations receive `ProfileBlock`;
+`BlockAnalysisResult` carries numeric statistics and diagnostic tables. Default registrations
+retain per-trial behaviour. Block summaries report `n_blocks` separately. Decoding does
+not change native task outcomes.
+
 `ProfilePlan` is the standard way to request registered analyses. The executor records the
 channels they require and reports analysis failures explicitly. The default Falandays
 profile contains `node_target_error`, `spectral_radius`, and `fano_factor`. Experimental

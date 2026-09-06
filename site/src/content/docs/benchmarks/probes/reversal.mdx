@@ -1,0 +1,47 @@
+---
+title: Reversal adaptation
+description: Adapt a cue-response rule using action and correctness feedback.
+---
+
+Reversal adaptation asks whether a controller changes its responses when a previously
+useful rule changes. One independent trial is a continuous 96-round session. The initial
+mapping is random, and one unannounced reversal occurs between rounds 32 and 64 inclusive.
+
+```text
+each round: cue (8) → cue plus response (8) → action and correctness feedback (8)
+session:   initial random mapping → hidden reversal → sixteen primary scored rounds → continue
+```
+
+`:reversal_adaptation` exposes eight receptors: left cue, right cue, go, feedback-phase
+marker, chosen left, chosen right, correct and incorrect. Feedback reports the chosen
+action and its correctness; it does not expose the hidden mapping. The cue remains
+visible during response so the task does not add a separate within-round recall demand.
+
+```julia
+using BrainlessLab
+target = EvaluationTarget(:reversal,
+    CompositionSpec(:reversal, :null_random, :reversal_adaptation; n_nodes=8),
+    EvaluationSpec(horizon=2304, root_seed=1610700))
+sim = only(evaluate(target).trials).simulation
+task_outcome(sim)
+sim.metrics.pre_reversal_accuracy
+sim.metrics.recovery_rounds
+```
+
+The primary `adaptation_accuracy` is accuracy on the first sixteen rounds starting at
+the reversal. Raw and normalised values use [0, 1]; chance is separately 0.5. Diagnostics
+include accuracy before reversal and the number of rounds until the first run of eight
+correct responses after reversal. Recovery is missing when that run is absent.
+
+`probe_control(:reversal_adaptation)` is a feedback-aware finite-state reference.
+It starts with an uninformed mapping and learns from each observed action and feedback.
+It incurs one error at reversal, so its primary accuracy is 15/16. An initial error may
+also occur. Full accuracy is an analytic scale endpoint, not this oracle's guarantee.
+Compare `policy=:fixed_mapping`, `feedback_mode=:hidden`, and applicable
+`:freeze_plasticity` ablations through an ordinary `AblationPlan`.
+
+Neural state persists between rounds. A new independent session uses a full reset.
+Session accuracy does not distinguish synaptic change from adaptation in recurrent state;
+that claim needs interventions. Offline decoding cannot replace action-dependent feedback,
+so the probe decoder rejects this task. See the [planned study](/benchmarks/probes/study/).
+Core admission and model comparisons are pending.

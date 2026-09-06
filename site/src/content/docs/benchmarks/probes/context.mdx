@@ -1,0 +1,39 @@
+---
+title: Context-dependent integration
+description: Use an initial context cue to select the relevant evidence stream.
+---
+
+Context integration asks whether a controller can retain a cue that determines which
+input matters. Two simultaneous pulse streams can favour the same response or disagree.
+The initial context selects the stream that determines the answer.
+
+```text
+context (8) → two simultaneous evidence streams (16, 32 or 64) → response (8)
+              congruent or conflicting; context transient or persistent
+```
+
+`:context_integration` has seven receptors: context one/two, stream-one left/right,
+stream-two left/right, and go. Each stream uses the
+[evidence pulse construction](/benchmarks/probes/evidence/), including an answer-independent
+final pulse. Evidence fractions are 0.125, 0.25 and 0.5. The outcome is `probe_accuracy`,
+raw and normalised in [0, 1], with chance 0.5.
+
+```julia
+using BrainlessLab
+target = EvaluationTarget(:context,
+    CompositionSpec(:context, :null_random, :context_integration; n_nodes=8,
+        task_options=Dict(:congruency => :conflicting, :context_mode => :transient)),
+    EvaluationSpec(horizon=48, root_seed=1610500))
+task_outcome(only(evaluate(target).trials).simulation)
+```
+
+`probe_control(:context_integration)` accumulates the stream selected by the observed
+context. It should achieve full accuracy. Its `:context_blind` policy always uses stream
+one; `:irrelevant` uses the other stream and should fail on conflicting trials. Congruent
+trials alone cannot establish context use. Persistent context removes the retention
+requirement; `context_mode=:hidden` removes the selector. `congruency=:mixed` samples
+congruent and conflicting trials with equal probability.
+
+Compare both congruencies and context modes. Recoverable context information in a
+[decoder](/benchmarks/probes/decoding/) does not establish that native actions use it.
+See the [study protocol](/benchmarks/probes/study/) for planned comparisons. This is a candidate task.

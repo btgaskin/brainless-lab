@@ -213,9 +213,10 @@ type.
 resolve_metric(sym::Symbol)::Any = _resolve(METRICS, "metric", sym)
 
 """
-    register_analysis!(sym, f; task=nothing, label=string(sym))
+    register_analysis!(sym, f; task=nothing, label=string(sym), scope=:trial)
 
-Register an analysis function under `sym`.
+Register an analysis function under `sym`. The default receives one `SimResult`;
+`scope=:block` receives a `ProfileBlock` containing the independent block's trials.
 """
 function register_analysis!(
     sym::Symbol,
@@ -224,7 +225,9 @@ function register_analysis!(
     label::AbstractString=string(sym),
     options=Dict{Symbol,Any}(),
     required_channels=(),
+    scope::Symbol=:trial,
 )
+    scope in (:trial, :block) || throw(ArgumentError("analysis scope must be :trial or :block"))
     _register!(
         ANALYSES,
         "analysis",
@@ -232,6 +235,7 @@ function register_analysis!(
         (
             f=f,
             task=task,
+            scope=scope,
             label=String(label),
             options=_option_defaults(options, "analysis :$(sym)"),
             required_channels=_symbol_tuple(

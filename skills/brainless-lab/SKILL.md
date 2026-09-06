@@ -87,6 +87,9 @@ or operation-specific protocol format.
   analysis options and recorder compute strides belong in the plan. Aligned analysis
   series are summarised across independent trials; raw tick traces are not a default
   record surface. It records the required channels and reports analysis failures.
+  Optional `scope=:block` analyses receive `ProfileBlock`; `BlockAnalysisResult` tables
+  retain independent-block counts separately. `probe_decodability` requires sparse
+  `:probe_events`, fixed wiring within a block, full trial resets and whole-trial splits.
 - `SweepPlan` evaluates explicit or node-default parameter axes. Seeds are paired across
   cells. Call the output a development grid, not a confirmed optimum.
 - `AblationPlan` compares an implicit baseline with registered interventions. Validation
