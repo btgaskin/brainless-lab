@@ -8,6 +8,10 @@ Start with the online [first simulation](https://brainless-lab.pages.dev/tutoria
 guide. If you are using an agent, point it at `AGENTS.md`; that file tells it which
 repository skills and safeguards to follow.
 
+The lab and Julia skills are maintained under `skills/`. Project-local discovery uses
+relative links in `.agents/skills/`, so each checkout uses its own version. No global
+skill installation or copy synchronisation is needed.
+
 ## Choose the smallest useful contribution
 
 - **Use or reproduce:** run a checked-in example and report the exact command, Julia version,

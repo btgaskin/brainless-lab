@@ -10,6 +10,10 @@ Before changing Julia or BrainlessLab code, read these files in full:
 - `skills/brainless-lab/SKILL.md`
 - `skills/julia/SKILL.md`
 
+These checked-in files are the maintained source. `.agents/skills/` contains relative
+discovery links to them. Keep both skills local to the project; do not install independent
+global copies. Use the skills from the current worktree.
+
 Then read only the linked references that match the task. Treat checked-in code, tests,
 configs, and immutable run artifacts as the source of truth. The website is the
 human-readable guide; update it when the public contract changes.

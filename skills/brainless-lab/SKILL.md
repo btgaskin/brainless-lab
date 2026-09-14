@@ -12,6 +12,19 @@ operations, and versioned experiments.
 Always read the repository `AGENTS.md`. Pair this skill with the Julia skill whenever
 Julia code is written or reviewed. Follow `docs/WRITING.md` for public prose.
 
+## Local source and research requests
+
+The maintained skills live in this checkout under `skills/`. The relative links in
+`.agents/skills/` expose these same files for project-local discovery. Edit the source
+files; do not maintain global copies. In another worktree, use that worktree's skills.
+
+For a request to profile or sweep a scientific observation, translate the question into
+the smallest inspectable experiment using the existing operations. Inspect the resolved
+parameters and intervention semantics before running a grid. Use
+[initialisation and adaptation studies](references/initialisation-and-adaptation.md)
+for comparisons of frozen and adapting Falandays networks. Use the CLI reference for
+plan syntax. Execute an authorised bounded stage and inspect its records before expanding.
+
 ## Preserve the architecture
 
 ```text
@@ -265,8 +278,8 @@ bun run build
 ```
 
 Check `git diff --check`. Inspect the final diff for unrelated user changes. Keep the
-checked-in and installed BrainlessLab skill identical only after code and documentation
-agree.
+project-local discovery links resolving to the checked-in skills. Do not synchronise a
+second installed copy.
 
 ## References
 
