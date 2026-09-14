@@ -231,6 +231,15 @@ julia -t auto --project=. bin/brainlesslab.jl run-experiment \
 `read_experiment` rejects mismatched definitions of a condition repeated across plans.
 `run-experiment` executes each ordinary plan and writes one standard record per operation.
 
+Tree bundles add optional `description`, `hypotheses`, `objectives` and `children`. Each child
+lives at `children/ID/experiment.toml`. A question-only node is valid and cannot execute.
+`run-experiment DIR --branch reproduction/wall` runs only that node's operations.
+`report-experiment DIR --output NEW-DIR` renders the tree and copies attached evidence into
+an offline HTML export without simulation. Use `attach_experiment_run!` and
+`add_experiment_note!` for the separate append-only ledger. Full plan settings and run
+checksums are checked; historical attachment requires an explicit flag. See
+`experiments/initialisation-adaptation/README.md` for the complete author/run/share example.
+
 The checked example under `experiments/examples/structured-ctrnn-smoke/` is planned smoke
 work. It searches one fixed CTRNN design. Its one-generation budget tests the protocol and
 executor, not a scientific claim.

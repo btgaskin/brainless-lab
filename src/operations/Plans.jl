@@ -404,16 +404,22 @@ const EXPERIMENT_EVIDENCE_STATES = (
 )
 
 """A citable scientific protocol composed from named conditions and operations."""
-struct ExperimentSpec{C<:Tuple,O<:Tuple,M}
+struct ExperimentSpec
     id::Symbol
     version::VersionNumber
     title::String
     question::String
-    conditions::C
-    operations::O
+    conditions::Tuple{Vararg{EvaluationTarget}}
+    operations::Tuple{Vararg{AbstractOperationPlan}}
     evidence_state::Symbol
     limitations::Tuple{Vararg{String}}
-    metadata::M
+    metadata::NamedTuple
+    description::String
+    hypotheses::Tuple{Vararg{String}}
+    objectives::Tuple{Vararg{String}}
+    # This is an authored, heterogeneous tree outside the simulation hot path.
+    # Keep its complete recursive shape out of the parent's specialised type.
+    children::Tuple
 end
 
 function ExperimentSpec(
@@ -421,19 +427,31 @@ function ExperimentSpec(
     version::VersionNumber;
     title::AbstractString,
     question::AbstractString,
-    conditions,
-    operations,
+    conditions=(),
+    operations=(),
     evidence_state::Symbol=:exploratory,
     limitations=(),
     metadata::NamedTuple=NamedTuple(),
+    description::AbstractString="",
+    hypotheses=(),
+    objectives=(),
+    children=(),
 )
     id_ = _nonempty_symbol(id, "experiment id")
     isempty(strip(title)) && throw(ArgumentError("experiment title must not be empty"))
     isempty(strip(question)) && throw(ArgumentError("experiment question must not be empty"))
     conditions_ = Tuple(conditions)
     operations_ = Tuple(operations)
-    isempty(conditions_) && throw(ArgumentError("experiment requires named conditions"))
-    isempty(operations_) && throw(ArgumentError("experiment requires operations"))
+    children_ = Tuple(children)
+    all(child -> child isa ExperimentSpec, children_) || throw(ArgumentError(
+        "experiment children must be ExperimentSpec values",
+    ))
+    child_ids = getfield.(children_, :id)
+    length(unique(child_ids)) == length(child_ids) || throw(ArgumentError(
+        "experiment child ids must be unique within their parent",
+    ))
+    all(id -> occursin(r"^[A-Za-z0-9_-]+$", String(id)), child_ids) ||
+        throw(ArgumentError("experiment child ids must be portable path components"))
     all(condition -> condition isa EvaluationTarget, conditions_) || throw(ArgumentError(
         "experiment conditions must all be EvaluationTarget values",
     ))
@@ -452,11 +470,7 @@ function ExperimentSpec(
         "invalid experiment evidence_state :$(evidence_state)",
     ))
     limitations_ = Tuple(String(limitation) for limitation in limitations)
-    return ExperimentSpec{
-        typeof(conditions_),
-        typeof(operations_),
-        typeof(metadata),
-    }(
+    return ExperimentSpec(
         id_,
         version,
         String(title),
@@ -466,10 +480,27 @@ function ExperimentSpec(
         evidence_state,
         limitations_,
         metadata,
+        String(description),
+        Tuple(String.(hypotheses)),
+        Tuple(String.(objectives)),
+        children_,
     )
 end
 
 operation_targets(plan::ProfilePlan) = (plan.target,)
+
+"""Select a child by its slash-separated stable ID path; an empty path selects the root."""
+function experiment_branch(experiment::ExperimentSpec, path::AbstractString="")
+    isempty(path) && return experiment
+    current = experiment
+    for id in split(path, '/')
+        occursin(r"^[A-Za-z0-9_-]+$", id) || throw(ArgumentError("invalid experiment branch path"))
+        index = findfirst(child -> String(child.id) == id, current.children)
+        index === nothing && throw(ArgumentError("unknown experiment branch $(repr(path))"))
+        current = current.children[index]
+    end
+    return current
+end
 operation_targets(plan::SweepPlan) = (plan.target,)
 operation_targets(plan::AblationPlan) = (plan.target,)
 operation_targets(plan::EvolutionPlan) = (plan.training_targets..., plan.heldout_targets...)
@@ -559,6 +590,7 @@ function _experiment_target_signature(target::EvaluationTarget)
 end
 
 function validate(experiment::ExperimentSpec, registry::RegistrySet)
+    foreach(child -> validate(child, registry), experiment.children)
     conditions = Dict(condition.id => condition for condition in experiment.conditions)
     used = Set{Symbol}()
     for operation in experiment.operations

@@ -24,6 +24,10 @@ are planned, not executed model comparisons. Core membership remains versioned s
 
 ## Quick start
 
+For paired sweeps of recurrent initialisation scale and weight or target adaptation, use
+the [initialisation and adaptation programme](experiments/initialisation-adaptation/README.md).
+Its bounded pilot is development work, with explicit freeze controls and diagnostic profiles.
+
 BrainlessLab is not yet registered in Julia General.
 
 ```bash

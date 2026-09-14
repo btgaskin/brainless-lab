@@ -1,6 +1,56 @@
 using BrainlessLab
 using Test
 using Random
+using BrainlessLab: Dale, FreezeWeights, apply!
+
+@testset "recurrent initialisation scale" begin
+    for mode in (:excitatory, :pong_mixed, :legacy_normal),
+        sign in (BrainlessLab.UnsignedAxis(), Dale(vcat(ones(Int, 15), -ones(Int, 5))))
+        base = FalandaysReservoir(20, 3, 2; seed=71, weight_init_mode=mode, sign)
+        unit = FalandaysReservoir(20, 3, 2; seed=71, weight_init_mode=mode, sign,
+                                 recurrent_init_scale=1.0)
+        small = FalandaysReservoir(20, 3, 2; seed=71, weight_init_mode=mode, sign,
+                                  recurrent_init_scale=0.1)
+        @test base.wmat == unit.wmat
+        @test small.wmat == 0.1 .* base.wmat
+        @test small.input_wmat == base.input_wmat
+        @test small.recurrent_mask == base.recurrent_mask
+        @test small.output_mask == base.output_mask
+        initial = copy(small.wmat)
+        step!(small, ones(3))
+        reset!(small)
+        @test small.wmat == initial
+    end
+    for scale in (-0.1, Inf, NaN)
+        @test_throws ArgumentError FalandaysReservoir(20, 3, 2; recurrent_init_scale=scale)
+    end
+end
+
+@testset "weight-only freeze preserves target adaptation" begin
+    r = FalandaysReservoir(20, 3, 2; seed=81)
+    for _ in 1:10
+        step!(r, ones(3))
+    end
+    w = copy(r.wmat)
+    targets = copy(r.targets)
+    eta = r.params.lrate_targ
+    apply!(FreezeWeights(), r)
+    @test r.params.learn_on
+    @test r.params.lrate_targ == eta
+    @test r.params.lrate_wmat == 0.0
+    for _ in 1:10
+        step!(r, ones(3))
+    end
+    @test r.wmat == w
+    @test r.targets != targets
+    a = BrainlessLabTestUtils.diagnostic_simulate(:tracking; ticks=40, seed=81,
+        ablation=:freeze_weights, recurrent_init_scale=0.1)
+    b = BrainlessLabTestUtils.diagnostic_simulate(:tracking; ticks=40, seed=81,
+        interventions=[(tick=1, verb=:freeze_weights)], recurrent_init_scale=0.1)
+    @test a.metrics.score == b.metrics.score
+    @test_throws ArgumentError BrainlessLabTestUtils.diagnostic_simulate(:tracking;
+        node=:sorn, ticks=40, ablation=:freeze_weights)
+end
 
 @testset "mid-rollout interventions" begin
     @testset "no-op identity (nothing / empty schedule)" begin

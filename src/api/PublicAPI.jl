@@ -1,4 +1,5 @@
 # Core workflow and result inspection.
+public experiment_branch, attach_experiment_run!, add_experiment_note!, render_experiment
 export simulate,
     visualize,
     animate,
@@ -241,6 +242,7 @@ public Evolution,
     NoSomaBack,
     NoHillockBack,
     FreezePlasticity,
+    FreezeWeights,
     ZeroRecurrent,
     ClampTarget,
     DisableVision,

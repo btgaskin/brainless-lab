@@ -1,0 +1,26 @@
+conditions = []
+description = ""
+evidence_state = "planned"
+format = "brainlesslab-experiment"
+format_version = 2
+hypotheses = []
+id = "reproduction"
+limitations = []
+objectives = []
+operations = []
+question = "Can a smaller recurrent initialisation scale reduce or reverse the apparent advantage of adaptation?"
+title = "Reproduce the proposed comparison"
+version = "1.0.0"
+
+[[children]]
+id = "words"
+version = "1.0.0"
+[[children]]
+id = "wall"
+version = "1.0.0"
+[[children]]
+id = "tracking"
+version = "1.0.0"
+[[children]]
+id = "pong"
+version = "1.0.0"

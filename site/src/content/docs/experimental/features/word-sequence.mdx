@@ -1,0 +1,24 @@
+---
+title: Word sequence diagnostics
+description: Observation-only grammar and completion probes for the initialisation programme.
+experimental:
+  family: worlds-tasks
+  readiness: integrated
+  tags: [sequence, adaptation, diagnostics]
+  core_page: /handbook/operations/
+  source_paths: [src/envs/WordSequence.jl, src/analysis/WordSequence.jl]
+  example_paths: [experiments/initialisation-adaptation/build_programme.jl]
+  test_paths: [test/test_word_sequence.jl, test/test_programme.jl]
+---
+
+The `word_sequence_2021` task presents a probabilistic grammar through five lexical channels.
+Partial-sentence probes follow the complete training sequence in the same trial. It declares
+no scalar task objective. Response rasters, pre-update target errors and completion
+correlations are diagnostics.
+
+Start with `check-experiment experiments/initialisation-adaptation/programme` through the
+lab CLI. The programme README states the source commit, parameters, budgets and differences
+from the source notebook. The equation check compares explicit initial states; it does not
+establish full notebook parity or reproduce a paper's numerical results.
+
+See [operations](/handbook/operations/) for branch execution and offline reports.

@@ -7,7 +7,8 @@ function usage(io=stdout)
     println(io, "  julia --project=. bin/brainlesslab.jl check PLAN.toml")
     println(io, "  julia --project=. bin/brainlesslab.jl run PLAN.toml [--root DIR]")
     println(io, "  julia --project=. bin/brainlesslab.jl check-experiment PROTOCOL_DIR")
-    println(io, "  julia --project=. bin/brainlesslab.jl run-experiment PROTOCOL_DIR [--root DIR]")
+    println(io, "  julia --project=. bin/brainlesslab.jl run-experiment PROTOCOL_DIR [--branch PATH] [--root DIR]")
+    println(io, "  julia --project=. bin/brainlesslab.jl report-experiment PROTOCOL_DIR --output DIR")
     println(io, "  julia --project=. bin/brainlesslab.jl check-contribution DIR [--repository DIR] [--main-ref REF] [--base REF]")
     println(io, "  julia --project=. bin/brainlesslab.jl compare-contribution DIR [--write]")
     println(io, "  julia --project=. bin/brainlesslab.jl index-research [--root DIR] [--output FILE] [--repository DIR] [--main-ref REF]")
@@ -47,7 +48,7 @@ function main(args=ARGS)
     end
     command = args[1]
     command in (
-        "check", "run", "check-experiment", "run-experiment",
+        "check", "run", "check-experiment", "run-experiment", "report-experiment",
         "check-contribution", "compare-contribution", "index-research",
     ) || begin
         usage(stderr)
@@ -109,20 +110,31 @@ function main(args=ARGS)
         return 0
     end
 
-    if command in ("check-experiment", "run-experiment")
+    if command in ("check-experiment", "run-experiment", "report-experiment")
         isdir(source_path) || throw(ArgumentError(
             "experiment protocol directory does not exist: $(source_path)",
         ))
         experiment = read_experiment(source_path)
+        if command == "report-experiment"
+            options = parse_named_options(args[3:end], ("--output",))
+            haskey(options, "--output") || throw(ArgumentError("report-experiment requires --output"))
+            println("programme report: ", BrainlessLab.render_experiment(source_path, options["--output"]))
+            return 0
+        end
         if command == "check-experiment"
             println("valid experiment: ", experiment.id)
             println("version: ", experiment.version)
             println("evidence state: ", experiment.evidence_state)
             println("operations: ", join(string.(getfield.(experiment.operations, :id)), ", "))
+            for (path, node) in BrainlessLab._programme_nodes(experiment)
+                isempty(path) && continue
+                println("branch: ", path, " · ", node.evidence_state, " · ", length(node.operations), " operations")
+            end
             return 0
         end
-        root = parse_run_options(args[3:end])
-        run = run_experiment(experiment; root=root)
+        options = parse_named_options(args[3:end], ("--root", "--branch"))
+        run = run_experiment(experiment; root=get(options, "--root", "records"),
+                             branch=get(options, "--branch", ""))
         println("experiment record: ", run.directory)
         println("operation records: ", join(run.records, ", "))
         return 0

@@ -31,6 +31,7 @@ const TEST_SUITES = (
         "test_homeostasis.jl",
         "test_homeostatic_flow_v2.jl",
         "test_interventions.jl",
+        "test_word_sequence.jl",
         "test_mixed_ensemble.jl",
         "test_template_extension.jl",
         "test_motor.jl",
@@ -61,6 +62,7 @@ const TEST_SUITES = (
         "test_records.jl",
         "test_plan_examples.jl",
         "test_experiment_io.jl",
+        "test_programme.jl",
         "test_research_contributions.jl",
     ),
     oracle=(

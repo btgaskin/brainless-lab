@@ -1,0 +1,14 @@
+children = []
+conditions = []
+description = "First measure a coarse freeze-time curve from raw starts, including never adapting and always adapting. Retain whole-run trajectories and a fixed later scoring window. Choose a task-specific acceptable loss before refining a knee; do not assume monotonicity or use binary search by default."
+evidence_state = "planned"
+format = "brainlesslab-experiment"
+format_version = 2
+hypotheses = []
+id = "freeze_timing"
+limitations = []
+objectives = []
+operations = []
+question = "How long must weight or target adaptation remain active to preserve later performance?"
+title = "When can adaptation stop?"
+version = "1.0.0"

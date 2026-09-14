@@ -1,0 +1,14 @@
+children = []
+conditions = []
+description = "Check horizon, reset, episode structure and scoring anchors for each task before adding operations. Wall belongs to the historical comparison, not the current core benchmark."
+evidence_state = "planned"
+format = "brainlesslab-experiment"
+format_version = 2
+hypotheses = []
+id = "current_benchmark"
+limitations = []
+objectives = []
+operations = []
+question = "Does the effect persist in Tracking, Pong, Plank CartPole Easy and delayed cue?"
+title = "Extend to the current benchmark"
+version = "1.0.0"

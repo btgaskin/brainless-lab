@@ -1,0 +1,52 @@
+format = "brainlesslab-plan"
+format_version = 3
+id = "words_s3_both_on_cue0_subject1"
+operation = "profile"
+
+[profile]
+analyses = ["word_sequence_diagnostics"]
+record_every = 1
+target = "words_s3_both_on_cue0_subject1"
+
+    [profile.analysis_options]
+
+    [profile.compute_every]
+
+[[targets]]
+id = "words_s3_both_on_cue0_subject1"
+
+    [targets.composition]
+    id = "words_s3_both_on_cue0_subject1"
+    n_nodes = 100
+    node = "falandays"
+    task = "word_sequence_2021"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 5.0
+        leak = 0.25
+        lrate_targ = 0.01
+        lrate_wmat = 0.1
+        rectify = true
+        recurrent_init_scale = 1.0
+        repair_masks = false
+        weight_init_mode = "legacy_normal"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        completion_cues = 0
+        completion_subject = 1
+        sentences = 1000
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 4000
+    reset = "full"
+    root_seed = 0x78c3b451
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0

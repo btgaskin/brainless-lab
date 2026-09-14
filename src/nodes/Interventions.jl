@@ -9,6 +9,7 @@ struct ResetDendrites <: Intervention end
 struct NoSomaBack <: Intervention end
 struct NoHillockBack <: Intervention end
 struct FreezePlasticity <: Intervention end
+struct FreezeWeights <: Intervention end
 struct ZeroRecurrent <: Intervention end
 struct ClampTarget <: Intervention end
 struct DisableVision <: Intervention end
@@ -154,6 +155,10 @@ end
 
 function apply!(::ClampTarget, r::FalandaysReservoir)
     return _replace_falandays_params!(r, _falandays_params_with(r.params; lrate_targ=0.0))
+end
+
+function apply!(::FreezeWeights, r::FalandaysReservoir)
+    return _replace_falandays_params!(r, _falandays_params_with(r.params; lrate_wmat=0.0))
 end
 
 function apply!(::ZeroRecurrent, r::FalandaysReservoir)

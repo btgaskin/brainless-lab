@@ -1,0 +1,56 @@
+format = "brainlesslab-plan"
+format_version = 3
+id = "profile_all_frozen_late_reference"
+operation = "profile"
+
+[profile]
+analyses = ["tracking_plasticity_diagnostics", "node_target_error"]
+record_every = 1
+target = "profile_all_frozen_late_reference"
+
+    [profile.analysis_options.tracking_plasticity_diagnostics]
+    heading_bins = 18
+    kmax = 20
+    min_r2 = 0.0
+    stride = 200
+    window = 400
+
+    [profile.compute_every]
+    spectral_radius = 200
+
+[[targets]]
+id = "profile_all_frozen_late_reference"
+
+    [targets.composition]
+    id = "profile_all_frozen_late_reference"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 1.0
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 4000
+    reset = "full"
+    root_seed = 0x78c3b389
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 2000
+
+    [[targets.interventions]]
+    tick = 2001
+    verb = "freeze_plasticity"

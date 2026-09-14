@@ -276,6 +276,8 @@ function _ablation_notes(sym::Symbol, node::Symbol, task::Symbol, is_swarm::Bool
         else
             push!(notes, "freeze_plasticity no-op for node :$(node)")
         end
+    elseif sym === :freeze_weights
+        push!(notes, "freeze_weights applied: lrate_wmat=0; target adaptation settings preserved")
     elseif sym === :zero_recurrent
         if _is_falandays_node(node) || _is_compartmental_node(node)
             push!(notes, "zero_recurrent applied: recurrent weights removed at build")
@@ -311,6 +313,7 @@ end
 
 const _HIGHLEVEL_ABLATIONS = (
     :freeze_plasticity,
+    :freeze_weights,
     :clamp_target,
     :disable_vision,
     :zero_recurrent,
@@ -334,6 +337,9 @@ function _prepare_ablation_options!(node::Symbol, task::Symbol, is_swarm::Bool, 
         elseif node in (:sorn, :homeostatic_flow_v2)
             node_options[:learn_on] = false
         end
+    elseif sym === :freeze_weights
+        _is_falandays_node(node) || throw(ArgumentError("freeze_weights requires a Falandays node"))
+        node_options[:lrate_wmat] = 0.0
     elseif sym === :clamp_target
         _is_falandays_node(node) && (node_options[:lrate_targ] = 0.0)
     elseif sym === :disable_vision
@@ -355,6 +361,7 @@ function _apply_postbuild_ablation!(reservoir::Reservoir, sym::Symbol)
     intervention =
         sym === :zero_recurrent ? ZeroRecurrent() :
         sym === :freeze_plasticity ? FreezePlasticity() :
+        sym === :freeze_weights ? FreezeWeights() :
         sym === :clamp_target ? ClampTarget() :
         nothing
     intervention === nothing && return reservoir
@@ -365,7 +372,7 @@ end
 # Verbs that `_apply_postbuild_ablation!` can apply to a live reservoir, and hence
 # that a mid-rollout intervention schedule may reference. (Compartmental tick verbs
 # such as :reset_dendrites go through a different, node-specific hook.)
-const _MIDROLLOUT_VERBS = (:freeze_plasticity, :clamp_target, :zero_recurrent)
+const _MIDROLLOUT_VERBS = (:freeze_plasticity, :freeze_weights, :clamp_target, :zero_recurrent)
 
 _intervention_tick_verb(item::Pair) = (item.first, item.second)
 _intervention_tick_verb(item::Tuple) = (item[1], item[2])

@@ -213,7 +213,7 @@ end
     )
 
     @test actual_exports == expected_exports
-    @test length(public_only) == 493
+    @test length(public_only) == 498
     @test all(name -> name in public_only, (
         :explore,
         :Evolution,

@@ -1,0 +1,50 @@
+format = "brainlesslab-plan"
+format_version = 3
+id = "scale_weights_frozen_start"
+operation = "sweep"
+
+[sweep]
+max_rollouts = 12
+mode = "factorial"
+target = "weights_frozen_start"
+
+    [[sweep.axes]]
+    parameter = "recurrent_init_scale"
+    scope = "node"
+    values = [0.01, 0.1, 1.0]
+
+[[targets]]
+id = "weights_frozen_start"
+
+    [targets.composition]
+    id = "falandays_tracking"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 4000
+    reset = "full"
+    root_seed = 0x78c3b389
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 2000
+
+    [[targets.interventions]]
+    tick = 1
+    verb = "freeze_weights"

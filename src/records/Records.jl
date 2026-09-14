@@ -1977,8 +1977,15 @@ function run_experiment(
     registry::RegistrySet=DEFAULT_REGISTRY,
     root::AbstractString="experiment-records",
     id::Union{Nothing,AbstractString}=nothing,
+    branch::AbstractString="",
 )
+    if !isempty(branch)
+        return run_experiment(experiment_branch(experiment, branch); registry, root, id)
+    end
     validate(experiment, registry)
+    isempty(experiment.operations) && throw(ArgumentError(
+        "experiment :$(experiment.id) has no operations; select an executable branch explicitly",
+    ))
     run_id = id === nothing ? _experiment_run_id(experiment) : String(id)
     isempty(run_id) && throw(ArgumentError("experiment run id must not be empty"))
     run_id in (".", "..") && throw(ArgumentError("experiment run id must not be . or .."))

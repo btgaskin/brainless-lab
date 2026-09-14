@@ -1,0 +1,402 @@
+format = "brainlesslab-plan"
+format_version = 3
+id = "pong_comparison"
+operation = "benchmark"
+
+[[benchmark.cases]]
+baseline = "pong_s1_both_on"
+conditions = ["pong_s1_both_on", "pong_s1_weights_off", "pong_s1_targets_off", "pong_s1_both_off"]
+id = "scale_1"
+[[benchmark.cases]]
+baseline = "pong_s2_both_on"
+conditions = ["pong_s2_both_on", "pong_s2_weights_off", "pong_s2_targets_off", "pong_s2_both_off"]
+id = "scale_2"
+[[benchmark.cases]]
+baseline = "pong_s3_both_on"
+conditions = ["pong_s3_both_on", "pong_s3_weights_off", "pong_s3_targets_off", "pong_s3_both_off"]
+id = "scale_3"
+
+[[targets]]
+id = "pong_s1_both_on"
+
+    [targets.composition]
+    id = "pong_s1_both_on"
+    n_nodes = 500
+    node = "falandays"
+    task = "pong"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 2.75
+        lrate_targ = 0.1
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.01
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "pong_mixed"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 6000
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "pong_s1_weights_off"
+
+    [targets.composition]
+    id = "pong_s1_weights_off"
+    n_nodes = 500
+    node = "falandays"
+    task = "pong"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 2.75
+        lrate_targ = 0.1
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.01
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "pong_mixed"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 6000
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "pong_s1_targets_off"
+
+    [targets.composition]
+    id = "pong_s1_targets_off"
+    n_nodes = 500
+    node = "falandays"
+    task = "pong"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 2.75
+        lrate_targ = 0.0
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.01
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "pong_mixed"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 6000
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "pong_s1_both_off"
+
+    [targets.composition]
+    id = "pong_s1_both_off"
+    n_nodes = 500
+    node = "falandays"
+    task = "pong"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 2.75
+        lrate_targ = 0.0
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.01
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "pong_mixed"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 6000
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "pong_s2_both_on"
+
+    [targets.composition]
+    id = "pong_s2_both_on"
+    n_nodes = 500
+    node = "falandays"
+    task = "pong"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 2.75
+        lrate_targ = 0.1
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "pong_mixed"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 6000
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "pong_s2_weights_off"
+
+    [targets.composition]
+    id = "pong_s2_weights_off"
+    n_nodes = 500
+    node = "falandays"
+    task = "pong"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 2.75
+        lrate_targ = 0.1
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "pong_mixed"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 6000
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "pong_s2_targets_off"
+
+    [targets.composition]
+    id = "pong_s2_targets_off"
+    n_nodes = 500
+    node = "falandays"
+    task = "pong"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 2.75
+        lrate_targ = 0.0
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "pong_mixed"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 6000
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "pong_s2_both_off"
+
+    [targets.composition]
+    id = "pong_s2_both_off"
+    n_nodes = 500
+    node = "falandays"
+    task = "pong"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 2.75
+        lrate_targ = 0.0
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "pong_mixed"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 6000
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "pong_s3_both_on"
+
+    [targets.composition]
+    id = "pong_s3_both_on"
+    n_nodes = 500
+    node = "falandays"
+    task = "pong"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 2.75
+        lrate_targ = 0.1
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 1.0
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "pong_mixed"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 6000
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "pong_s3_weights_off"
+
+    [targets.composition]
+    id = "pong_s3_weights_off"
+    n_nodes = 500
+    node = "falandays"
+    task = "pong"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 2.75
+        lrate_targ = 0.1
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 1.0
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "pong_mixed"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 6000
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "pong_s3_targets_off"
+
+    [targets.composition]
+    id = "pong_s3_targets_off"
+    n_nodes = 500
+    node = "falandays"
+    task = "pong"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 2.75
+        lrate_targ = 0.0
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 1.0
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "pong_mixed"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 6000
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "pong_s3_both_off"
+
+    [targets.composition]
+    id = "pong_s3_both_off"
+    n_nodes = 500
+    node = "falandays"
+    task = "pong"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 2.75
+        lrate_targ = 0.0
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 1.0
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "pong_mixed"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 6000
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0

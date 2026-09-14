@@ -1,0 +1,49 @@
+conditions = ["continuous", "weights_frozen_start", "all_frozen_start", "weights_frozen_late", "all_frozen_late", "profile_continuous_small", "profile_weights_frozen_late_small", "profile_all_frozen_late_small", "profile_continuous_reference", "profile_weights_frozen_late_reference", "profile_all_frozen_late_reference"]
+evidence_state = "planned"
+format = "brainlesslab-experiment"
+format_version = 1
+id = "initialisation_adaptation"
+limitations = ["Four development blocks estimate feasibility and describe cases; they do not support confirmation or equivalence claims.", "The task, horizon and initialisation distribution are BrainlessLab choices, not a replication of Marc's unspecified protocol.", "The scored interval is ticks 2001 through 4000 for every condition; early acquisition is not the primary endpoint.", "Profiles reuse sweep seeds and are diagnostics of the same blocks, not independent replication.", "Branching estimates and spectral radius do not establish criticality or a causal mechanism."]
+question = "Does recurrent initialisation scale alter the benefit of weight and target adaptation in canonical Tracking?"
+title = "Initial recurrent scale and continued homeostatic adaptation"
+version = "1.0.0"
+
+[metadata]
+freeze_tick = 2001
+independent_unit = "block"
+scales = [0.01, 0.1, 1.0]
+stage = "development_pilot"
+
+[[operations]]
+id = "scale_continuous"
+plan = "01-scale_continuous.toml"
+[[operations]]
+id = "scale_weights_frozen_start"
+plan = "02-scale_weights_frozen_start.toml"
+[[operations]]
+id = "scale_all_frozen_start"
+plan = "03-scale_all_frozen_start.toml"
+[[operations]]
+id = "scale_weights_frozen_late"
+plan = "04-scale_weights_frozen_late.toml"
+[[operations]]
+id = "scale_all_frozen_late"
+plan = "05-scale_all_frozen_late.toml"
+[[operations]]
+id = "profile_continuous_small"
+plan = "06-profile_continuous_small.toml"
+[[operations]]
+id = "profile_weights_frozen_late_small"
+plan = "07-profile_weights_frozen_late_small.toml"
+[[operations]]
+id = "profile_all_frozen_late_small"
+plan = "08-profile_all_frozen_late_small.toml"
+[[operations]]
+id = "profile_continuous_reference"
+plan = "09-profile_continuous_reference.toml"
+[[operations]]
+id = "profile_weights_frozen_late_reference"
+plan = "10-profile_weights_frozen_late_reference.toml"
+[[operations]]
+id = "profile_all_frozen_late_reference"
+plan = "11-profile_all_frozen_late_reference.toml"

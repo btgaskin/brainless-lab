@@ -1,0 +1,14 @@
+children = []
+conditions = []
+description = "Specify an exact mid-run mapping swap, a matched sham, update policies and separate pre-change, immediate-loss and recovery windows. Keep this distinct from swapping action channels or changing the world."
+evidence_state = "planned"
+format = "brainlesslab-experiment"
+format_version = 2
+hypotheses = []
+id = "eye_swap"
+limitations = []
+objectives = []
+operations = []
+question = "Does continued adaptation help recover after the sensory mapping changes?"
+title = "Tracking after a left/right eye swap"
+version = "1.0.0"

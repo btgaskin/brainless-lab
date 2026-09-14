@@ -190,7 +190,15 @@ function _falandays_parameters()
             defaults.weight_init_std;
             validator=nonnegative,
             sweep=(0.25, 0.5, 1.0, 2.0),
-            description="initial recurrent-weight scale",
+            description="normal standard deviation for unsigned legacy_normal initialisation only",
+        ),
+        ParameterSpec(
+            :recurrent_init_scale,
+            1.0;
+            owner=:reservoir,
+            validator=nonnegative,
+            sweep=(0.01, 0.1, 0.5, 1.0),
+            description="multiplier of initial recurrent weights, preserving sensory weights and topology",
         ),
         ParameterSpec(
             :learn_on,
@@ -297,6 +305,7 @@ function _falandays_builder(context::NodeBuildContext, values)
         :params => params,
         :link_p => values[:link_p],
         :weight_init_mode => values[:weight_init_mode],
+        :recurrent_init_scale => values[:recurrent_init_scale],
         :rectify => values[:rectify],
         :topology => values[:topology],
         :repair_masks => values[:repair_masks],
@@ -540,6 +549,17 @@ end
 
 
 function _typed_builtin_ablation(id::Symbol)
+    id === :freeze_weights && return AblationSpec(
+        id,
+        composition -> _with_composition_parameters(
+            composition,
+            :freeze_weights,
+            :lrate_wmat => 0.0,
+        );
+        live_apply=reservoir -> apply!(FreezeWeights(), reservoir),
+        required_capabilities=(:homeostatic_target, :recurrent_weights),
+        description="Freeze recurrent weights while preserving target adaptation settings.",
+    )
     id === :freeze_plasticity && return AblationSpec(
         id,
         composition -> _with_composition_parameters(

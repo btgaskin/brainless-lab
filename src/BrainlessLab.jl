@@ -59,6 +59,7 @@ include("envs/CartPoleVariants.jl")
 include("envs/PlankCartPole.jl")
 include("envs/DelayedCue.jl")
 include("envs/CapacityProbes.jl")
+include("envs/WordSequence.jl")
 include("tasks/Scoring.jl")
 include("tasks/Tasks.jl")
 include("tasks/CapacityProbes.jl")
@@ -83,10 +84,12 @@ include("records/PlanIO.jl")
 include("records/ExperimentIO.jl")
 include("records/Records.jl")
 include("records/Contributions.jl")
+include("records/Programme.jl")
 include("analysis/ActivityLevels.jl")
 include("analysis/Branching.jl")
 include("analysis/Avalanches.jl")
 include("analysis/TargetError.jl")
+include("analysis/WordSequence.jl")
 include("analysis/Spectral.jl")
 include("analysis/SecondOrder.jl")
 include("analysis/SwarmAnalysis.jl")
@@ -224,10 +227,19 @@ register_ablation!(:reset_dendrites, ResetDendrites)
 register_ablation!(:no_soma_back, NoSomaBack)
 register_ablation!(:no_hillock_back, NoHillockBack)
 register_ablation!(:freeze_plasticity, FreezePlasticity)
+register_ablation!(:freeze_weights, FreezeWeights)
 register_ablation!(:zero_recurrent, ZeroRecurrent)
 register_ablation!(:clamp_target, ClampTarget)
 register_ablation!(:disable_vision, DisableVision)
 
+register_analysis!(:word_sequence_diagnostics, word_sequence_diagnostics;
+    task=:word_sequence_2021, required_channels=(:spikes, :errors),
+    label="Word response and completion diagnostics")
+register_task!(:word_sequence_2021, TaskSpec(:word_sequence_2021, WordSequenceSetup();
+    env_type=WordSequenceEnv, n_receptors=5, n_effectors=1,
+    default_ticks=4000, default_window=4000, score_key=nothing,
+    status=:experimental, tags=(:experimental, :sequence),
+    options=(sentences=1000, completion_cues=0, completion_subject=1)))
 register_builtins!(DEFAULT_REGISTRY)
 register_builtin_model_profiles!()
 

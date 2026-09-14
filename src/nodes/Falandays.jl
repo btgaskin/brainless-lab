@@ -729,6 +729,7 @@ function FalandaysReservoir(
     input_amp=nothing,
     input_weight=nothing,
     weight_init_mode=:excitatory,
+    recurrent_init_scale::Real=1.0,
     link_p::Real=0.1,
     input_link_p=nothing,
     drive=NoDrive(),
@@ -742,6 +743,9 @@ function FalandaysReservoir(
     substeps::Integer=1,
 )
     n_nodes = Int(n_nodes)
+    recurrent_init_scale = Float64(recurrent_init_scale)
+    isfinite(recurrent_init_scale) && recurrent_init_scale >= 0.0 ||
+        throw(ArgumentError("recurrent_init_scale must be finite and nonnegative"))
     n_receptors_ = Int(n_receptors_)
     n_effectors_ = Int(n_effectors_)
     n_nodes >= 1 || throw(ArgumentError("n_nodes must be at least 1"))
@@ -800,6 +804,7 @@ function FalandaysReservoir(
     input_wmat = input_weight .* Float64.(input_mask)
     output_wmat = Float64.(output_mask)
     wmat0 = _initial_falandays_wmat(rng, recurrent_mask, axis, params, input_weight, weight_init_mode)
+    recurrent_init_scale == 1.0 || (wmat0 .*= recurrent_init_scale)
 
     source = noise_source === nothing ? _noise_source_from_seed(seed) : noise_source
 

@@ -1,0 +1,21 @@
+children = []
+conditions = ["wall_s1_both_on", "wall_s1_weights_off", "wall_s1_targets_off", "wall_s1_both_off", "wall_s2_both_on", "wall_s2_weights_off", "wall_s2_targets_off", "wall_s2_both_off", "wall_s3_both_on", "wall_s3_weights_off", "wall_s3_targets_off", "wall_s3_both_off"]
+description = "Start the task at tick 1. Score the whole declared interval with no discarded warm-up. Cross recurrent scale with the four weight/target update policies, pairing worlds and initial wiring within blocks."
+evidence_state = "planned"
+format = "brainlesslab-experiment"
+format_version = 2
+hypotheses = []
+id = "wall"
+limitations = ["4 development blocks demonstrate execution and describe variation; they do not establish equivalence or confirm the hypothesis.", "Task-native scores and applicable anchor-relative scores are reported separately; no cross-task aggregate is defined.", "These are declared lab reference configurations, not Marc's unspecified experimental settings."]
+objectives = []
+question = "At each initial scale, how do raw task performance and paired differences change when weight and target updates are disabled?"
+title = "Wall: scale and updates"
+version = "1.0.0"
+
+[metadata]
+independent_unit = "block"
+scales = [0.01, 0.1, 1.0]
+
+[[operations]]
+id = "wall_comparison"
+plan = "01-wall_comparison.toml"

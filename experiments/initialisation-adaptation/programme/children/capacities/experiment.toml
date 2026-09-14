@@ -1,0 +1,14 @@
+children = []
+conditions = []
+description = "Select probes by the capacity question, verify task opportunity and decoder train/test splits, then hold wiring, input exposure and readout procedure fixed across update policies. Existing capacity-proposal files are drafts, not executed branches."
+evidence_state = "planned"
+format = "brainlesslab-experiment"
+format_version = 2
+hypotheses = []
+id = "capacities"
+limitations = []
+objectives = []
+operations = []
+question = "For which capacities does the same comparison hold?"
+title = "Extend across capacity probes"
+version = "1.0.0"

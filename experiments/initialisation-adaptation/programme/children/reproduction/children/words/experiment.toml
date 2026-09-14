@@ -1,0 +1,194 @@
+children = []
+conditions = ["words_s1_both_on_cue0_subject1", "words_s1_both_on_cue1_subject1", "words_s1_both_on_cue1_subject2", "words_s1_both_on_cue2_subject1", "words_s1_both_on_cue2_subject2", "words_s1_weights_off_cue0_subject1", "words_s1_weights_off_cue1_subject1", "words_s1_weights_off_cue1_subject2", "words_s1_weights_off_cue2_subject1", "words_s1_weights_off_cue2_subject2", "words_s1_targets_off_cue0_subject1", "words_s1_targets_off_cue1_subject1", "words_s1_targets_off_cue1_subject2", "words_s1_targets_off_cue2_subject1", "words_s1_targets_off_cue2_subject2", "words_s1_both_off_cue0_subject1", "words_s1_both_off_cue1_subject1", "words_s1_both_off_cue1_subject2", "words_s1_both_off_cue2_subject1", "words_s1_both_off_cue2_subject2", "words_s2_both_on_cue0_subject1", "words_s2_both_on_cue1_subject1", "words_s2_both_on_cue1_subject2", "words_s2_both_on_cue2_subject1", "words_s2_both_on_cue2_subject2", "words_s2_weights_off_cue0_subject1", "words_s2_weights_off_cue1_subject1", "words_s2_weights_off_cue1_subject2", "words_s2_weights_off_cue2_subject1", "words_s2_weights_off_cue2_subject2", "words_s2_targets_off_cue0_subject1", "words_s2_targets_off_cue1_subject1", "words_s2_targets_off_cue1_subject2", "words_s2_targets_off_cue2_subject1", "words_s2_targets_off_cue2_subject2", "words_s2_both_off_cue0_subject1", "words_s2_both_off_cue1_subject1", "words_s2_both_off_cue1_subject2", "words_s2_both_off_cue2_subject1", "words_s2_both_off_cue2_subject2", "words_s3_both_on_cue0_subject1", "words_s3_both_on_cue1_subject1", "words_s3_both_on_cue1_subject2", "words_s3_both_on_cue2_subject1", "words_s3_both_on_cue2_subject2", "words_s3_weights_off_cue0_subject1", "words_s3_weights_off_cue1_subject1", "words_s3_weights_off_cue1_subject2", "words_s3_weights_off_cue2_subject1", "words_s3_weights_off_cue2_subject2", "words_s3_targets_off_cue0_subject1", "words_s3_targets_off_cue1_subject1", "words_s3_targets_off_cue1_subject2", "words_s3_targets_off_cue2_subject1", "words_s3_targets_off_cue2_subject2", "words_s3_both_off_cue0_subject1", "words_s3_both_off_cue1_subject1", "words_s3_both_off_cue1_subject2", "words_s3_both_off_cue2_subject1", "words_s3_both_off_cue2_subject2"]
+description = "Replay a probabilistic word grammar, then present a partial sentence. Compare spike rasters, pre-update homeostatic error, source-style context correlations and supplementary late-training lexical templates. There is no scalar task score."
+evidence_state = "planned"
+format = "brainlesslab-experiment"
+format_version = 2
+hypotheses = []
+id = "words"
+limitations = ["Source-equation conformance is distinct from notebook or numerical paper replication.", "Completion conditions rebuild paired training histories; Python random-number identity and notebook state carryover are not reproduced.", "Completion presents the common verb deterministically for two-cue probes; the notebook draws it from the grammar.", "Completion retains each condition's adaptation policy; no shared checkpoint preparation is implied."]
+objectives = []
+question = "Does initial recurrent scale change response and completion patterns when weight or target adaptation is disabled?"
+title = "Word responses and completion"
+version = "1.0.0"
+
+[[operations]]
+id = "words_s1_both_on_cue0_subject1"
+plan = "01-words_s1_both_on_cue0_subject1.toml"
+[[operations]]
+id = "words_s1_both_on_cue1_subject1"
+plan = "02-words_s1_both_on_cue1_subject1.toml"
+[[operations]]
+id = "words_s1_both_on_cue1_subject2"
+plan = "03-words_s1_both_on_cue1_subject2.toml"
+[[operations]]
+id = "words_s1_both_on_cue2_subject1"
+plan = "04-words_s1_both_on_cue2_subject1.toml"
+[[operations]]
+id = "words_s1_both_on_cue2_subject2"
+plan = "05-words_s1_both_on_cue2_subject2.toml"
+[[operations]]
+id = "words_s1_weights_off_cue0_subject1"
+plan = "06-words_s1_weights_off_cue0_subject1.toml"
+[[operations]]
+id = "words_s1_weights_off_cue1_subject1"
+plan = "07-words_s1_weights_off_cue1_subject1.toml"
+[[operations]]
+id = "words_s1_weights_off_cue1_subject2"
+plan = "08-words_s1_weights_off_cue1_subject2.toml"
+[[operations]]
+id = "words_s1_weights_off_cue2_subject1"
+plan = "09-words_s1_weights_off_cue2_subject1.toml"
+[[operations]]
+id = "words_s1_weights_off_cue2_subject2"
+plan = "10-words_s1_weights_off_cue2_subject2.toml"
+[[operations]]
+id = "words_s1_targets_off_cue0_subject1"
+plan = "11-words_s1_targets_off_cue0_subject1.toml"
+[[operations]]
+id = "words_s1_targets_off_cue1_subject1"
+plan = "12-words_s1_targets_off_cue1_subject1.toml"
+[[operations]]
+id = "words_s1_targets_off_cue1_subject2"
+plan = "13-words_s1_targets_off_cue1_subject2.toml"
+[[operations]]
+id = "words_s1_targets_off_cue2_subject1"
+plan = "14-words_s1_targets_off_cue2_subject1.toml"
+[[operations]]
+id = "words_s1_targets_off_cue2_subject2"
+plan = "15-words_s1_targets_off_cue2_subject2.toml"
+[[operations]]
+id = "words_s1_both_off_cue0_subject1"
+plan = "16-words_s1_both_off_cue0_subject1.toml"
+[[operations]]
+id = "words_s1_both_off_cue1_subject1"
+plan = "17-words_s1_both_off_cue1_subject1.toml"
+[[operations]]
+id = "words_s1_both_off_cue1_subject2"
+plan = "18-words_s1_both_off_cue1_subject2.toml"
+[[operations]]
+id = "words_s1_both_off_cue2_subject1"
+plan = "19-words_s1_both_off_cue2_subject1.toml"
+[[operations]]
+id = "words_s1_both_off_cue2_subject2"
+plan = "20-words_s1_both_off_cue2_subject2.toml"
+[[operations]]
+id = "words_s2_both_on_cue0_subject1"
+plan = "21-words_s2_both_on_cue0_subject1.toml"
+[[operations]]
+id = "words_s2_both_on_cue1_subject1"
+plan = "22-words_s2_both_on_cue1_subject1.toml"
+[[operations]]
+id = "words_s2_both_on_cue1_subject2"
+plan = "23-words_s2_both_on_cue1_subject2.toml"
+[[operations]]
+id = "words_s2_both_on_cue2_subject1"
+plan = "24-words_s2_both_on_cue2_subject1.toml"
+[[operations]]
+id = "words_s2_both_on_cue2_subject2"
+plan = "25-words_s2_both_on_cue2_subject2.toml"
+[[operations]]
+id = "words_s2_weights_off_cue0_subject1"
+plan = "26-words_s2_weights_off_cue0_subject1.toml"
+[[operations]]
+id = "words_s2_weights_off_cue1_subject1"
+plan = "27-words_s2_weights_off_cue1_subject1.toml"
+[[operations]]
+id = "words_s2_weights_off_cue1_subject2"
+plan = "28-words_s2_weights_off_cue1_subject2.toml"
+[[operations]]
+id = "words_s2_weights_off_cue2_subject1"
+plan = "29-words_s2_weights_off_cue2_subject1.toml"
+[[operations]]
+id = "words_s2_weights_off_cue2_subject2"
+plan = "30-words_s2_weights_off_cue2_subject2.toml"
+[[operations]]
+id = "words_s2_targets_off_cue0_subject1"
+plan = "31-words_s2_targets_off_cue0_subject1.toml"
+[[operations]]
+id = "words_s2_targets_off_cue1_subject1"
+plan = "32-words_s2_targets_off_cue1_subject1.toml"
+[[operations]]
+id = "words_s2_targets_off_cue1_subject2"
+plan = "33-words_s2_targets_off_cue1_subject2.toml"
+[[operations]]
+id = "words_s2_targets_off_cue2_subject1"
+plan = "34-words_s2_targets_off_cue2_subject1.toml"
+[[operations]]
+id = "words_s2_targets_off_cue2_subject2"
+plan = "35-words_s2_targets_off_cue2_subject2.toml"
+[[operations]]
+id = "words_s2_both_off_cue0_subject1"
+plan = "36-words_s2_both_off_cue0_subject1.toml"
+[[operations]]
+id = "words_s2_both_off_cue1_subject1"
+plan = "37-words_s2_both_off_cue1_subject1.toml"
+[[operations]]
+id = "words_s2_both_off_cue1_subject2"
+plan = "38-words_s2_both_off_cue1_subject2.toml"
+[[operations]]
+id = "words_s2_both_off_cue2_subject1"
+plan = "39-words_s2_both_off_cue2_subject1.toml"
+[[operations]]
+id = "words_s2_both_off_cue2_subject2"
+plan = "40-words_s2_both_off_cue2_subject2.toml"
+[[operations]]
+id = "words_s3_both_on_cue0_subject1"
+plan = "41-words_s3_both_on_cue0_subject1.toml"
+[[operations]]
+id = "words_s3_both_on_cue1_subject1"
+plan = "42-words_s3_both_on_cue1_subject1.toml"
+[[operations]]
+id = "words_s3_both_on_cue1_subject2"
+plan = "43-words_s3_both_on_cue1_subject2.toml"
+[[operations]]
+id = "words_s3_both_on_cue2_subject1"
+plan = "44-words_s3_both_on_cue2_subject1.toml"
+[[operations]]
+id = "words_s3_both_on_cue2_subject2"
+plan = "45-words_s3_both_on_cue2_subject2.toml"
+[[operations]]
+id = "words_s3_weights_off_cue0_subject1"
+plan = "46-words_s3_weights_off_cue0_subject1.toml"
+[[operations]]
+id = "words_s3_weights_off_cue1_subject1"
+plan = "47-words_s3_weights_off_cue1_subject1.toml"
+[[operations]]
+id = "words_s3_weights_off_cue1_subject2"
+plan = "48-words_s3_weights_off_cue1_subject2.toml"
+[[operations]]
+id = "words_s3_weights_off_cue2_subject1"
+plan = "49-words_s3_weights_off_cue2_subject1.toml"
+[[operations]]
+id = "words_s3_weights_off_cue2_subject2"
+plan = "50-words_s3_weights_off_cue2_subject2.toml"
+[[operations]]
+id = "words_s3_targets_off_cue0_subject1"
+plan = "51-words_s3_targets_off_cue0_subject1.toml"
+[[operations]]
+id = "words_s3_targets_off_cue1_subject1"
+plan = "52-words_s3_targets_off_cue1_subject1.toml"
+[[operations]]
+id = "words_s3_targets_off_cue1_subject2"
+plan = "53-words_s3_targets_off_cue1_subject2.toml"
+[[operations]]
+id = "words_s3_targets_off_cue2_subject1"
+plan = "54-words_s3_targets_off_cue2_subject1.toml"
+[[operations]]
+id = "words_s3_targets_off_cue2_subject2"
+plan = "55-words_s3_targets_off_cue2_subject2.toml"
+[[operations]]
+id = "words_s3_both_off_cue0_subject1"
+plan = "56-words_s3_both_off_cue0_subject1.toml"
+[[operations]]
+id = "words_s3_both_off_cue1_subject1"
+plan = "57-words_s3_both_off_cue1_subject1.toml"
+[[operations]]
+id = "words_s3_both_off_cue1_subject2"
+plan = "58-words_s3_both_off_cue1_subject2.toml"
+[[operations]]
+id = "words_s3_both_off_cue2_subject1"
+plan = "59-words_s3_both_off_cue2_subject1.toml"
+[[operations]]
+id = "words_s3_both_off_cue2_subject2"
+plan = "60-words_s3_both_off_cue2_subject2.toml"

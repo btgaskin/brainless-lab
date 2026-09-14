@@ -167,6 +167,12 @@ guess at API details from memory once you're past the principle level.
 
 ## A note on scope
 
+For Falandays initialisation studies, keep `recurrent_init_scale` in reservoir construction.
+It must not alter sensory weights or consume additional random draws. Its unit default
+preserves the existing initialisation path. Test `FreezeWeights` separately from
+`FreezePlasticity`: only the latter disables target adaptation. See the lab skill's
+`references/initialisation-and-adaptation.md` for the study workflow.
+
 In BrainlessLab CTRNN work, warm `step!` before measuring it with `tools/profile_ctrnn.jl`.
 Preserve immutable fixture parity separately from timing and behavioural performance.
 Keep scratch buffers private to each reservoir and returned activity arrays independently

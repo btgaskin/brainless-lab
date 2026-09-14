@@ -94,7 +94,7 @@ function _validate_contribution_text(path::AbstractString, relative::AbstractStr
     return length(bytes)
 end
 
-function _validate_record_bundle(directory::AbstractString; source_sha=nothing)
+function _validate_record_bundle(directory::AbstractString; source_sha=nothing, allow_dirty=false)
     isfile(joinpath(directory, "record.toml")) || throw(ArgumentError(
         "operation record is missing record.toml: $(directory)",
     ))
@@ -115,7 +115,7 @@ function _validate_record_bundle(directory::AbstractString; source_sha=nothing)
     !isfile(joinpath(directory, "FAILED")) || throw(ArgumentError(
         "operation record contains FAILED: $(directory)",
     ))
-    get(manifest, "git_state", nothing) == "clean" || throw(ArgumentError(
+    (allow_dirty || get(manifest, "git_state", nothing) == "clean") || throw(ArgumentError(
         "contributed operation records must have git_state = clean",
     ))
     if source_sha !== nothing
@@ -156,7 +156,7 @@ function _validate_record_bundle(directory::AbstractString; source_sha=nothing)
     return manifest
 end
 
-function _validate_experiment_run(directory::AbstractString; source_sha=nothing)
+function _validate_experiment_run(directory::AbstractString; source_sha=nothing, allow_dirty=false, registry=DEFAULT_REGISTRY)
     manifest_path = joinpath(directory, "experiment-run.toml")
     isfile(manifest_path) || throw(ArgumentError(
         "experiment run is missing experiment-run.toml: $(directory)",
@@ -184,7 +184,7 @@ function _validate_experiment_run(directory::AbstractString; source_sha=nothing)
     protocol_path == "protocol/experiment.toml" || throw(ArgumentError(
         "experiment run protocol must be protocol/experiment.toml",
     ))
-    experiment = read_experiment(joinpath(directory, "protocol"))
+    experiment = read_experiment(joinpath(directory, "protocol"); registry)
     String(experiment.id) == manifest["experiment"] || throw(ArgumentError(
         "experiment run id does not match its ExperimentSpec",
     ))
@@ -206,11 +206,11 @@ function _validate_experiment_run(directory::AbstractString; source_sha=nothing)
             "operation record path must be under operations/",
         ))
         record_path = _contribution_child(directory, safe, "operation record path")
-        record = _validate_record_bundle(record_path; source_sha)
+        record = _validate_record_bundle(record_path; source_sha, allow_dirty)
         record["kind"] == String(operation_kind(plan)) || throw(ArgumentError(
             "operation record $(index) kind does not match its ExperimentSpec",
         ))
-        request = read_plan(joinpath(record_path, "request.toml"))
+        request = read_plan(joinpath(record_path, "request.toml"); registry)
         plan_document(request) == plan_document(plan) || throw(ArgumentError(
             "operation record $(index) request does not match its ExperimentSpec",
         ))
@@ -405,6 +405,7 @@ function _experiment_protocol_signature(experiment::ExperimentSpec)
     return (
         experiment=experiment_document(experiment),
         operations=[plan_document(plan) for plan in experiment.operations],
+        children=[_experiment_protocol_signature(child) for child in experiment.children],
     )
 end
 

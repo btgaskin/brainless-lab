@@ -406,6 +406,13 @@ function record_state!(channels::Dict{Symbol,Vector{Any}}, r::FalandaysReservoir
     return channels
 end
 
+record_state!(channels::Dict{Symbol,Vector{Any}}, r::Reservoir, ::Recorder) = record_state!(channels,r)
+function record_state!(channels::Dict{Symbol,Vector{Any}}, r::FalandaysReservoir, rec::Recorder)
+    record_state!(channels,r)
+    :errors in rec.enabled && push!(get!(channels,:errors,Any[]),copy(r.errors))
+    return channels
+end
+
 function record_state!(channels::Dict{Symbol,Vector{Any}}, r::CompartmentalReservoir)
     push!(get!(channels, :soma, Any[]), copy(r.soma_y))
     push!(get!(channels, :V, Any[]), copy(r.V))
@@ -481,12 +488,12 @@ function _record_swarm_metrics!(rec::Recorder, m::AbstractSituatedEnvironment, p
 end
 
 function _record_state_channels!(rec::Recorder, c::Ensemble)
-    _record_wants_any(rec, (:acts, :targets, :soma, :V)) || return rec
+    _record_wants_any(rec, (:acts, :targets, :errors, :soma, :V)) || return rec
 
     channels = Dict{Symbol,Vector{Any}}()
     for slot in 1:nagents(c)
         local_channels = Dict{Symbol,Vector{Any}}()
-        record_state!(local_channels, agent_at_slot(c, slot).reservoir)
+        record_state!(local_channels, agent_at_slot(c, slot).reservoir, rec)
         for (channel, payload) in local_channels
             values = get!(channels, channel) do
                 fill(nothing, nagents(c))

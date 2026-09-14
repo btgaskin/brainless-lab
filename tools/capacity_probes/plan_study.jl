@@ -88,6 +88,57 @@ function capacity_study_bundles(; cells=capacity_study_cells(), profiles=capacit
     )
 end
 
+"""Compose scale-by-adaptation sweeps over any declared subset of probe cells.
+
+Plans only. Full resets measure within-episode adaptation, not learning across episodes.
+Use a new version and seed root for a scientific protocol change.
+"""
+function capacity_adaptation_bundle(; cells=capacity_study_cells(),
+    scales=(0.01, 0.1, 1.0), blocks=4, trials_per_block=16,
+    root_seed=2026091501, input_gain=1.0)
+    profile = DIRECT_CONTROL_FALANDAYS_PROFILE
+    conditions = EvaluationTarget[]
+    operations = BrainlessLab.AbstractOperationPlan[]
+    # Derive seeds from the stable library index, even when a subset is reordered.
+    library = capacity_probe_presets()
+    for cell in cells
+        index = findfirst(candidate -> candidate.id === cell.id, library)
+        index === nothing && throw(ArgumentError("unknown capacity cell $(cell.id)"))
+        for (regime, interventions) in (
+            (:continuous, ()),
+            (:weights_frozen, (ScheduledIntervention(1, :freeze_weights),)),
+            (:all_frozen, (ScheduledIntervention(1, :freeze_plasticity),)),
+        )
+            id = Symbol(cell.id, :__, regime)
+            composition = CompositionSpec(id, profile.node, cell.task;
+                n_nodes=profile.n_nodes, parameters=copy(profile.parameters),
+                task_options=deepcopy(cell.task_options),
+                interface=InterfaceSpec(input_gain=input_gain))
+            target = EvaluationTarget(id, composition,
+                EvaluationSpec(; blocks, trials_per_block, horizon=cell.horizon,
+                    warmup=0, construction_scope=:block, reset=:full,
+                    root_seed=root_seed + 10_000index);
+                topology_key=profile.id, interventions)
+            push!(conditions, target)
+            push!(operations, SweepPlan(id, target;
+                axes=(BrainlessLab.SweepAxis(:recurrent_init_scale, scales),),
+                max_rollouts=length(scales) * blocks * trials_per_block))
+        end
+    end
+    return ExperimentSpec(:capacity_initialisation_adaptation, v"1.0.0";
+        title="Recurrent scale and adaptation across capacity probes",
+        question="How does initial recurrent scale change within-episode native performance with weight and target adaptation enabled or frozen?",
+        conditions=Tuple(conditions), operations=Tuple(operations), evidence_state=:planned,
+        limitations=(
+            "Plans only; input gain and sample sizes require calibration and a timed preflight.",
+            "Full trial reset removes learned changes between episodes; this is not a test of learning across episodes.",
+            "Each task retains its own complete-episode outcome; no cross-task competence aggregate is defined.",
+            "The fixed direct-control model profile differs from the task-specific canonical Tracking preset.",
+            "Four independent wiring blocks are a development budget, not a confirmatory sample size.",
+        ), metadata=(stage=:development_proposal, independent_unit=:wiring_block,
+            reset_policy=:full, no_cross_task_aggregate=true))
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
     destination = isempty(ARGS) ? mktempdir() : only(ARGS)
     for (name, experiment) in pairs(capacity_study_bundles())

@@ -1,0 +1,29 @@
+conditions = []
+description = "Begin with the comparison suggested by Marc Bacvanski, using explicitly declared settings. Grow outward into task scope, adaptation timing and recovery after change. Each branch owns its protocol and evidence state; discussion and run attachments are recorded separately."
+evidence_state = "planned"
+format = "brainlesslab-experiment"
+format_version = 2
+hypotheses = ["Smaller initial recurrent weights may make frozen networks competitive on some tasks."]
+id = "initialisation_adaptation"
+limitations = ["Marc's email supplies a hypothesis, not enough information for an exact replication of his runs.", "This programme is exploratory. Follow-up protocols and confirmation seeds must be registered separately."]
+objectives = ["Separate recurrent weight adaptation from target adaptation.", "Preserve a traceable path from each question to its settings, trials, analyses and interpretation."]
+operations = []
+question = "Does plasticity establish a useful operating range, sustain task performance, or both?"
+title = "Initialisation and continued adaptation"
+version = "1.0.0"
+
+[[children]]
+id = "reproduction"
+version = "1.0.0"
+[[children]]
+id = "current_benchmark"
+version = "1.0.0"
+[[children]]
+id = "capacities"
+version = "1.0.0"
+[[children]]
+id = "freeze_timing"
+version = "1.0.0"
+[[children]]
+id = "eye_swap"
+version = "1.0.0"

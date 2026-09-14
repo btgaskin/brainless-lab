@@ -1,0 +1,402 @@
+format = "brainlesslab-plan"
+format_version = 3
+id = "wall_comparison"
+operation = "benchmark"
+
+[[benchmark.cases]]
+baseline = "wall_s1_both_on"
+conditions = ["wall_s1_both_on", "wall_s1_weights_off", "wall_s1_targets_off", "wall_s1_both_off"]
+id = "scale_1"
+[[benchmark.cases]]
+baseline = "wall_s2_both_on"
+conditions = ["wall_s2_both_on", "wall_s2_weights_off", "wall_s2_targets_off", "wall_s2_both_off"]
+id = "scale_2"
+[[benchmark.cases]]
+baseline = "wall_s3_both_on"
+conditions = ["wall_s3_both_on", "wall_s3_weights_off", "wall_s3_targets_off", "wall_s3_both_off"]
+id = "scale_3"
+
+[[targets]]
+id = "wall_s1_both_on"
+
+    [targets.composition]
+    id = "wall_s1_both_on"
+    n_nodes = 200
+    node = "falandays"
+    task = "wall"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 4.0
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.01
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 200
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "wall_s1_weights_off"
+
+    [targets.composition]
+    id = "wall_s1_weights_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "wall"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 4.0
+        lrate_targ = 0.01
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.01
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 200
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "wall_s1_targets_off"
+
+    [targets.composition]
+    id = "wall_s1_targets_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "wall"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 4.0
+        lrate_targ = 0.0
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.01
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 200
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "wall_s1_both_off"
+
+    [targets.composition]
+    id = "wall_s1_both_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "wall"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 4.0
+        lrate_targ = 0.0
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.01
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 200
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "wall_s2_both_on"
+
+    [targets.composition]
+    id = "wall_s2_both_on"
+    n_nodes = 200
+    node = "falandays"
+    task = "wall"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 4.0
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 200
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "wall_s2_weights_off"
+
+    [targets.composition]
+    id = "wall_s2_weights_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "wall"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 4.0
+        lrate_targ = 0.01
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 200
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "wall_s2_targets_off"
+
+    [targets.composition]
+    id = "wall_s2_targets_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "wall"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 4.0
+        lrate_targ = 0.0
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 200
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "wall_s2_both_off"
+
+    [targets.composition]
+    id = "wall_s2_both_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "wall"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 4.0
+        lrate_targ = 0.0
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 200
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "wall_s3_both_on"
+
+    [targets.composition]
+    id = "wall_s3_both_on"
+    n_nodes = 200
+    node = "falandays"
+    task = "wall"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 4.0
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 1.0
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 200
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "wall_s3_weights_off"
+
+    [targets.composition]
+    id = "wall_s3_weights_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "wall"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 4.0
+        lrate_targ = 0.01
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 1.0
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 200
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "wall_s3_targets_off"
+
+    [targets.composition]
+    id = "wall_s3_targets_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "wall"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 4.0
+        lrate_targ = 0.0
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 1.0
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 200
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "wall_s3_both_off"
+
+    [targets.composition]
+    id = "wall_s3_both_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "wall"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 4.0
+        lrate_targ = 0.0
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 1.0
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "trial"
+    horizon = 200
+    reset = "full"
+    root_seed = 0x78c3b4b5
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0

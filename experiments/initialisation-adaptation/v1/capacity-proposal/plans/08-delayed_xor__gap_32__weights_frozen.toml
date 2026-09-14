@@ -1,0 +1,63 @@
+format = "brainlesslab-plan"
+format_version = 3
+id = "delayed_xor__gap_32__weights_frozen"
+operation = "sweep"
+
+[sweep]
+max_rollouts = 192
+mode = "factorial"
+target = "delayed_xor__gap_32__weights_frozen"
+
+    [[sweep.axes]]
+    parameter = "recurrent_init_scale"
+    scope = "node"
+    values = [0.01, 0.1, 1.0]
+
+[[targets]]
+id = "delayed_xor__gap_32__weights_frozen"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "delayed_xor__gap_32__weights_frozen"
+    n_nodes = 200
+    node = "falandays"
+    task = "delayed_xor"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_mode = "transient"
+        cue_ticks = 8
+        gap = 32
+        response_ticks = 8
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 4
+    construction_scope = "block"
+    horizon = 56
+    reset = "full"
+    root_seed = 0x78c5d6cd
+    streams = ["topology", "world"]
+    trials_per_block = 16
+    warmup = 0
+
+    [[targets.interventions]]
+    tick = 1
+    verb = "freeze_weights"

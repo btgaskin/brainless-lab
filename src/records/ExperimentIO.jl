@@ -1,7 +1,7 @@
 using TOML
 
 const EXPERIMENT_FORMAT = "brainlesslab-experiment"
-const EXPERIMENT_FORMAT_VERSION = 1
+const EXPERIMENT_FORMAT_VERSION = 2
 
 _experiment_toml_value(value::Symbol) = String(value)
 _experiment_toml_value(value::VersionNumber) = string(value)
@@ -43,6 +43,11 @@ function experiment_document(experiment::ExperimentSpec)
         "limitations" => collect(experiment.limitations),
         "conditions" => [String(condition.id) for condition in experiment.conditions],
         "operations" => operations,
+        "description" => experiment.description,
+        "hypotheses" => collect(experiment.hypotheses),
+        "objectives" => collect(experiment.objectives),
+        "children" => [Dict("id" => String(child.id), "version" => string(child.version))
+                       for child in experiment.children],
     )
     isempty(propertynames(experiment.metadata)) ||
         (document["metadata"] = _experiment_toml_value(experiment.metadata))
@@ -65,6 +70,9 @@ function write_experiment(
             joinpath(plans_directory, _experiment_plan_filename(index, plan)),
             plan,
         )
+    end
+    for child in experiment.children
+        write_experiment(joinpath(directory, "children", String(child.id)), child; registry)
     end
     open(joinpath(directory, "experiment.toml"), "w") do io
         TOML.print(io, experiment_document(experiment); sorted=true)
@@ -98,15 +106,16 @@ function read_experiment(
         (
             "format", "format_version", "id", "version", "title", "question",
             "evidence_state", "limitations", "conditions", "operations", "metadata",
+            "description", "hypotheses", "objectives", "children",
         ),
         "experiment",
     )
     get(manifest, "format", nothing) == EXPERIMENT_FORMAT || throw(ArgumentError(
         "experiment format must be $(repr(EXPERIMENT_FORMAT))",
     ))
-    get(manifest, "format_version", nothing) == EXPERIMENT_FORMAT_VERSION ||
+    get(manifest, "format_version", nothing) in (1, EXPERIMENT_FORMAT_VERSION) ||
         throw(ArgumentError(
-            "experiment format_version must be $(EXPERIMENT_FORMAT_VERSION)",
+            "experiment format_version must be 1 or $(EXPERIMENT_FORMAT_VERSION)",
         ))
     for key in ("id", "version", "title", "question", "evidence_state", "conditions", "operations")
         haskey(manifest, key) || throw(ArgumentError("experiment requires $(key)"))
@@ -152,6 +161,19 @@ function read_experiment(
     ))
 
     metadata = _experiment_namedtuple(get(manifest, "metadata", Dict{String,Any}()))
+    children = ExperimentSpec[]
+    for entry in get(manifest, "children", [])
+        _require_document_keys(entry, ("id", "version"), "experiment child")
+        id = String(entry["id"])
+        occursin(r"^[A-Za-z0-9_-]+$", id) || throw(ArgumentError("invalid experiment child id"))
+        child_path = joinpath(directory, "children", id)
+        islink(joinpath(directory, "children")) || islink(child_path) ?
+            throw(ArgumentError("experiment child directories must not be symlinks")) : nothing
+        child = read_experiment(child_path; registry)
+        String(child.id) == id && string(child.version) == entry["version"] ||
+            throw(ArgumentError("experiment child identity does not match its parent"))
+        push!(children, child)
+    end
     experiment = ExperimentSpec(
         Symbol(manifest["id"]),
         VersionNumber(manifest["version"]);
@@ -162,6 +184,10 @@ function read_experiment(
         evidence_state=Symbol(manifest["evidence_state"]),
         limitations=Tuple(get(manifest, "limitations", String[])),
         metadata=metadata,
+        description=get(manifest, "description", ""),
+        hypotheses=get(manifest, "hypotheses", ()),
+        objectives=get(manifest, "objectives", ()),
+        children=Tuple(children),
     )
     return validate(experiment, registry)
 end

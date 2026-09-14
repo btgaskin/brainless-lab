@@ -58,7 +58,8 @@ Keep each type responsible for one level:
   reset policy, root seed, named streams, and aggregation.
 - `EvaluationTarget` names one composition with one evaluation protocol.
 - `ExperimentSpec` records a scientific question, version, named conditions, operations,
-  evidence state, limitations, and metadata. It is not another runner.
+  evidence state, limitations, description, optional hypotheses/objectives and child experiments.
+  Question-only nodes are valid; execution selects one node and never runs its children.
 
 One `step!` lifecycle serves one agent and a population. Express differences through
 typed bodies, tasks, readouts, interaction cycles, and registered implementations. Do not
@@ -128,6 +129,15 @@ Use `write_experiment` to write an `ExperimentSpec` as `experiment.toml` plus or
 files. `read_experiment` rejects inconsistent definitions of a repeated condition. The CLI
 commands `check-experiment` and `run-experiment` validate or execute the bundle; each
 operation still writes its own record.
+
+For a growing programme, use `experiment_branch` or CLI `--branch` to select a node.
+`attach_experiment_run!` validates the full executed protocol and snapshots run checksums
+in a companion ledger; `historical=true` is explicit and never promotes evidence.
+`add_experiment_note!` appends dated authored discussion with run IDs. `render_experiment`
+or `report-experiment` creates a new offline directory containing the tree, copied records,
+discussion and provenance. This does not execute operations. Notes display as escaped
+Markdown source. Shared prepared-state handoffs and reusable saved-record analysis
+operations are not implemented. See `experiments/initialisation-adaptation/README.md`.
 
 ## Interpret records correctly
 

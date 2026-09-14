@@ -25,6 +25,30 @@ Profiles run declared analyses over raw trials. Sweeps pair seeds across explici
 Ablations include an implicit baseline and validate capabilities before execution.
 Evolution selects on training targets before held-out evaluation.
 
+## Initialisation and continued adaptation
+
+To test whether plasticity establishes a useful operating regime, compare initial recurrent
+scales with adaptation enabled and with adaptation frozen. Falandays exposes
+`recurrent_init_scale` for this purpose. It multiplies initial recurrent weights without
+changing sensory weights or topology. The default `1.0` preserves the reference path.
+`weight_init_std` applies only to unsigned `legacy_normal` initialisation.
+
+Use `freeze_weights` to stop weight changes while preserving target adaptation settings.
+Use `freeze_plasticity` to stop both. Either intervention can be scheduled on an
+`EvaluationTarget`; use the same scored interval and paired seeds for every condition.
+
+The growing programme is `experiments/initialisation-adaptation/programme`:
+
+```bash
+julia --project=. bin/brainlesslab.jl check-experiment experiments/initialisation-adaptation/programme
+```
+
+Validation reports the branch and operation names without running simulations. The programme
+README specifies the raw-start scoring windows and independent weight/target update controls.
+A completed development grid does not establish an optimum or show that plasticity is
+unnecessary. See [experiment evidence](/handbook/experiments-evidence/) for later stages
+and [platform limits](/platform-limits/) for current limitations.
+
 ## Benchmark cases
 
 A multi-condition benchmark case must declare a baseline. The operation then reports paired
@@ -74,5 +98,24 @@ belongs in a separate benchmark family.
 
 Files under `plans/examples/` are small executable examples. Versioned scientific protocols
 belong under `experiments/` as `ExperimentSpec` bundles.
+
+An experiment can grow as a tree. Each node has its own version, question, plain-language
+description and evidence state. Hypotheses and objectives are optional. A question-only node
+is valid but cannot run. Children live in `children/ID/`; version 1 flat bundles remain readable.
+
+Use `run-experiment DIR --branch reproduction/wall` to run one selected node's operations.
+Execution never walks into its children. Use `report-experiment DIR --output NEW-DIR` to
+generate an offline HTML tree without running anything. The output directory must be new.
+
+`attach_experiment_run!` links a checksummed run to a branch; `add_experiment_note!` appends
+dated, authored discussion with optional run references. These live in a separate ledger,
+so discussion does not rewrite executed protocols. A different full protocol must be attached
+explicitly as historical. Reports preserve dirty, failed and incomplete status and link to
+the copied trial tables, resolved settings and operation reports. Scale comparisons and word
+diagnostic series receive charts. Notes currently display as escaped Markdown source.
+
+The report is an inspectable local export, not public acceptance or automatic evidence
+promotion. Shared preparation/checkpoint handoffs and new operations over saved records
+are not yet provided by this layer.
 
 <p class="bl-source">Source: <code>src/operations/</code>, <code>src/records/PlanIO.jl</code>, <code>bin/brainlesslab.jl</code>.</p>
