@@ -130,6 +130,40 @@ _programme_anchor(path) = isempty(path) ? "programme" : "branch-" * replace(path
 # or active links in authored prose are executed. Record links are generated separately.
 _programme_prose(text) = "<div class=prose>" * _html_escape(text) * "</div>"
 
+# Presentation is an editorial companion, never part of the executed protocol.
+function _programme_presentation(directory, known)
+    file = joinpath(directory, "presentation.toml")
+    data = isfile(file) ? TOML.parsefile(file) : Dict{String,Any}()
+    all(k -> k in ("format_version", "items"), keys(data)) ||
+        throw(ArgumentError("unknown presentation field"))
+    get(data, "format_version", 1) == 1 || throw(ArgumentError("unsupported presentation version"))
+    items = Dict{String,Any}()
+    for item in get(data, "items", [])
+        all(k -> k in ("branch", "show", "figures"), keys(item)) ||
+            throw(ArgumentError("unknown presentation item field"))
+        branch = get(item, "branch", nothing)
+        branch in known || throw(ArgumentError("presentation references a missing branch"))
+        haskey(items, branch) && throw(ArgumentError("duplicate presentation branch"))
+        show = get(item, "show", ["description", "hypotheses", "objectives", "discussion"])
+        show isa Vector && all(x -> x in ("description", "hypotheses", "objectives", "discussion"), show) ||
+            throw(ArgumentError("invalid presentation sections"))
+        figures = get(item, "figures", String[])
+        figures isa Vector && all(x -> x isa String, figures) && length(unique(figures)) == length(figures) ||
+            throw(ArgumentError("presentation figures must be unique string references"))
+        items[branch] = (show=show, figures=figures)
+    end
+    return items
+end
+
+_programme_display(items, path) = get(items, path,
+    (show=["description", "hypotheses", "objectives", "discussion"], figures=String[]))
+
+# Only our generated figures are selected here; authored HTML is never interpreted.
+function _programme_figure_catalogue(html)
+    return Dict(String(m.captures[1]) => String(m.match) for m in
+        eachmatch(r"<figure><figcaption>(.*?)</figcaption>.*?</figure>"s, html))
+end
+
 function _programme_chart(title, xlabel, series; logarithmic=false)
     points = [(x,y) for (_,values) in series for (x,y) in values if isfinite(x) && isfinite(y) && (!logarithmic || x>0)]
     isempty(points) && return ""
@@ -246,12 +280,33 @@ function render_experiment(directory::AbstractString, destination::AbstractStrin
     data = _programme_ledger(directory)
     nodes = _programme_nodes(root)
     known = Set(first.(nodes))
+    presentation = _programme_presentation(directory, known)
+    figures = Dict{String,String}()
+    figure_branches = Dict{String,String}()
+    figure_status = Dict{String,String}()
     for entry in data["runs"]
         entry["branch"] in known || throw(ArgumentError("run references a missing branch"))
         isabspath(entry["path"]) && throw(ArgumentError("programme run paths must be relative"))
         path = normpath(joinpath(directory, entry["path"]))
         _check_programme_inventory(path, entry["inventory"])
-        _programme_run(path; registry)
+        run = _programme_run(path; registry)
+        node = experiment_branch(root, entry["branch"])
+        historical = entry["historical"] || _programme_execution_signature(run.experiment) != _programme_execution_signature(node)
+        for record in run.records
+            operation = joinpath(path, record["path"])
+            plan = read_plan(joinpath(operation, "request.toml"); registry)
+            for (title, html) in _programme_figure_catalogue(_programme_figures(operation, plan))
+                key = entry["id"] * "/" * string(plan.id) * "/" * title
+                figures[key] = html
+                figure_branches[key] = entry["branch"]
+                figure_status[key] = historical ? "Historical protocol" : "Matching protocol"
+            end
+        end
+    end
+    for (branch, item) in presentation, ref in item.figures
+        key = _html_escape(ref)
+        get(figure_branches, key, nothing) == branch ||
+            throw(ArgumentError("selected figure is missing or belongs to another branch: $(ref)"))
     end
     for note in data["notes"]
         note["branch"] in known || throw(ArgumentError("note references a missing branch"))
@@ -264,6 +319,8 @@ function render_experiment(directory::AbstractString, destination::AbstractStrin
     end
     mkpath(destination)
     write_experiment(joinpath(destination, "protocol"), root; registry)
+    isfile(joinpath(directory, "presentation.toml")) &&
+        cp(joinpath(directory, "presentation.toml"), joinpath(destination, "protocol", "presentation.toml"))
     exported = deepcopy(data)
     for (entry, output) in zip(data["runs"], exported["runs"])
         target = joinpath(destination, "records", entry["id"])
@@ -287,17 +344,29 @@ function render_experiment(directory::AbstractString, destination::AbstractStrin
     end
     body = IOBuffer()
     for (path, node) in nodes
+        display = _programme_display(presentation, path)
         runs = filter(entry -> entry["branch"] == path, data["runs"])
         status = isempty(runs) ? (isempty(node.operations) ? "Question · no executable protocol" : "Protocol · no attached runs") :
             "$(length(runs)) attached run(s) · historical status shown below"
         print(body, "<section id='$(_programme_anchor(path))'><p class=meta>",
             _html_escape(isempty(path) ? String(root.id) : path), " · v", node.version,
             " · evidence: ", node.evidence_state, "</p><h2>", _html_escape(node.title), "</h2><p class=status>",
-            status, "</p>", _programme_prose(node.question), _programme_prose(node.description))
-        for (title, items) in (("Objectives", node.objectives), ("Hypotheses", node.hypotheses), ("Limitations", node.limitations))
+            status, "</p>", _programme_prose(node.question))
+        "description" in display.show && print(body, _programme_prose(node.description))
+        for (title, items) in (("Objectives", node.objectives), ("Hypotheses", node.hypotheses))
+            lowercase(title) in display.show || continue
             isempty(items) || print(body, "<h3>", title, "</h3><ul>",
                 join("<li>" * _html_escape(item) * "</li>" for item in items), "</ul>")
         end
+        for ref in display.figures
+            run_id = first(split(ref, '/'))
+            print(body, figures[_html_escape(ref)], "<p class=meta>Selected from <a href='#",run_id,"'>",
+                _html_escape(ref),"</a> · ",figure_status[_html_escape(ref)],
+                ". Recorded means; uncertainty and independent counts are in the operation report.</p>")
+        end
+        isempty(node.limitations) || print(body, "<p class=meta>",
+            join(_html_escape.(node.limitations), " "), "</p>")
+        print(body, "<details class=records><summary>Methods and records · ",length(runs)," attached run(s)</summary>")
         isempty(node.operations) || print(body, "<details><summary>Declared operations (",length(node.operations),")</summary><ul>",
             join("<li>" * _html_escape(plan.id) * " · " * String(operation_kind(plan)) * "</li>" for plan in node.operations), "</ul></details>")
         for entry in runs
@@ -315,11 +384,19 @@ function render_experiment(directory::AbstractString, destination::AbstractStrin
                     " · ", _html_escape(m["git_state"]), "</p><p><a href='", _html_escape(relative),
                     "/data/trials.csv'>Trial table</a> · <a href='", _html_escape(relative),
                     "/resolved.toml'>Resolved settings</a> · <a href='", _html_escape(relative), "/seeds.csv'>Seeds</a></p>")
-                print(body,_programme_figures(joinpath(destination,relative),read_plan(joinpath(destination,relative,"request.toml");registry)))
+                plan = read_plan(joinpath(destination, relative, "request.toml"); registry)
+                prefix = entry["id"] * "/" * string(plan.id) * "/"
+                print(body,"<details><summary>Diagnostic figures and selection references</summary>")
+                for key in sort!(filter(k -> startswith(k,prefix), collect(keys(figures))))
+                    print(body, figures[key], "<p class=meta>Figure reference: <code>",key,"</code></p>")
+                end
+                print(body,"</details>")
             end
             print(body, "</article>")
         end
+        print(body, "</details>")
         notes = filter(note -> note["branch"] == path, data["notes"])
+        "discussion" in display.show || (notes = [])
         isempty(notes) || print(body, "<h3>Discussion and decisions</h3>")
         for note in notes
             print(body, "<article><p class=meta>", _html_escape(note["date"]), " · ", _html_escape(note["author"]),
@@ -330,7 +407,7 @@ function render_experiment(directory::AbstractString, destination::AbstractStrin
     end
     html = """<!doctype html><html lang="en"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1"><title>$(_html_escape(root.title)) · BrainlessLab</title>
-    <style>html{overflow-wrap:anywhere}figure{margin:1.5rem 0}svg{display:block;max-width:100%}</style>
+    <style>html{overflow-wrap:anywhere}figure{margin:1.5rem 0}svg{display:block;max-width:100%}.records{margin:1.5rem 0;padding:1rem;border:1px solid #ccc9bb;border-radius:4px}.records>summary{font-weight:600}figcaption{font-weight:600}.prose:empty{display:none}@media(max-width:600px){svg text{font-size:22px}}</style>
     <style>body{margin:0;background:#f7f5ef;color:#22322f;font:16px/1.65 system-ui,sans-serif}header{padding:3rem 5vw;border-bottom:1px solid #ccc9bb}h1,h2{font-family:Georgia,serif;font-weight:400;line-height:1.2}h1{font-size:clamp(2rem,4vw,3.5rem);max-width:1000px}h2{font-size:2rem}a{color:#14675f;text-underline-offset:3px}nav{padding:2rem;position:sticky;top:0;align-self:start;max-height:95vh;overflow:auto}nav ul{padding-left:1.1rem}nav li{margin:.7rem 0}.layout{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,850px);max-width:1280px;margin:auto}main{padding:0 3rem 4rem}section{padding:2.5rem 0;border-bottom:1px solid #ccc9bb;scroll-margin-top:1rem}.meta,.status{font-size:.8rem;color:#52665e}.prose{white-space:pre-wrap;overflow-wrap:anywhere;margin:1rem 0}article{border-left:2px solid #9eb5aa;padding-left:1.2rem;margin:1.5rem 0}summary{cursor:pointer}:focus-visible{outline:3px solid #d49435;outline-offset:3px}@media(max-width:800px){.layout{display:block}nav{position:static;max-height:none}main{padding:0 5vw}}@media print{nav{display:none}.layout{display:block}body{background:white}section{break-inside:avoid}a{color:inherit}}</style></head>
     <body><header><p>BrainlessLab · Experimental programme</p><h1>$(_html_escape(root.title))</h1>
     <p>A growing record of questions, methods and evidence. Completion does not imply confirmation.</p></header>

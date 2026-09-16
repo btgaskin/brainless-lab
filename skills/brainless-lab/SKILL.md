@@ -25,6 +25,11 @@ parameters and intervention semantics before running a grid. Use
 for comparisons of frozen and adapting Falandays networks. Use the CLI reference for
 plan syntax. Execute an authorised bounded stage and inspect its records before expanding.
 
+For a question that grows into a programme, read
+[programme design and presentation](references/programme-design-and-presentation.md).
+It covers agreeing hypotheses with the user, selecting informative figures, recording
+decisions and curating one programme page. Presentation choices never change evidence.
+
 ## Preserve the architecture
 
 ```text
@@ -138,6 +143,9 @@ or `report-experiment` creates a new offline directory containing the tree, copi
 discussion and provenance. This does not execute operations. Notes display as escaped
 Markdown source. Shared prepared-state handoffs and reusable saved-record analysis
 operations are not implemented. See `experiments/initialisation-adaptation/README.md`.
+An optional `presentation.toml` selects prose sections and individual recorded figures
+for the single-page view. Methods and all attached records remain expandable; an export
+preserves the presentation configuration. Without selections, figures stay in diagnostics.
 
 ## Interpret records correctly
 

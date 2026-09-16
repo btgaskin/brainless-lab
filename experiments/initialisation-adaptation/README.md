@@ -65,6 +65,13 @@ word diagnostic charts. It works offline and includes a checksum inventory. Keep
 directory when sharing. Public acceptance still follows the existing human-maintained
 research contribution process. Local attachment does not accept or promote evidence.
 
+The page keeps operation diagnostics inside expandable methods and records. Select
+foreground figures and optional prose through `presentation.toml` beside the root
+`experiment.toml`. Each figure's exact selection reference appears in its diagnostic
+section. The public [operations guide](../../site/src/content/docs/handbook/operations.mdx)
+documents the format. Presentation changes leave the executed protocol and run checksums
+unchanged; the export preserves these editorial settings separately.
+
 ## Word-task source boundary
 
 The source is the [Falandays, Nguyen and Spivey implementation](https://github.com/bfalandays/HomeostasisModel),

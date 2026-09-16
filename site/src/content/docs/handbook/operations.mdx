@@ -49,6 +49,42 @@ A completed development grid does not establish an optimum or show that plastici
 unnecessary. See [experiment evidence](/handbook/experiments-evidence/) for later stages
 and [platform limits](/platform-limits/) for current limitations.
 
+## Present a growing programme
+
+An experiment tree can be exported as one page with a linked overview. Each item shows
+its question, evidence state and selected prose. Methods and all attached records remain
+expandable. By default, figures stay inside the operation diagnostics.
+
+To select figures for the main reading flow, place `presentation.toml` beside the root
+`experiment.toml`:
+
+```toml
+format_version = 1
+
+[[items]]
+branch = "reproduction/wall"
+show = ["description", "hypotheses", "discussion"]
+figures = ["run_0002/wall_comparison/Raw task score"]
+```
+
+Replace the figure reference with one listed in an attached operation's diagnostic section.
+Each reference identifies a run, operation and figure title. Missing references fail export.
+Optional prose sections are `description`, `hypotheses`, `objectives` and `discussion`.
+Question, status, limitations and record access remain visible regardless of selection.
+
+```bash
+julia --project=. bin/brainlesslab.jl report-experiment PROGRAMME --output NEW-REPORT
+```
+
+This command creates a fresh offline directory with the presentation settings and copied
+records. It does not execute experiments. Check the selected figures and source links in
+`NEW-REPORT/index.html`; keep the complete directory when sharing.
+
+Select comparisons that answer the question across the declared range, including controls
+and inconclusive results. Built-in charts show means; inspect uncertainty and independent
+counts in the linked reports. Presentation selection does not change protocols or evidence
+states. Notes currently display escaped Markdown source; plain paragraphs read most cleanly.
+
 ## Benchmark cases
 
 A multi-condition benchmark case must declare a baseline. The operation then reports paired
