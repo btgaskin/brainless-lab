@@ -198,10 +198,13 @@ def report(source, destination, programme=None):
     if programme is not None:
         shutil.copytree(programme,destination/'programme')
     sections, links, analyses = [], [], []
+    run_indices = {}
     for index,(directory, manifest, cases) in enumerate(loaded):
-        relative = Path('records')/str(index+1)
-        shutil.copytree(directory,destination/relative)
         run = directory.parent.parent
+        if run not in run_indices:
+            run_indices[run] = len(run_indices)+1
+            shutil.copytree(run,destination/'runs'/str(run_indices[run]))
+        relative = Path('runs')/str(run_indices[run])/directory.relative_to(run)
         shutil.copytree(run/'protocol', destination/'protocols'/str(index+1))
         for case in cases:
             key = f'curve-{index+1}-{case["case"]}'
@@ -276,6 +279,7 @@ def report(source, destination, programme=None):
     document += 'Each episode starts afresh; this measures within-episode timing, not accumulated learning. '
     document += 'Reversal uses a declared fixed reversal at round 48 and the native first-16-post-reversal-round outcome. '
     document += 'Other probes score their final response. Native accuracy and decoded information are different questions.</p>'
+    document += '<p>The archive retains complete execution bundles under runs/. The included analysis script can regenerate this page from those bundles.</p>'
     if programme is not None:
         document += '<p><a href="programme/index.html">Full programme tree, earlier results and discussion</a></p>'
     document += '<nav><ul>'+''.join(links)+'</ul></nav></header><main>'

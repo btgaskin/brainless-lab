@@ -53,6 +53,8 @@ raw curves, paired slopes, selected-interval descriptions, normalised tables, co
 operation records, executed protocols, the analysis script, environment versions and
 checksums. Verify desktop/mobile layout and offline links. Sharing means preparing this
 portable output; sending or publishing it requires an authorised destination.
+Complete execution bundles remain under `runs/` in the export, so the included analysis
+script can regenerate the page from the archive without rerunning simulations.
 Use `--programme-export EXPORTED_PROGRAMME` to include a checksum-verified programme
 tree with prior results and discussion beneath the same portable report.
 
