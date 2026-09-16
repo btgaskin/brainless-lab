@@ -43,3 +43,29 @@ then select a compact set using the [coverage criteria](/benchmarks/probes/). Pa
 for causal controls and use applicable plasticity ablations for reversal. Confirmation
 and admission require a new frozen protocol and later human evidence review. Existing
 benchmark versions and the three visual tasks remain intact.
+
+## Explore when plasticity matters
+
+The lab skill can author and run native freeze-time curves through
+`tools/capacity_probes/freeze_curves.jl`. Settings are function arguments operated by the
+agent: selected cells, scales, repetitions, cutoffs and freezing mechanisms. Exploration
+does not require a sealed set or a formal hypothesis.
+
+The default covers one cell from each family, with ten independent wiring blocks.
+Freezing after `n` completed adaptive ticks applies before tick `n+1`. Weight-only freezing
+retains target adaptation; complete freezing stops both mechanisms. Each episode starts
+afresh. This measures within-episode timing, not accumulated learning across episodes.
+The reversal branch fixes the reversal at round 48 so cutoffs align across blocks.
+
+After running the ordinary experiment branches, generate a portable results page:
+
+```bash
+uv run tools/capacity_probes/report_freeze.py RUNS_DIRECTORY NEW_REPORT_DIRECTORY
+```
+
+Expect raw curves, adjacent paired slopes, standard errors, normalised outcome tables,
+complete records and a ZIP beside the report directory. The steepest observed interval
+suggests a midpoint for another exploratory run. It does not establish a unique knee;
+flat or chance-level curves may have no useful transition. The analysis verifies record
+checksums and paired comparisons before writing the page. Sending or publishing the ZIP
+is separate from generating it.

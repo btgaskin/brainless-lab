@@ -30,6 +30,11 @@ For a question that grows into a programme, read
 It covers agreeing hypotheses with the user, selecting informative figures, recording
 decisions and curating one programme page. Presentation choices never change evidence.
 
+Exploration can be informal. Operate settings through the skill and existing authoring
+helpers; do not require a settings UI, sealed set or hypothesis. For freeze-time curves
+and automated local sharing, read
+[freeze-time exploration](references/freeze-time-exploration.md).
+
 ## Preserve the architecture
 
 ```text

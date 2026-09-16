@@ -1,0 +1,27 @@
+children = []
+conditions = ["s1_continuous", "s1_freeze_weights_after_0", "s1_freeze_weights_after_576", "s1_freeze_weights_after_1128", "s1_freeze_weights_after_1152", "s1_freeze_weights_after_1248", "s1_freeze_weights_after_1344", "s1_freeze_weights_after_1488", "s1_freeze_plasticity_after_0", "s1_freeze_plasticity_after_576", "s1_freeze_plasticity_after_1128", "s1_freeze_plasticity_after_1152", "s1_freeze_plasticity_after_1248", "s1_freeze_plasticity_after_1344", "s1_freeze_plasticity_after_1488"]
+description = "Fixed reversal at round 48. Cut plasticity at shared round boundaries and score the task's first 16 post-reversal rounds. This is a declared timing variation of the random-reversal probe."
+evidence_state = "exploratory"
+format = "brainlesslab-experiment"
+format_version = 2
+hypotheses = []
+id = "reversal_adaptation__single_reversal"
+limitations = ["Native task performance is not decoder accuracy or evidence of learning across episodes.", "A flat or near-chance curve does not establish a useful knee. Slopes are finite differences in raw score per adaptive tick.", "Maximum absolute slope selects an observed interval, not a unique knee; retain ties and direction, and refine with new explicit cutoffs.", "Input gain and the fixed Falandays direct-control profile are exploratory choices. No cross-task aggregate is defined.", "Always-on is a reference line, not an extra finite cutoff or derivative endpoint."]
+objectives = []
+question = "How does the native task outcome change when plasticity stops after n adaptive ticks?"
+title = "reversal adaptation: single reversal"
+version = "1.0.0"
+
+[metadata]
+adaptive_ticks = [0, 576, 1128, 1152, 1248, 1344, 1488]
+analysis = "adjacent_paired_slopes"
+fixed_reversal_round = 48
+independent_unit = "wiring_block"
+parent_cell = "reversal_adaptation__single_reversal"
+refinement = "midpoint_of_steepest_observed_interval"
+scales = [0.1]
+within_episode = true
+
+[[operations]]
+id = "freeze_curve"
+plan = "01-freeze_curve.toml"

@@ -1,0 +1,771 @@
+format = "brainlesslab-plan"
+format_version = 3
+id = "freeze_curve"
+operation = "benchmark"
+
+[[benchmark.cases]]
+baseline = "s1_continuous"
+conditions = ["s1_continuous", "s1_freeze_weights_after_0", "s1_freeze_weights_after_576", "s1_freeze_weights_after_1128", "s1_freeze_weights_after_1152", "s1_freeze_weights_after_1248", "s1_freeze_weights_after_1344", "s1_freeze_weights_after_1488", "s1_freeze_plasticity_after_0", "s1_freeze_plasticity_after_576", "s1_freeze_plasticity_after_1128", "s1_freeze_plasticity_after_1152", "s1_freeze_plasticity_after_1248", "s1_freeze_plasticity_after_1344", "s1_freeze_plasticity_after_1488"]
+id = "scale_1"
+
+[[targets]]
+id = "s1_continuous"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "s1_continuous"
+    n_nodes = 200
+    node = "falandays"
+    task = "reversal_adaptation"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_ticks = 8
+        feedback_mode = "visible"
+        feedback_ticks = 8
+        response_ticks = 8
+        reversal_range = [48, 48]
+        rounds = 96
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "block"
+    horizon = 2304
+    reset = "full"
+    root_seed = 0x78cd7aa9
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "s1_freeze_weights_after_0"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "s1_freeze_weights_after_0"
+    n_nodes = 200
+    node = "falandays"
+    task = "reversal_adaptation"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_ticks = 8
+        feedback_mode = "visible"
+        feedback_ticks = 8
+        response_ticks = 8
+        reversal_range = [48, 48]
+        rounds = 96
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "block"
+    horizon = 2304
+    reset = "full"
+    root_seed = 0x78cd7aa9
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [[targets.interventions]]
+    tick = 1
+    verb = "freeze_weights"
+[[targets]]
+id = "s1_freeze_weights_after_576"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "s1_freeze_weights_after_576"
+    n_nodes = 200
+    node = "falandays"
+    task = "reversal_adaptation"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_ticks = 8
+        feedback_mode = "visible"
+        feedback_ticks = 8
+        response_ticks = 8
+        reversal_range = [48, 48]
+        rounds = 96
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "block"
+    horizon = 2304
+    reset = "full"
+    root_seed = 0x78cd7aa9
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [[targets.interventions]]
+    tick = 577
+    verb = "freeze_weights"
+[[targets]]
+id = "s1_freeze_weights_after_1128"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "s1_freeze_weights_after_1128"
+    n_nodes = 200
+    node = "falandays"
+    task = "reversal_adaptation"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_ticks = 8
+        feedback_mode = "visible"
+        feedback_ticks = 8
+        response_ticks = 8
+        reversal_range = [48, 48]
+        rounds = 96
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "block"
+    horizon = 2304
+    reset = "full"
+    root_seed = 0x78cd7aa9
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [[targets.interventions]]
+    tick = 1129
+    verb = "freeze_weights"
+[[targets]]
+id = "s1_freeze_weights_after_1152"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "s1_freeze_weights_after_1152"
+    n_nodes = 200
+    node = "falandays"
+    task = "reversal_adaptation"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_ticks = 8
+        feedback_mode = "visible"
+        feedback_ticks = 8
+        response_ticks = 8
+        reversal_range = [48, 48]
+        rounds = 96
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "block"
+    horizon = 2304
+    reset = "full"
+    root_seed = 0x78cd7aa9
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [[targets.interventions]]
+    tick = 1153
+    verb = "freeze_weights"
+[[targets]]
+id = "s1_freeze_weights_after_1248"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "s1_freeze_weights_after_1248"
+    n_nodes = 200
+    node = "falandays"
+    task = "reversal_adaptation"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_ticks = 8
+        feedback_mode = "visible"
+        feedback_ticks = 8
+        response_ticks = 8
+        reversal_range = [48, 48]
+        rounds = 96
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "block"
+    horizon = 2304
+    reset = "full"
+    root_seed = 0x78cd7aa9
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [[targets.interventions]]
+    tick = 1249
+    verb = "freeze_weights"
+[[targets]]
+id = "s1_freeze_weights_after_1344"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "s1_freeze_weights_after_1344"
+    n_nodes = 200
+    node = "falandays"
+    task = "reversal_adaptation"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_ticks = 8
+        feedback_mode = "visible"
+        feedback_ticks = 8
+        response_ticks = 8
+        reversal_range = [48, 48]
+        rounds = 96
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "block"
+    horizon = 2304
+    reset = "full"
+    root_seed = 0x78cd7aa9
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [[targets.interventions]]
+    tick = 1345
+    verb = "freeze_weights"
+[[targets]]
+id = "s1_freeze_weights_after_1488"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "s1_freeze_weights_after_1488"
+    n_nodes = 200
+    node = "falandays"
+    task = "reversal_adaptation"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_ticks = 8
+        feedback_mode = "visible"
+        feedback_ticks = 8
+        response_ticks = 8
+        reversal_range = [48, 48]
+        rounds = 96
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "block"
+    horizon = 2304
+    reset = "full"
+    root_seed = 0x78cd7aa9
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [[targets.interventions]]
+    tick = 1489
+    verb = "freeze_weights"
+[[targets]]
+id = "s1_freeze_plasticity_after_0"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "s1_freeze_plasticity_after_0"
+    n_nodes = 200
+    node = "falandays"
+    task = "reversal_adaptation"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_ticks = 8
+        feedback_mode = "visible"
+        feedback_ticks = 8
+        response_ticks = 8
+        reversal_range = [48, 48]
+        rounds = 96
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "block"
+    horizon = 2304
+    reset = "full"
+    root_seed = 0x78cd7aa9
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [[targets.interventions]]
+    tick = 1
+    verb = "freeze_plasticity"
+[[targets]]
+id = "s1_freeze_plasticity_after_576"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "s1_freeze_plasticity_after_576"
+    n_nodes = 200
+    node = "falandays"
+    task = "reversal_adaptation"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_ticks = 8
+        feedback_mode = "visible"
+        feedback_ticks = 8
+        response_ticks = 8
+        reversal_range = [48, 48]
+        rounds = 96
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "block"
+    horizon = 2304
+    reset = "full"
+    root_seed = 0x78cd7aa9
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [[targets.interventions]]
+    tick = 577
+    verb = "freeze_plasticity"
+[[targets]]
+id = "s1_freeze_plasticity_after_1128"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "s1_freeze_plasticity_after_1128"
+    n_nodes = 200
+    node = "falandays"
+    task = "reversal_adaptation"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_ticks = 8
+        feedback_mode = "visible"
+        feedback_ticks = 8
+        response_ticks = 8
+        reversal_range = [48, 48]
+        rounds = 96
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "block"
+    horizon = 2304
+    reset = "full"
+    root_seed = 0x78cd7aa9
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [[targets.interventions]]
+    tick = 1129
+    verb = "freeze_plasticity"
+[[targets]]
+id = "s1_freeze_plasticity_after_1152"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "s1_freeze_plasticity_after_1152"
+    n_nodes = 200
+    node = "falandays"
+    task = "reversal_adaptation"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_ticks = 8
+        feedback_mode = "visible"
+        feedback_ticks = 8
+        response_ticks = 8
+        reversal_range = [48, 48]
+        rounds = 96
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "block"
+    horizon = 2304
+    reset = "full"
+    root_seed = 0x78cd7aa9
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [[targets.interventions]]
+    tick = 1153
+    verb = "freeze_plasticity"
+[[targets]]
+id = "s1_freeze_plasticity_after_1248"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "s1_freeze_plasticity_after_1248"
+    n_nodes = 200
+    node = "falandays"
+    task = "reversal_adaptation"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_ticks = 8
+        feedback_mode = "visible"
+        feedback_ticks = 8
+        response_ticks = 8
+        reversal_range = [48, 48]
+        rounds = 96
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "block"
+    horizon = 2304
+    reset = "full"
+    root_seed = 0x78cd7aa9
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [[targets.interventions]]
+    tick = 1249
+    verb = "freeze_plasticity"
+[[targets]]
+id = "s1_freeze_plasticity_after_1344"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "s1_freeze_plasticity_after_1344"
+    n_nodes = 200
+    node = "falandays"
+    task = "reversal_adaptation"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_ticks = 8
+        feedback_mode = "visible"
+        feedback_ticks = 8
+        response_ticks = 8
+        reversal_range = [48, 48]
+        rounds = 96
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "block"
+    horizon = 2304
+    reset = "full"
+    root_seed = 0x78cd7aa9
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [[targets.interventions]]
+    tick = 1345
+    verb = "freeze_plasticity"
+[[targets]]
+id = "s1_freeze_plasticity_after_1488"
+topology_key = "falandays_direct_v1"
+
+    [targets.composition]
+    id = "s1_freeze_plasticity_after_1488"
+    n_nodes = 200
+    node = "falandays"
+    task = "reversal_adaptation"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 1.875
+        leak = 0.25
+        learn_on = true
+        link_p = 0.1
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        targ_min = 1.0
+        threshold_mult = 2.0
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+        weight_init_std = 1.0
+
+        [targets.composition.task_options]
+        cue_ticks = 8
+        feedback_mode = "visible"
+        feedback_ticks = 8
+        response_ticks = 8
+        reversal_range = [48, 48]
+        rounds = 96
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "block"
+    horizon = 2304
+    reset = "full"
+    root_seed = 0x78cd7aa9
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+
+    [[targets.interventions]]
+    tick = 1489
+    verb = "freeze_plasticity"

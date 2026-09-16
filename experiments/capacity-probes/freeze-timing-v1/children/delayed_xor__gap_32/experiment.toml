@@ -1,0 +1,27 @@
+children = []
+conditions = ["s1_continuous", "s1_freeze_weights_after_0", "s1_freeze_weights_after_12", "s1_freeze_weights_after_24", "s1_freeze_weights_after_36", "s1_freeze_weights_after_48", "s1_freeze_plasticity_after_0", "s1_freeze_plasticity_after_12", "s1_freeze_plasticity_after_24", "s1_freeze_plasticity_after_36", "s1_freeze_plasticity_after_48"]
+description = "Start each episode from a full reset, freeze after n completed ticks and score the same final response. Wiring is paired within independent blocks; experience does not accumulate across episodes."
+evidence_state = "exploratory"
+format = "brainlesslab-experiment"
+format_version = 2
+hypotheses = []
+id = "delayed_xor__gap_32"
+limitations = ["Native task performance is not decoder accuracy or evidence of learning across episodes.", "A flat or near-chance curve does not establish a useful knee. Slopes are finite differences in raw score per adaptive tick.", "Maximum absolute slope selects an observed interval, not a unique knee; retain ties and direction, and refine with new explicit cutoffs.", "Input gain and the fixed Falandays direct-control profile are exploratory choices. No cross-task aggregate is defined.", "Always-on is a reference line, not an extra finite cutoff or derivative endpoint."]
+objectives = []
+question = "How does the native task outcome change when plasticity stops after n adaptive ticks?"
+title = "delayed xor: gap 32"
+version = "1.0.0"
+
+[metadata]
+adaptive_ticks = [0, 12, 24, 36, 48]
+analysis = "adjacent_paired_slopes"
+fixed_reversal_round = 0
+independent_unit = "wiring_block"
+parent_cell = "delayed_xor__gap_32"
+refinement = "midpoint_of_steepest_observed_interval"
+scales = [0.1]
+within_episode = true
+
+[[operations]]
+id = "freeze_curve"
+plan = "01-freeze_curve.toml"

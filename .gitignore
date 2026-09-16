@@ -32,3 +32,5 @@ examples/output/
 # Internal development notes — kept local, not part of the public repo
 /dev/
 /experiments/figures/Manifest.toml
+# Python analysis bytecode
+__pycache__/

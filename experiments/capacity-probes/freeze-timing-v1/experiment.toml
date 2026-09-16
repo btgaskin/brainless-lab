@@ -1,0 +1,35 @@
+conditions = []
+description = "Skill-operated exploration: editable repetitions, cells, scales and cutoffs; ordinary experiment records; curve and paired finite-difference analysis. No sealed set or mandatory hypothesis."
+evidence_state = "exploratory"
+format = "brainlesslab-experiment"
+format_version = 2
+hypotheses = []
+id = "capacity_freeze_curves"
+limitations = ["This protocol covers native within-episode performance. Cross-episode preparation and decoder readouts are different studies."]
+objectives = []
+operations = []
+question = "How do freeze-time curves differ across capacity probes?"
+title = "When does plasticity matter within a capacity probe?"
+version = "1.0.0"
+
+[[children]]
+id = "delayed_cue__delay_32"
+version = "1.0.0"
+[[children]]
+id = "recall_interference__delay_32_distractors_1"
+version = "1.0.0"
+[[children]]
+id = "delayed_xor__gap_32"
+version = "1.0.0"
+[[children]]
+id = "evidence_accumulation__pulses_32_evidence_250"
+version = "1.0.0"
+[[children]]
+id = "context_integration__pulses_32_evidence_250_conflicting_transient"
+version = "1.0.0"
+[[children]]
+id = "temporal_order__gap_8"
+version = "1.0.0"
+[[children]]
+id = "reversal_adaptation__single_reversal"
+version = "1.0.0"

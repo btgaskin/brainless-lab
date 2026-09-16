@@ -25,3 +25,11 @@ Generate fresh bundles with `tools/capacity_probes/plan_study.jl`. Its
 The default selects one starting cell per family. The generator writes plans only.
 Confirmation, robustness and admission require later decisions and a frozen protocol.
 Existing benchmark versions and accepted records are not modified by this study.
+
+For skill-operated within-episode freeze curves, use
+`tools/capacity_probes/freeze_curves.jl`. Its editable function arguments cover seven
+starting cells or the full 64-cell library. `tools/capacity_probes/report_freeze.py`
+creates a single-page curve and paired-slope report with complete records and a ZIP.
+The curve is primary; the steepest observed interval suggests where to sample next.
+See the [local workflow](../../skills/brainless-lab/references/freeze-time-exploration.md)
+for timing, resets, reversal alignment and interpretation.
