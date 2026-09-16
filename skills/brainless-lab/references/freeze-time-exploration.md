@@ -53,6 +53,8 @@ raw curves, paired slopes, selected-interval descriptions, normalised tables, co
 operation records, executed protocols, the analysis script, environment versions and
 checksums. Verify desktop/mobile layout and offline links. Sharing means preparing this
 portable output; sending or publishing it requires an authorised destination.
+Use `--programme-export EXPORTED_PROGRAMME` to include a checksum-verified programme
+tree with prior results and discussion beneath the same portable report.
 
 The tool currently reports native capacity curves. Canonical Tracking and Pong use distinct
 task settings; choose a common post-cutoff scoring interval for continued-performance

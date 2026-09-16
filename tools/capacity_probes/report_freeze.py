@@ -176,7 +176,7 @@ def load_record(directory):
     return manifest, output
 
 
-def report(source, destination):
+def report(source, destination, programme=None):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
@@ -188,7 +188,15 @@ def report(source, destination):
         raise ValueError('no standard experiment operation records found')
     # Validate all evidence before writing any presentation output.
     loaded = [(p.parent,*load_record(p.parent)) for p in records]
+    if programme is not None:
+        inventory=tomllib.loads((programme/'export.toml').read_text())['artifact_sha256']
+        for name,digest in inventory.items():
+            path=(programme/name).resolve()
+            if not path.is_relative_to(programme.resolve()) or hashlib.sha256(path.read_bytes()).hexdigest()!=digest:
+                raise ValueError('programme export checksum mismatch')
     destination.mkdir(parents=True)
+    if programme is not None:
+        shutil.copytree(programme,destination/'programme')
     sections, links, analyses = [], [], []
     for index,(directory, manifest, cases) in enumerate(loaded):
         relative = Path('records')/str(index+1)
@@ -267,7 +275,10 @@ def report(source, destination):
     document += '<header><h1>When does plasticity matter?</h1><p>Exploratory native capacity-probe curves. '
     document += 'Each episode starts afresh; this measures within-episode timing, not accumulated learning. '
     document += 'Reversal uses a declared fixed reversal at round 48 and the native first-16-post-reversal-round outcome. '
-    document += 'Other probes score their final response. Native accuracy and decoded information are different questions.</p><nav><ul>'+''.join(links)+'</ul></nav></header><main>'
+    document += 'Other probes score their final response. Native accuracy and decoded information are different questions.</p>'
+    if programme is not None:
+        document += '<p><a href="programme/index.html">Full programme tree, earlier results and discussion</a></p>'
+    document += '<nav><ul>'+''.join(links)+'</ul></nav></header><main>'
     document += ''.join(sections)+'</main></html>'
     (destination/'index.html').write_text(document)
     (destination/'analysis.json').write_text(json.dumps(analyses,indent=2)+'\n')
@@ -288,5 +299,6 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('runs',type=Path)
     parser.add_argument('output',type=Path)
+    parser.add_argument('--programme-export',type=Path)
     args = parser.parse_args()
-    print(report(args.runs,args.output))
+    print(report(args.runs,args.output,args.programme_export))
