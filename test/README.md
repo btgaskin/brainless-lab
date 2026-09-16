@@ -62,11 +62,21 @@ calibration tools, and Legacy owns only its assigned compatibility tests and
 their shared source. A documentation-only change does not invalidate Runtime,
 Oracle, or Legacy.
 
-Pinned suites check their proof before package restoration. The manifest-free,
-visual, and project-template jobs first resolve their generated environment and
-add the generated manifest's SHA-256 digest to the proof key. An exact hit in
-the manifest-free and visual jobs skips the remaining installation,
-precompilation, and test body but does not skip live resolution. In the tool
+All ordinary suites, including Legacy, share one CI matrix. Legacy keeps its
+existing check name. The matrix retains the platform, Julia-version and thread
+coverage declared in `.github/workflows/ci.yml`.
+
+Each Julia job restores its dependency cache and resolves its environment before
+checking the proof. Ordinary suites start from the checked-in manifest; the
+manifest-free job removes it before resolution. Visual and project-template
+jobs resolve their own environments. The resolved manifest's SHA-256 digest is
+part of each proof key.
+
+CI disables automatic package precompilation with `JULIA_PKG_PRECOMPILE_AUTO=0`.
+The explicit precompilation and test steps still run on a proof miss. An exact
+hit in the ordinary, manifest-free and visual jobs skips the remaining
+installation, explicit precompilation and test body, but not live resolution
+or any dependency installation it requires. In the tool
 job, the root package is still instantiated and the research policy checks
 still run. The proof hit skips package precompilation, template installation,
 plan smoke checks, and template execution. Dependency and compiled-code caches

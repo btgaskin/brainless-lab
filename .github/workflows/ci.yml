@@ -11,13 +11,17 @@ on:
 permissions:
   contents: read
 
+env:
+  # Resolve before proof lookup; explicit precompilation runs on a miss.
+  JULIA_PKG_PRECOMPILE_AUTO: '0'
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   test:
-    name: ${{ matrix.suite }} / Julia ${{ matrix.julia-version }} / ${{ matrix.os }} / ${{ matrix.threads }} thread(s)
+    name: ${{ matrix.name || format('{0} / Julia {1} / {2} / {3} thread(s)', matrix.suite, matrix.julia-version, matrix.os, matrix.threads) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
@@ -53,6 +57,11 @@ jobs:
             julia-version: '1.11'
             threads: 1
           - suite: oracle
+            os: ubuntu-22.04
+            julia-version: '1.11'
+            threads: 1
+          - suite: legacy
+            name: Legacy / Julia 1.11 / Ubuntu
             os: ubuntu-22.04
             julia-version: '1.11'
             threads: 1
@@ -105,63 +114,6 @@ jobs:
         if: steps.proof.outputs.cache-hit != 'true'
         run: julia -t ${{ matrix.threads }} --project=. -e 'using Pkg; Pkg.test()'
       - name: Mark the exact suite inputs as proven
-        if: steps.proof.outputs.cache-hit != 'true'
-        run: julia -e 'mkpath(".ci-proof"); write(joinpath(".ci-proof", "passed"), "passed\n")'
-
-  legacy:
-    name: Legacy / Julia 1.11 / Ubuntu
-    if: >-
-      github.event_name == 'push' || github.event_name == 'pull_request' ||
-      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-22.04
-    timeout-minutes: 45
-    env:
-      BRAINLESSLAB_TEST_SUITE: legacy
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3
-        with:
-          version: '1.11'
-      - name: Read the resolved Julia version
-        id: julia
-        run: >-
-          julia -e 'open(ENV["GITHUB_OUTPUT"], "a") do io;
-          println(io, "version=", VERSION);
-          println(io, "image=", ENV["ImageOS"], "-", ENV["ImageVersion"]);
-          end'
-      - uses: julia-actions/cache@a45e8fa8be21c18a06b7177052533149e61e9b38 # v3
-        with:
-          delete-old-caches: false
-      - name: Resolve the legacy environment
-        id: resolved
-        run: >-
-          julia --project=. -e 'using Pkg, SHA;
-          isempty(Pkg.Registry.reachable_registries()) && Pkg.Registry.add("General");
-          Pkg.resolve();
-          open(ENV["GITHUB_OUTPUT"], "a") do io;
-          println(io, "manifest=", bytes2hex(SHA.sha256(read("Manifest.toml"))));
-          end'
-      - name: Compute exact suite input digest
-        id: inputs
-        run: >-
-          julia --project=. .github/scripts/suite-input-digest.jl
-          legacy --without-manifest
-      - name: Cache exact legacy proof
-        id: proof
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: .ci-proof
-          key: >-
-            proof-${{ runner.os }}-${{ runner.arch }}-image-${{ steps.julia.outputs.image
-            }}-julia-${{ steps.julia.outputs.version }}-legacy-manifest-${{
-            steps.resolved.outputs.manifest }}-${{ steps.inputs.outputs.digest }}
-      - name: Instantiate the resolved environment
-        if: steps.proof.outputs.cache-hit != 'true'
-        run: julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
-      - name: Run the legacy suite
-        if: steps.proof.outputs.cache-hit != 'true'
-        run: julia --project=. -e 'using Pkg; Pkg.test()'
-      - name: Mark the exact legacy inputs as proven
         if: steps.proof.outputs.cache-hit != 'true'
         run: julia -e 'mkpath(".ci-proof"); write(joinpath(".ci-proof", "passed"), "passed\n")'
 
