@@ -1,0 +1,24 @@
+conditions = []
+description = "Follow the initial 96-trial study with 560 fresh trials: seven scales, four update policies and ten independent blocks on each task. Preserve the first study separately; this follow-up was requested after its results were inspected."
+evidence_state = "exploratory"
+format = "brainlesslab-experiment"
+format_version = 2
+hypotheses = []
+id = "initialisation_scale_refinement"
+limitations = ["This is a development follow-up, not an exact replication of Marc's implementation or a confirmed optimum.", "Task outcomes have different meanings; no cross-task aggregate is defined."]
+objectives = []
+operations = []
+question = "Does a finer initialisation grid reproduce the scale-dependent pattern in the first Tracking and Pong runs?"
+title = "Initialisation scale: Tracking and Pong refinement"
+version = "1.0.0"
+
+[[children]]
+id = "tracking"
+version = "1.0.0"
+[[children]]
+id = "pong"
+version = "1.0.0"
+
+[metadata]
+predecessor_experiment = "initialisation_adaptation"
+predecessor_version = "1.0.0"

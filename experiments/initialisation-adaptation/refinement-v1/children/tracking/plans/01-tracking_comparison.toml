@@ -1,0 +1,930 @@
+format = "brainlesslab-plan"
+format_version = 3
+id = "tracking_comparison"
+operation = "benchmark"
+
+[[benchmark.cases]]
+baseline = "tracking_s1_both_on"
+conditions = ["tracking_s1_both_on", "tracking_s1_weights_off", "tracking_s1_targets_off", "tracking_s1_both_off"]
+id = "scale_1"
+[[benchmark.cases]]
+baseline = "tracking_s2_both_on"
+conditions = ["tracking_s2_both_on", "tracking_s2_weights_off", "tracking_s2_targets_off", "tracking_s2_both_off"]
+id = "scale_2"
+[[benchmark.cases]]
+baseline = "tracking_s3_both_on"
+conditions = ["tracking_s3_both_on", "tracking_s3_weights_off", "tracking_s3_targets_off", "tracking_s3_both_off"]
+id = "scale_3"
+[[benchmark.cases]]
+baseline = "tracking_s4_both_on"
+conditions = ["tracking_s4_both_on", "tracking_s4_weights_off", "tracking_s4_targets_off", "tracking_s4_both_off"]
+id = "scale_4"
+[[benchmark.cases]]
+baseline = "tracking_s5_both_on"
+conditions = ["tracking_s5_both_on", "tracking_s5_weights_off", "tracking_s5_targets_off", "tracking_s5_both_off"]
+id = "scale_5"
+[[benchmark.cases]]
+baseline = "tracking_s6_both_on"
+conditions = ["tracking_s6_both_on", "tracking_s6_weights_off", "tracking_s6_targets_off", "tracking_s6_both_off"]
+id = "scale_6"
+[[benchmark.cases]]
+baseline = "tracking_s7_both_on"
+conditions = ["tracking_s7_both_on", "tracking_s7_weights_off", "tracking_s7_targets_off", "tracking_s7_both_off"]
+id = "scale_7"
+
+[[targets]]
+id = "tracking_s1_both_on"
+
+    [targets.composition]
+    id = "tracking_s1_both_on"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.01
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s1_weights_off"
+
+    [targets.composition]
+    id = "tracking_s1_weights_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.01
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s1_targets_off"
+
+    [targets.composition]
+    id = "tracking_s1_targets_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.0
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.01
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s1_both_off"
+
+    [targets.composition]
+    id = "tracking_s1_both_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.0
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.01
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s2_both_on"
+
+    [targets.composition]
+    id = "tracking_s2_both_on"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.02
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s2_weights_off"
+
+    [targets.composition]
+    id = "tracking_s2_weights_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.02
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s2_targets_off"
+
+    [targets.composition]
+    id = "tracking_s2_targets_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.0
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.02
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s2_both_off"
+
+    [targets.composition]
+    id = "tracking_s2_both_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.0
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.02
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s3_both_on"
+
+    [targets.composition]
+    id = "tracking_s3_both_on"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.05
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s3_weights_off"
+
+    [targets.composition]
+    id = "tracking_s3_weights_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.05
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s3_targets_off"
+
+    [targets.composition]
+    id = "tracking_s3_targets_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.0
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.05
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s3_both_off"
+
+    [targets.composition]
+    id = "tracking_s3_both_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.0
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.05
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s4_both_on"
+
+    [targets.composition]
+    id = "tracking_s4_both_on"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s4_weights_off"
+
+    [targets.composition]
+    id = "tracking_s4_weights_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s4_targets_off"
+
+    [targets.composition]
+    id = "tracking_s4_targets_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.0
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s4_both_off"
+
+    [targets.composition]
+    id = "tracking_s4_both_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.0
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.1
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s5_both_on"
+
+    [targets.composition]
+    id = "tracking_s5_both_on"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.2
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s5_weights_off"
+
+    [targets.composition]
+    id = "tracking_s5_weights_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.2
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s5_targets_off"
+
+    [targets.composition]
+    id = "tracking_s5_targets_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.0
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.2
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s5_both_off"
+
+    [targets.composition]
+    id = "tracking_s5_both_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.0
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.2
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s6_both_on"
+
+    [targets.composition]
+    id = "tracking_s6_both_on"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.5
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s6_weights_off"
+
+    [targets.composition]
+    id = "tracking_s6_weights_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.5
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s6_targets_off"
+
+    [targets.composition]
+    id = "tracking_s6_targets_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.0
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 0.5
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s6_both_off"
+
+    [targets.composition]
+    id = "tracking_s6_both_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.0
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 0.5
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s7_both_on"
+
+    [targets.composition]
+    id = "tracking_s7_both_on"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 1.0
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s7_weights_off"
+
+    [targets.composition]
+    id = "tracking_s7_weights_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.01
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 1.0
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s7_targets_off"
+
+    [targets.composition]
+    id = "tracking_s7_targets_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.0
+        lrate_wmat = 1.0
+        rectify = false
+        recurrent_init_scale = 1.0
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0
+[[targets]]
+id = "tracking_s7_both_off"
+
+    [targets.composition]
+    id = "tracking_s7_both_off"
+    n_nodes = 200
+    node = "falandays"
+    task = "tracking"
+
+        [targets.composition.interface]
+        input_gain = 1.0
+
+        [targets.composition.parameters]
+        input_weight = 0.75
+        lrate_targ = 0.0
+        lrate_wmat = 0.0
+        rectify = false
+        recurrent_init_scale = 1.0
+        repair_masks = false
+        topology = "bernoulli"
+        weight_init_mode = "excitatory"
+
+    [targets.evaluation]
+    aggregate = "mean"
+    blocks = 10
+    construction_scope = "trial"
+    horizon = 2000
+    reset = "full"
+    root_seed = 0x78c3b519
+    streams = ["topology", "world"]
+    trials_per_block = 1
+    warmup = 0

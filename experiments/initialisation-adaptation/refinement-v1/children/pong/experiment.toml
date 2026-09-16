@@ -1,0 +1,24 @@
+children = []
+conditions = ["pong_s1_both_on", "pong_s1_weights_off", "pong_s1_targets_off", "pong_s1_both_off", "pong_s2_both_on", "pong_s2_weights_off", "pong_s2_targets_off", "pong_s2_both_off", "pong_s3_both_on", "pong_s3_weights_off", "pong_s3_targets_off", "pong_s3_both_off", "pong_s4_both_on", "pong_s4_weights_off", "pong_s4_targets_off", "pong_s4_both_off", "pong_s5_both_on", "pong_s5_weights_off", "pong_s5_targets_off", "pong_s5_both_off", "pong_s6_both_on", "pong_s6_weights_off", "pong_s6_targets_off", "pong_s6_both_off", "pong_s7_both_on", "pong_s7_weights_off", "pong_s7_targets_off", "pong_s7_both_off"]
+description = "Evaluate seven scales with ten independent paired blocks per scale and update policy. Start from tick 1 with no discarded warm-up. Retain both endpoints and all four weight/target update policies."
+evidence_state = "exploratory"
+format = "brainlesslab-experiment"
+format_version = 2
+hypotheses = []
+id = "pong"
+limitations = ["This grid was chosen after inspecting the first four-block study; it is exploratory, not sealed confirmation.", "Ten fresh development blocks per condition are not a power calculation or an equivalence test. Pointwise intervals are unadjusted for multiple comparisons.", "Do not pool these results with the predecessor run. Paired seeds are shared across scales and policies within each task.", "The primary contrast retains target adaptation; full freezing and targets-off are supporting controls, not independent causal contributions.", "Marc's exact settings are unknown. Raw task outcomes remain primary; anchor-relative scores may be clipped."]
+objectives = ["Describe the scale-response curve and paired weights-off minus both-on contrasts without selecting a winning cell as confirmation."]
+question = "How does the advantage or disadvantage of frozen weights vary between recurrent scales 0.01 and 1.0?"
+title = "Pong: finer scale grid"
+version = "1.0.0"
+
+[metadata]
+independent_unit = "block"
+predecessor_experiment = "initialisation_adaptation/reproduction/pong"
+predecessor_root_seed = 2026091701
+predecessor_version = "1.0.0"
+scales = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0]
+
+[[operations]]
+id = "pong_comparison"
+plan = "01-pong_comparison.toml"
