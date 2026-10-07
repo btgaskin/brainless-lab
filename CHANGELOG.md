@@ -51,6 +51,8 @@ Earlier protocols and research records retain their original source revisions.
 - Consolidate extension guidance, expand specification and CLI reference tables,
   label historical search results and show when the accepted-run catalogue is empty.
 - Align desktop search with the reading column and enlarge its phone touch target.
+- Complete generated redirect HTML before search indexing, preserving old links
+  without Pagefind's missing-document warnings.
 - Add the project contributors and acknowledgements for the Diverse Intelligences
   Summer Institute and John Templeton Foundation.
 - Make the installed-wheel test use the native virtual-environment interpreter

@@ -5,6 +5,7 @@ import react from '@astrojs/react';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import tailwindcss from '@tailwindcss/vite';
+import redirectDocuments from './src/integrations/redirect-documents';
 
 // BrainlessLab docs + outputs site.
 // Math: remark-math (source) -> rehype-katex (render); KaTeX CSS is pulled in via
@@ -48,6 +49,7 @@ export default defineConfig({
   },
   integrations: [
     react(),
+    redirectDocuments(),
     starlight({
       title: 'BrainlessLab',
       description:
