@@ -51,7 +51,7 @@ export default defineConfig({
     starlight({
       title: 'BrainlessLab',
       description:
-        'Study how local neural adaptation affects task behaviour with Python and Quadrants.',
+        'Build computational neurons and explore how their interactions shape behaviour.',
       logo: {
         light: './src/assets/brainless-lab-icon.png',      // dark ink — for light theme
         dark: './src/assets/brainless-lab-icon-dark.png',   // light ink — for dark theme

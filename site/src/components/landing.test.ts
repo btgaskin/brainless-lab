@@ -15,7 +15,7 @@ describe('landing-page structure', () => {
     expect(hero).not.toContain('TaskPreview');
     expect(guide).toContain('<TaskPreview />');
     expect(landing).toContain('<TaskPreview />');
-    expect(await source('./NeuronRecording.astro')).toContain('Biological footage, not a BrainlessLab simulation.');
+    expect(await source('./NeuronRecording.astro')).toContain('Time-lapse microscopy of rat hippocampal neurons.');
     expect(landing).toContain('What’s it like to be a neuron?');
     expect(landing).toContain('not a BrainlessLab simulation');
     expect(landing).toContain('does not establish cognition');

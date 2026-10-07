@@ -20,13 +20,15 @@ const description = 'Time-lapse microscopy of rat hippocampal neurons extending 
           <a href={desktop}>Watch the neuron growth recording</a>
         </video>
       </noscript>
-      <a class="recording-credit" href={source} target="_blank" rel="noopener noreferrer">
-        © Louis Romette &amp; Christophe Leterrier<br />
-        <span>Aix-Marseille Université / Institut de NeuroPhysioPathologie</span>
-      </a>
+      <div class="recording-attribution">
+        <a class="recording-credit" href={source} target="_blank" rel="noopener noreferrer">
+          © Louis Romette &amp; Christophe Leterrier<br />
+          <span>Aix-Marseille Université / Institut de NeuroPhysioPathologie</span>
+        </a>
+        <p class="recording-caption">Time-lapse microscopy of rat hippocampal neurons.</p>
+      </div>
     </div>
   </div>
-  <p class="recording-caption">Time-lapse microscopy of rat hippocampal neurons. Biological footage, not a BrainlessLab simulation.</p>
   <p class="recording-status" role="status" hidden></p>
 </neuron-recording>
 
@@ -74,7 +76,7 @@ const description = 'Time-lapse microscopy of rat hippocampal neurons extending 
     outline-offset: 3px;
   }
   .recording-square > noscript { display: contents; }
-  .recording-credit {
+  .recording-attribution {
     position: absolute;
     opacity: 0.8;
     right: 1.25rem;
@@ -82,18 +84,18 @@ const description = 'Time-lapse microscopy of rat hippocampal neurons extending 
     max-width: calc(100% - 2.5rem);
     color: inherit;
     text-align: right;
-    text-decoration: none;
     font: 12px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
+  .recording-credit { color: inherit; text-decoration: none; }
   .recording-credit span { font-size: 11px; color: #4b4b4b; }
   .recording-credit:hover { text-decoration: underline; }
   .recording-credit:focus-visible { outline: 2px solid #222; outline-offset: 3px; }
   .recording-status[hidden] { display: none; }
-  .recording-caption { margin: 0; padding: 0.75rem 1.5rem 1.25rem; font: 12px/1.5 var(--sl-font); }
+  .recording-caption { margin: 0.5rem 0 0; }
   .recording-status { margin: 0; padding: 0 1rem 0.6rem; font-size: 12px; }
   @media (max-width: 55.999rem) {
     .recording-field { flex: none; aspect-ratio: 1; }
     .recording-square { transform: translateY(-0.75rem); }
-    .recording-credit { right: 0.875rem; bottom: 0.875rem; max-width: calc(100% - 1.75rem); }
+    .recording-attribution { right: 0.875rem; bottom: 0.875rem; max-width: calc(100% - 1.75rem); }
   }
 </style>
