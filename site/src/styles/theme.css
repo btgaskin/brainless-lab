@@ -56,6 +56,13 @@
   letter-spacing: -0.01em;
 }
 
+/* Let desktop search follow the documentation column's width. */
+@media (min-width: 50rem) {
+  header.header site-search button[data-open-modal] {
+    max-width: var(--sl-content-width);
+  }
+}
+
 /* Keep prose links recognisable after Tailwind's link reset. */
 .sl-markdown-content a[href]:not(:where(.not-content *, .sl-anchor-link)) {
   color: var(--sl-color-text-accent);
