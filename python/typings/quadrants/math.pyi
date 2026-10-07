@@ -1,0 +1,6 @@
+from typing import Any
+
+pi: float
+
+def isnan(value: Any) -> Any: ...
+def isinf(value: Any) -> Any: ...

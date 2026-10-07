@@ -35,4 +35,6 @@ select = ["E", "F", "I", "B", "UP"]
 include = ["python/src/brainlesslab"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
-
+venvPath = "."
+venv = ".venv"
+stubPath = "python/typings"
