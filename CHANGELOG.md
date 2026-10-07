@@ -55,6 +55,8 @@ Earlier protocols and research records retain their original source revisions.
   Summer Institute and John Templeton Foundation.
 - Make the installed-wheel test use the native virtual-environment interpreter
   path on Windows and POSIX systems.
+- Make profiling tests declare their synthetic POSIX telemetry and preserve
+  unsupported memory telemetry on platforms without the `resource` module.
 
 ### Evidence and remaining limits
 

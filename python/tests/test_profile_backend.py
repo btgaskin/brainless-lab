@@ -189,6 +189,7 @@ def test_short_physical_horizon_requires_explicit_diagnostic(profiler, tmp_path,
 
 
 def test_background_captures_busy_non_compute_processes(profiler, monkeypatch):
+    monkeypatch.setattr(profiler.sys, "platform", "linux")
     monkeypatch.setattr(
         profiler.subprocess,
         "run",
@@ -204,6 +205,8 @@ def test_background_captures_busy_non_compute_processes(profiler, monkeypatch):
 
 
 def test_unavailable_telemetry_is_unknown_and_requires_opt_in(profiler, tmp_path, monkeypatch):
+    monkeypatch.setattr(profiler.sys, "platform", "linux")
+
     def unavailable(*a, **k):
         raise PermissionError("ps blocked")
 
@@ -408,6 +411,8 @@ def test_worker_success_excludes_first_and_warmups_from_statistics(
     monkeypatch.setattr(profiler, "source_metadata", lambda: {"profile_script_sha256": "source"})
     monkeypatch.setattr(profiler.time, "perf_counter", itertools.count().__next__)
     monkeypatch.setattr(profiler, "typed_cache_check", lambda *a: [3, 3, 3, 4])
+    rss = {"status": "unsupported", "diagnostic": "ImportError"}
+    monkeypatch.setattr(profiler, "peak_rss", lambda: rss)
     assert profiler.worker(args) == 0
     receipt = json.loads(capsys.readouterr().out.removeprefix("PROFILE_RECEIPT="))
     assert len(calls) == 6 and len(receipt["samples"]) == 4 and len(receipt["warmups"]) == 2
@@ -416,7 +421,7 @@ def test_worker_success_excludes_first_and_warmups_from_statistics(
     assert receipt["statistics"]["record_wall_seconds"]["count"] == 0
     assert receipt["typed_bundle_compiled_counts"] == [3, 3, 3, 4]
     assert receipt["source"]["profile_script_sha256"] == "source"
-    assert "not VRAM" in receipt["peak_rss"]["scope"]
+    assert receipt["peak_rss"] == rss
 
 
 @pytest.mark.parametrize(
@@ -432,6 +437,11 @@ def test_peak_rss_records_platform_units_not_vram(profiler, monkeypatch, system,
     receipt = profiler.peak_rss()
     assert receipt["value"] == 4096 and receipt["units"] == units and receipt["bytes"] == bytes_
     assert "all stages" in receipt["scope"] and "not VRAM" in receipt["scope"]
+
+
+def test_missing_resource_reports_unsupported_rss(profiler, monkeypatch):
+    monkeypatch.setitem(sys.modules, "resource", None)
+    assert profiler.peak_rss() == {"status": "unsupported", "diagnostic": "ModuleNotFoundError"}
 
 
 def test_identity_is_separate_from_early_ending_work(profiler):
