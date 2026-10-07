@@ -1,78 +1,21 @@
 ---
-title: Extend from another project
-description: Reuse public specifications first, then extend one implementation boundary with conformance checks.
+title: Extension guide
+description: Find the consolidated guide to model, task and analysis extensions.
 ---
 
-Start by asking whether the question needs a new equation or only different settings.
-Existing model parameters and task options are public. A genuinely different substrate
-needs implementation work and its own conformance boundary.
+The extension tutorial and implementation guidance now live in
+[Extend a model, task or analysis](/handbook/extending/).
 
 ## Try a configuration change first
 
-```python
-from brainlesslab import (
-    CompositionSpec, EvaluationSpec, NodeSpec, TaskSpec, profile, resolve,
-)
-
-plan = profile(
-    CompositionSpec(
-        NodeSpec("sorn", {"eta_stdp": 0.0}),
-        TaskSpec("delayed_cue", {"delays": (128,)}),
-        count=32,
-    ),
-    evaluation=EvaluationSpec(blocks=2, trials_per_block=2, root_seed=63),
-)
-print(resolve(plan).targets[0])
-```
-
-This disables SORN's STDP increment from construction while retaining intrinsic
-plasticity and the enabled weight-normalisation path. It is not the same intervention
-as freezing weights after a period of adaptation. Check the implemented meanings
-before using a parameter as a causal control.
-
-Use the locked development environment and inspect a focused suite:
-
-```bash
-uv sync --locked --group dev
-uv run pytest python/tests/test_sorn.py python/tests/test_task_validation.py
-```
-
-Passing these tests verifies their software contracts. It does not validate a new model,
-task interpretation or biological mechanism.
+Use the [worked SORN configuration](/handbook/extending/#try-a-configuration-change-first)
+before adding a new model or task kind.
 
 ## Separate construction from stepping
 
-The existing model pattern has an immutable configuration, a host-side `construct`
-function, an owned `InitialState` and a `ModelBatch` with device arrays. Construction
-receives an explicit NumPy generator. It must not consume an unrelated task stream.
-
-A batch exposes `step(inputs, noise, active)`, emitted activity, effectors and finite
-flags. It also supports reset, weight freeze, full-plasticity freeze and owned snapshots.
-Preserve destination/source matrix orientation, fixed ndarray ranks and runtime dimensions.
-Use ordered destination-owned sums instead of floating-point atomics.
-
-Keep task labels out of the online controller. A new task needs validated options,
-ports, timing, a prepared world and a native scoring rule. Define response windows and
-tie handling explicitly. If it uses feedback, distinguish observations available to the
-controller from diagnostic truth retained for scoring.
+Read the [construction and batch boundary](/handbook/extending/#separate-construction-from-stepping).
 
 ## Build a reviewable extension
 
-Before integrating a new equation, write an independent NumPy calculation for small
-states. Cover threshold equality, old/new-state ordering, adaptation, empty or pruned
-connectivity, reset, inactive slots and numerical failure. Add batch-independence and
-ownership checks; a frozen dataclass alone does not own mutable array storage.
-
-Run focused tests first, then the package and site gates. Execute examples referenced by
-the guide. Keep backend qualification separate from equation conformance. Warm kernels
-before measuring performance, and retain compilation, transfer and recording costs.
-
-The active package deliberately supports two model families and ten task families.
-A generic third-party registry, arbitrary body composition, evolution, checkpoint/resume
-and autodiff are not implemented. Adding a Python class alone does not make it a supported
-`NodeSpec` or `TaskSpec` kind; discovery and resolution need a reviewed package change.
-
-Continue with [implementation interfaces](/reference/interfaces/),
-[learning exercises](/python/learning/) and
-[runtime performance](/python/performance/). Earlier extension APIs are described in
-[version history](/legacy/).
+Follow the [contract checks](/handbook/extending/#define-the-new-contract-before-integrating-it)
+and [verification guidance](/handbook/extending/#build-a-reviewable-extension).

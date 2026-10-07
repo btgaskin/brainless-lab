@@ -313,6 +313,12 @@ const pathLinks = (paths: OperationPaths) => [
 ---
 
 <div class="accepted-catalogue">
+  {contributions.length === 0 && (
+    <section>
+      <h2>No accepted runs yet</h2>
+      <p>The catalogue currently contains no accepted research contributions. Software checks and development recordings do not create accepted study evidence.</p>
+    </section>
+  )}
   {
     contributions.map((contribution) => (
       <article class="contribution">

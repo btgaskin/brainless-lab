@@ -51,7 +51,7 @@ export default defineConfig({
     starlight({
       title: 'BrainlessLab',
       description:
-        'Study locally adapting neural reservoirs in declared tasks with Python and Quadrants.',
+        'Study how local neural adaptation affects task behaviour with Python and Quadrants.',
       logo: {
         light: './src/assets/brainless-lab-icon.png',      // dark ink — for light theme
         dark: './src/assets/brainless-lab-icon-dark.png',   // light ink — for dark theme
@@ -87,28 +87,39 @@ export default defineConfig({
           items: [
             { label: 'Start here', slug: 'start' },
             { label: 'Run your first simulation', slug: 'tutorials/first-simulation' },
-            { label: 'Create a reproducible profile', slug: 'tutorials/reproducible-profile' },
-            { label: 'Compare conditions', slug: 'tutorials/compare-conditions' },
           ],
         },
         {
           label: 'Tasks and models',
           collapsed: true,
           items: [
-            { label: 'Benchmark', slug: 'benchmarks' },
-            { label: 'Capacity probes', slug: 'benchmarks/probes' },
+            { label: 'Choose a task', slug: 'benchmarks/tasks' },
             {
-              label: 'Tasks',
+              label: 'Physical control',
+              collapsed: true,
               items: [
-                { label: 'Overview', slug: 'benchmarks/tasks' },
                 { label: 'Tracking', slug: 'benchmarks/tasks/tracking' },
                 { label: 'Pong', slug: 'benchmarks/tasks/pong' },
                 { label: 'CartPole', slug: 'benchmarks/tasks/cartpole-plank-easy' },
-                { label: 'Delayed cue', slug: 'benchmarks/tasks/delayed-cue' },
               ],
             },
             {
-              label: 'Models',
+              label: 'Capacity probes',
+              collapsed: true,
+              items: [
+                { label: 'Overview and preset cells', slug: 'benchmarks/probes' },
+                { label: 'Delayed cue', slug: 'benchmarks/tasks/delayed-cue' },
+                { label: 'Recall interference', slug: 'benchmarks/probes/recall' },
+                { label: 'Delayed XOR', slug: 'benchmarks/probes/xor' },
+                { label: 'Evidence accumulation', slug: 'benchmarks/probes/evidence' },
+                { label: 'Context integration', slug: 'benchmarks/probes/context' },
+                { label: 'Temporal order', slug: 'benchmarks/probes/order' },
+                { label: 'Reversal adaptation', slug: 'benchmarks/probes/reversal' },
+              ],
+            },
+            {
+              label: 'Neural models',
+              collapsed: true,
               items: [
                 { label: 'Overview', slug: 'benchmarks/models' },
                 { label: 'Falandays', slug: 'benchmarks/models/falandays' },
@@ -118,34 +129,55 @@ export default defineConfig({
           ],
         },
         {
-          label: 'Guide',
+          label: 'Run studies',
+          collapsed: true,
+          items: [
+            { label: 'Create a reproducible profile', slug: 'tutorials/reproducible-profile' },
+            { label: 'Compare conditions', slug: 'tutorials/compare-conditions' },
+            { label: 'Choose an operation', slug: 'handbook/operations' },
+            { label: 'Compare across four tasks', slug: 'benchmarks' },
+            { label: 'Decode recorded activity', slug: 'benchmarks/probes/decoding' },
+          ],
+        },
+        {
+          label: 'Understand the system',
           collapsed: true,
           items: [
             { label: 'System map', slug: 'handbook/system-map' },
             { label: 'Nodes and reservoirs', slug: 'handbook/nodes-reservoirs' },
-            { label: 'Task ports and interaction', slug: 'handbook/bodies-interaction' },
-            { label: 'Worlds, tasks and batches', slug: 'handbook/worlds-tasks-populations' },
-            { label: 'Evaluation', slug: 'handbook/evaluation' },
-            { label: 'Operations', slug: 'handbook/operations' },
-            { label: 'Records and results', slug: 'handbook/records-results' },
-            { label: 'Experiments and evidence', slug: 'handbook/experiments-evidence' },
-            { label: 'Extending BrainlessLab', slug: 'handbook/extending' },
-            { label: 'Extend from another project', slug: 'tutorials/extend-project' },
-            { label: 'Platform limits', slug: 'platform-limits' },
-            { label: 'Learn the implementation', slug: 'python/learning' },
-            { label: 'Measure speed and memory', slug: 'python/performance' },
+            { label: 'Task ports and simulation timing', slug: 'handbook/bodies-interaction' },
+            { label: 'Trials, blocks and random streams', slug: 'handbook/evaluation' },
           ],
         },
         {
           label: 'Reference',
           collapsed: true,
           items: [
-            { label: 'API, plans, and CLI', slug: 'reference' },
-            { label: 'Plan file format', slug: 'reference/plan-format' },
-            { label: 'Core catalogue', slug: 'reference/core-catalog' },
-            { label: 'Analysis', slug: 'reference/analysis' },
-            { label: 'Interfaces', slug: 'reference/interfaces' },
+            { label: 'Python API and CLI', slug: 'reference' },
+            { label: 'Plan format', slug: 'reference/plan-format' },
+            { label: 'Task contracts', slug: 'reference/core-catalog' },
+            { label: 'Outcomes, calibration and uncertainty', slug: 'reference/analysis' },
+            { label: 'Record format and inspection', slug: 'handbook/records-results' },
             { label: 'Glossary', slug: 'glossary' },
+          ],
+        },
+        {
+          label: 'Develop BrainlessLab',
+          collapsed: true,
+          items: [
+            { label: 'Extend a model, task or analysis', slug: 'handbook/extending' },
+            { label: 'Learn the implementation', slug: 'python/learning' },
+            { label: 'Measure speed and memory', slug: 'python/performance' },
+            { label: 'Implementation interfaces', slug: 'reference/interfaces' },
+          ],
+        },
+        {
+          label: 'Evidence and scope',
+          collapsed: true,
+          items: [
+            { label: 'Supported scope and qualification', slug: 'platform-limits' },
+            { label: 'Research stages and evidence', slug: 'handbook/experiments-evidence' },
+            { label: 'Accepted runs', slug: 'research/catalogue' },
           ],
         },
         {
@@ -153,6 +185,17 @@ export default defineConfig({
           collapsed: true,
           items: [
             { label: 'Version history', slug: 'legacy' },
+            {
+              label: 'Historical experiments',
+              collapsed: true,
+              items: [
+                { label: 'Overview', slug: 'experiments' },
+                { label: 'Tracking plasticity and branching', slug: 'experiments/tracking-plasticity-branching' },
+              ],
+            },
+            { label: 'Planned capacity study', slug: 'benchmarks/probes/study' },
+            { label: 'Historical contribution process', slug: 'research' },
+            { label: 'Archived capabilities', slug: 'experimental' },
           ],
         },
       ],

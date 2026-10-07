@@ -63,6 +63,14 @@
   }
 }
 
+@media (max-width: 49.999rem) {
+  header.header site-search button[data-open-modal] {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
+}
+
 /* Keep prose links recognisable after Tailwind's link reset. */
 .sl-markdown-content a[href]:not(:where(.not-content *, .sl-anchor-link)) {
   color: var(--sl-color-text-accent);

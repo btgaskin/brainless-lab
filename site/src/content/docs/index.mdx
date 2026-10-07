@@ -1,10 +1,44 @@
 ---
 title: BrainlessLab
-description: Study locally adapting neural reservoirs in declared tasks with Python and Quadrants.
+description: Study how local neural adaptation affects task behaviour with Python and Quadrants.
 template: splash
 hero:
   title: BrainlessLab
 ---
+
+import TaskPreview from '../../components/TaskPreview.astro';
+
+## Put a neural design in a task
+
+Choose a question with an observable outcome: alignment, interception, balance or a
+delayed response. Each task retains its own native units.
+
+<TaskPreview />
+
+The [task guide](/benchmarks/tasks/) covers three physical tasks and seven capacity-probe
+families, with 64 preset probe cells. Explore the [Falandays and SORN models](/benchmarks/models/)
+to see their equations and local adaptation rules.
+
+## Declare, compare and inspect
+
+1. **Declare a design.** Specify the model, task, node count and randomised repetitions in a plan.
+2. **Compare conditions.** Keep the task opportunity and world streams matched while changing a declared mechanism.
+3. **Inspect the record.** Read resolved settings, stream identities, trial status and task outcomes before interpreting a summary.
+
+Start by checking the included delayed-cue plan:
+
+```bash
+uv run brainlesslab check python/plans/delayed-cue.toml
+```
+
+From a repository checkout with the package installed, this prints the resolved
+configuration without running a simulation. [Run your first simulation](/tutorials/first-simulation/)
+for installation, execution and a checksum check of the saved record.
+
+Then [create a reproducible profile](/tutorials/reproducible-profile/) to measure variation
+across independent blocks, or [compare conditions](/tutorials/compare-conditions/) to test
+a declared change. The [system map](/handbook/system-map/) explains how Python constructs
+the system and Quadrants advances neural and world state in bounded batches.
 
 ## What’s it like to be a neuron?
 
@@ -15,30 +49,6 @@ BrainlessLab gives this question an experimental form. Specify a neural reservoi
 place it in a declared task, and compare what happens. The opening visual introduces
 the cellular perspective; it is not a BrainlessLab simulation or evidence about a
 neuron’s experience.
-
-## Make the neural design an experimental object
-
-The active models are Falandays and SORN. Each has its own equations and local
-adaptation rules. Tasks include Tracking, Pong, CartPole and delayed cue.
-The capacity-probe library retains 64 difficulty cells across seven families.
-
-Python constructs the system and analyses its records. Quadrants advances neural and
-world state in bounded batches. You can change the design while keeping the task,
-protocol and random streams explicit.
-
-[Run your first simulation](/tutorials/first-simulation/) and inspect its task outcome.
-Read the [system map](/handbook/system-map/) to see how the parts fit together.
-
-## Keep the question and the record together
-
-A plan declares the composition, protocol and scientific question. A portable record
-preserves resolved settings, random-stream identities, individual outcomes and summaries.
-Task outcomes retain their key, raw value and normalised value when a matching
-calibration is available.
-
-[Create a reproducible profile](/tutorials/reproducible-profile/) or
-[compare conditions](/tutorials/compare-conditions/) with independent blocks and matched
-worlds. Different tasks remain different quantities.
 
 ## Keep software and evidence separate
 
@@ -54,7 +64,8 @@ source revisions and evidence status.
 
 Read the [platform limits](/platform-limits/), the
 [research workflow](/handbook/experiments-evidence/) and the
-[historical research catalogue](/research/catalogue/).
+[accepted-run catalogue](/research/catalogue/). There are no accepted runs in the
+catalogue yet.
 
 ## People and support
 

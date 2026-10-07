@@ -1,5 +1,5 @@
 ---
-title: Plan file format
+title: Plan format
 description: Store the scientific question, named conditions and protocol in one TOML schema.
 ---
 
@@ -60,6 +60,52 @@ uv run brainlesslab check python/plans/delayed-cue.toml
 A successful check reports resolved targets, task ports, horizons and seed policy
 without simulation. Unknown options, incompatible horizons and unsupported evidence
 claims fail before execution.
+
+## Fields and defaults
+
+Unknown fields are rejected. TOML has no null value: omit `evaluation.horizon` to
+use each task's default. Python API defaults are the same as portable-plan defaults.
+
+| Table | Fields and defaults |
+| --- | --- |
+| Root | Required `format`, `format_version`, `id` and at least one target; `operation="profile"`, `question=""`, `version="1"`, `evidence="exploratory"`, `diagnostic=false` |
+| `evaluation` | `blocks=1`, `trials_per_block=1`, omitted horizon, `warmup=0`, `construction_scope="block"`, `root_seed=0`, `seed_partition="development"` |
+| `numerics` | `dtype="float64"`, `fast_math=false`, `reduction="ordered"`, `rng="philox-host-v1"` |
+| `targets` | Required unique `id`; `label=""`, `pairing_key="paired-worlds"`, `construction_key="paired-construction"`, `mechanism_key="paired-mechanism"`, `controller="reservoir"`, no interventions |
+| `targets.composition` | `count=200`, `input_gain=1.0` |
+| `targets.composition.node` | `kind="falandays"`; `parameters` table defaults to empty |
+| `targets.composition.task` | `kind="delayed_cue"`; `options` table defaults to empty |
+| `targets.interventions` | Array of tables with required `tick` and `verb` |
+
+Operations are `profile`, `sweep`, `ablate`, `benchmark` and `calibrate`. The development
+runner accepts `planned`, `exploratory`, `tuned`, `frozen` and `retired` evidence states;
+it rejects `confirmed` and `promoted`. A state label does not establish evidence.
+
+Blocks, trials, node count and one-based intervention ticks must be positive integers.
+Root seed and warm-up must be non-negative integers. A supplied horizon must exceed
+warm-up and contain the task's scoring opportunity. Construction scope is
+`evaluation`, `block` or `trial`; its inferential meaning is explained in
+[trials, blocks and random streams](/handbook/evaluation/).
+
+Numerics support float64 or float32 with strict ordered reduction, disabled fast math
+and the versioned host RNG. Input gain must be finite and non-negative. Controller
+availability and model/task options are checked against the selected task and model.
+
+### Timed interventions
+
+Add interventions after the target's task options, for example:
+
+```toml
+[[targets.interventions]]
+tick = 16
+verb = "freeze_weights"
+```
+
+The supported verbs are `freeze_weights`, `freeze_plasticity`, `blind_input` and
+`shuffle_input`. They require a reservoir controller and a valid tick within the
+horizon. Redundant interventions and changes that cannot affect the configured
+mechanism are rejected. Read [paired comparisons](/tutorials/compare-conditions/)
+before treating an intervention as a causal control.
 
 ## Keep execution choices separate
 

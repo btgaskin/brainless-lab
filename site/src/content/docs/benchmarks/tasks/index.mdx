@@ -1,34 +1,60 @@
 ---
-title: Core tasks
-description: Read the physical and delayed-response contracts before comparing outcomes.
+title: Choose a task
+description: Match a question to a physical control task or a declared capacity probe.
 ---
 
-The core task set contains Tracking, Pong, CartPole and delayed cue.
-Each task declares inputs, effectors, action cadence, an ordinary horizon and one
-primary outcome.
+Ten task families are supported. Each declares inputs, effectors, action cadence,
+an ordinary horizon and one primary outcome. Choose the opportunity that answers
+your question before comparing model settings.
+
+## Physical control
 
 | Task | Question | Native unit |
 | --- | --- | --- |
 | [Tracking](/benchmarks/tasks/tracking/) | Does the observer align with a moving stimulus? | Mean cosine of angular error |
 | [Pong](/benchmarks/tasks/pong/) | Does the paddle intercept approaching balls? | Hit fraction |
 | [CartPole](/benchmarks/tasks/cartpole-plank-easy/) | How long does the pole remain within bounds? | World steps survived |
+
+Tracking and Pong run for a fixed horizon. CartPole terminates when its declared
+bounds are crossed or its step cap is reached.
+
+## Capacity probes
+
+| Task | Question | Native unit |
+| --- | --- | --- |
 | [Delayed cue](/benchmarks/tasks/delayed-cue/) | Is one cue retained until go? | Response accuracy |
+| [Recall interference](/benchmarks/probes/recall/) | Is the first cue retained despite competing cues? | Response accuracy |
+| [Delayed XOR](/benchmarks/probes/xor/) | Can two separated cues be combined? | Response accuracy |
+| [Evidence accumulation](/benchmarks/probes/evidence/) | Is the majority of a pulse stream recovered? | Response accuracy |
+| [Context integration](/benchmarks/probes/context/) | Is the relevant evidence stream selected? | Response accuracy |
+| [Temporal order](/benchmarks/probes/order/) | Is A–B distinguished from B–A? | Response accuracy |
+| [Reversal adaptation](/benchmarks/probes/reversal/) | Does the response adjust after a hidden mapping changes? | Post-change accuracy |
+
+The [preset library](/benchmarks/probes/) has 64 named difficulty cells across these
+seven families. They are configurations, not independent samples or validated abilities.
+Binary probes finish at the end of their response episode. Reversal is one continuous
+multi-round session per trial; rounds do not become independent trials.
+
+## Inspect a task contract
 
 ```python
 from brainlesslab import TaskSpec
-from brainlesslab.tasks import definition
+from brainlesslab.tasks import definition, resolve
 
-for kind in ("tracking", "pong", "cartpole_plank_easy", "delayed_cue"):
-    print(kind, definition(TaskSpec(kind)))
+task = TaskSpec("delayed_cue", {"delays": (32,)})
+print(resolve(task))
+print(definition(task))
 ```
 
-The output exposes port widths, neural cadence, default horizon, minimum scored
-ticks, outcome key and bound. Resolution also checks task options and protocol
-compatibility before allocation.
+Expect three inputs, two effectors, one neural frame per world tick, a 48-tick default
+horizon and outcome key `recall_accuracy`. Resolution checks options before allocation.
+The [task contract reference](/reference/core-catalog/) lists widths, cadences, horizons,
+native outcome keys and bounds for all families.
 
-The six [additional capacity families](/benchmarks/probes/) are available
-experimental software. Historical benchmark tables retain their original protocols
-and source revisions; current availability does not promote them.
+The [four-task comparison](/benchmarks/) is an operation across Tracking, Pong,
+CartPole and delayed cue. It is one protocol, rather than the complete task catalogue.
+Historical benchmark tables retain their original protocols and source revisions;
+current availability does not promote them.
 
 Compare conditions within a task using [independent blocks](/handbook/evaluation/)
 and a suitable [null](/reference/analysis/). Use

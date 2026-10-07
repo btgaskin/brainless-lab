@@ -1,5 +1,5 @@
 ---
-title: API, plans and CLI
+title: Python API and CLI
 description: Choose the smallest public operation that answers your question.
 ---
 
@@ -41,6 +41,53 @@ or producing observations.
 `benchmark` measures task performance. Runtime speed, compilation and transfer costs
 have a [separate guide](/python/performance/).
 
+## Specification defaults
+
+These immutable values describe the scientific work. Use the
+[plan reference](/reference/plan-format/) for fields, constraints and TOML nesting.
+
+| Value | Defaults and fields |
+| --- | --- |
+| `NodeSpec` | `kind="falandays"`, `parameters={}`; model-specific parameters are checked during resolution |
+| `TaskSpec` | `kind="delayed_cue"`, `options={}`; task-specific options are checked during resolution |
+| `CompositionSpec` | Default node and task, `count=200`, `input_gain=1.0` |
+| `EvaluationSpec` | `blocks=1`, `trials_per_block=1`, `horizon=None`, `warmup=0`, `construction_scope="block"`, `root_seed=0`, `seed_partition="development"` |
+| `NumericalPolicy` | `dtype="float64"`, `fast_math=False`, `reduction="ordered"`, `rng="philox-host-v1"` |
+| `EvaluationTarget` | Required stable `id`; composition, label, pairing/construction/mechanism keys, controller and interventions |
+| `Intervention` | Required positive, one-based `tick` and one of `freeze_weights`, `freeze_plasticity`, `blind_input`, `shuffle_input` |
+| `Plan` | Required `id` and non-empty targets; shared evaluation and numerics, `operation="profile"`, `question=""`, `version="1"`, `evidence="exploratory"`, `diagnostic=False` |
+
+Model parameters and task options differ by family. Follow the
+[model guides](/benchmarks/models/) and [task contracts](/reference/core-catalog/);
+there is no general third-party registry.
+
+## Execution policy
+
+Pass `ExecutionSpec` to `execute` to choose placement and resource limits. Its defaults
+are CPU, batch size 32, 256 MiB managed memory, reserve fraction 0.25, 64-frame noise
+tiles, summary recording, a 32 MiB recording budget, one CPU thread and enabled cache.
+The Python fields are `backend`, `batch_size`, `memory_budget_bytes`, `reserve_fraction`,
+`noise_tile_frames`, `recording`, `recording_budget_bytes`, `cpu_threads` and `cache`.
+
+Memory and recording budgets may reject work; they must not alter its scientific
+specification. Metal requires an explicitly float32 plan and separate qualification.
+
+## Returned results
+
+`resolve` returns a `ResolvedPlan` containing the submitted `request`, validated
+`targets` and `contract_hash`. Each target includes its resolved model configuration,
+task options, horizon, input/effector widths, neural cadence, outcome key and bound.
+
+`execute` and `simulate` return an `EvaluationResult` with `resolved`, `trials`,
+`summaries`, `contrasts`, `events`, `probe_trials`, `calibrations`, `replays`, `metadata`
+and `timings`. Recording channels determine which optional collections are populated.
+Inspect trial failures before using an aggregate.
+
+`TaskOutcome` retains `key`, `raw`, `normalised`, `normalisation_status`,
+`calibration_id` and `scoring_window`. Missing calibration leaves the adjusted value
+unavailable. Negative null-adjusted values are retained. See
+[outcomes, calibration and uncertainty](/reference/analysis/) for permitted interpretation.
+
 ## Use the CLI for portable records
 
 ```bash
@@ -53,8 +100,25 @@ Replace `RECORD_ID` with the directory printed by `run`. `check` is read-only.
 `run` writes a new versioned record; `inspect` validates its completion status and
 checksums. Preserve a `FAILED` record when investigating an incomplete run.
 
-Use `uv run brainlesslab --help` and each subcommand's `--help` for execution
-options. Placement and recording are separate from the submitted scientific plan.
+### Run options
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--root PATH` | `records` | Parent directory for new records |
+| `--backend cpu\|metal` | `cpu` | Execution backend; Metal needs float32 numerics |
+| `--batch-size N` | `32` | Maximum admitted batch slots |
+| `--memory-budget-mib N` | `256` | Managed-memory budget in MiB |
+| `--recording summary\|probe_events\|replay` | `summary` | Recording channel |
+| `--recording-budget-mib N` | `32` | Recording budget in MiB |
+| `--cpu-threads N` | `1` | CPU execution threads |
+| `--calibration PATH` | None | Matching frozen calibration; repeat for several tasks |
+
+The CLI writes JSON to standard output and diagnostic logs to standard error.
+`check` succeeds without simulation; `run` succeeds only with a complete record;
+`inspect` succeeds only for a complete record with verified checksums. Execution and
+record errors return 1; invalid command-line arguments return 2; an interrupted run
+returns 130. Use each subcommand's `--help` to inspect
+the installed version. Placement and recording are separate from the submitted plan.
 
 The current package has no generic evolution, body registry or durable
 checkpoint/resume API. Start with [the first simulation](/tutorials/first-simulation/),

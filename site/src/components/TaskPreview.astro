@@ -4,9 +4,17 @@ const ticks = Array.from({ length: 12 }, (_, index) => index * Math.PI / 6);
 ---
 
 <task-preview class="not-content task-preview">
+  <p class="preview-caption">Task illustration · Scripted diagram, not a recorded simulation.</p>
   <div class="preview-controls">
     <div class="preview-picker"><TaskPicker /></div>
     <a class="preview-task-link" href="/benchmarks/tasks/tracking/" data-task-link>View docs</a>
+  </div>
+
+  <div class="preview-description" aria-live="polite">
+    <p data-task="tracking">Does the observer align with a moving stimulus? Outcome: mean cosine of angular error.</p>
+    <p data-task="pong" hidden>Does the paddle intercept approaching balls? Outcome: hit fraction.</p>
+    <p data-task="cartpole" hidden>How long does the pole remain within bounds? Outcome: world steps survived.</p>
+    <p data-task="delayed-cue" hidden>Is one cue retained until go? Outcome: response accuracy.</p>
   </div>
 
   <div class="preview-stage">
@@ -93,6 +101,9 @@ const ticks = Array.from({ length: 12 }, (_, index) => index * Math.PI / 6);
     --preview-line: color-mix(in srgb, currentColor 22%, transparent);
   }
   .task-preview [hidden] { display: none !important; }
+  .preview-caption { margin: 0 0 0.75rem; color: var(--sl-color-gray-2); font-size: 0.875rem; line-height: 1.5; }
+  .preview-description { min-height: 3.5rem; margin-top: 0.75rem; }
+  .preview-description p { margin: 0; font-size: 0.9375rem; line-height: 1.6; }
   .preview-controls { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
   .preview-picker { flex: 1; min-width: 0; }
   .preview-task-link {

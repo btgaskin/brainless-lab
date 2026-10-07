@@ -46,9 +46,20 @@ Expect JSON containing the original request and resolved targets. The command do
 advance state or generate a research result. To execute, use `run` or the public
 `execute` function with a reviewed execution policy.
 
-The scheduler groups compatible task/model work and admits it against managed memory
-and recording budgets. Batch slots are physical placement. They do not replace target,
-block, trial, wiring or feature identity.
+## Keep batches separate from scientific identities
+
+Stable stream identities derive from the scientific specification. The scheduler groups
+work with compatible task family, model, port widths and numerical policy, then admits
+it against managed memory and recording budgets. It can split a group into smaller
+batches without changing target, block, trial, wiring or feature identities.
+
+More slots may improve throughput. They do not enlarge the independent sample in an
+already declared plan. If one trajectory cannot fit, the runner fails before constructing
+its world rather than silently reducing node count or changing the protocol.
+
+Check trial status, realised world identities and wiring IDs when comparing batch sizes.
+Exact same-policy equality is a software gate; CPU64 and Metal32 require a separate
+numerical qualification because their arithmetic differs.
 
 A result contains per-trial statuses and outcomes, block summaries and provenance.
 Optional recording adds sparse probe events or development replay frames. The task's

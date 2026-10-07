@@ -42,6 +42,15 @@ Earlier protocols and research records retain their original source revisions.
   Python 3.12 environment and Quadrants 1.3.3.
 - Replace the website's live numerical engine with task illustrations and
   generated development recordings. Simplify the first-run and comparison guides.
+- Organise the guide around getting started, tasks and models, study workflows,
+  system concepts, reference, development, evidence and history. Expose all ten
+  task families while preserving existing page URLs.
+- Lead the landing page with the research workflow, identify microscopy and
+  scripted diagrams beside their visuals, and place the first-run route before
+  the task illustration on the start page.
+- Consolidate extension guidance, expand specification and CLI reference tables,
+  label historical search results and show when the accepted-run catalogue is empty.
+- Align desktop search with the reading column and enlarge its phone touch target.
 - Add the project contributors and acknowledgements for the Diverse Intelligences
   Summer Institute and John Templeton Foundation.
 - Make the installed-wheel test use the native virtual-environment interpreter

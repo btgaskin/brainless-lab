@@ -5,7 +5,7 @@ async function source(relativePath: string): Promise<string> {
 }
 
 describe('landing-page structure', () => {
-  test('introduces the platform beside the visual and places task illustrations in the guide', async () => {
+  test('introduces the platform beside the visual and identifies illustrations separately from results', async () => {
     const hero = await source('./LandingHero.astro');
     const landing = await source('../content/docs/index.mdx');
     const guide = await source('../content/docs/start.mdx');
@@ -14,7 +14,8 @@ describe('landing-page structure', () => {
     expect(hero).toContain('<NeuronRecording />');
     expect(hero).not.toContain('TaskPreview');
     expect(guide).toContain('<TaskPreview />');
-    expect(landing).not.toContain('TaskPreview');
+    expect(landing).toContain('<TaskPreview />');
+    expect(await source('./NeuronRecording.astro')).toContain('Biological footage, not a BrainlessLab simulation.');
     expect(landing).toContain('What’s it like to be a neuron?');
     expect(landing).toContain('not a BrainlessLab simulation');
     expect(landing).toContain('does not establish cognition');
@@ -28,7 +29,7 @@ describe('landing-page structure', () => {
     expect(header).toContain('@astrojs/starlight/components/Header.astro');
     expect(header).toContain('<DefaultHeader />');
     expect(header).toContain('aria-label="Primary navigation"');
-    for (const route of ['/tutorials/first-simulation/', '/handbook/system-map/']) {
+    for (const route of ['/tutorials/first-simulation/', '/benchmarks/tasks/']) {
       expect(hero).toContain(route);
     }
     for (const route of ['/tutorials/reproducible-profile/', '/tutorials/compare-conditions/', '/platform-limits/', '/research/catalogue/']) {
@@ -43,6 +44,7 @@ describe('landing-page structure', () => {
       expect(preview).toContain(`/benchmarks/tasks/${task}/`);
     }
     expect(preview).toContain('View docs');
+    expect(preview).toContain('Scripted diagram, not a recorded simulation.');
     expect(preview).not.toContain('Falandays');
     expect(preview).not.toContain('SORN');
     expect(controller).not.toContain('fetch(');

@@ -1,5 +1,5 @@
 ---
-title: Extending BrainlessLab
+title: Extend a model, task or analysis
 description: Choose one narrow boundary and establish its software and evidence limits.
 ---
 
@@ -36,6 +36,43 @@ Scientific specifications remain immutable host values. Keep device buffers and 
 admission in execution. Use explicit generators and stable entity/feature IDs. Preserve
 destination/source matrices and fixed ndarray ranks with runtime dimensions.
 
+## Try a configuration change first
+
+```python
+from brainlesslab import (
+    CompositionSpec, EvaluationSpec, NodeSpec, TaskSpec, profile, resolve,
+)
+
+plan = profile(
+    CompositionSpec(
+        NodeSpec("sorn", {"eta_stdp": 0.0}),
+        TaskSpec("delayed_cue", {"delays": (128,)}),
+        count=32,
+    ),
+    evaluation=EvaluationSpec(blocks=2, trials_per_block=2, root_seed=63),
+)
+print(resolve(plan).targets[0])
+```
+
+Expect one resolved SORN target. This disables SORN's STDP increment from construction
+while retaining intrinsic plasticity and enabled weight normalisation. It is not
+the same intervention as freezing weights after a period of adaptation. Check
+implemented meanings before using a parameter as a causal control.
+
+## Separate construction from stepping
+
+An implemented model has an immutable configuration, a host-side `construct` function,
+an owned `InitialState` and a `ModelBatch` with device arrays. Construction receives
+an explicit NumPy generator; it must not consume an unrelated task stream.
+
+A batch exposes `step(inputs, noise, active)`, emitted activity, effectors and finite
+flags. It supports reset, weight freeze, full-plasticity freeze and owned snapshots.
+Use ordered destination-owned sums instead of floating-point atomics.
+
+Keep task labels out of the online controller. A new task needs validated options,
+ports, timing, a prepared world and a native scoring rule. If it uses feedback,
+distinguish available observations from diagnostic truth retained for scoring.
+
 ## Define the new contract before integrating it
 
 For a model, state the old-state/new-state order, threshold equality rule, emitted
@@ -55,6 +92,19 @@ Only after those checks should you profile runtime costs or propose an optimisat
 Preserve a single equation source when introducing fused execution. Canonical ndarray
 access and explicit returned status values avoid stale reads across aliased helper views.
 
-Continue with [the extension tutorial](/tutorials/extend-project/),
+## Build a reviewable extension
+
+Run focused tests first, then the package and site gates. Execute examples referenced
+by the guide. A frozen dataclass alone does not own mutable array storage: check
+ownership and batch independence explicitly. Keep backend qualification separate
+from equation conformance, and retain compilation, transfer and recording costs
+when measuring performance.
+
+The active package supports two model families and ten task families. A Python class
+alone does not make a supported `NodeSpec` or `TaskSpec` kind; discovery and resolution
+need a reviewed package change. Evolution, durable checkpoint/resume and autodiff
+are not implemented.
+
+Continue with
 [interfaces](/reference/interfaces/), [learning exercises](/python/learning/) and
 [runtime performance](/python/performance/).

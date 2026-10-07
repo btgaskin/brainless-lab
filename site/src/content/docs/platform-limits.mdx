@@ -1,5 +1,5 @@
 ---
-title: Platform limits
+title: Supported scope and qualification
 description: Distinguish implemented software, local checks and qualification receipts.
 ---
 
@@ -17,6 +17,22 @@ The CI matrix requests CPU checks on Ubuntu 24.04 x64, Windows 2022 x64 and
 macOS 14 arm64. These are configured architecture gates. Actual CI receipts establish
 what passed; configuration alone does not qualify those platforms.
 No CUDA, Vulkan, Linux arm64 or Windows arm64 qualification is claimed.
+
+### Recorded local checks
+
+The [7 October 2026 qualification receipts](https://github.com/btgaskin/brainless-lab/blob/main/docs/python/qualification/README.md)
+describe one macOS arm64 host with Python 3.12.13 and Quadrants 1.3.3. They are
+bounded software checks, not qualification of every CPU architecture or study evidence.
+
+| Receipt | What it establishes |
+| --- | --- |
+| [Software checks](https://github.com/btgaskin/brainless-lab/blob/main/docs/python/qualification/software.json) | The recorded CPU64 test suite, lint/type checks and installed-wheel check |
+| [Backend conformance](https://github.com/btgaskin/brainless-lab/blob/main/docs/python/qualification/backend-conformance.json) | 637 short CPU32/Metal32 snapshots with declared tolerances; not long-run bit equality |
+| [Development execution](https://github.com/btgaskin/brainless-lab/blob/main/docs/python/qualification/runtime.json) | Completed local plans and bounded decoding checks; not confirmed task performance |
+
+These receipts retain their original tested source and counts. A changed release
+needs fresh checks. Configured CI on another architecture remains pending until
+its actual run passes.
 
 ```bash
 uv sync --locked --group dev

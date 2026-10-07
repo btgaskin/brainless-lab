@@ -57,16 +57,18 @@
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
+  min-width: 0;
   padding: clamp(2.5rem, 7vw, 6rem) clamp(1.5rem, 6vw, 6rem);
 }
 
 .bl-home-copy h1 {
   margin: 0;
   font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
-  font-size: clamp(2.8rem, 5.4vw, 5.5rem);
+  font-size: clamp(2.4rem, 9.8vw, 5.5rem);
   font-weight: 500;
   letter-spacing: -0.055em;
   line-height: 1.05;
+  white-space: nowrap;
 }
 
 .bl-home-description {
@@ -77,6 +79,7 @@
 }
 
 .bl-home-runtime {
+  max-width: 48ch;
   margin-top: 1rem;
   color: var(--bl-home-muted);
   font-size: 0.95rem;
@@ -144,6 +147,9 @@
 }
 
 @media (min-width: 56rem) {
+  .bl-home-copy h1 {
+    font-size: clamp(2.4rem, 4.4vw, 5rem);
+  }
   .bl-home-opening {
     grid-template-columns: minmax(0, 44fr) minmax(0, 56fr);
     min-block-size: calc(100svh - var(--sl-nav-height));

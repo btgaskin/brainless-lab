@@ -27,6 +27,9 @@ bun run build
 Run the first-simulation plan and inspect the printed record. Success requires
 `complete: true` and `checksums_valid: true`. Check the homepage acknowledgements,
 the documentation navigation and the task illustrations in a browser.
+Check the landing page and start page at desktop and phone widths. Confirm all ten
+task families are reachable, historical pages remain labelled, the empty accepted-run
+catalogue is explicit, and old page links and section anchors still resolve.
 
 Keep the local CPU result separate from the retained Metal qualification receipts.
 The Windows installed-wheel test uses `Scripts/python.exe`; POSIX uses `bin/python`.
