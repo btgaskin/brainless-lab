@@ -4,15 +4,14 @@ Schedules and labels are diagnostic metadata. Runtime controllers receive only
 the declared observation vector. The host prepares random worlds, never actions.
 """
 
+import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from collections.abc import Mapping
-import math
 
 import numpy as np
 
 from ..specs import TaskSpec
-
 
 DEFAULTS = {
     "tracking": dict(stim_speed_rad=math.pi / 180, movement_amp=10.0,
@@ -198,13 +197,85 @@ class InitialState:
     metadata: Mapping
 
     def __post_init__(self):
-        for name in ("physical", "stimuli", "response_start", "response_end", "cue_ends", "labels", "round_bounds", "draws"):
-            kind = np.int32 if name in ("response_start", "response_end", "cue_ends", "labels", "round_bounds") else np.float64
-            value = np.array(getattr(self, name), dtype=kind, order="C", copy=True)
+        if not isinstance(self.spec, TaskSpec):
+            raise TypeError("spec must be a TaskSpec")
+        if not isinstance(self.definition, Definition) or self.definition != definition(self.spec):
+            raise ValueError("definition must match the task specification and ports")
+        if not isinstance(self.options, Mapping) or dict(self.options) != resolve(self.spec):
+            raise ValueError("options must match the resolved task specification")
+        if not isinstance(self.metadata, Mapping):
+            raise TypeError("metadata must be a mapping")
+        integer_arrays = ("response_start", "response_end", "cue_ends", "labels", "round_bounds")
+        for name in ("physical", "stimuli", "draws", *integer_arrays):
+            kind = np.int32 if name in integer_arrays else np.float64
+            raw = np.asarray(getattr(self, name))
+            if raw.dtype.kind not in "iuf" or not np.all(np.isfinite(raw)):
+                raise ValueError(f"{name} must contain finite numeric values")
+            if kind == np.int32:
+                limits = np.iinfo(np.int32)
+                if (np.any(raw != np.floor(raw)) or np.any(raw < limits.min)
+                        or np.any(raw > limits.max)):
+                    raise ValueError(f"{name} must contain exactly representable int32 integers")
+            value = np.array(raw, dtype=kind, order="C", copy=True)
             value.flags.writeable = False
             object.__setattr__(self, name, value)
+        if self.physical.shape != (8,):
+            raise ValueError("physical must have shape (8,)")
+        if (self.stimuli.ndim != 2 or self.stimuli.shape[0] < 1
+                or self.stimuli.shape[1] != self.definition.n_inputs):
+            raise ValueError("stimuli must have shape (T, n_inputs), with T >= 1")
+        if self.draws.ndim != 2 or self.draws.shape[0] < 1 or self.draws.shape[1] != 2:
+            raise ValueError("draws must have shape (K, 2), with K >= 1")
+        schedules = (self.response_start, self.response_end, self.cue_ends, self.labels)
+        if (any(value.ndim != 1 for value in schedules)
+                or len({value.size for value in schedules}) != 1):
+            raise ValueError("labels, response schedules and cue ends must be equal-length vectors")
+        rounds = self.labels.size
+        if self.round_bounds.shape != (rounds, 2):
+            raise ValueError("round_bounds must have shape (number of labels, 2)")
+        if self.definition.is_probe:
+            if not rounds or np.any((self.labels != 1) & (self.labels != 2)):
+                raise ValueError("probes require labels 1 or 2")
+            start, end = self.round_bounds.T
+            if (np.any(start < 0) or np.any(end > self.stimuli.shape[0]) or np.any(start >= end)
+                    or np.any(start[1:] < end[:-1]) or np.any(self.cue_ends <= start)
+                    or np.any(self.cue_ends > self.response_start)
+                    or np.any(self.response_start >= self.response_end)
+                    or np.any(self.response_end > end)):
+                raise ValueError(
+                    "probe schedules must be ordered within their rounds and stimulus horizon"
+                )
+        elif rounds:
+            raise ValueError("ordinary tasks require empty probe labels and schedules")
+        if self.spec.kind == "reversal_adaptation":
+            reversal = _integer(self.metadata.get("reversal_round"), "reversal_round", 2)
+            lo, hi = self.options["reversal_range"]
+            if (rounds != self.options["rounds"] or not lo <= reversal <= hi
+                    or reversal - 1 + 15 >= rounds):
+                raise ValueError(
+                    "reversal must leave sixteen scored rounds within the declared range"
+                )
         object.__setattr__(self, "options", MappingProxyType(dict(self.options)))
         object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+
+
+def validate_precision(initials, dtype):
+    """Keep required positive task parameters positive at the execution precision.
+
+    Call before device allocation, alongside the shared finite-cast check.
+    Zero sensory gain and zero stimulus speed are valid task controls.
+    """
+    dtype = np.dtype(dtype)
+    if dtype not in (np.dtype("float32"), np.dtype("float64")):
+        raise ValueError("dtype must be float64 or float32")
+    for initial in initials:
+        if initial.spec.kind == "tracking":
+            with np.errstate(over="ignore", under="ignore"):
+                movement = np.asarray(initial.options["movement_amp"], dtype=dtype)
+            if not np.isfinite(movement) or movement <= 0:
+                raise ValueError(
+                    f"movement_amp must remain finite and positive after casting to {dtype.name}"
+                )
 
 
 def _pulses(rng, n, fraction, label):
