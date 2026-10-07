@@ -68,6 +68,25 @@ def count_frame(active: qd.types.NDArray[qd.i32, 1], cursors: qd.types.NDArray[q
 
 
 @qd.kernel(fastcache=True)
+def random_frame(tile: qd.types.NDArray[None, 2],
+                 randoms: qd.types.NDArray[None, 1],
+                 rounds: qd.types.NDArray[qd.i32, 1], frame: qd.i32, episodic: qd.i32):
+    for b in range(randoms.shape[0]):
+        index = frame
+        if episodic != 0:
+            index = qd.min(rounds[b], tile.shape[0] - 1)
+        randoms[b] = tile[index, b]
+
+
+@qd.kernel(fastcache=True)
+def filter_finite(active: qd.types.NDArray[qd.i32, 1],
+                  finite: qd.types.NDArray[qd.i32, 1],
+                  task_finite: qd.types.NDArray[qd.i32, 1]):
+    for b in range(active.shape[0]):
+        active[b] *= qd.cast(finite[b] != 0 and task_finite[b] != 0, qd.i32)
+
+
+@qd.kernel(fastcache=True)
 def capture_events(activity: qd.types.NDArray[None, 2],
                    ticks: qd.types.NDArray[qd.i32, 1],
                    advanced: qd.types.NDArray[qd.i32, 1],

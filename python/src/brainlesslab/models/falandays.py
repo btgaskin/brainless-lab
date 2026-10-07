@@ -195,7 +195,7 @@ class _Fixed:
     spikes0: qd.types.NDArray[None, 2]
 
 
-@qd.kernel
+@qd.kernel(fastcache=True)
 def _save_previous(s: _State, active: qd.types.NDArray[qd.i32, 1]):
     for b, i in qd.ndrange(s.spikes.shape[0], s.spikes.shape[1]):
         if active[b] != 0:
@@ -210,7 +210,7 @@ def _real_zero(precision: qd.template()):
         return qd.cast(0, qd.f32)
 
 
-@qd.kernel
+@qd.kernel(fastcache=True)
 def _integrate(s: _State, f: _Fixed, inputs: qd.types.NDArray[None, 2],
                noise: qd.types.NDArray[None, 2], active: qd.types.NDArray[qd.i32, 1],
                real: qd.template()):
@@ -243,7 +243,7 @@ def _integrate(s: _State, f: _Fixed, inputs: qd.types.NDArray[None, 2],
             s.counts[b, i] = count
 
 
-@qd.kernel
+@qd.kernel(fastcache=True)
 def _learn(s: _State, f: _Fixed, active: qd.types.NDArray[qd.i32, 1]):
     for b, i in qd.ndrange(s.acts.shape[0], s.acts.shape[1]):
         if active[b] != 0 and s.learning[b] != 0:
@@ -275,7 +275,7 @@ def _learn(s: _State, f: _Fixed, active: qd.types.NDArray[qd.i32, 1]):
             s.targets[b, i] = qd.max(f.params[b, 4], target)
 
 
-@qd.kernel
+@qd.kernel(fastcache=True)
 def _readout(s: _State, f: _Fixed, active: qd.types.NDArray[qd.i32, 1], real: qd.template()):
     for b, e in qd.ndrange(s.effectors.shape[0], s.effectors.shape[1]):
         if active[b] != 0:
@@ -295,7 +295,7 @@ def _is_finite(value):
     return not qd.math.isnan(value) and not qd.math.isinf(value)
 
 
-@qd.kernel
+@qd.kernel(fastcache=True)
 def _finite(s: _State, active: qd.types.NDArray[qd.i32, 1]):
     for b in range(s.acts.shape[0]):
         if active[b] != 0:
@@ -311,7 +311,7 @@ def _finite(s: _State, active: qd.types.NDArray[qd.i32, 1]):
             s.finite[b] = valid
 
 
-@qd.kernel
+@qd.kernel(fastcache=True)
 def _reset(s: _State, f: _Fixed, active: qd.types.NDArray[qd.i32, 1]):
     for b, i in qd.ndrange(s.acts.shape[0], s.acts.shape[1]):
         if active[b] != 0:
@@ -333,7 +333,7 @@ def _reset(s: _State, f: _Fixed, active: qd.types.NDArray[qd.i32, 1]):
                 s.effectors[b, e] = 0
 
 
-@qd.kernel
+@qd.kernel(fastcache=True)
 def _freeze(s: _State, active: qd.types.NDArray[qd.i32, 1], all_plasticity: qd.i32):
     for b in range(s.learning.shape[0]):
         if active[b] != 0:

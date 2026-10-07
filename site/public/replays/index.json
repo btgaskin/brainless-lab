@@ -1,0 +1,70 @@
+{
+  "format": "brainlesslab-replay-index",
+  "version": 1,
+  "cases": [
+    {
+      "id": "falandays-tracking",
+      "task": "tracking",
+      "node": "falandays",
+      "label": "Falandays \u00b7 Tracking \u00b7 development",
+      "path": "/replays/falandays-tracking.json",
+      "sha256": "51c3bcfe54a7928990c587bf3465aedea7534f4b32a6ade8d926cc3af6a43b44"
+    },
+    {
+      "id": "falandays-pong",
+      "task": "pong",
+      "node": "falandays",
+      "label": "Falandays \u00b7 Pong \u00b7 development",
+      "path": "/replays/falandays-pong.json",
+      "sha256": "87b5c1877f26951ef5b9bc00a1792cc57c806905068699abd6f041c36431755b"
+    },
+    {
+      "id": "falandays-cartpole-plank-easy",
+      "task": "cartpole_plank_easy",
+      "node": "falandays",
+      "label": "Falandays \u00b7 Cartpole Plank Easy \u00b7 development",
+      "path": "/replays/falandays-cartpole-plank-easy.json",
+      "sha256": "c7f9db99bb998183ab87b0af17e7f85807356247295dff86167f45ebaa7774ae"
+    },
+    {
+      "id": "falandays-delayed-cue",
+      "task": "delayed_cue",
+      "node": "falandays",
+      "label": "Falandays \u00b7 Delayed Cue \u00b7 development",
+      "path": "/replays/falandays-delayed-cue.json",
+      "sha256": "96f619e6342d6eec87180c524cd2c6f168545189fb02398b606de22816fc3179"
+    },
+    {
+      "id": "sorn-tracking",
+      "task": "tracking",
+      "node": "sorn",
+      "label": "Sorn \u00b7 Tracking \u00b7 development",
+      "path": "/replays/sorn-tracking.json",
+      "sha256": "c4e5dc2256069e3edae2286485a99d1ce12bf483d9c30cfb8102e2ddd2cc35ee"
+    },
+    {
+      "id": "sorn-pong",
+      "task": "pong",
+      "node": "sorn",
+      "label": "Sorn \u00b7 Pong \u00b7 development",
+      "path": "/replays/sorn-pong.json",
+      "sha256": "1d53587678abead6293b1662610fb3de38cda1f87549f6602e7215af0c861752"
+    },
+    {
+      "id": "sorn-cartpole-plank-easy",
+      "task": "cartpole_plank_easy",
+      "node": "sorn",
+      "label": "Sorn \u00b7 Cartpole Plank Easy \u00b7 development",
+      "path": "/replays/sorn-cartpole-plank-easy.json",
+      "sha256": "8b712954d9320200be8141691621247e48b3e9bf6c65a63ecfda856742eaed91"
+    },
+    {
+      "id": "sorn-delayed-cue",
+      "task": "delayed_cue",
+      "node": "sorn",
+      "label": "Sorn \u00b7 Delayed Cue \u00b7 development",
+      "path": "/replays/sorn-delayed-cue.json",
+      "sha256": "473f9ec77d3eec303b116722c98abdd3e818e858ddf3e1ce36018029776c5d1c"
+    }
+  ]
+}

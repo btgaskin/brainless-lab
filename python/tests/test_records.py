@@ -35,7 +35,7 @@ def result_fixture():
     plan = Plan(
         "records-test", (target,), EvaluationSpec(horizon=144), question="Implementation diagnostic"
     )
-    resolved_target = ResolvedTarget(target, 144, {"leak": 0.25}, 3, 2, 1, "recall_accuracy", 1)
+    resolved_target = ResolvedTarget(target, 144, {"leak": 0.25}, 3, 2, 1, "recall_accuracy", 1, {})
     resolved = ResolvedPlan(plan, (resolved_target,), digest(plan))
     outcome = TaskOutcome("recall_accuracy", 1.0, scoring_window=48)
     trial = TrialResult(

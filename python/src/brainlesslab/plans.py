@@ -41,6 +41,7 @@ class ResolvedTarget:
     neural_frames: int
     outcome_key: str
     upper_bound: float
+    task_options: Mapping[str, object]
 
 
 @dataclass(frozen=True)
@@ -51,7 +52,7 @@ class ResolvedPlan:
 
 
 def resolve(plan: Plan) -> ResolvedPlan:
-    from .tasks import definition, prepare, validate_controller
+    from .tasks import definition, resolve as resolve_task, validate_controller
 
     targets = []
     for target in plan.targets:
@@ -66,14 +67,36 @@ def resolve(plan: Plan) -> ResolvedPlan:
             raise ValueError("horizon must exceed warm-up")
         if not plan.diagnostic and scored < info.minimum_scored_ticks:
             raise ValueError(f"{comp.task.kind} requires {info.minimum_scored_ticks} scored ticks")
-        # Pure host preparation is also the authoritative task option validation.
-        from .random import generator
-        prepare(comp.task, generator(0, "validation", "world", comp.task.kind), horizon=horizon)
+        # Task option validation is allocation-free. World tapes are prepared
+        # only after execution's memory admission.
         if comp.task.kind not in ("tracking", "pong") and plan.evaluation.warmup:
             raise ValueError("episode tasks require warmup=0")
         if info.is_probe and horizon < info.default_horizon:
             raise ValueError("probe horizon must contain the entire episode or session")
         validate_controller(comp.task, target.controller)
+        frozen_weights = frozen_plasticity = blind = shuffled = False
+        for intervention in sorted(target.interventions, key=lambda i: (i.tick, i.verb)):
+            verb = intervention.verb
+            if verb.startswith("freeze_") and not config.learn_on:
+                raise ValueError("cannot freeze learning which is already disabled")
+            if verb == "freeze_weights":
+                if frozen_weights or frozen_plasticity or (comp.node.kind == "falandays" and config.lrate_wmat == 0):
+                    raise ValueError("freeze_weights would not change the declared mechanism")
+                frozen_weights = True
+            elif verb == "freeze_plasticity":
+                if frozen_plasticity or (comp.node.kind == "falandays" and config.lrate_wmat == 0 and config.lrate_targ == 0):
+                    raise ValueError("freeze_plasticity would not change the declared mechanism")
+                if any(i.tick == intervention.tick and i.verb == "freeze_weights" for i in target.interventions):
+                    raise ValueError("same-tick freeze_weights and freeze_plasticity are redundant")
+                frozen_plasticity = True
+            elif verb == "blind_input":
+                if blind or comp.input_gain == 0:
+                    raise ValueError("blind_input would not change the declared interface")
+                blind = True
+            elif verb == "shuffle_input":
+                if shuffled or blind or comp.input_gain == 0 or info.n_inputs < 2:
+                    raise ValueError("shuffle_input would not change the declared interface")
+                shuffled = True
         for intervention in target.interventions:
             if intervention.tick > horizon:
                 raise ValueError("intervention is beyond the trial horizon")
@@ -82,9 +105,12 @@ def resolve(plan: Plan) -> ResolvedPlan:
         if plan.operation == "calibrate":
             if target.controller != "reference_null" or plan.evaluation.seed_partition != "calibration":
                 raise ValueError("calibration requires the reference null and calibration seed bank")
+            if plan.diagnostic or plan.evaluation.blocks * plan.evaluation.trials_per_block != 1024:
+                raise ValueError("empirical calibration requires 1024 full independent trajectories")
         targets.append(ResolvedTarget(target, horizon, config, info.n_inputs, info.n_effectors,
-                                      info.neural_frames, info.outcome_key, info.upper_bound))
-    return ResolvedPlan(plan, tuple(targets), digest(plan))
+                                      info.neural_frames, info.outcome_key, info.upper_bound,
+                                      resolve_task(comp.task)))
+    return ResolvedPlan(plan, tuple(targets), digest({"request": plan, "targets": targets}))
 
 
 def _checked(cls, data: Mapping[str, object]):
@@ -160,6 +186,9 @@ def ablate(composition: CompositionSpec, verbs=("freeze_weights", "freeze_plasti
 
 def benchmark(node: NodeSpec | None = None, *, count=200, evaluation=None,
               numerics=None, id="benchmark") -> Plan:
-    targets = tuple(EvaluationTarget(task, CompositionSpec(node or NodeSpec(), TaskSpec(task), count))
-                    for task in BENCHMARK_TASKS)
+    targets = tuple(target for task in BENCHMARK_TASKS for target in (
+        EvaluationTarget(task, CompositionSpec(node or NodeSpec(), TaskSpec(task), count),
+                         pairing_key=f"benchmark/{task}"),
+        EvaluationTarget(f"{task}_null", CompositionSpec(node or NodeSpec(), TaskSpec(task), count),
+                         pairing_key=f"benchmark/{task}", controller="reference_null")))
     return Plan(id, targets, evaluation or EvaluationSpec(), numerics or NumericalPolicy(), "benchmark")

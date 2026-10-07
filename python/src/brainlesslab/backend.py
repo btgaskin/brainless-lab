@@ -3,12 +3,26 @@
 from __future__ import annotations
 
 import os
+import hashlib
+import importlib.metadata
+import json
+from functools import lru_cache
 from pathlib import Path
 
 from .specs import ExecutionSpec, NumericalPolicy
 
 _key: tuple[object, ...] | None = None
 _program: object | None = None
+
+
+@lru_cache(maxsize=1)
+def runtime_fingerprint() -> str:
+    distribution = importlib.metadata.distribution("quadrants")
+    hashes = {str(f): hashlib.sha256(distribution.locate_file(f).read_bytes()).hexdigest()
+              for f in distribution.files or ()
+              if str(f).endswith((".py", ".so", ".dylib", ".pyd"))}
+    payload = {"version": distribution.version, "files": hashes}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
 
 def initialise(execution: ExecutionSpec, numerics: NumericalPolicy) -> dict[str, object]:
@@ -43,6 +57,7 @@ def initialise(execution: ExecutionSpec, numerics: NumericalPolicy) -> dict[str,
         "actual_arch": str(qd.lang.impl.current_cfg().arch),
         "dtype": numerics.dtype, "fast_math": False,
         "cpu_threads": execution.cpu_threads, "cache_enabled": execution.cache,
+        "runtime_fingerprint": runtime_fingerprint(),
     }
 
 

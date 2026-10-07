@@ -56,6 +56,7 @@ class CalibrationSignature:
     world_source_hashes: Mapping[str, str]
     backend: str = "cpu"
     architecture: str = "unspecified"
+    runtime_fingerprint: str = "unspecified"
     null_policy: str = "iid-uniform-random-action-v1"
     rng_scheme: str = "philox-host-v1"
 
@@ -141,6 +142,8 @@ def create_empirical_calibration(signature: CalibrationSignature,
     if scores.shape != (NULL_TRAJECTORIES,) or not np.isfinite(scores).all():
         raise ValueError("empirical calibration requires 1024 finite independent trajectory scores")
     upper = UPPER_BOUNDS[signature.task] if upper_bound is None else float(upper_bound)
+    if upper != UPPER_BOUNDS[signature.task]:
+        raise ValueError("upper_bound must match the task's declared analytic bound")
     lower = -1.0 if signature.task == "tracking" else 0.0
     if not math.isfinite(upper) or upper <= 0 or np.any(scores < lower) or np.any(scores > upper):
         raise ValueError("null scores must lie within the declared task bounds")

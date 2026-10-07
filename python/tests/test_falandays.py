@@ -7,6 +7,7 @@ authors JLD2 files are repository transcriptions, not the authors' own data.
 from dataclasses import replace
 import hashlib
 from pathlib import Path
+import tempfile
 
 import numpy as np
 import pytest
@@ -32,7 +33,7 @@ def runtime():
         qd.init(arch=qd.cpu, default_fp=qd.f64, fast_math=False,
                 enable_fallback=False, cpu_max_num_threads=1, debug=True,
                 raise_on_templated_floats=True,
-                offline_cache_file_path="/private/tmp/brainlesslab-falandays-qd-cache")
+                offline_cache_file_path=str(Path(tempfile.gettempdir()) / "brainlesslab-falandays-qd-cache"))
 
 
 def upload(value, dtype=qd.f64):

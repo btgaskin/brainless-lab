@@ -31,12 +31,15 @@ class NoiseTape:
     width: int
     tile_frames: int = 64
     consumed: int = 0
+    distribution: str = "normal"
     _tile: np.ndarray = field(default_factory=lambda: np.empty((0, 0)), repr=False)
     _offset: int = 0
 
     def __post_init__(self) -> None:
         if self.width < 1 or self.tile_frames < 1:
             raise ValueError("noise width and tile_frames must be positive")
+        if self.distribution not in ("normal", "uniform"):
+            raise ValueError("unsupported random tape distribution")
         self._tile = np.empty((0, self.width))
 
     def frame(self) -> np.ndarray:
@@ -50,7 +53,9 @@ class NoiseTape:
             raise ValueError("preview must fit within one configured tile")
         remaining = self._tile[self._offset:]
         if len(remaining) < count:
-            fresh = self.rng.standard_normal((count - len(remaining), self.width))
+            shape = (count - len(remaining), self.width)
+            fresh = (self.rng.standard_normal(shape) if self.distribution == "normal"
+                     else self.rng.random(shape))
             self._tile = np.concatenate((remaining, fresh), axis=0)
             self._offset = 0
         return self._tile[self._offset:self._offset + count]

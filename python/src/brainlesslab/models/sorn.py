@@ -178,7 +178,7 @@ class Arrays:
     adaptation_finite: qd.types.NDArray[qd.i32, 2]
 
 
-@qd.kernel
+@qd.kernel(fastcache=True)
 def _remember(s: Arrays, active: qd.types.NDArray[qd.i32, 1], n_i: qd.i32):
     for b, i in qd.ndrange(s.x.shape[0], s.x.shape[1]):
         if active[b] != 0:
@@ -188,7 +188,7 @@ def _remember(s: Arrays, active: qd.types.NDArray[qd.i32, 1], n_i: qd.i32):
             s.prev_y[b, i] = s.y[b, i]
 
 
-@qd.kernel
+@qd.kernel(fastcache=True)
 def _advance(s: Arrays, inputs: qd.types.NDArray[None, 2],
              active: qd.types.NDArray[qd.i32, 1], n_i: qd.i32):
     for b, i in qd.ndrange(s.x.shape[0], s.x.shape[1]):
@@ -214,7 +214,7 @@ def _advance(s: Arrays, inputs: qd.types.NDArray[None, 2],
             s.y[b, k] = s.drive[b, s.x.shape[1] + k] >= 0
 
 
-@qd.kernel
+@qd.kernel(fastcache=True)
 def _adapt(s: Arrays, active: qd.types.NDArray[qd.i32, 1]):
     for b, i in qd.ndrange(s.x.shape[0], s.x.shape[1]):
         if active[b] != 0:
@@ -247,7 +247,7 @@ def _adapt(s: Arrays, active: qd.types.NDArray[qd.i32, 1]):
                     s.x[b, i] - s.parameters[b, 2])
 
 
-@qd.kernel
+@qd.kernel(fastcache=True)
 def _emit(s: Arrays, active: qd.types.NDArray[qd.i32, 1], n_i: qd.i32):
     for b in range(s.x.shape[0]):
         if active[b] != 0:
@@ -275,7 +275,7 @@ def _emit(s: Arrays, active: qd.types.NDArray[qd.i32, 1], n_i: qd.i32):
             s.finite[b] = valid
 
 
-@qd.kernel
+@qd.kernel(fastcache=True)
 def _freeze(s: Arrays, active: qd.types.NDArray[qd.i32, 1], all_plasticity: qd.i32):
     for b in range(s.x.shape[0]):
         if active[b] != 0:
@@ -284,7 +284,7 @@ def _freeze(s: Arrays, active: qd.types.NDArray[qd.i32, 1], all_plasticity: qd.i
                 s.plasticity[b, 1] = 0
 
 
-@qd.kernel
+@qd.kernel(fastcache=True)
 def _reset(s: Arrays, initial: Arrays, active: qd.types.NDArray[qd.i32, 1], n_i: qd.i32):
     for b in range(s.x.shape[0]):
         if active[b] != 0:

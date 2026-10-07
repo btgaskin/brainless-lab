@@ -6,7 +6,9 @@ from typing import Final
 import numpy as np
 import quadrants as qd
 
-from ._prepare import InitialState, KINDS, validate_controller
+from ..models._validation import validate_cast
+
+from ._prepare import InitialState, KINDS, validate_controller, validate_precision
 
 
 @dataclass(frozen=True)
@@ -496,6 +498,21 @@ class TaskBatch:
         if self.dtype not in (np.dtype("float64"), np.dtype("float32")):
             raise ValueError("dtype must be float64 or float32")
         self._real = qd.f64 if self.dtype == np.dtype("float64") else qd.f32
+        validate_cast(initials, self.dtype)
+        validate_precision(initials, self.dtype)
+        B, R = self.batch_size, self.definition.n_inputs
+        params, angles = np.zeros((B, 4)), np.zeros((B, R))
+        for b, v in enumerate(initials):
+            o = v.options
+            if self.kind == "tracking":
+                params[b] = [o["sensory_gain"], o["stim_speed_rad"], o["movement_amp"], 0]
+                angles[b] = [eye + offset for eye in (o["eye_offset_deg"], -o["eye_offset_deg"])
+                             for offset in o["sensor_offsets_deg"]]
+            elif self.kind == "pong":
+                params[b, 0], angles[b] = o["sensory_gain"], np.arange(-90, 91, 4)
+            elif self.kind == "cartpole_plank_easy":
+                params[b] = [2.4, 2.0, 0.2095, 2.0]
+        validate_cast((params, angles), self.dtype)
 
         def upload(values, integer=False):
             host = np.array(values, dtype=np.int32 if integer else self.dtype, order="C", copy=True)
@@ -525,17 +542,6 @@ class TaskBatch:
                              upload(np.full(B, np.nan if self.definition.is_probe else 0.0)), zeros(B),
                              zeros(B, True), zeros(B, True), zeros(B, True), zeros(B, True), zeros(B, True),
                              zeros((B, max_rounds), True), zeros((B, max_rounds), True))
-        params, angles = np.zeros((B, 4)), np.zeros((B, R))
-        for b, v in enumerate(initials):
-            o = v.options
-            if self.kind == "tracking":
-                params[b] = [o["sensory_gain"], o["stim_speed_rad"], o["movement_amp"], 0]
-                angles[b] = [eye + offset for eye in (o["eye_offset_deg"], -o["eye_offset_deg"])
-                             for offset in o["sensor_offsets_deg"]]
-            elif self.kind == "pong":
-                params[b, 0], angles[b] = o["sensory_gain"], np.arange(-90, 91, 4)
-            elif self.kind == "cartpole_plank_easy":
-                params[b] = [2.4, 2.0, 0.2095, 2.0]
         self._fixed = _Fixed(KINDS[self.kind], upload(stimuli), upload([v.stimuli.shape[0] for v in initials], True),
                              upload(starts, True), upload(ends, True), upload(labels, True),
                              upload([v.labels.size for v in initials], True),
@@ -573,6 +579,10 @@ class TaskBatch:
     @property
     def ticks(self):
         return self._state.ticks
+
+    @property
+    def current_round(self):
+        return self._state.round
 
     @property
     def outcome(self):
