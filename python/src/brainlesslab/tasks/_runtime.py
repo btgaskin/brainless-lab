@@ -152,6 +152,7 @@ def _encode_world(s: _State, f: _Fixed, b: qd.i32, frame: qd.i32, enabled: qd.i3
         for r in range(s.inputs.shape[1]):
             if not _finite(s.inputs[b, r]):
                 s.finite[b] = 0
+    return s.finite[b]
 
 
 @qd.kernel(fastcache=True)
@@ -180,6 +181,7 @@ def _accumulate_world(
                 s.votes[b, e] += value
             else:
                 s.last[b, e] = value
+    return s.finite[b]
 
 
 @qd.kernel(fastcache=True)
@@ -327,6 +329,7 @@ def _advance_world(
                     s.finite[b] = 0
             if s.done[b] != 0 and not _finite(s.outcome[b]):
                 s.finite[b] = 0
+    return s.finite[b]
 
 
 @qd.kernel(fastcache=True)
@@ -612,6 +615,7 @@ def _run_control(
     uniform_tile: qd.types.NDArray[None, 2],
     horizons: qd.types.NDArray[qd.i32, 1],
     guard: qd.types.NDArray[qd.i32, 1],
+    frame_cursors: qd.types.NDArray[qd.i32, 1],
     policy: qd.i32,
     tile_ticks: qd.i32,
     warmup: qd.i32,
@@ -633,8 +637,8 @@ def _run_control(
                 frames = 24
             for frame0 in range(frames):
                 guard[b] *= qd.cast(s.finite[b] != 0, qd.i32)
-                _encode_world(s, f, b, frame0 + 1, guard[b])
-                guard[b] *= qd.cast(s.finite[b] != 0, qd.i32)
+                encoded_finite = _encode_world(s, f, b, frame0 + 1, guard[b])
+                guard[b] *= qd.cast(encoded_finite != 0, qd.i32)
                 if policy == 0:
                     if qd.static(f.kind <= 1):
                         _sensory_reference_world(sensory, b, guard[b], s.inputs, c.effectors)
@@ -649,10 +653,12 @@ def _run_control(
                     _control_world(
                         c, b, random_value, guard[b], policy, s.inputs, s.ticks[b], s.round[b]
                     )
-                _accumulate_world(s, f, c.effectors, b, frame0 + 1, guard[b])
-                guard[b] *= qd.cast(s.finite[b] != 0, qd.i32)
-            _advance_world(s, f, c.effectors, b, guard[b], warmup)
-            guard[b] *= qd.cast(s.finite[b] != 0, qd.i32)
+                if guard[b] != 0:
+                    frame_cursors[b] += 1
+                accumulated_finite = _accumulate_world(s, f, c.effectors, b, frame0 + 1, guard[b])
+                guard[b] *= qd.cast(accumulated_finite != 0, qd.i32)
+            advanced_finite = _advance_world(s, f, c.effectors, b, guard[b], warmup)
+            guard[b] *= qd.cast(advanced_finite != 0, qd.i32)
 
 
 class TaskBatch:
@@ -790,6 +796,8 @@ class TaskBatch:
             allowed.add(policy)
         self._allowed_controls = frozenset(allowed)
         self._all_active = upload(np.ones(B), True)
+        self._control_frames = None
+        self._control_guard = None
 
     @property
     def inputs(self):
@@ -860,7 +868,9 @@ class TaskBatch:
             _control(self._controller, randoms, active, POLICIES[policy])
         return self._controller.effectors
 
-    def run_control(self, policy, uniform_tile, horizons, active_guard=None, tile_ticks=None):
+    def run_control(
+        self, policy, uniform_tile, horizons, active_guard=None, tile_ticks=None, frame_cursors=None
+    ):
         """Advance a bounded control-only tile without per-frame host dispatch.
 
         ``uniform_tile`` is a device array shaped (draws, worlds). Physical
@@ -868,6 +878,9 @@ class TaskBatch:
         policies use one draw per round from the complete episode table.
         ``horizons`` contains absolute world-tick limits. ``active_guard`` is
         an optional input/output mask; failures remain disabled within a tile.
+        ``frame_cursors`` counts each eligible control step before accumulation
+        or world-advance failure. Its values need not equal completed ticks
+        times neural frames. An omitted ledger persists on this batch.
         """
         if policy == "reference_nullblindpolicy":
             policy = "reference_null"
@@ -892,8 +905,18 @@ class TaskBatch:
         if uniform_tile.shape[0] < required:
             raise ValueError("uniform_tile needs all probe rounds or all physical tile ticks")
         if active_guard is None:
-            active_guard = self._all_active
+            if self._control_guard is None:
+                self._control_guard = qd.ndarray(qd.i32, (self.batch_size,))
+            self._control_guard.fill(1)
+            active_guard = self._control_guard
         self._check(active_guard)
+        if frame_cursors is None:
+            if self._control_frames is None:
+                self._control_frames = qd.ndarray(qd.i32, (self.batch_size,))
+                self._control_frames.fill(0)
+            frame_cursors = self._control_frames
+        if frame_cursors.shape != (self.batch_size,) or frame_cursors.dtype != qd.i32:
+            raise ValueError("frame_cursors must be an int32 array matching the cohort")
         _run_control(
             self._state,
             self._fixed,
@@ -903,6 +926,7 @@ class TaskBatch:
             uniform_tile,
             horizons,
             active_guard,
+            frame_cursors,
             POLICIES[policy],
             tile_ticks,
             self.warmup,

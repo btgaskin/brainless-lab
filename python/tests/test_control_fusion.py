@@ -36,7 +36,7 @@ OPTIONS = {
 }
 
 
-def unfused(batch, policy, tile, horizons, guard, ticks):
+def unfused(batch, policy, tile, horizons, guard, ticks, frame_cursors=None):
     real = batch._real
     for offset in range(ticks):
         snapshot = batch.snapshot()
@@ -60,6 +60,10 @@ def unfused(batch, policy, tile, horizons, guard, ticks):
             batch.encode(frame, guard)
             guard.from_numpy((guard.to_numpy() * batch.finite.to_numpy()).astype(np.int32))
             effectors = batch.control(policy, randoms, guard)
+            if frame_cursors is not None:
+                frame_cursors.from_numpy(
+                    frame_cursors.to_numpy() + (guard.to_numpy() != 0).astype(np.int32)
+                )
             batch.accumulate(effectors, frame, guard)
             guard.from_numpy((guard.to_numpy() * batch.finite.to_numpy()).astype(np.int32))
         batch.advance(effectors, guard)
@@ -85,8 +89,12 @@ def compare(left, right):
 
 def exercise(dtype):
     real = qd.f32 if dtype == "float32" else qd.f64
+    backend = os.environ.get("BRAINLESSLAB_FUSION_BACKEND", "cpu")
+    if backend not in ("cpu", "metal") or (backend == "metal" and dtype != "float32"):
+        raise ValueError("fusion tests support CPU float64/float32 or Metal float32")
+    arch = qd.metal if backend == "metal" else qd.cpu
     qd.init(
-        arch=qd.cpu,
+        arch=arch,
         default_fp=real,
         fast_math=False,
         enable_fallback=False,
@@ -96,6 +104,8 @@ def exercise(dtype):
         offline_cache_file_path=os.environ["BRAINLESSLAB_FUSION_CACHE"],
         raise_on_templated_floats=True,
     )
+    actual = qd.lang.impl.current_cfg().arch
+    assert actual == qd.metal if backend == "metal" else actual in (qd.cpu, qd.arm64)
     cases = 0
     for kind in TASKS:
         spec = TaskSpec(kind, OPTIONS.get(kind, {}))
@@ -109,22 +119,25 @@ def exercise(dtype):
                 horizon = max(v.stimuli.shape[0] for v in initials) + 3
             horizons = np.array([horizon, max(1, horizon - 3), horizon], np.int32)
             slow_guard, fast_guard = [upload([1, 1, 0], qd.i32) for _ in range(2)]
+            slow_frames, fast_frames = [upload([9, 0, 5], qd.i32) for _ in range(2)]
             rng = np.random.default_rng(991)
             episode = rng.random((max(1, max(v.labels.size for v in initials)), 3))
             for count in (3, horizon - 1):
                 tile = episode if reference.definition.is_probe else rng.random((count, 3))
                 tile = tile.astype(dtype)
-                unfused(slow, policy, tile, horizons, slow_guard, count)
+                unfused(slow, policy, tile, horizons, slow_guard, count, slow_frames)
                 output = fast.run_control(
                     policy,
                     upload(tile, real),
                     upload(horizons, qd.i32),
                     fast_guard,
                     tile_ticks=count,
+                    frame_cursors=fast_frames,
                 )
                 assert output is fast._controller.effectors
                 compare(slow, fast)
                 np.testing.assert_array_equal(slow_guard.to_numpy(), fast_guard.to_numpy())
+                np.testing.assert_array_equal(slow_frames.to_numpy(), fast_frames.to_numpy())
             cases += 1
     # Numerical failure discovered by an encoder must mask the controller in
     # that same frame and remain masked for every later frame and tick.
@@ -132,17 +145,40 @@ def exercise(dtype):
         initials = [prepare(TaskSpec(kind), np.random.default_rng(9))]
         slow, fast = [TaskBatch(initials, dtype=dtype) for _ in range(2)]
         for batch in (slow, fast):
-            state = batch._state.physical.to_numpy()
+            storage = batch._fixed.params if kind == "tracking" else batch._state.physical
+            state = storage.to_numpy()
             state[0, 0] = np.inf
-            batch._state.physical.from_numpy(state)
+            storage.from_numpy(state)
         horizons = np.array([4], np.int32)
         tile = np.full((4, 1), 0.7, dtype=dtype)
         a, b = [upload([1], qd.i32) for _ in range(2)]
-        unfused(slow, "reference_null", tile, horizons, a, 4)
-        fast.run_control("reference_null", upload(tile, real), upload(horizons, qd.i32), b, 4)
+        slow_frames, fast_frames = [upload([0], qd.i32) for _ in range(2)]
+        unfused(slow, "reference_null", tile, horizons, a, 4, slow_frames)
+        fast.run_control(
+            "reference_null",
+            upload(tile, real),
+            upload(horizons, qd.i32),
+            b,
+            4,
+            frame_cursors=fast_frames,
+        )
         compare(slow, fast)
         np.testing.assert_array_equal(a.to_numpy(), b.to_numpy())
         assert fast.finite.to_numpy()[0] == 0
+        np.testing.assert_array_equal(slow_frames.to_numpy(), fast_frames.to_numpy())
+        expected_frames = 24 if kind == "cartpole_plank_easy" else 0
+        assert fast_frames.to_numpy()[0] == expected_frames, (kind, fast_frames.to_numpy())
+    # An omitted ledger persists across tiles and counts all 24 CartPole
+    # frames per eligible tick, rather than being recreated per call.
+    batch = TaskBatch(
+        [prepare(TaskSpec("cartpole_plank_easy"), np.random.default_rng(9))], dtype=dtype
+    )
+    for horizon in (1, 2):
+        batch.run_control(
+            "reference_null", upload([[0.7], [0.7]], real), upload([horizon], qd.i32), tile_ticks=2
+        )
+    assert batch._control_frames.to_numpy()[0] == 2 * 24
+    np.testing.assert_array_equal(batch._all_active.to_numpy(), [1])
     # Host argument validation happens without dispatching another kernel.
     batch = TaskBatch([prepare(TaskSpec("delayed_cue"), np.random.default_rng(9))], dtype=dtype)
     tile, horizon = upload([[0.4]], real), upload([4], qd.i32)
@@ -152,6 +188,7 @@ def exercise(dtype):
         {"horizons": upload([4], real)},
         {"tile_ticks": False},
         {"active_guard": upload([1], real)},
+        {"frame_cursors": upload([0], real)},
     ):
         arguments = dict(policy="oracle", uniform_tile=tile, horizons=horizon)
         arguments.update(kwargs)

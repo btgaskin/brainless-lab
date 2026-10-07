@@ -1,0 +1,24 @@
+{
+  "format": "quadrants-local-alias-diagnostic",
+  "version": 1,
+  "environment": {
+    "quadrants_version": "1.3.3",
+    "reported_build_commit": "00423caa",
+    "llvm_version": "22.1.0",
+    "python_version": "3.12.13",
+    "system": "macOS",
+    "machine": "arm64",
+    "fast_math": false,
+    "fallback": false,
+    "debug": true,
+    "cpu_threads": 1
+  },
+  "expected": [[0, 0], [1, 1], [2, 2], [3, 3]],
+  "aliased": [[0, 0], [0, 0], [0, 0], [0, 0]],
+  "canonical": [[0, 0], [1, 1], [2, 2], [3, 3]],
+  "cases": [
+    {"backend": "cpu", "runtime_arch": "Arch.arm64", "dtype": "float64", "alias_matches": false, "canonical_matches": true},
+    {"backend": "cpu", "runtime_arch": "Arch.arm64", "dtype": "float32", "alias_matches": false, "canonical_matches": true},
+    {"backend": "metal", "runtime_arch": "Arch.metal", "dtype": "float32", "alias_matches": false, "canonical_matches": true}
+  ]
+}
