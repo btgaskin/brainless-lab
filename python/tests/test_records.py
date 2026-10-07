@@ -109,8 +109,8 @@ def test_installed_wheel_executes_and_keeps_exact_source_receipts(tmp_path):
         pytest.skip("set BRAINLESSLAB_TEST_WHEEL to qualify an actual built wheel")
     wheel = Path(configured).resolve(strict=True)
     environment = tmp_path / "wheel-environment"
-    venv.EnvBuilder(with_pip=False, symlinks=True).create(environment)
-    python = environment / "bin/python"
+    venv.EnvBuilder(with_pip=False, symlinks=os.name != "nt").create(environment)
+    python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     subprocess.run(
         [
             "uv",

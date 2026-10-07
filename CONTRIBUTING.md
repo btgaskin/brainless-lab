@@ -41,6 +41,7 @@ bun run build
 
 Check `git diff --check` and execute referenced examples. Configured architecture jobs
 need actual CI receipts before their platforms are called qualified.
+Use the [0.4.0 publication checklist](docs/python/release.md) to prepare a release.
 
 ## Report performance with enough context
 

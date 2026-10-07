@@ -1,6 +1,67 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 — release candidate
+
+BrainlessLab 0.4.0 replaces the maintained Julia implementation with a Python and
+Quadrants package. This is a breaking release with a narrower capability scope.
+Earlier protocols and research records retain their original source revisions.
+
+### Models and tasks
+
+- Implement Falandays and SORN reservoirs with independent equation checks,
+  deterministic streams, complete trial reset and owned snapshots.
+- Advance neural and task state with Quadrants in bounded CPU or Metal batches.
+  Use ordered destination-owned sums and fixed array ranks. CPU float64 is the
+  reference arithmetic policy; Metal requires explicit float32 numerics.
+- Support Tracking, Pong, CartPole, delayed cue and six additional experimental
+  capacity-probe families. Retain 64 difficulty cells across the seven probe families.
+- Preserve per-frame numerical-failure masks and task-specific raw outcomes.
+  Weight freeze, full-plasticity freeze, blind input and shuffled input remain
+  distinct controls.
+
+### Plans, records and analysis
+
+- Use one version-four `Plan` format for profiles, sweeps, ablations, benchmarks
+  and calibration. Keep scientific identity separate from `ExecutionSpec` settings.
+- Add `brainlesslab check`, `run` and `inspect` commands with machine-readable
+  JSON output. Runtime logs go to standard error.
+- Write portable records containing the request, resolved settings, stream
+  identities, trial outcomes, summaries, calibration and exact package sources.
+  Preserve failed trials and reject overwriting existing records.
+- Retain signed null-adjusted outcomes. Empirical task calibration uses exactly
+  1,024 independent trajectories and matching task, timing and numerical signatures.
+- Add offline sparse-event decoding with fixed wiring per block, whole-trial
+  splits, fit-only scaling and validation-only tuning. Diagnostic labels never
+  enter the online controller.
+- Add repeatable backend profiling with separate startup, warmed evaluation,
+  recording and cache phases. No general CPU/GPU speedup is claimed.
+
+### Documentation and packaging
+
+- Ship version 0.4.0 as a Python wheel and source distribution with a locked
+  Python 3.12 environment and Quadrants 1.3.3.
+- Replace the website's live numerical engine with task illustrations and
+  generated development recordings. Simplify the first-run and comparison guides.
+- Add the project contributors and acknowledgements for the Diverse Intelligences
+  Summer Institute and John Templeton Foundation.
+- Make the installed-wheel test use the native virtual-environment interpreter
+  path on Windows and POSIX systems.
+
+### Evidence and remaining limits
+
+Local macOS arm64 CPU and Metal qualification receipts are retained under
+`docs/python/qualification/`. They cover declared software checks and short backend
+conformance trajectories. Configured Linux and Windows jobs still require actual
+passing CI receipts. Development runs and website recordings do not establish
+learning, cognition, biological fidelity or external validity.
+
+General body composition, heterogeneous populations, broad registries, evolution,
+autodiff, durable checkpoint/resume and distributed execution are not implemented
+in this release. Use `ARCHIVE.md` and the version-history guide to locate the
+earlier implementation. Historical fixtures, benchmark tables and research bundles
+remain unchanged.
+
+## Earlier Julia changes — unreleased
 
 - Add SORN as a stable core-registry node with causal STDP, synaptic normalisation,
   intrinsic plasticity, deterministic reset/replay, and explicit provenance limits.
