@@ -19,6 +19,12 @@ dev = ["pytest>=8.3,<10", "ruff>=0.12,<1", "pyright>=1.1.400,<2"]
 [tool.hatch.build.targets.wheel]
 packages = ["python/src/brainlesslab"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"pyproject.toml" = "brainlesslab/_resources/pyproject.toml"
+"uv.lock" = "brainlesslab/_resources/uv.lock"
+".python-version" = "brainlesslab/_resources/.python-version"
+"python/typings" = "brainlesslab/_resources/typings"
+
 [tool.pytest.ini_options]
 testpaths = ["python/tests"]
 addopts = "-ra"

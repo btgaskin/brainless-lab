@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import importlib.metadata
+import importlib.resources
 import json
 import math
 import platform
@@ -172,24 +173,45 @@ def _source_bundle(directory):
     package = Path(__file__).resolve().parent
     workspace = package.parents[2]
     files = {
-        f"python/src/brainlesslab/{path.relative_to(package).as_posix()}": path
+        f"python/src/brainlesslab/{path.relative_to(package).as_posix()}": path.read_bytes()
         for path in package.rglob("*.py")
         if not path.is_symlink()
     }
     for name in ("pyproject.toml", "uv.lock", ".python-version"):
         path = workspace / name
         if path.is_file() and not path.is_symlink():
-            files[name] = path
+            files[name] = path.read_bytes()
+        else:
+            resource = importlib.resources.files("brainlesslab").joinpath("_resources", name)
+            if not resource.is_file():
+                raise RuntimeError(f"portable source receipt requires packaged {name}")
+            files[name] = resource.read_bytes()
+    typings = workspace / "python/typings"
+    if typings.is_dir():
+        for path in typings.rglob("*"):
+            if path.is_file() and not path.is_symlink():
+                files[f"python/typings/{path.relative_to(typings).as_posix()}"] = path.read_bytes()
+    else:
+
+        def collect(resource, prefix):
+            for item in resource.iterdir():
+                name = f"{prefix}/{item.name}"
+                if item.is_dir():
+                    collect(item, name)
+                elif item.is_file():
+                    files[name] = item.read_bytes()
+
+        resources = importlib.resources.files("brainlesslab").joinpath("_resources", "typings")
+        if resources.is_dir():
+            collect(resources, "python/typings")
     archive = directory / "package-source.zip"
     with zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED) as bundle:
-        for name, path in sorted(files.items()):
+        for name, contents in sorted(files.items()):
             entry = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
             entry.external_attr = 0o100644 << 16
             entry.compress_type = zipfile.ZIP_DEFLATED
-            bundle.writestr(entry, path.read_bytes())
-    lock = workspace / "uv.lock"
-    if lock.is_file() and not lock.is_symlink():
-        (directory / "uv.lock").write_bytes(lock.read_bytes())
+            bundle.writestr(entry, contents)
+    (directory / "uv.lock").write_bytes(files["uv.lock"])
     _json(
         directory / "source.json",
         {
@@ -197,6 +219,10 @@ def _source_bundle(directory):
             "version": 1,
             "sha256": _sha(archive),
             "files": sorted(files),
+            "file_sha256": {
+                name: hashlib.sha256(contents).hexdigest()
+                for name, contents in sorted(files.items())
+            },
             "entrypoint": "python -m brainlesslab",
         },
     )

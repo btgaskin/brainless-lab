@@ -1,5 +1,9 @@
 import hashlib
 import json
+import os
+import subprocess
+import sys
+import venv
 import zipfile
 from dataclasses import replace
 from pathlib import Path
@@ -97,6 +101,86 @@ def result_fixture():
     )
 
 
+@pytest.mark.qualification
+def test_installed_wheel_executes_and_keeps_exact_source_receipts(tmp_path):
+    """An explicit wheel gate; dependencies come from the qualified interpreter."""
+    configured = os.environ.get("BRAINLESSLAB_TEST_WHEEL")
+    if not configured:
+        pytest.skip("set BRAINLESSLAB_TEST_WHEEL to qualify an actual built wheel")
+    wheel = Path(configured).resolve(strict=True)
+    environment = tmp_path / "wheel-environment"
+    venv.EnvBuilder(with_pip=False, symlinks=True).create(environment)
+    python = environment / "bin/python"
+    subprocess.run(
+        [
+            "uv",
+            "pip",
+            "install",
+            "--python",
+            str(python),
+            "--cache-dir",
+            str(tmp_path / "uv"),
+            "--no-deps",
+            "--no-index",
+            str(wheel),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    site = subprocess.run(
+        [str(python), "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    dependencies = [p for p in sys.path if Path(p).name == "site-packages"]
+    variables = os.environ | {
+        "PYTHONPATH": os.pathsep.join([site, *dependencies]),
+        "BRAINLESSLAB_CACHE_DIR": str(tmp_path / "cache"),
+        "WHEEL_EXPECTED_ENVIRONMENT": str(environment),
+    }
+    script = """
+import hashlib, importlib.resources, json, os, zipfile
+from pathlib import Path
+import brainlesslab
+from brainlesslab.cli import main
+from brainlesslab.plans import profile, write_plan
+from brainlesslab.records import inspect_record, read_calibration
+from brainlesslab.specs import CompositionSpec, EvaluationSpec, TaskSpec
+expected = Path(os.environ['WHEEL_EXPECTED_ENVIRONMENT'])
+assert Path(brainlesslab.__file__).resolve().is_relative_to(expected)
+plan = profile(CompositionSpec(count=4, task=TaskSpec('delayed_cue',
+    {'cue_ticks': 2, 'delays': (2,), 'response_ticks': 2})),
+    evaluation=EvaluationSpec(blocks=1, trials_per_block=2, horizon=6), id='wheel-smoke')
+write_plan(plan, 'plan.toml')
+assert main(['run', 'plan.toml', '--root', 'records', '--cpu-threads', '1',
+             '--batch-size', '2', '--recording', 'replay']) == 0
+record, = Path('records').iterdir()
+assert inspect_record(record)['complete']
+assert read_calibration(record)
+assert len(list((record / 'replays').glob('*.json'))) == 2
+resources = importlib.resources.files('brainlesslab').joinpath('_resources')
+receipt = json.loads((record / 'environment/source.json').read_text())
+with zipfile.ZipFile(record / 'environment/package-source.zip') as archive:
+    for name in ('pyproject.toml', 'uv.lock', '.python-version'):
+        exact = resources.joinpath(name).read_bytes()
+        assert archive.read(name) == exact
+        assert receipt['file_sha256'][name] == hashlib.sha256(exact).hexdigest()
+    assert archive.read('uv.lock') == (record / 'environment/uv.lock').read_bytes()
+    assert 'python/typings/quadrants/__init__.pyi' in archive.namelist()
+"""
+    run = subprocess.run(
+        [str(python), "-c", script],
+        cwd=tmp_path,
+        env=variables,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert run.returncode == 0, run.stdout + run.stderr
+
+
 def test_fresh_bundle_inventory_source_and_authoritative_outcomes(tmp_path):
     result = result_fixture()
     root = write_record(result, tmp_path / "new-record")
@@ -118,6 +202,11 @@ def test_fresh_bundle_inventory_source_and_authoritative_outcomes(tmp_path):
         assert "python/src/brainlesslab/records.py" in names
         assert all(not Path(name).is_absolute() and ".." not in Path(name).parts for name in names)
         assert not any("__pycache__" in name for name in names)
+        receipt = json.loads((root / "environment/source.json").read_text())
+        for name in names:
+            assert receipt["file_sha256"][name] == hashlib.sha256(archive.read(name)).hexdigest()
+        assert archive.read("uv.lock") == (root / "environment/uv.lock").read_bytes()
+        assert "python/typings/quadrants/__init__.pyi" in names
     assert "[request]" in (root / "resolved.toml").read_text()
 
 
