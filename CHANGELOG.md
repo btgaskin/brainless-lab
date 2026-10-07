@@ -53,6 +53,11 @@ Earlier protocols and research records retain their original source revisions.
 - Align desktop search with the reading column and enlarge its phone touch target.
 - Complete generated redirect HTML before search indexing, preserving old links
   without Pagefind's missing-document warnings.
+- Prioritise the landing-page still image and hold it until the first video frame,
+  then fade into playback. Refine the mobile image placement and credit typography.
+- Match the homepage social preview to the neuron-focused landing design and use
+  `brainless-lab.com` for canonical page and preview URLs.
+- Retain package and site CI checks while using the manual Bun site deployment.
 - Add the project contributors and acknowledgements for the Diverse Intelligences
   Summer Institute and John Templeton Foundation.
 - Make the installed-wheel test use the native virtual-environment interpreter

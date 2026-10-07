@@ -3,29 +3,31 @@ const desktop = '/media/neuron-growth-desktop.mp4';
 const mobile = '/media/neuron-growth-mobile.mp4';
 const poster = '/media/neuron-growth-poster.webp';
 const source = 'https://www.youtube.com/watch?v=0rfi_OL6_x4';
-const description = 'Time-lapse microscopy of rat hippocampal neurons extending and retracting processes';
+const description = 'Neuron growth recording';
 ---
 
 <neuron-recording class="neuron-recording" data-desktop={desktop} data-mobile={mobile}>
   <div class="recording-field">
     <div class="recording-square">
-      <video class="recording-video recording-enhanced" width="768" height="768" controls muted playsinline preload="none" poster={poster} aria-label={description}>
-        <a href={desktop}>Watch the neuron growth recording</a>
-      </video>
-      <noscript>
-        <style is:inline>.recording-enhanced { display: none !important; }</style>
-        <video class="recording-video recording-native" width="768" height="768" controls muted playsinline preload="none" poster={poster} aria-label={description}>
-          <source src={mobile} type="video/mp4" media="(max-width: 50rem)" />
-          <source src={desktop} type="video/mp4" />
+      <div class="recording-visual">
+        <img class="recording-poster" src={poster} width="768" height="768" loading="eager" fetchpriority="high" decoding="async" alt="" aria-hidden="true" />
+        <video class="recording-video recording-enhanced" width="768" height="768" controls muted playsinline preload="none" poster={poster} aria-label={description}>
           <a href={desktop}>Watch the neuron growth recording</a>
         </video>
-      </noscript>
+        <noscript>
+          <style is:inline>.recording-enhanced, .recording-poster { display: none !important; }</style>
+          <video class="recording-video recording-native" width="768" height="768" controls muted playsinline preload="none" poster={poster} aria-label={description}>
+            <source src={mobile} type="video/mp4" media="(max-width: 55.999rem)" />
+            <source src={desktop} type="video/mp4" />
+            <a href={desktop}>Watch the neuron growth recording</a>
+          </video>
+        </noscript>
+      </div>
       <div class="recording-attribution">
         <a class="recording-credit" href={source} target="_blank" rel="noopener noreferrer">
           © Louis Romette &amp; Christophe Leterrier<br />
           <span>Aix-Marseille Université / Institut de NeuroPhysioPathologie</span>
         </a>
-        <p class="recording-caption">Time-lapse microscopy of rat hippocampal neurons.</p>
       </div>
     </div>
   </div>
@@ -60,22 +62,38 @@ const description = 'Time-lapse microscopy of rat hippocampal neurons extending 
     height: min(100cqw, 100cqh);
     transform: translateY(-1rem);
   }
-  .recording-video {
+  .recording-visual {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    -webkit-mask-image: radial-gradient(circle closest-side, #000 54%, rgba(0, 0, 0, 0.85) 66%, transparent 94%);
+    mask-image: radial-gradient(circle closest-side, #000 54%, rgba(0, 0, 0, 0.85) 66%, transparent 94%);
+  }
+  .recording-video, .recording-poster {
     display: block;
     width: 100%;
     height: 100%;
     object-fit: contain;
   }
+  .recording-poster {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 350ms ease;
+  }
   .recording-enhanced {
     cursor: pointer;
-    -webkit-mask-image: radial-gradient(circle closest-side, #000 54%, rgba(0, 0, 0, 0.85) 66%, transparent 94%);
-    mask-image: radial-gradient(circle closest-side, #000 54%, rgba(0, 0, 0, 0.85) 66%, transparent 94%);
+    opacity: 0;
   }
+  neuron-recording[data-frame-ready] .recording-enhanced { opacity: 1; }
+  neuron-recording[data-frame-ready] .recording-poster { opacity: 0; }
   .recording-square:has(.recording-enhanced:focus-visible) {
     outline: 2px solid #343434;
     outline-offset: 3px;
   }
-  .recording-square > noscript { display: contents; }
+  .recording-visual > noscript { display: contents; }
   .recording-attribution {
     position: absolute;
     opacity: 0.8;
@@ -91,11 +109,14 @@ const description = 'Time-lapse microscopy of rat hippocampal neurons extending 
   .recording-credit:hover { text-decoration: underline; }
   .recording-credit:focus-visible { outline: 2px solid #222; outline-offset: 3px; }
   .recording-status[hidden] { display: none; }
-  .recording-caption { margin: 0.5rem 0 0; }
   .recording-status { margin: 0; padding: 0 1rem 0.6rem; font-size: 12px; }
   @media (max-width: 55.999rem) {
     .recording-field { flex: none; aspect-ratio: 1; }
-    .recording-square { transform: translateY(-0.75rem); }
-    .recording-attribution { right: 0.875rem; bottom: 0.875rem; max-width: calc(100% - 1.75rem); }
+    .recording-square { transform: translateY(-1.5rem); }
+    .recording-attribution { right: 0.875rem; bottom: 0.875rem; max-width: calc(100% - 1.75rem); font-size: 11px; }
+    .recording-credit span { font-size: 10px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .recording-poster { transition: none; }
   }
 </style>

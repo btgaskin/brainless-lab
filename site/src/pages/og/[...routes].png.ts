@@ -1,5 +1,7 @@
 import { getCollection } from 'astro:content';
+import type { APIRoute } from 'astro';
 import { OGImageRoute } from 'astro-og-canvas';
+import { homepageImage } from '../../og/homepage';
 
 const entries = await getCollection(
   'docs',
@@ -16,7 +18,7 @@ const truncate = (value: string | undefined, maxLength = 160) => {
   return `${characters.slice(0, maxLength - 1).join('').trimEnd()}…`;
 };
 
-export const { getStaticPaths, GET } = await OGImageRoute({
+const route = await OGImageRoute({
   pages,
   // The route filename supplies `.png`; keep the dynamic parameter extension-free.
   getSlug: (path) => path,
@@ -57,3 +59,9 @@ export const { getStaticPaths, GET } = await OGImageRoute({
     },
   }),
 });
+
+export const getStaticPaths = route.getStaticPaths;
+export const GET: APIRoute = async (context) => {
+  if (context.params.routes !== 'index') return route.GET(context);
+  return new Response(await homepageImage(), { headers: { 'Content-Type': 'image/png' } });
+};

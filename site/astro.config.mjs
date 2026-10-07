@@ -11,7 +11,7 @@ import redirectDocuments from './src/integrations/redirect-documents';
 // Math: remark-math (source) -> rehype-katex (render); KaTeX CSS is pulled in via
 // customCss below. The recorded Quadrants player mounts as a React island.
 export default defineConfig({
-  site: 'https://brainless-lab.pages.dev',
+  site: 'https://brainless-lab.com',
   redirects: {
     '/core/getting-started': '/tutorials/first-simulation/',
     '/core/task-tour': '/reference/core-catalog/',

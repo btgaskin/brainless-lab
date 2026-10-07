@@ -5,6 +5,8 @@ const FINAL_OPACITY = 0.8;
 /** Owns automatic playback and explicit replays of the source recording. */
 class NeuronRecording extends HTMLElement {
   private video?: HTMLVideoElement;
+  private visual?: HTMLElement;
+  private posterReady = false;
   private abort?: AbortController;
   private observer?: IntersectionObserver;
   private motion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -26,6 +28,7 @@ class NeuronRecording extends HTMLElement {
     if (this.abort) return;
     this.video = this.querySelector<HTMLVideoElement>('.recording-enhanced') ?? undefined;
     if (!this.video) return;
+    this.visual = this.querySelector<HTMLElement>('.recording-visual') ?? undefined;
     this.abort = new AbortController();
     const lifecycle = this.abort;
     const signal = lifecycle.signal;
@@ -58,6 +61,9 @@ class NeuronRecording extends HTMLElement {
       }
     }, { signal });
     this.video.addEventListener('playing', () => {
+      if (!this.video!.requestVideoFrameCallback && this.video!.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        this.revealFrame();
+      }
       this.updateAction();
       this.trackFrames();
     }, { signal });
@@ -101,6 +107,17 @@ class NeuronRecording extends HTMLElement {
       this.sync();
     });
     this.observer.observe(this);
+    // Let the small, prioritised still finish before competing for video bandwidth.
+    const poster = this.querySelector<HTMLImageElement>('.recording-poster');
+    if (poster) {
+      void poster.decode().catch(() => {}).then(() => {
+        if (this.abort !== lifecycle) return;
+        this.posterReady = true;
+        this.sync();
+      });
+    } else {
+      this.posterReady = true;
+    }
     this.scheduleFade();
     this.updateAction();
     this.applyOpacity();
@@ -116,6 +133,8 @@ class NeuronRecording extends HTMLElement {
     ++this.request;
     this.pending = false;
     this.visible = false;
+    this.posterReady = false;
+    this.removeAttribute('data-frame-ready');
     this.cancelFrames();
     if (this.video) {
       this.pauseOwned();
@@ -147,9 +166,9 @@ class NeuronRecording extends HTMLElement {
       ++this.request;
       this.pending = false;
       this.pauseOwned();
-    } else if (video.paused && !this.pending) {
+    } else if (video.paused && !this.pending && (this.posterReady || this.explicitlyEnabled)) {
       if (!video.hasAttribute('src')) {
-        video.src = (matchMedia('(max-width: 50rem)').matches ? this.dataset.mobile : this.dataset.desktop)!;
+        video.src = (matchMedia('(max-width: 55.999rem)').matches ? this.dataset.mobile : this.dataset.desktop)!;
       }
       this.pending = true;
       void this.play(++this.request);
@@ -182,7 +201,7 @@ class NeuronRecording extends HTMLElement {
     this.video.tabIndex = 0;
     this.video.setAttribute('role', 'button');
     this.video.setAttribute('aria-label', 'Restart neuron growth recording');
-    this.video.setAttribute('aria-description', 'Time-lapse microscopy of rat hippocampal neurons. Click or press Enter or Space to restart. Press Escape to pause.');
+    this.video.setAttribute('aria-description', 'Click or press Enter or Space to restart. Press Escape to pause.');
   }
 
   private trackFrames() {
@@ -192,6 +211,7 @@ class NeuronRecording extends HTMLElement {
     this.videoFrame = this.video.requestVideoFrameCallback((_now, metadata) => {
       this.videoFrame = undefined;
       if (!lifecycle || this.abort !== lifecycle || request !== this.request || !this.wanted() || this.video!.paused) return;
+      this.revealFrame();
       this.updateFootage(metadata.mediaTime);
       this.trackFrames();
     });
@@ -200,6 +220,10 @@ class NeuronRecording extends HTMLElement {
   private cancelFrames() {
     if (this.videoFrame !== undefined) this.video?.cancelVideoFrameCallback?.(this.videoFrame);
     this.videoFrame = undefined;
+  }
+
+  private revealFrame() {
+    this.setAttribute('data-frame-ready', '');
   }
 
   private updateFootage(time: number) {
@@ -212,7 +236,7 @@ class NeuronRecording extends HTMLElement {
   }
 
   private applyOpacity() {
-    if (this.video) this.video.style.opacity = String(this.scrollOpacity * this.footageOpacity);
+    if (this.visual) this.visual.style.opacity = String(this.scrollOpacity * this.footageOpacity);
   }
 
   private showError(message: string) {

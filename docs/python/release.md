@@ -42,8 +42,9 @@ at that exact revision. Require successful Ubuntu x64, Windows x64, macOS arm64
 and site jobs. Record the run URL and revision before reporting those platforms
 as qualified. A local check or a configured workflow is insufficient.
 
-The production workflow waits for successful CI on `main` and checks out its exact
-tested revision. Confirm the Cloudflare deployment belongs to that revision.
+Site deployment is manual. After CI passes, run `cd site && bun run deploy` from
+the tested revision with the existing Wrangler login. Confirm the Cloudflare
+deployment belongs to that revision.
 Check the deployed homepage, first-simulation guide, platform limits and attribution.
 Verify both the immutable deployment URL and the public site.
 
