@@ -1,170 +1,57 @@
 ---
 title: Platform limits
-description: What BrainlessLab can test, what remains simplified, and where its evidence stops.
+description: Distinguish implemented software, local checks and qualification receipts.
 ---
 
-BrainlessLab tests neural substrates inside declared bodies, tasks, and worlds. The current
-benchmark compares fixed Falandays and SORN profiles in Tracking, Pong, Plank
-CartPole Easy, and delayed-cue recall. The platform also includes other nodes, tasks, physical components,
-collective worlds, analyses, and challenge tasks.
+BrainlessLab's active implementation is Python 3.12 and Quadrants 1.3.3.
+The package lives under `python/src/brainlesslab/`. The original Julia implementation
+remains in Git at [revision d0fc756d](https://github.com/btgaskin/brainless-lab/tree/d0fc756d).
 
-The [capacity probes](/benchmarks/probes/) add timed stimulus and response tasks and
-adaptation within a continuous session. Their controls establish task requirements;
-model comparisons and selective admission remain pending. Sparse emitted-activity decoders
-use separate fit, validation and evaluation trials within each wiring block. They do not
-expose all internal states or test counterfactual action control. Decoder accuracy and
-native task performance remain separate coordinates.
+## Numerical and architecture boundaries
 
-It is not a general robotics simulator, a complete neuroscience model, or an authority that
-turns a task score into a claim about cognition.
+CPU64 uses strict ordered float64 arithmetic and is the reference policy.
+Metal requires explicit float32 numerics and separate backend qualification.
+CPU32 equation checks do not qualify Metal32.
 
-## Scientific scope
+The CI matrix requests CPU checks on Ubuntu 24.04 x64, Windows 2022 x64 and
+macOS 14 arm64. These are configured architecture gates. Actual CI receipts establish
+what passed; configuration alone does not qualify those platforms.
+No CUDA, Vulkan, Linux arm64 or Windows arm64 qualification is claimed.
 
-The platform can support a claim about an implemented mechanism under a recorded protocol.
-It cannot establish, on its own:
+```bash
+uv sync --locked --group dev
+uv run pytest
+uv run ruff check python
+uv run pyright
+uv build
+```
 
-- biological fidelity outside the validated implementation boundary;
-- cognition, intelligence, autonomy, or motivation as natural kinds;
-- transfer to animals, physical robots, or unmodelled environments;
-- optimality outside the searched task and parameter region;
-- causal necessity without an intervention and appropriate control;
-- equivalence from a non-significant difference;
-- criticality from one fitted distribution or scalar estimator;
-- general competence from normalised values on different tasks.
+Keep first-call compilation, warm execution, host/device copies and recording costs
+separate when profiling. Record backend, dtype, thread count and cache state.
 
-Performance can still be informative when it is poor. A task can expose a missing capacity,
-an incompatible body, an unsuitable timescale, or a parameter trade-off. Check the task
-opportunity, ports, body, horizon, null, and reset before interpreting failure.
+## Active scope
 
-## Falandays validation boundary
+Falandays and SORN have separate equation and conformance boundaries.
+Historical Falandays validation does not transfer automatically to Python.
+SORN software checks do not establish authors-code trajectory parity or biological validity.
 
-The `:falandays` node is numerically fixture-validated against declared trajectories from a
-local authors-derived reference implementation. The fixtures cover the tested construction
-and update path.
+The active tasks include three physical control tasks, delayed cue and six additional
+capacity-probe families with 64 difficulty cells. Availability is experimental software
+readiness, not confirmed cognition or learning.
 
-They do not validate every body, task outcome, experimental Falandays variant, analysis, or
-biological interpretation. Behavioural performance remains a separate empirical result.
+Dense model storage is the baseline. Batching and recording are bounded.
+A sparse mask does not make the runtime a sparse implementation.
 
-## SORN validation boundary
+## Deliberate exclusions
 
-The `:sorn` node is a stable implementation of the declared threshold dynamics, STDP,
-synaptic normalisation, and intrinsic plasticity rules. Focused tests cover deterministic
-construction, stepping, reset, replay, population accounting, and pruning.
+General body composition, heterogeneous ecological populations, broad node registries,
+evolution, general autodiff, durable checkpoint/resume and distributed execution are
+not implemented in this release. Historical Julia capabilities remain available only
+at their original source revision.
 
-No original authors' Matlab implementation was recovered. The public Python repositories
-reviewed during implementation are later derivatives, not numerical oracles. SORN therefore
-has a software-conformance boundary, not bit-for-bit parity with the 2009 simulations.
-Benchmark performance and biological interpretation remain separate empirical claims.
+The website plays generated Quadrants development recordings. It has no TypeScript
+neural or world equations, live parameter tuning or claim of learning from a selected case.
 
-## Node and learning limits
-
-The canonical Falandays node adapts local targets and recurrent weights during behaviour.
-It has no reward signal, task-loss backpropagation, or fitted readout. Other registered
-nodes can have different learning or fixed-weight behaviour.
-
-Therefore, statements about online self-organisation apply to the relevant node, not to
-every composition that BrainlessLab can run.
-
-Current node models omit most cellular biology. See
-[Nodes and reservoirs](/handbook/nodes-reservoirs/) for the implemented mechanisms and
-omissions.
-
-## Physical and ecological limits
-
-`ObjectWorld` currently supports:
-
-- two-dimensional toroidal or walled arenas;
-- fixed agent populations;
-- static circular objects;
-- named analytic scalar fields;
-- simplified spectral appearance and illumination;
-- typed contact and exposure effects;
-- one compatible actuator and dynamics command path per physical body.
-
-It does not provide general meshes, rigid-body collision physics, fluid dynamics, moving
-non-agent objects, birth, replacement, lineage scheduling, or structural evolution of a
-component graph.
-
-Body presets named for insects, robots, or aircraft are reusable compositions. They are not
-validated models of a species or vehicle. A study must justify its sensor geometry, noise,
-actuator limits, and fields.
-
-## Sensing limits
-
-Field probes sample explicit analytic fields. An object bank does not create a field
-automatically.
-
-Spectral cameras use simplified channels, appearance, illumination, and ray occlusion. They
-do not provide a wavelength-continuous optical model, diffraction, atmospheric effects, or
-calibrated hardware response.
-
-`SectorVision` uses hard angular sectors, finite range, and the nearest target per sector.
-Its bearing-shift control preserves sampled values while changing their alignment. This is
-one matched control, not a complete set of social nulls.
-
-The shoal-foraging example omits fluid forces, fin mechanics, optic-flow stabilisation,
-body-body collision response, and species-specific vision.
-
-## Evolution limits
-
-`EvolutionPlan` searches one registered node whose `NodeSpec` declares a reviewed
-`Evolution.NodeDesignSpec`. Node count and composition structure remain fixed. The included
-optimiser is experimental infrastructure. One run does not measure search variance.
-
-Structured and Dense CTRNNs can now use one saved genome across all four v2 benchmark
-tasks. Their kernels have fixture checks and allocation diagnostics. Random initialisations
-often produce silent or input-insensitive outputs, so efficient execution does not imply
-an effective search landscape. Small development pilots do not establish competitive performance.
-
-Native task coordinates remain separate NSGA-II objectives. Generation journals reduce
-checkpoint writes, but candidate trial and seed history still grows with the search budget.
-Wall-time stops are checked between episodes. A single long episode can exceed the limit.
-Changing node count, topology policy, integration settings, or input gain after selection
-changes the declared design assembly and requires a new development comparison.
-
-`DevelopmentSpec` varies bounded scalar paths on a fixed embodiment graph. It does not add
-or remove components, vary port count, encode runtime state, or schedule developmental
-events.
-
-The platform does not yet provide one typed operation that evolves arbitrary node
-structure, connectivity graph, and embodiment structure together.
-
-## Analysis limits
-
-Finite runs and populations constrain every estimator:
-
-- agent-scale statistics need enough independent agents and worlds;
-- avalanche fits need enough events and sensitivity checks;
-- spectral radius is a linear matrix proxy;
-- transfer entropy needs adequate samples, stationarity checks, surrogates, and
-  multiple-pair correction;
-- shared input can imitate collective coupling;
-- failed, dead, missing, and saturated runs need declared handling.
-
-The [Analysis reference](/reference/analysis/) gives method-specific checks. Every new task and sampling
-regime still needs validation.
-
-## Workflow limits
-
-BrainlessLab records plans, named seeds, resolved settings, tables, reports, provenance, and
-checksums. This supports a traceable rerun in a declared environment.
-
-Experiment trees support selected-branch execution, attached immutable runs, dated discussion
-and offline HTML exports. The report is read-only; authored Markdown currently displays as
-escaped source. It does not provide shared prepared-state handoffs or a new operation for
-analysing arbitrary saved records. Existing operation reports and tables remain inspectable.
-
-The platform does not yet provide a graphical study builder, automatic preregistration,
-sealed-data service, permissions sandbox, or automatic evidence promotion. Bit-for-bit
-claims apply only where explicit fixture tests establish them.
-
-The public run-contribution pipeline accepts public records only. Aim for at most 1 MiB of
-text-only files in the complete contribution. The hard limit is 5 MiB. Files above this limit
-and large datasets remain out of scope for this Git-native path.
-
-Direct `Ensemble` simulation supports heterogeneous bodies and reservoirs. Some
-configuration and optimisation paths still require a fixed receptor and effector layout
-for the population they construct.
-
-Use [Experiments and evidence](/handbook/experiments-evidence/) for the evidence ladder and
-[Extend from another project](/tutorials/extend-project/) for the supported extension path.
+Accepted research records and historical benchmark tables retain their own provenance.
+The rewrite neither reruns nor promotes them. Continue with
+[implementation exercises](/python/learning/) and [research](/research/catalogue/).

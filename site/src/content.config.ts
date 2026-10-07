@@ -7,7 +7,7 @@ import { resolve, sep } from 'node:path';
 
 const repositoryRoot = [process.cwd(), resolve(process.cwd(), '..')].find(
   (candidate) =>
-    existsSync(resolve(candidate, 'Project.toml')) &&
+    existsSync(resolve(candidate, 'pyproject.toml')) &&
     existsSync(resolve(candidate, 'site', 'src', 'content.config.ts')),
 );
 
@@ -183,6 +183,7 @@ export const collections = {
     loader: docsLoader(),
     schema: docsSchema({
       extend: z.object({
+        legacy: z.boolean().default(false),
         experimental: experimentalSchema.optional(),
         research: researchSchema.optional(),
       }),

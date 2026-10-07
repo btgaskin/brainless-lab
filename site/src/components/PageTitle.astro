@@ -15,6 +15,18 @@ const titleCase = (value: string) =>
 <DefaultPageTitle />
 
 {
+  entry.data.legacy && (
+    <aside class="page-label" aria-label="Historical Julia documentation">
+      <strong>Historical Julia documentation</strong>
+      <p>This page describes the original implementation and evidence at its recorded source revision.
+        It does not describe the active Python and Quadrants API.</p>
+      <a href="/legacy/">Read the historical boundary</a>
+      <a href="/tutorials/first-simulation/" style="margin-left: 1rem">Use the active Python guide</a>
+    </aside>
+  )
+}
+
+{
   experimental && (
     <aside class="page-label page-label--experimental" aria-label="Experimental feature record">
       <div class="page-label__heading">

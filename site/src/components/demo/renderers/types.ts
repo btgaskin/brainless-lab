@@ -1,8 +1,7 @@
 /**
  * Every renderer takes plain data (`Snap`) and draws it — never a reference
- * into simulation/'s internal classes/state. This keeps rendering fully
- * decoupled from the simulation: a Three.js renderer could implement the same
- * interface later without touching simulation/ or the sim loop at all.
+ * into a live world's internal state. Rendering consumes recorded scene values
+ * and contains no neural or world update equations.
  *
  * `width`/`height` are the canvas's *logical* (CSS-pixel) dimensions —
  * Canvas2D pre-applies the devicePixelRatio transform so renderers draw in

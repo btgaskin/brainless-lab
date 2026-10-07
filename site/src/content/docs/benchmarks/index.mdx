@@ -1,109 +1,23 @@
 ---
 title: Benchmark
-description: Four task coordinates for comparing fixed neural substrates, with development separated from pending confirmation.
-research:
-  kind: benchmark
-  id: direct-control
-  version: v2
-  evidence_state: frozen
-  tasks: [Tracking, Pong, Plank CartPole Easy, Delayed cue]
-  nodes: [Falandays, SORN]
-  tags: [direct-control, parameter-specific, memory]
-  protocol_path: benchmarks/direct-control/v2/README.md
-  record_paths: []
+description: Preserve task-specific raw units and historical evidence boundaries.
 ---
 
-The direct-control benchmark asks how well a fixed neural substrate controls each task
-through its declared observations and actions. Version 2 compares
-[Falandays](/benchmarks/models/falandays/) and [SORN](/benchmarks/models/sorn/) on four tasks:
-[Tracking](/benchmarks/tasks/tracking/), [Pong](/benchmarks/tasks/pong/),
-[Plank CartPole Easy](/benchmarks/tasks/cartpole-plank-easy/), and
-[delayed-cue recall](/benchmarks/tasks/delayed-cue/).
+The active evaluation path compares named conditions within a task.
+It retains native raw outcomes, matched independent-block contrasts and optional
+task-matched null adjustments. It creates no cross-task competence score.
 
-Both are untrained direct-control profiles. Each block starts a fresh random assembly
-with its declared online local plasticity. There is no reward training or fitted output layer.
+The four benchmark coordinates remain Tracking, Pong, Plank CartPole Easy and delayed
+cue. Falandays and SORN are the active model families. Experimental capacity probes
+extend the task opportunity without extending historical validation.
 
-The v2 protocol and its eight input gains are frozen. Confirmation remains pending.
-Development tables explain the selections; they are not accepted benchmark results.
-The three-task v1 definition and its records remain unchanged.
-
-The [capacity-probe library](/benchmarks/probes/) adds experimental tests of interference,
-nonlinear combination, evidence integration, context, temporal order and reversal adaptation.
-Its coverage matrix guides selective admission to a future benchmark version. These
-candidates do not change v2 membership or supply new model results.
-
-## What is held fixed
-
-| Coordinate | Rule |
-| --- | --- |
-| Dynamic neurons | 200 for both profiles |
-| Mechanism and neural parameters | One named profile per model, unchanged across tasks |
-| Input, output, and topology policy | Fixed within each profile, with a fresh seeded realisation per block |
-| Task harness | Fixed observations, actions, timing, termination, outcome, and anchors |
-| Learning | Declared online local plasticity stays on |
-| Independent unit | One randomised world and fresh reservoir per block |
-| Record detail | Outcome key, raw and normalised values, native profile coordinate, and resources |
-
-There is one coordinate per task. Lower heading error is better on Tracking. Higher
-longest rally, balanced steps, and recall accuracy are better on the other tasks.
-These four coordinates retain their own units and are never averaged into a competence score.
-Contrasts compare complete profiles; they do not isolate the neuronal update rule.
-
-## Development selections
-
-Only `InterfaceSpec.input_gain` varies by task. It multiplies encoded input before it
-reaches the reservoir. Every cell uses the grid `0.125, 0.25, 0.5, 1, 2, 4, 8, 16, 32, 64`.
-Selection takes the best mean native task coordinate; exact ties choose the smaller gain.
-
-| Task | Blocks per gain | Falandays selected gain | SORN selected gain |
-| --- | ---: | ---: | ---: |
-| Tracking | 16 | 1 | 4 |
-| Pong | 16 | 1 | 32 |
-| Plank CartPole Easy | 16 | 8 | 8 |
-| Delayed cue | 64 | 0.125 | 1 |
-
-The first three selections carry forward from v1. Recall adds a fresh 256-block paired
-pilot after gain selection. Falandays scored 123/256 (48.0%) and SORN 126/256 (49.2%).
-Both are near the 50% chance level, and the paired difference is inconclusive.
-The task was admitted because its controls establish an observable memory requirement,
-not because either profile demonstrated successful memory.
-
-## Frozen confirmation
-
-The models share each task's world seed within a block and use distinct profile-keyed
-topology streams. Every v2 confirmation root is fresh, including those for the first three tasks.
-Statistics use independent blocks rather than ticks or neurons.
-
-| Task | Blocks | Maximum horizon | Warm-up | Neural frames per world step |
-| --- | ---: | ---: | ---: | ---: |
-| Tracking | 32 | 7,200 | 1,200 | 1 |
-| Pong | 32 | 7,200 | 1,200 | 1 |
-| Plank CartPole Easy | 32 | 15,000 | 0 | 24 |
-| Delayed cue | 512 | 144 | 0 | 1 |
-
-CartPole and recall each use one episode per block and stop at episode completion.
-The CartPole protocol does not reproduce the source repository's 1,000-episode evaluation.
-
-Inspect the submitted protocol without executing confirmation:
-
-```julia
-using BrainlessLab
-plan = benchmark_plan(DIRECT_CONTROL_BENCHMARK_V2)
-validate(plan, DEFAULT_REGISTRY)
+```bash
+uv run brainlesslab check python/plans/delayed-cue.toml
 ```
 
-Validation checks the software contract. It does not collect observations or confirm a result.
+Use the example to inspect the active plan syntax.
+A development run does not satisfy a frozen historical confirmation protocol.
+Existing Julia benchmark tables and accepted records retain their source and evidence state.
 
-## Results and next steps
-
-Confirmation is pending for all four coordinates. No accepted v2 record supplies chart
-values yet. After human contribution review, each task can display its own estimate and interval.
-
-Experimental [CTRNN development searches](/experimental/features/development-evolution/)
-use this same four-task list. A single saved design serves all tasks. Those searches and
-their later development selection blocks remain outside confirmed benchmark evidence.
-
-Read the [versioned protocol](https://github.com/btgaskin/brainless-lab/tree/main/benchmarks/direct-control/v2)
-for controls, seed partitions, compact development tables, and reproduction commands.
-
-<p class="bl-source">Source: <code>src/operations/BenchmarkSpecs.jl</code>, <code>benchmarks/direct-control/v2/</code>.</p>
+Read [tasks](/benchmarks/tasks/), [models](/benchmarks/models/),
+[capacity probes](/benchmarks/probes/) and [evidence](/handbook/experiments-evidence/).

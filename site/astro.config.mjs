@@ -8,7 +8,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 // BrainlessLab docs + outputs site.
 // Math: remark-math (source) -> rehype-katex (render); KaTeX CSS is pulled in via
-// customCss below. The illustrative neural-substrate demo mounts as a React island.
+// customCss below. The recorded Quadrants player mounts as a React island.
 export default defineConfig({
   site: 'https://brainless-lab.pages.dev',
   redirects: {
@@ -120,14 +120,15 @@ export default defineConfig({
           items: [
             { label: 'System map', slug: 'handbook/system-map' },
             { label: 'Nodes and reservoirs', slug: 'handbook/nodes-reservoirs' },
-            { label: 'Bodies and interaction', slug: 'handbook/bodies-interaction' },
-            { label: 'Worlds, tasks and populations', slug: 'handbook/worlds-tasks-populations' },
+            { label: 'Task ports and interaction', slug: 'handbook/bodies-interaction' },
+            { label: 'Worlds, tasks and batches', slug: 'handbook/worlds-tasks-populations' },
             { label: 'Evaluation', slug: 'handbook/evaluation' },
             { label: 'Operations', slug: 'handbook/operations' },
             { label: 'Records and results', slug: 'handbook/records-results' },
             { label: 'Experiments and evidence', slug: 'handbook/experiments-evidence' },
             { label: 'Extending BrainlessLab', slug: 'handbook/extending' },
             { label: 'Platform limits', slug: 'platform-limits' },
+            { label: 'Learn the implementation', slug: 'python/learning' },
           ],
         },
         {
@@ -138,16 +139,16 @@ export default defineConfig({
             { label: 'Core catalogue', slug: 'reference/core-catalog' },
             { label: 'Analysis', slug: 'reference/analysis' },
             { label: 'Interfaces', slug: 'reference/interfaces' },
-            { label: 'Glossary', slug: 'glossary' },
           ],
         },
         {
           label: 'Research',
           items: [
-            { label: 'Record structure', slug: 'research' },
-            { label: 'Accepted runs', slug: 'research/catalogue' },
-            { label: 'Experiments', slug: 'experiments' },
+            { label: 'Historical record structure', slug: 'research' },
+            { label: 'Historical accepted runs', slug: 'research/catalogue' },
+            { label: 'Historical experiments', slug: 'experiments' },
             { label: 'Experimental capabilities', slug: 'experimental' },
+            { label: 'Historical Julia source', slug: 'legacy' },
           ],
         },
       ],

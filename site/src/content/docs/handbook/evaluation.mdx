@@ -1,68 +1,27 @@
 ---
 title: Evaluation
-description: Define repeated trials, random streams, construction, reset, warm-up, and aggregation with EvaluationSpec.
+description: Declare independent worlds, reset policy and disjoint seed partitions.
 ---
 
-`EvaluationSpec` is the outer repetition protocol for every operation. It is separate from
-neural frames and world ticks.
+Evaluation defines the independent observations for a question.
+`EvaluationSpec` declares blocks, trials per block, horizon, warm-up, construction scope,
+root seed and scientific seed partition.
 
-For a Tracking target, one valid protocol is:
-
-```julia
-evaluation = EvaluationSpec(
-    blocks=20,
-    trials_per_block=1,
-    horizon=2200,
-    warmup=200,
-    construction_scope=:trial,
-    reset=:full,
-    root_seed=51001,
-    aggregate=:mean,
-)
+```bash
+uv run brainlesslab check python/plans/delayed-cue.toml
 ```
 
-This protocol scores 2,000 ticks after warm-up, which meets Tracking's declared minimum.
+Resolve before execution. Respect task-specific minimum scored horizons and completed
+episode requirements. A short diagnostic must remain labelled.
 
-## Independent units
+Paired conditions can share declared world streams within a block while keeping their
+mechanism streams distinct. Preserve condition, block, trial and entity identities
+independently of batch slots. Keep calibration, tuning and confirmation seed banks disjoint.
 
-A block or trial is usually the independent randomised unit. Agents, nodes, samples, and
-ticks within one world do not multiply the sample size.
+For offline decoding, construct one fixed wiring per block and fully reset every trial.
+Require distinct world seeds across trials. Fit, validation and evaluation splits contain
+whole trials, and the same split applies across observation points.
 
-Use blocks to pair declared conditions under shared nuisance randomisation. Use
-`trials_per_block` when a block contains repeated trials by design.
-
-## Construction and reset
-
-`construction_scope` controls whether topology is constructed once per evaluation, block,
-or trial. `reset` controls what is reset between trials. Generic operation plans currently
-support only `reset=:full`; `check` rejects `:body_environment` and `:none` before a run
-starts because their state-retention hooks are not implemented.
-
-`warmup` runs before recording and scoring. The scored duration is `horizon - warmup`.
-Choose both values from the task timescale, not from compute convenience alone.
-
-## Random streams
-
-The default root-seed policy derives topology and world streams. Declare another named
-stream only when an implementation consumes it. Records retain every declared realised
-seed.
-
-An `EvaluationTarget` may also declare a `topology_key`. This key makes one model profile's
-topology stream stable across tasks while keeping different profiles distinct. Conditions
-inside a paired benchmark still share the world seed for their block.
-
-Separate calibration, development, variance-pilot, confirmation, and robustness seed
-ledgers. A reproducible seed does not make reused development data independent evidence.
-
-## Aggregation
-
-Aggregation combines declared trial values inside an operation. It does not authorise a
-cross-task aggregate. Keep task-native results and missing or failed trials visible.
-
-A task protocol may also declare one interpretable benchmark profile coordinate, including
-its unit and whether lower or higher is better. Benchmark selection and charts may use
-that coordinate when the versioned benchmark contract says so. The record must still keep
-the task outcome's key, raw value, and normalised value. Declaring a coordinate for one
-benchmark does not turn every diagnostic into a task score.
-
-<p class="bl-source">Source: <code>src/core/Specifications.jl</code>, <code>src/api/Composition.jl</code>.</p>
+Reset, initial construction and snapshot ownership are software contracts.
+They do not establish empirical learning. Continue with
+[decoding](/benchmarks/probes/decoding/) and [evidence](/handbook/experiments-evidence/).

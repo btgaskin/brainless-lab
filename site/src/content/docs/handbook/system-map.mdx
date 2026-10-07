@@ -1,56 +1,40 @@
 ---
 title: System map
-description: See how runtime composition, evaluation, operations, experiments, and records fit together.
+description: Follow scientific values through placement, runtime and offline records.
 ---
 
-BrainlessLab separates behaviour from the protocol that studies behaviour.
+BrainlessLab separates what a study means from where and how it executes.
 
 ```text
-runtime
-NodeSpec + TaskSpec + body + InteractionCycle
-  → CompositionSpec
-  → Reservoir + embodied agent(s) + Environment
-  → SimResult
-
-research
-CompositionSpec + EvaluationSpec
-  → EvaluationTarget
-  → operation plan
-  → typed result
-  → record
-
-named EvaluationTargets + operation plans
-  → ExperimentSpec
+NodeSpec + TaskSpec + count + input_gain
+  -> CompositionSpec
+CompositionSpec + stable target identities
+  -> EvaluationTarget
+targets + EvaluationSpec + NumericalPolicy + operation
+  -> Plan
+Plan + ExecutionSpec
+  -> resolved protocol + bounded Quadrants runtime
+completed trials
+  -> native outcomes + portable records + offline diagnostics
 ```
 
-## Runtime objects
+`NodeSpec` names Falandays or SORN and its model parameters.
+`TaskSpec` names a task and its options.
+`CompositionSpec` adds node count and input gain.
+`EvaluationSpec` declares independent blocks, trials, horizon, warm-up and seed partition.
 
-`NodeSpec` describes a registered node builder and its declared parameters. A `Reservoir`
-contains the node population, wiring, and dynamic state.
+`EvaluationTarget` gives a condition stable pairing, construction and mechanism identities.
+`Plan` adds an operation, question, version and evidence state.
+`NumericalPolicy` declares dtype, ordered reduction and the versioned RNG.
+`ExecutionSpec` selects CPU or Metal, batch size, memory budgets and recording.
 
-A body gives receptor and effector channels their sensorimotor meaning. A `TaskSpec`
-provides setup, ports, defaults, an optional outcome, and score anchors.
+NumPy performs construction and offline analysis. Quadrants advances model and world state.
+Returned host snapshots own their storage. Labels belong to diagnostics and never enter
+the online task controller.
 
-`CompositionSpec` selects the node, task, body, node count, parameters, and interaction
-timing. `simulate` runs one composition and returns a `SimResult`.
+```bash
+uv run brainlesslab check python/plans/delayed-cue.toml
+```
 
-## Research objects
-
-`EvaluationSpec` defines independent blocks, trials, horizons, warm-up, construction,
-reset, random streams, and aggregation. `EvaluationTarget` names one composition under
-one evaluation protocol.
-
-An operation plan profiles, sweeps, ablates, evolves, or benchmarks targets. Each operation
-writes the same record structure.
-
-`ExperimentSpec` groups named conditions and operation plans around one versioned question.
-It records evidence state and limitations. It is not another runner.
-
-## Where to go next
-
-- Read [Nodes and reservoirs](/handbook/nodes-reservoirs/) for the neural substrate.
-- Read [Bodies and interaction](/handbook/bodies-interaction/) for the closed loop.
-- Read [Evaluation](/handbook/evaluation/) before repeated work.
-- Read [Operations](/handbook/operations/) to choose a research action.
-
-<p class="bl-source">Source: <code>src/core/</code>, <code>src/operations/</code>, <code>src/records/</code>.</p>
+The command resolves these layers without simulation. Continue with
+[evaluation](/handbook/evaluation/) and [platform limits](/platform-limits/).

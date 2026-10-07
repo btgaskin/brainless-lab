@@ -1,157 +1,26 @@
 ---
 title: Operations
-description: Choose a profile, sweep, ablation, evolution, or benchmark plan for repeated work.
+description: Keep one scientific plan format for active repeated work.
 ---
 
-Every operation combines named `EvaluationTarget`s with one strict TOML plan. Validate a
-plan before simulation:
+The public operations are `profile`, `sweep`, `ablate`, `benchmark` and `calibrate`.
+They use one `Plan` with named targets, a scientific protocol and evidence state.
+
+A profile characterises one composition. A sweep compares explicit development cells.
+An ablation changes a declared mechanism. A benchmark retains task-specific native
+units and paired contrasts. Calibration freezes a task-matched null policy.
 
 ```bash
-julia --project=. bin/brainlesslab.jl check PLAN.toml
-julia -t auto --project=. bin/brainlesslab.jl run PLAN.toml --root records
+uv run brainlesslab check python/plans/delayed-cue.toml
+uv run brainlesslab run python/plans/delayed-cue.toml --root records
 ```
 
-## Choose the operation
+Inspect the new record printed by the command. A successful run preserves its protocol,
+random identities and outputs; it does not confirm a hypothesis.
+Use `decode` offline for sparse probe diagnostics.
 
-| Question | Operation | Interpretation |
-| --- | --- | --- |
-| What dynamics occur in one composition? | `ProfilePlan` | descriptive profile |
-| How do declared parameter cells behave? | `SweepPlan` | development grid |
-| Is a registered mechanism necessary? | `AblationPlan` | paired intervention |
-| Which registered parameters perform better on training targets? | `EvolutionPlan` | selected candidate |
-| How do declared conditions behave within tasks? | `BenchmarkPlan` | task-specific statistics and contrasts |
+Evolution, general checkpoint/resume, autodiff and distributed operation execution
+are not implemented in this release. Historical Julia operations remain at their
+original source revision.
 
-Profiles run declared analyses over raw trials. Sweeps pair seeds across explicit cells.
-Ablations include an implicit baseline and validate capabilities before execution.
-Evolution selects on training targets before held-out evaluation.
-
-## Initialisation and continued adaptation
-
-To test whether plasticity establishes a useful operating regime, compare initial recurrent
-scales with adaptation enabled and with adaptation frozen. Falandays exposes
-`recurrent_init_scale` for this purpose. It multiplies initial recurrent weights without
-changing sensory weights or topology. The default `1.0` preserves the reference path.
-`weight_init_std` applies only to unsigned `legacy_normal` initialisation.
-
-Use `freeze_weights` to stop weight changes while preserving target adaptation settings.
-Use `freeze_plasticity` to stop both. Either intervention can be scheduled on an
-`EvaluationTarget`; use the same scored interval and paired seeds for every condition.
-
-The growing programme is `experiments/initialisation-adaptation/programme`:
-
-```bash
-julia --project=. bin/brainlesslab.jl check-experiment experiments/initialisation-adaptation/programme
-```
-
-Validation reports the branch and operation names without running simulations. The programme
-README specifies the raw-start scoring windows and independent weight/target update controls.
-A completed development grid does not establish an optimum or show that plasticity is
-unnecessary. See [experiment evidence](/handbook/experiments-evidence/) for later stages
-and [platform limits](/platform-limits/) for current limitations.
-
-## Present a growing programme
-
-An experiment tree can be exported as one page with a linked overview. Each item shows
-its question, evidence state and selected prose. Methods and all attached records remain
-expandable. By default, figures stay inside the operation diagnostics.
-
-To select figures for the main reading flow, place `presentation.toml` beside the root
-`experiment.toml`:
-
-```toml
-format_version = 1
-
-[[items]]
-branch = "reproduction/wall"
-show = ["description", "hypotheses", "discussion"]
-figures = ["run_0002/wall_comparison/Raw task score"]
-```
-
-Replace the figure reference with one listed in an attached operation's diagnostic section.
-Each reference identifies a run, operation and figure title. Missing references fail export.
-Optional prose sections are `description`, `hypotheses`, `objectives` and `discussion`.
-Question, status, limitations and record access remain visible regardless of selection.
-
-```bash
-julia --project=. bin/brainlesslab.jl report-experiment PROGRAMME --output NEW-REPORT
-```
-
-This command creates a fresh offline directory with the presentation settings and copied
-records. It does not execute experiments. Check the selected figures and source links in
-`NEW-REPORT/index.html`; keep the complete directory when sharing.
-
-Select comparisons that answer the question across the declared range, including controls
-and inconclusive results. Built-in charts show means; inspect uncertainty and independent
-counts in the linked reports. Presentation selection does not change protocols or evidence
-states. Notes currently display escaped Markdown source; plain paragraphs read most cleanly.
-
-## Benchmark cases
-
-A multi-condition benchmark case must declare a baseline. The operation then reports paired
-within-task contrasts.
-
-An anchor-only case has exactly one condition and omits `baseline`. It reports the
-condition's raw and normalised intervals with an empty contrasts table. Task anchors are
-reference points, not comparison conditions.
-
-No benchmark operation creates a cross-task aggregate. A leaderboard or qualification
-policy is a separate choice from registry membership and record publication.
-
-## Design a benchmark
-
-A reusable benchmark needs a contract above the ordinary execution plan. Declare:
-
-1. the question and the task harnesses that operationalise it;
-2. one named `ModelProfileSpec` per admitted assembly, including its mechanism,
-   provenance, limitations, node count, topology policy, and output adapter;
-3. a resource rule that every profile satisfies;
-4. the development coordinates that may be selected and the exact selection rule;
-5. disjoint development and confirmation seed ledgers;
-6. the independent unit, paired randomisation, failure handling, statistics, and reporting
-   policy, including one task-native profile coordinate per chart.
-
-`BenchmarkSpec` captures these choices for the direct-control benchmark. Its resource rule
-is 200 total dynamic neurons. It holds every neural and topology parameter fixed across
-tasks and permits only the external `InterfaceSpec.input_gain` to be selected per
-model-task cell. `calibration_plans` produces ordinary `SweepPlan`s. `freeze_benchmark`
-requires one selected gain for every cell before `benchmark_plan` will emit the untouched
-confirmation plan.
-
-Its public profile is mean heading error, mean longest rally, and mean balanced steps.
-Those values are selected and reported independently. The operation also preserves every
-task's formal outcome, but no formula combines the three coordinates.
-
-This separation is deliberate. Internal model parameters define the submitted model
-profile. Generic interface settings can be development coordinates only when the benchmark
-declares them in advance and gives every model the same budget and rule. A change after
-confirmation begins creates a new benchmark version.
-
-Read the [direct-control benchmark](/benchmarks/) for the concrete contract. A fitted
-linear readout would change the question from direct control to representation quality and
-belongs in a separate benchmark family.
-
-## Plans and experiments
-
-Files under `plans/examples/` are small executable examples. Versioned scientific protocols
-belong under `experiments/` as `ExperimentSpec` bundles.
-
-An experiment can grow as a tree. Each node has its own version, question, plain-language
-description and evidence state. Hypotheses and objectives are optional. A question-only node
-is valid but cannot run. Children live in `children/ID/`; version 1 flat bundles remain readable.
-
-Use `run-experiment DIR --branch reproduction/wall` to run one selected node's operations.
-Execution never walks into its children. Use `report-experiment DIR --output NEW-DIR` to
-generate an offline HTML tree without running anything. The output directory must be new.
-
-`attach_experiment_run!` links a checksummed run to a branch; `add_experiment_note!` appends
-dated, authored discussion with optional run references. These live in a separate ledger,
-so discussion does not rewrite executed protocols. A different full protocol must be attached
-explicitly as historical. Reports preserve dirty, failed and incomplete status and link to
-the copied trial tables, resolved settings and operation reports. Scale comparisons and word
-diagnostic series receive charts. Notes currently display as escaped Markdown source.
-
-The report is an inspectable local export, not public acceptance or automatic evidence
-promotion. Shared preparation/checkpoint handoffs and new operations over saved records
-are not yet provided by this layer.
-
-<p class="bl-source">Source: <code>src/operations/</code>, <code>src/records/PlanIO.jl</code>, <code>bin/brainlesslab.jl</code>.</p>
+Continue with [records](/handbook/records-results/) and [limits](/platform-limits/).

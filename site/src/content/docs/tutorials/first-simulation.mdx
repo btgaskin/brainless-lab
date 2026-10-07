@@ -1,54 +1,72 @@
 ---
 title: Run your first simulation
-description: Install BrainlessLab, run one Falandays agent on Tracking, and read the declared task outcome.
+description: Resolve a declared Python protocol and inspect a recorded task outcome.
 ---
 
-This tutorial runs one diagnostic simulation. It does not create a research record or an
-uncertainty estimate.
+A first run checks that a model, task and protocol can execute together.
+It is an implementation diagnostic, not evidence of a learned capability.
 
-## Install the repository
+## Install the locked environment
 
-BrainlessLab requires Julia 1.11 or later.
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then clone the repository:
 
 ```bash
 git clone https://github.com/btgaskin/brainless-lab.git
 cd brainless-lab
-julia --project=. -e 'using Pkg; Pkg.instantiate()'
+uv sync --locked
+uv run brainlesslab check python/plans/delayed-cue.toml
 ```
 
-## Run Tracking
+The check command resolves the model, task, port widths, horizon and seed policy.
+It does not advance a world. If it reports an incompatible protocol, correct the
+declared configuration before running.
+
+## Run and inspect
 
 ```bash
-julia --project=. -e '
-using BrainlessLab
-sim = simulate(:tracking; node=:falandays, ticks=2_000, seed=26)
-println(task_outcome(sim))
-'
+uv run brainlesslab run python/plans/delayed-cue.toml --root records
+uv run brainlesslab inspect records/RECORD_ID
 ```
 
-`simulate` creates a Falandays [reservoir](/glossary/#reservoir), couples it to the
-Tracking [task](/glossary/#task), and runs one closed loop. It returns a `SimResult` in
-memory.
+Replace `RECORD_ID` with the directory printed by the run command.
+A record retains the request, resolved settings, realised random identities,
+native outcomes, summaries and checksums. Inspect it before drawing a conclusion.
 
-## Check the result
+Read the outcome key, raw value, scoring window and calibration status together.
+An unavailable calibration leaves the normalised value unavailable.
+Do not treat a short diagnostic as a task's full evaluation protocol.
 
-`task_outcome(sim)` identifies the task's declared outcome. A scored result contains:
+## Use the Python interface
 
-- `key`, the task outcome name;
-- `raw`, the task-native value;
-- `normalized`, the value relative to that task's declared [anchors](/glossary/#anchor);
-- `normalized_bound`, whether anchor normalisation was clipped at `:floor` or `:ceiling`,
-  or remained within bounds as `:none`;
-- `window`, the number of ticks actually scored.
+The public package exports `NodeSpec`, `TaskSpec`, `CompositionSpec`,
+`EvaluationSpec`, `EvaluationTarget`, `Plan`, `NumericalPolicy` and `ExecutionSpec`.
+Use `simulate` for one diagnostic, or `resolve` and `execute` for a declared plan.
+`task_outcome` returns the task-declared outcome rather than an arbitrary diagnostic.
 
-Tracking declares `minimum_scored_ticks = 2000`, so a shorter run is rejected rather than
-scored over an interval too small to mean anything. Pass an explicit `window` to
-acknowledge a deliberately short diagnostic run.
+For a small in-memory plan, construct the same layers directly:
 
-The command succeeds when Julia prints an outcome without an exception. One run can reveal
-a setup problem or an interesting trajectory. It cannot establish typical performance.
+```python
+from brainlesslab import (
+    CompositionSpec, EvaluationSpec, EvaluationTarget, NodeSpec, Plan, TaskSpec, resolve,
+)
 
-Next, [create a reproducible profile](/tutorials/reproducible-profile/) when you need
-repeated trials and a portable record.
+composition = CompositionSpec(
+    node=NodeSpec("sorn"), task=TaskSpec("delayed_cue"), count=32,
+)
+plan = Plan(
+    "first-cue", (EvaluationTarget("sorn-cue", composition),),
+    evaluation=EvaluationSpec(blocks=2, trials_per_block=2, root_seed=26),
+)
+resolved = resolve(plan)
+print(resolved)
+```
 
-<p class="bl-source">Source: <code>src/api/Highlevel.jl</code>, <code>src/tasks/Tasks.jl</code>.</p>
+This resolves without executing. Inspect its task horizon and ports before calling
+`execute` with a declared `ExecutionSpec`.
+
+Scientific settings belong to the composition and evaluation. Backend, batch size,
+memory and recording belong to `ExecutionSpec`. The default CPU policy is float64.
+Metal requires explicit float32 numerics and a separate qualification.
+
+Continue with [a reproducible profile](/tutorials/reproducible-profile/) and
+[platform limits](/platform-limits/).

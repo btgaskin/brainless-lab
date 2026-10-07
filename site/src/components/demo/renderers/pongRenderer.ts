@@ -1,4 +1,4 @@
-import type { PongSnapshot } from '../../../simulation/tasks/pong';
+import type { PongSnapshot } from './snapshots';
 import type { Renderer } from './types';
 import { BRAND_COLORS } from './types';
 

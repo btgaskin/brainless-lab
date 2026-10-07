@@ -1,7 +1,7 @@
 import { SimDemo } from './demo/SimDemo';
 
 /**
- * Landing-page demo island for comparing neuron designs in the same tasks.
+ * Landing-page player for recorded Quadrants development cases.
  * `not-content` keeps Starlight's Markdown styles outside the interactive UI.
  */
 export default function BrainlessDemo() {

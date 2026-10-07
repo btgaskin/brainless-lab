@@ -1,9 +1,52 @@
 ---
 name: brainless-lab
-description: Guide for operating, extending, and interpreting BrainlessLab.jl, the Julia research platform for behaviour from self-organising neural substrates. Use for every task in the brainless-lab repository. Covers CompositionSpec, EvaluationSpec, typed registries, profile, sweep, ablation, evolution, benchmark plans, ExperimentSpec, versioned records, evidence boundaries, and node or task extension. Pair with the Julia skill for language, dispatch, inference, allocation, and package hygiene.
+description: Guide for the active Python and Quadrants BrainlessLab platform, scientific specifications, bounded evaluation, task null calibration, offline diagnostics and evidence boundaries. Use for every repository task. The later Julia guidance applies only to the historical implementation at revision d0fc756d.
 ---
 
-# BrainlessLab.jl
+# BrainlessLab
+
+## Active Python and Quadrants implementation
+
+The active package lives under `python/src/brainlesslab/`. Read `AGENTS.md` and
+`docs/python/README.md` before implementation work. The public site documents the active
+contract. The Julia sections below are historical guidance for revision `d0fc756d`;
+they do not describe implemented Python registries, evolution or embodied populations.
+
+Use the locked environment and smallest declared protocol:
+
+```bash
+uv sync --locked --group dev
+uv run brainlesslab check python/plans/delayed-cue.toml
+uv run brainlesslab run python/plans/delayed-cue.toml --root records
+```
+
+`check` resolves without simulation. `run` writes a new portable record. Inspect the
+printed record path with `uv run brainlesslab inspect RECORD_PATH`. A complete record
+is software output, not confirmation or maintainer acceptance.
+
+Keep `NodeSpec`, `TaskSpec`, `CompositionSpec`, `EvaluationSpec`, `EvaluationTarget` and
+`Plan` independent of `ExecutionSpec`. The latter selects placement, batch size, memory
+budgets and recording. `NumericalPolicy` declares arithmetic and the versioned RNG.
+Construction is host-side. Quadrants kernels advance neural and task state. Offline
+NumPy analysis consumes owned sparse observations; diagnostic labels never enter the
+online controller. Use stable IDs and destination/source matrix orientation.
+
+Task outcomes retain raw native units. Null-adjusted scores use the task-matched frozen
+calibration and may be negative. Calibration signatures exclude reservoir count,
+topology and input gain. Bootstrap independent model blocks and calibration trajectories
+separately. An invalid denominator makes the adjusted interval unavailable.
+
+Run focused tests, then `uv run pytest`, `uv run ruff check python`, `uv run pyright`
+and `uv build`. Build and test the site after public contract changes. CPU64 equation
+checks, historical Julia reference trajectories and Metal32 qualification are separate
+gates. Architecture jobs need actual receipts before they are called qualified.
+
+The active node families are Falandays and SORN. The capacity probes retain six
+experimental families and 64 difficulty cells. General body composition, evolution,
+checkpoint/resume and autodiff are not implemented in this release. Follow
+`site/src/content/docs/platform-limits.mdx` and `docs/python/learning.md`.
+
+## Historical Julia implementation at d0fc756d
 
 BrainlessLab studies what simple, locally governed neural units can do when coupled to
 bodies and worlds. It supports node design, closed-loop tasks, repeated research

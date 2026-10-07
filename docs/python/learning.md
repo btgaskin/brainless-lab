@@ -1,0 +1,43 @@
+# Learn the implementation by inspecting its evidence
+
+These exercises develop implementation judgement. They do not produce learning or biological evidence.
+
+## Compare equations before timing
+
+Run the focused model tests with the locked environment:
+
+```bash
+uv sync --locked --group dev
+uv run pytest python/tests/test_sorn.py
+uv run pytest python/tests/test_falandays.py
+```
+
+Read the independent NumPy equations beside the Quadrants kernels. Follow old-state inputs, threshold equality, plasticity order and destination/source orientation. Change a copied toy example and explain the expected difference before running it. Do not alter immutable fixtures or accepted records.
+
+A passing equation test establishes its declared software boundary. It does not establish a trained capability or parity with every historical task run.
+
+## Separate kernel compilation from execution
+
+Run one small CPU composition, then repeat the warmed call with the same rank and dtype. Record first-call latency separately from warmed time. Change batch size and node count without changing rank. Inspect which kernels compile again, and relate this to the typed ndarray bundles and runtime dimensions.
+
+Quadrants exposes compiler diagnostics through `qd.init(print_ir=True)` and cache settings. Use these in a scratch process, because runtime initialisation is process-wide. Compare the IR for destination-owned reductions with a deliberately copied scalar example. The [Quadrants guide](https://genesis-embodied-ai.github.io/quadrants/user_guide/index.html) is the source for supported diagnostic options.
+
+Measure compilation with a fresh cache and execution with a warm cache. Preserve the exact Quadrants version, backend, dtype, thread count and fast-math policy. A faster float32 run does not by itself qualify float32 numerics.
+
+## Find host costs and transfer boundaries
+
+Profile a bounded example with [py-spy](https://github.com/benfred/py-spy):
+
+```bash
+uv run --with py-spy py-spy record -o profile.svg -- brainlesslab run python/plans/delayed-cue.toml --root scratch-records
+```
+
+Inspect construction, random-tape preparation, host/device copies, Python launch overhead and record writing. py-spy samples host stacks; it does not resolve GPU kernel time.
+
+On macOS, attach Instruments to the Python process. Compare Time Profiler and Metal System Trace where the installed tools support them. Record signposts or explicit timestamps around construction, compilation and scored execution. Read [Apple's Instruments guide](https://developer.apple.com/documentation/xcode/improving-your-app-s-performance) before interpreting GPU and CPU overlap.
+
+## Explore backend tools within the supported boundary
+
+NVIDIA Nsight and RenderDoc are later exercises for an explicitly supported backend or upstream Quadrants example. This BrainlessLab release does not qualify CUDA, Vulkan or RenderDoc capture. Do not add a backend label or checkpoint/autodiff claim merely because upstream has a related feature.
+
+Read the [Quadrants source](https://github.com/Genesis-Embodied-AI/quadrants) for compiler extensions and submit a minimal reproducer upstream when a compiler issue is isolated. General automatic differentiation, durable checkpoint/resume, distributed execution and broad model registries remain outside this release. See [platform limits](../../site/src/content/docs/platform-limits.mdx).

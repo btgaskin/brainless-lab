@@ -1,53 +1,28 @@
 ---
-title: Worlds, tasks, and populations
-description: Understand external state, task contracts, scalar outcomes, and the shared one-or-many runtime.
+title: Worlds, tasks and batches
+description: Distinguish stable scientific identities from physical execution slots.
 ---
 
-An environment owns external state, objects, fields, encounters, and effects. A task
-defines how a composition enters that environment and how a declared outcome is measured.
+A task owns its inputs, actions, world update and native outcome.
+A trial executes one declared composition in one independently seeded world.
+A batch groups compatible work for execution; it does not add scientific replicates.
 
-## Task contract
+The active tasks are Tracking, Pong, Plank CartPole Easy, delayed cue, recall
+interference, delayed XOR, evidence accumulation, context integration, temporal order
+and reversal adaptation. The capacity-probe library has 64 declared difficulty cells.
 
-`TaskSpec` owns:
-
-- setup and sensorimotor ports;
-- accepted setup option defaults;
-- default horizon and scoring window;
-- interaction timing when required;
-- one optional scalar outcome key;
-- floor and ceiling anchors;
-- descriptors, tags, and experimental status.
-
-Use `task_outcome(sim)` to read the declared outcome. Other metric fields are diagnostics
-unless the task contract names them.
-
-A normalised score maps the raw outcome between the task's anchors. It is useful within a
-task. It does not make outcomes from different tasks interchangeable.
-
-## One agent and many agents
-
-The same `Ensemble` lifecycle runs one agent and a fixed population. Each `Agent` combines
-one reservoir, one body, and one interaction cycle.
-
-Entity-aligned recorder values retain their `EntityID`s. Agents and ticks inside one world
-are not automatically independent samples.
-
-## Core tasks
-
-Tracking, Pong, Plank CartPole Easy, and delayed-cue recall are the v2 benchmark tasks.
-Each declares a scalar outcome and anchors. CartPole and recall retain experimental software status while participating in
-the benchmark; those are separate declarations. Wall remains available but is not a core
-benchmark coordinate.
-
-Query the live registry:
-
-```julia
-tasks(DEFAULT_REGISTRY)
-tasks(DEFAULT_REGISTRY; tag=:benchmark)
-BrainlessLab.task_spec(DEFAULT_REGISTRY, :tracking)
+```bash
+uv run brainlesslab check python/plans/delayed-cue.toml
 ```
 
-Read the [Core catalogue](/reference/core-catalog/) for current outcome and anchor details.
-Read [Benchmark tasks](/benchmarks/tasks/) for the frozen direct-control harnesses.
+Check compatible ports and a valid task horizon in the resolved output.
+Stable condition/block/trial/entity identities own random streams.
+Physical slots may change with batch size without changing those identities.
+Inactive slots must not advance dynamic or random state.
 
-<p class="bl-source">Source: <code>src/tasks/Tasks.jl</code>, <code>src/world/Ensemble.jl</code>, <code>src/api/Highlevel.jl</code>.</p>
+Use independent blocks or trials for inference. A larger batch is an execution choice,
+rather than a larger scientific sample. General body composition and mixed populations
+remain outside this release.
+
+Continue with [evaluation](/handbook/evaluation/) and
+[the probe catalogue](/benchmarks/probes/).

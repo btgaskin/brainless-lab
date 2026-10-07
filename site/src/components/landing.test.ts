@@ -17,12 +17,14 @@ describe('landing-page structure', () => {
     expect(landing).not.toContain('<FalandaysDemo');
   });
 
-  test('offers CartPole and both neuron designs without the Wall task', async () => {
+  test('plays recorded cases with development provenance and no numerical engine', async () => {
     const demo = await source('./demo/SimDemo.tsx');
     const canvas = await source('./demo/TaskCanvas.tsx');
-    expect(demo).toMatch(/cartpole/i);
-    expect(demo).toContain("label: 'Falandays'");
-    expect(demo).toContain("label: 'SORN'");
+    expect(demo).toContain('/replays/index.json');
+    expect(demo).toContain('Recording provenance');
+    expect(demo).toContain('Recorded frame');
+    expect(demo).not.toContain('runDemoWorldStep');
+    expect(demo).not.toContain('ControlPanel');
     expect(canvas).toContain('CartPoleRenderer');
     expect(canvas).not.toContain('WallRenderer');
   });

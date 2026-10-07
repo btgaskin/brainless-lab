@@ -1,51 +1,29 @@
 ---
 title: Extend from another project
-description: Copy the external-project template, register a node and task, then produce a standard profile record.
+description: Extend a narrow implemented interface without inventing unsupported registries.
 ---
 
-Use the project template when your node or task belongs outside the BrainlessLab package.
-The template demonstrates Julia dispatch, registration, one diagnostic run, and one typed
-profile plan.
-
-## Copy and install the template
-
-Copy `examples/templates/new_project/` to your project. From the copied directory, install
-BrainlessLab from GitHub:
+Start with parameter changes to an existing model or task.
+A genuinely different substrate needs its own equation and conformance checks.
 
 ```bash
-julia --project=. -e '
-using Pkg
-Pkg.add(url="https://github.com/btgaskin/brainless-lab")
-Pkg.instantiate()
-'
+uv sync --locked --group dev
+uv run pytest python/tests/test_sorn.py
 ```
 
-While the template remains inside this repository, use
-`Pkg.develop(path="../../..")` instead.
+Use this focused suite to see the software boundary for a dense model implementation.
+Construction uses owned NumPy arrays and a declared random generator.
+Quadrants kernels receive frozen typed ndarray bundles with fixed ranks.
+Keep destination/source matrix orientation and runtime batch/node dimensions.
 
-## Run the worked extension
+New model work must cover old-state ordering, threshold rules, adaptation,
+reset, frozen modes, inactive slots, finite-state reporting and owned snapshots.
+Warm a call before inspecting compilation or timing.
 
-```bash
-julia --project=. run.jl --ticks 300 --seed 1 --n-nodes 80
-julia --project=. run_plan.jl config.toml records
-```
+The active release has two model families and declared built-in tasks.
+A generic body component system, broad node registry, evolution framework and
+automatic differentiation are not implemented. Historical Julia extensions remain
+at [revision d0fc756d](https://github.com/btgaskin/brainless-lab/tree/d0fc756d).
 
-The first command runs one composition and saves a figure. The second writes a standard
-profile record.
-
-## Replace the worked parts
-
-Edit one boundary at a time:
-
-1. `my_node.jl` defines reservoir state, methods, parameters, and a `NodeSpec`.
-2. `my_task.jl` defines observations, actions, metrics, anchors, and a `TaskSpec`.
-3. `my_metric.jl` registers an optional reusable metric.
-4. `config.toml` defines repeated evaluation without adding another runner.
-
-Import a BrainlessLab generic before adding a Julia method to it. Keep runtime state out of
-the parameter genome. Match body port widths before tick zero.
-
-The template proves that the extension loads and runs. It does not validate the scientific
-meaning of a new task or node.
-
-<p class="bl-source">Source: <code>examples/templates/new_project/</code>.</p>
+Read [the implementation exercises](/python/learning/) and
+[platform limits](/platform-limits/) before proposing an extension.

@@ -1,49 +1,32 @@
 ---
 title: Compare conditions
-description: Run a small paired benchmark and interpret its task-specific statistics and contrasts.
+description: Keep paired worlds, independent blocks and causal controls explicit.
 ---
 
-This tutorial compares Falandays with a random-output control on Tracking, Pong, and Plank
-CartPole Easy. It is a software-scale example of plan mechanics, not the published
-direct-control benchmark.
+A condition comparison asks whether declared mechanisms differ under a matched protocol.
+The control must answer that question. Random action, blind input, shuffled input and
+a plasticity freeze answer different questions.
 
-## Inspect and validate the comparison
-
-Open `plans/examples/benchmark_core.toml`. Each case names conditions on one
-[task](/glossary/#task) and declares its random control as the baseline.
-
-```bash
-julia --project=. bin/brainlesslab.jl check \
-  plans/examples/benchmark_core.toml
-```
-
-Validation requires conditions in one case to share their task, [block](/glossary/#block)
-structure, [horizon](/glossary/#horizon), [warm-up](/glossary/#warm-up), reset,
-[construction scope](/glossary/#construction-scope), root seed,
-[streams](/glossary/#seed-stream), and [aggregation](/glossary/#aggregation).
-
-## Run the benchmark
+Use named `EvaluationTarget` values in one `Plan`. Pair the declared world identity
+across conditions. Keep distinct mechanism identities when the comparison requires
+separate stochastic mechanisms. Stable identities make the schedule independent of
+physical batch slots.
 
 ```bash
-julia -t auto --project=. bin/brainlesslab.jl run \
-  plans/examples/benchmark_core.toml --root records
+uv run brainlesslab check python/plans/delayed-cue.toml
 ```
 
-Inspect two tables:
+Check the supplied syntax before authoring a comparison.
+Use the public `ablate` or `benchmark` operation and explicit target identifiers;
+do not introduce an operation-specific configuration schema.
 
-- `summary/statistics.csv` gives raw and [normalised](/glossary/#normalised-score)
-  intervals for each condition;
-- `summary/contrasts.csv` gives paired differences from the declared baseline.
+Compare raw outcomes within a task and matched independent blocks.
+Report raw paired contrasts separately from calibration and adjusted-score uncertainty.
+Agents and ticks within one world are not extra independent samples.
 
-Keep Tracking, Pong, and CartPole separate. Their raw outcomes differ, and normalisation
-does not turn them into one competence scale.
+`freeze_weights` disables weight adaptation while target or threshold adaptation
+continues where the model supports it. `freeze_plasticity` freezes all declared
+adaptation. Preserve the intervention tick in the scientific protocol.
 
-The example uses one block so that its structure is easy to inspect. That is not enough
-for a performance claim. The [direct-control benchmark](/benchmarks/) declares development
-selection and untouched confirmation with independent block-level inference.
-
-Use an [anchor](/glossary/#anchor)-only case when you want to describe one condition
-without a comparator.
-Such a case has exactly one condition and omits `baseline`.
-
-<p class="bl-source">Source: <code>plans/examples/benchmark_core.toml</code>, <code>src/operations/Benchmark.jl</code>.</p>
+Review [evaluation](/handbook/evaluation/), [calibration](/reference/analysis/)
+and [evidence states](/handbook/experiments-evidence/).

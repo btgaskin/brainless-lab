@@ -1,9 +1,8 @@
-import type { PlankCartPoleSnapshot } from '../../../simulation/tasks/cartpolePlank';
+import type { PlankCartPoleSnapshot } from './snapshots';
 import type { Renderer } from './types';
 import { BRAND_COLORS } from './types';
 
 const PAD_X = 24;
-const LEVEL_ORDER = ['easy', 'medium', 'hard', 'hardest'] as const;
 
 /**
  * One renderer for the four Plank levels. The physical world is shared; the
@@ -124,9 +123,7 @@ export class CartPoleRenderer implements Renderer<PlankCartPoleSnapshot> {
     ctx.fillText(snap.done ? `FELL · ${snap.stepCount} STEPS` : `${snap.stepCount} / ${snap.missionSteps}`, PAD_X, h - 27);
     ctx.textAlign = 'right';
     const angle = (snap.theta * 180) / Math.PI;
-    const mediumStatus =
-      snap.level === 'medium' ? ` · NO-OP ${(snap.noopFraction * 100).toFixed(0)}%` : '';
-    ctx.fillText(`θ ${angle.toFixed(1)}°${mediumStatus}`, w - PAD_X, h - 27);
+    ctx.fillText(`θ ${angle.toFixed(1)}°`, w - PAD_X, h - 27);
   }
 
   private drawHeader(
@@ -145,20 +142,12 @@ export class CartPoleRenderer implements Renderer<PlankCartPoleSnapshot> {
     ctx.fillStyle = snap.done ? BRAND_COLORS.amber : BRAND_COLORS.inkMuted;
     ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
     ctx.fillText(
-      snap.done ? 'TERMINAL' : snap.lastAction === null ? 'READY' : snap.lastAction.toUpperCase(),
+      snap.done ? 'TERMINAL' : snap.lastAction === null ? 'RECORDED' : snap.lastAction.toUpperCase(),
       w - PAD_X,
       y,
     );
 
-    const levelIndex = LEVEL_ORDER.indexOf(snap.level);
-    for (let index = 0; index < LEVEL_ORDER.length; index++) {
-      ctx.beginPath();
-      ctx.arc(PAD_X + index * 9, y + 16, 2.2, 0, Math.PI * 2);
-      ctx.fillStyle = index <= levelIndex ? BRAND_COLORS.tealSoft : BRAND_COLORS.grid;
-      ctx.fill();
-    }
-
-    const encoder = snap.encoder === 'spike_ff_2' ? 'SPIKE-FF-2' : 'ARGYLE-4';
+    const encoder = 'ARGYLE-4';
     ctx.textAlign = 'right';
     ctx.fillStyle = BRAND_COLORS.inkMuted;
     ctx.font = '9px ui-monospace, SFMono-Regular, Menlo, monospace';

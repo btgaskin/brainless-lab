@@ -5,6 +5,15 @@ description: Comprehensive guide for writing, reviewing, debugging, and optimizi
 
 # Julia for Scientific Computing
 
+## Scope in the Python rewrite
+
+BrainlessLab's active implementation is Python and Quadrants under
+`python/src/brainlesslab/`. The guidance below remains for historical Julia work at
+revision `d0fc756d`; it does not qualify the new implementation or describe an active
+Julia package in this release. Use the current BrainlessLab skill, Python tests and
+`docs/python/README.md` for active work. Preserve immutable Julia reference evidence
+separately from Python equations and backend qualification.
+
 This skill is a way of thinking about Julia, not a snippet library. Patterns go stale; the two
 mechanical facts below don't. Hold onto them and most of what looks like a long list of "tips"
 becomes one idea applied in different places.

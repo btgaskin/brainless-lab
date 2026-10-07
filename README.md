@@ -1,122 +1,61 @@
-# BrainlessLab.jl
+# BrainlessLab
 
-[![CI](https://github.com/btgaskin/brainless-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/btgaskin/brainless-lab/actions/workflows/ci.yml)
+[![Python CI](https://github.com/btgaskin/brainless-lab/actions/workflows/python.yml/badge.svg)](https://github.com/btgaskin/brainless-lab/actions/workflows/python.yml)
 
 <p align="center"><img src="brainless-lab.png" alt="BrainlessLab" width="760"></p>
 
-BrainlessLab is a Julia platform for studying simple neural substrates in closed
-sensorimotor loops and controlled capacity probes. It separates runtime composition, repeated evaluation, research
-operations, and portable records.
+BrainlessLab is a Python and Quadrants platform for studying locally adapting neural reservoirs in declared tasks. NumPy constructs models and analyses records. Quadrants advances the neural and world state in bounded batches.
 
-The canonical `:falandays` node is validated on declared reference trajectories. `:sorn`
-is a stable, paper-aligned implementation with a separate software-conformance boundary.
-Tracking, Pong, Plank CartPole Easy, and delayed-cue recall are the v2 benchmark tasks. These declarations
-do not establish general competence or biological fidelity.
+The active models are Falandays and SORN. The active tasks are Tracking, Pong, Plank CartPole Easy, delayed cue and six experimental capacity-probe families. The probe library retains 64 difficulty cells. Software availability does not establish learning, cognition or biological fidelity.
 
-The [v2 protocol](benchmarks/direct-control/v2/README.md) is frozen; confirmation remains
-pending. [Shared CTRNN development](benchmarks/ctrnn-readiness/README.md) evaluates one
-fixed design across all four tasks. Its pilots remain development evidence.
+## Start a recorded evaluation
 
-The [capacity-probe library](https://brainless-lab.pages.dev/benchmarks/probes/) adds six
-experimental families and 64 difficulty cells, with observation-only controls and separate
-linear decoding diagnostics. [Stage 2 study bundles](experiments/capacity-probes/README.md)
-are planned, not executed model comparisons. Core membership remains versioned separately.
-
-## Quick start
-
-For paired sweeps of recurrent initialisation scale and weight or target adaptation, use
-the [initialisation and adaptation programme](experiments/initialisation-adaptation/README.md).
-Its bounded pilot is development work, with explicit freeze controls and diagnostic profiles.
-
-BrainlessLab is not yet registered in Julia General.
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then use the locked Python 3.12 environment:
 
 ```bash
 git clone https://github.com/btgaskin/brainless-lab.git
 cd brainless-lab
-julia --project=. -e 'using Pkg; Pkg.instantiate()'
-julia --project=. -e 'using BrainlessLab; sim = simulate(:tracking; node=:falandays, ticks=2_000, seed=26); println(task_outcome(sim))'
+uv sync --locked
+uv run brainlesslab check python/plans/delayed-cue.toml
+uv run brainlesslab run python/plans/delayed-cue.toml --root records
 ```
 
-The public guide provides four direct paths:
-
-1. [Run your first simulation](https://brainless-lab.pages.dev/tutorials/first-simulation/)
-2. [Create a reproducible profile](https://brainless-lab.pages.dev/tutorials/reproducible-profile/)
-3. [Compare conditions](https://brainless-lab.pages.dev/tutorials/compare-conditions/)
-4. [Extend from another project](https://brainless-lab.pages.dev/tutorials/extend-project/)
-
-## Repeated research
-
-```text
-NodeSpec + TaskSpec + body + InteractionCycle
-  → CompositionSpec
-
-CompositionSpec + EvaluationSpec
-  → EvaluationTarget
-  → operation plan
-  → typed result
-  → record
-```
-
-Validate and run one example plan:
+The check command resolves the protocol without simulation. The run command writes a portable record under a new record directory. Inspect the directory printed by the command:
 
 ```bash
-julia --project=. bin/brainlesslab.jl check plans/examples/profile_tracking.toml
-julia -t auto --project=. bin/brainlesslab.jl run \
-  plans/examples/profile_tracking.toml --root records
+uv run brainlesslab inspect records/RECORD_ID
 ```
 
-Every operation record contains the submitted and resolved plans, realised seeds, CSV
-tables, a machine-readable summary, provenance, checksums, and a readable report.
-`ExperimentSpec` groups ordinary operation plans under one versioned scientific question.
+Use [the first-run guide](https://brainless-lab.pages.dev/tutorials/first-simulation/) for the public Python API and record interpretation. [The platform limits](https://brainless-lab.pages.dev/platform-limits/) distinguish implemented backends from qualification receipts.
 
-Browse the [Handbook](https://brainless-lab.pages.dev/handbook/system-map/), the
-[Benchmark](https://brainless-lab.pages.dev/benchmarks/), the
-[Research record guide](https://brainless-lab.pages.dev/research/), and the
-[accepted-run catalogue](https://brainless-lab.pages.dev/research/catalogue/). The
-catalogue retains accepted contributor records and linked maintainer replays without
-turning them into additional independent results. It also marks older compatibility
-records explicitly.
+## Keep the layers separate
 
-Browse software that remains outside the core learning path in the
-[Experimental catalogue](https://brainless-lab.pages.dev/experimental/).
+`NodeSpec` and `TaskSpec` describe one model and task. `CompositionSpec` adds node count and input gain. `EvaluationSpec` declares independent blocks, trials, horizon, warm-up and scientific seed partition. `EvaluationTarget` gives a condition stable identities. `Plan` names a question, evidence state and operation. `ExecutionSpec` controls backend, batch size, memory budgets and recording without changing the scientific protocol.
 
-## Citation and attribution
+Task outcomes retain their key and raw value. Null-adjusted outcomes use `(raw - null_mean) / (upper_bound - null_mean)`. Negative values remain visible. Adjusted intervals independently resample model blocks and calibration trajectories. A task upper bound is not an implemented oracle.
 
-The canonical `:falandays` node implements the model published in:
+Offline decoding uses sparse emitted-activity observations, whole-trial fit/validation/evaluation splits and fit-only scaling. Diagnostic labels never enter the online controller.
 
-> Falandays, J. Benjamin; Yoshimi, Jeffrey; Warren, William H.; Spivey, Michael J.
-> "A potential mechanism for Gibsonian resonance: behavioral entrainment emerges from
-> local homeostasis in an unsupervised reservoir network."
-> *Cognitive Neurodynamics* **18**(4), 1811–1834 (2024).
-> [doi:10.1007/s11571-023-09988-2](https://doi.org/10.1007/s11571-023-09988-2)
-
-**If you use this software, cite that work as well as BrainlessLab.**
-
-BrainlessLab's implementation is an independent reimplementation of the published model.
-The authors' own Julia source is public at
-[bfalandays/ReservoirModel_followups](https://github.com/bfalandays/ReservoirModel_followups)
-and is cited, not vendored: no upstream source, data, or figures are redistributed here.
-Task-specific constants are recorded with per-file provenance in
-[`src/api/paper_config.jl`](src/api/paper_config.jl), and the reference fixtures are
-described in [`test/FIXTURES.md`](test/FIXTURES.md).
-
-## Development
-
-Run the fast Core contract tier during ordinary development:
+## Reproduce the implementation
 
 ```bash
-BRAINLESSLAB_TEST_SUITE=core julia --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Bare `Pkg.test()` runs every suite and takes about fifteen minutes. Select additional
-runtime, operations, scientific-oracle, legacy, or visual gates from
-[test/README.md](test/README.md). Build the site separately:
-
-```bash
+uv sync --locked --group dev
+uv run pytest
+uv run ruff check python
+uv run pyright
+uv build
 cd site
-bun install
+bun install --frozen-lockfile
+bun test
 bun run build
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), [CITATION.cff](CITATION.cff), and the
-[MIT licence](LICENSE).
+The CPU reference policy is strict ordered float64 arithmetic. Metal uses an explicit float32 policy and needs its own qualification. The CI matrix requests Ubuntu x64, Windows x64 and macOS arm64 CPU checks. A configured job is not a passed architecture receipt.
+
+## Historical research
+
+The Julia implementation is preserved in Git at [revision d0fc756d](https://github.com/btgaskin/brainless-lab/tree/d0fc756d). Its Falandays validation applies to declared reference trajectories at that implementation boundary. Python equation tests and later backend qualification are separate evidence.
+
+Accepted contributions, experiments, benchmark protocols and historical tables retain their source revisions and evidence states. This rewrite does not rerun or promote them. Use [the public catalogue](https://brainless-lab.pages.dev/research/catalogue/) to find immutable records.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md), the project-local [BrainlessLab skill](skills/brainless-lab/SKILL.md), and [the implementation exercises](docs/python/learning.md).

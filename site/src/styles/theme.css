@@ -211,6 +211,9 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
 }
+.bl-replay-canvas {
+  height: clamp(12rem, 34dvh, 20rem);
+}
 .bl-demo-canvas {
   position: relative;
   height: clamp(12rem, 38dvh, 20rem);

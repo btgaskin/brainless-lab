@@ -1,4 +1,4 @@
-import type { TrackingSnapshot } from '../../../simulation/tasks/tracking';
+import type { TrackingSnapshot } from './snapshots';
 import type { Renderer } from './types';
 import { BRAND_COLORS } from './types';
 

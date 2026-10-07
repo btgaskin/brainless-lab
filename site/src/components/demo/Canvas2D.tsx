@@ -12,9 +12,8 @@ interface Canvas2DProps<Snap> {
  * resizes. Backing-store size is clientSize x devicePixelRatio with the DPR
  * transform pre-applied, so renderers draw in logical (CSS-pixel) coordinates
  * and stay crisp on retina displays. This is the low-frequency-update path
- * used by SimDemo's setInterval ticker; a future 60fps path (useSimLoop)
- * would bypass the React render cycle and draw imperatively from rAF.
- * No React state ever holds per-tick sim data here.
+ * used by the recorded player's controlled frame ticker. It never advances a
+ * neural or world state, and does not interpolate missing recorded states.
  */
 export function Canvas2D<Snap>({ renderer, snapshot, className }: Canvas2DProps<Snap>) {
   const canvasRef = useRef<HTMLCanvasElement>(null);

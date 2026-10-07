@@ -1,42 +1,26 @@
 ---
 title: Extending BrainlessLab
-description: Add nodes, tasks, bodies, analyses, and interventions through the narrowest public interface.
+description: Choose the smallest supported change and preserve its conformance boundary.
 ---
 
-Start from [the external-project tutorial](/tutorials/extend-project/) when an extension
-does not belong in the package.
+Prefer model parameters or task options before adding a new substrate.
+Construction, runtime dynamics and offline analysis must remain separate.
 
-## Choose the boundary
+```bash
+uv sync --locked --group dev
+uv run pytest python/tests/test_sorn.py
+```
 
-| Intent | Public boundary |
-| --- | --- |
-| Change declared node values | parameter or preset |
-| Add a different neural substrate | `Reservoir` methods and `NodeSpec` |
-| Reuse sensorimotor organisation | body or embodiment configuration |
-| Add sensing or action | sensor, encoder, readout, actuator, or dynamics method |
-| Add a vector or physical task | `TaskSpec` and compatible setup |
-| Add a reusable measure | analysis function and registration |
-| Test mechanism necessity | registered ablation |
+Read a focused model suite alongside its kernels. A new equation needs an independent
+reference calculation, reset/freeze tests, finite-state reporting and batch independence.
+Keep array ranks fixed, use runtime dimensions and own returned snapshots.
 
-Julia multiple dispatch is the extension mechanism. Registries make implementations
-discoverable and selectable by name. Do not add a registry only to avoid a clear method.
+Public scientific values are immutable. Execution policy owns placement and memory;
+it must not silently change trial randomness or scoring.
+Labels are diagnostic metadata, rather than controller inputs.
 
-## Node checklist
+General registries, arbitrary bodies, evolution and autodiff remain unsupported.
+Historical Julia extensions use their original interface at d0fc756d.
 
-Declare parameters, ownership, validators, parameter sets, capabilities, equations, tags,
-and stability. Test port widths, deterministic construction, stepping, readout, reset, and
-replay. Inspect inference and allocations after correctness is established.
-
-## Task checklist
-
-Define observations, actions, timing, reset, horizon, randomised quantities, an optional
-scalar outcome, anchors, descriptors, gates, and degenerate policies. A task without a
-scalar outcome can support profiling but cannot enter a scalar benchmark.
-
-## Evidence boundary
-
-Focused tests establish software behaviour. They do not establish construct validity,
-biological fidelity, or useful task performance. Add experimental capability metadata
-when the feature is discoverable but not part of the core path.
-
-<p class="bl-source">Source: <code>src/core/Interfaces.jl</code>, <code>src/core/Registry.jl</code>, <code>examples/templates/new_project/</code>.</p>
+Continue with [the extension tutorial](/tutorials/extend-project/) and
+[implementation exercises](/python/learning/).

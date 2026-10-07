@@ -1,78 +1,32 @@
 ---
 title: Nodes and reservoirs
-description: Understand the shared reservoir interface, Falandays, SORN, and their distinct validation boundaries.
+description: Keep neural equations, construction and adaptation explicit.
 ---
 
-A node is the local neural unit model. A reservoir is a runtime population of nodes with
-wiring and dynamic state. The reservoir receives receptor values and returns activity for
-a body readout.
+A node defines a local neural rule. A reservoir is the runtime population coupled to
+declared task inputs and effectors. Count belongs to `CompositionSpec`, rather than
+to model coordinates.
 
-## Shared interface
+The active models are Falandays and SORN. Both construct owned arrays on the host and
+advance in Quadrants. Matrices use destination/source orientation. Dense storage is
+the baseline; no sparse performance claim follows from a sparse construction mask.
 
-A reservoir implements `step!`, `effectors`, `reset!`, node and port widths, and any
-declared replay or inspection methods. A registered `NodeSpec` owns:
+Falandays has a historical Julia validation boundary on declared reference trajectories.
+Python equation tests and backend qualification are separate gates.
 
-- its builder and parameters;
-- named parameter sets for sweeps or evolution;
-- capabilities required by ablations;
-- equations, default analyses, stability, and tags.
+SORN uses synchronous binary excitatory/inhibitory threshold dynamics, E-to-E STDP,
+incoming-row normalisation and intrinsic threshold adaptation. Its historical
+`inhibitory_fraction` name denotes an I/E ratio. Pruned edges cannot regrow.
+This software boundary does not establish authors-code trajectory parity or criticality.
 
-Node count belongs to `CompositionSpec`. Runtime membrane values, spikes, learned weights,
-and random-number positions do not belong to a parameter genome.
-
-## Falandays
-
-Use `node=:falandays` for the canonical online-plastic node. It is based on Falandays and
-colleagues, [“A potential mechanism for Gibsonian resonance”](https://doi.org/10.1007/s11571-023-09988-2).
-
-Each unit integrates sensory and recurrent input, emits a spike above its local target,
-and adapts its target and active incoming weights during behaviour. The implementation has
-no task-loss backpropagation or fitted readout.
-
-Task-specific presets resolve the numerical settings:
-
-```julia
-BrainlessLab.composition_spec(DEFAULT_REGISTRY, :falandays_tracking)
-BrainlessLab.composition_spec(DEFAULT_REGISTRY, :falandays_pong)
+```bash
+uv run pytest python/tests/test_sorn.py
+uv run pytest python/tests/test_falandays.py
 ```
 
-The canonical implementation is validated on declared reference trajectories. This covers
-the tested construction and update path. It does not establish behavioural equivalence,
-biological validity, or performance on every task.
+These checks test their declared implementation boundaries.
+Keep `freeze_weights` separate from `freeze_plasticity`; reset restores initial
+weights, masks, dynamic state and plasticity flags.
 
-## SORN
-
-Use `node=:sorn` for the stable Self-Organising Recurrent Network after Lazar, Pipa, and
-Triesch (2009). It combines binary excitatory and inhibitory populations with causal STDP,
-synaptic normalisation, and intrinsic threshold plasticity.
-
-```julia
-spec = BrainlessLab.node_spec(DEFAULT_REGISTRY, :sorn)
-reservoir = SORNReservoir(200, 8, 2; seed=26)
-BrainlessLab.resource_report(reservoir)
-```
-
-The software contract covers deterministic construction, stepping, plasticity, reset,
-replay, population accounting, and structural pruning. No original authors' Matlab
-implementation was recovered, so SORN has equation and software conformance rather than a
-numerical oracle. It does not inherit the Falandays reference-trajectory boundary.
-
-Read the [benchmark SORN profile](/benchmarks/models/sorn/) for the exact 200-node assembly,
-direct-action adapter, provenance, and limits used in benchmark versions 1 and 2.
-
-## Other node families
-
-Structured and Dense CTRNNs are experimental fixed designs with 220 and 404 coordinates.
-Their dendritic, somatic, and hillock states use explicit Euler integration within each
-neural frame. Their fixture parity is separate from Falandays validation and from task performance.
-See [shared-design evolution](/experimental/features/development-evolution/) for declared
-wiring and integration options, resource accounting, and bounded development pilots.
-
-Other registered nodes may use fixed weights, different plasticity, noise, drives, delays,
-or structural assumptions. Query `nodes(DEFAULT_REGISTRY)` and inspect each `NodeSpec`.
-Software registration does not qualify a node for a benchmark.
-
-Add a new reservoir subtype when state, stepping, plasticity, or readout changes
-materially. Use a parameter, preset, wrapper, or ablation when the interface stays the same.
-
-<p class="bl-source">Source: <code>src/core/Catalog.jl</code>, <code>src/nodes/Falandays.jl</code>, <code>src/nodes/SORN.jl</code>, <code>test/test_sorn.jl</code>, <code>test/oracle/authors_falandays.jl</code>.</p>
+Continue with [the system map](/handbook/system-map/) and
+[implementation exercises](/python/learning/).

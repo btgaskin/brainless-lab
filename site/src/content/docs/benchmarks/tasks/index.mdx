@@ -1,24 +1,21 @@
 ---
 title: Benchmark tasks
-description: The four frozen direct-control harnesses and the profile coordinates they measure.
+description: Keep four native task outcomes separate.
 ---
 
-A benchmark task is more than an environment name. It fixes the observations, encoder,
-actions, timing, termination rule, public profile coordinate, formal scalar outcome, and
-score anchors used by every model.
+Tracking, Pong, Plank CartPole Easy and delayed cue ask different questions.
+They remain separate benchmark coordinates, even after a null adjustment.
 
-| Task | Public profile coordinate | Better | Formal outcome retained in records |
-| --- | --- | --- | --- |
-| [Tracking](/benchmarks/tasks/tracking/) | mean heading error (degrees) | lower | `track_score` |
-| [Pong](/benchmarks/tasks/pong/) | mean longest rally (returns) | higher | `hit_rate` |
-| [Plank CartPole Easy](/benchmarks/tasks/cartpole-plank-easy/) | mean balanced steps | higher | `fitness` |
-| [Delayed cue](/benchmarks/tasks/delayed-cue/) | recall accuracy | higher | `recall_accuracy` |
+- [Tracking](/benchmarks/tasks/tracking/) measures following a moving stimulus.
+- [Pong](/benchmarks/tasks/pong/) measures paddle interception.
+- [Plank CartPole Easy](/benchmarks/tasks/cartpole-plank-easy/) measures surviving steps.
+- [Delayed cue](/benchmarks/tasks/delayed-cue/) measures a delayed binary response.
 
-These coordinates are part of the declared task protocols for this benchmark. Other
-recorded measures remain diagnostics. The formal task outcome still appears with its key,
-raw value, and normalised value, but it is not substituted for the public profile
-coordinate. The benchmark does not average across tasks.
+```bash
+uv run brainlesslab check python/plans/delayed-cue.toml
+```
 
-Wall remains an available task, but it is not a coordinate of this benchmark.
-
-<p class="bl-source">Source: <code>src/tasks/Tasks.jl</code>, <code>src/operations/BenchmarkSpecs.jl</code>.</p>
+Inspect the task's ports, action cadence and scored horizon.
+Read its outcome key and raw units before interpreting an adjusted score.
+Existing historical benchmark protocols retain their separate evidence status.
+Continue with [calibration](/reference/analysis/).

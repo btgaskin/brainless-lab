@@ -1,89 +1,33 @@
 ---
-title: Core catalogue
-description: Inspect the registered Falandays and SORN nodes and the four v2 benchmark task contracts.
+title: Active task catalogue
+description: Find supported task-specific outcomes and software boundaries.
 ---
 
-The core catalogue is intentionally small. Query `DEFAULT_REGISTRY` for the current
-machine-readable definitions.
+The active Python task names are:
 
-Core benchmark membership comes from a versioned `BenchmarkSpec`, not task tags.
-The separate [capacity-probe library](/benchmarks/probes/) contains additional integrated
-experimental candidates. `BenchmarkTaskProtocol(task; development, confirmation,
-task_options=...)` carries explicit task settings into calibration and benchmark compositions.
-Its default empty options preserve existing definitions.
+| Task | Question |
+| --- | --- |
+| `tracking` | Can a controller follow the moving stimulus? |
+| `pong` | Can the paddle intercept the ball? |
+| `cartpole_plank_easy` | How long does the declared controller balance the pole? |
+| `delayed_cue` | Can it choose the earlier binary cue after a delay? |
+| `recall_interference` | What survives intervening distractors? |
+| `delayed_xor` | Can the delayed binary relation affect the response? |
+| `evidence_accumulation` | Can distributed evidence affect the response? |
+| `context_integration` | Can context select the relevant response rule? |
+| `temporal_order` | Can the order of observations affect the response? |
+| `reversal_adaptation` | Can responses track a changed reward contingency? |
 
-## Registered benchmark nodes
+The six additional capacity-probe families retain 64 declared difficulty cells.
+They are experimental software, rather than validated cognitive constructs.
 
-| Key | Status | Boundary |
-| --- | --- | --- |
-| `:falandays` | reference | validated on declared reference trajectories |
-| `:sorn` | stable | equations and software lifecycle tested; no authors' Matlab oracle |
-
-The registered presets `:falandays_tracking`, `:falandays_pong`, and `:falandays_wall`
-select task-specific node counts and parameters.
-
-Benchmark versions 1 and 2 do not use those task-specific presets. Each declares one fixed
-200-node profile for each model and selects only an external input gain per task. See
-[Benchmark models](/benchmarks/models/).
-
-## Core tasks
-
-| Task | Outcome | Floor | Ceiling |
-| --- | --- | --- | --- |
-| Tracking | `track_score` | analytic chance alignment, `0.0` | perfect alignment, `1.0` |
-| Pong | `hit_rate` | calibrated `null_random` control | analytic interception maximum, `1.0` |
-| Plank CartPole Easy | `fitness` | analytic minimum, `0.0` | full 15,000-step mission |
-| Delayed cue | `recall_accuracy` | analytic minimum, `0.0` | correct recall, `1.0` |
-
-Each task also declares how long a run must be before its outcome means anything. An
-evaluation whose scored interval falls below `minimum_scored_ticks` is rejected during
-plan validation, so check these before writing a horizon and warm-up.
-
-| Task | Default ticks | Minimum scored ticks | Why |
-| --- | --- | --- | --- |
-| Tracking | `2000` | `2000` | `track_score` averages one sample per tick, and the between-seed spread only falls below the mean past roughly this many scored ticks |
-| Pong | `7200` | `6000` | Pong emits about one ball event per 305 ticks, so a shorter interval scores too few events to estimate a hit rate |
-| Plank CartPole Easy | `15000` | `15000` | one episode runs until failure or the full mission; the benchmark records the actual terminated length |
-| Delayed cue | `144` | complete episode | zero warm-up and enough horizon for the longest configured delay; completion may occur early |
-
-The scored interval is `horizon - warmup`, not `horizon`. Pass an explicit `window` to
-acknowledge a deliberately short diagnostic run.
-
-The exact Pong floor and its provenance live in `TaskSpec`. Inspect them rather than
-copying a number into a new protocol:
-
-```julia
-tracking = BrainlessLab.task_spec(DEFAULT_REGISTRY, :tracking)
-pong = BrainlessLab.task_spec(DEFAULT_REGISTRY, :pong)
-cartpole = BrainlessLab.task_spec(DEFAULT_REGISTRY, :cartpole_plank_easy)
-
-tracking.floor
-tracking.ceiling
-pong.floor
-pong.ceiling
-cartpole.floor
-cartpole.ceiling
+```bash
+uv run brainlesslab check python/plans/delayed-cue.toml
 ```
 
-Tracking, Pong, and Plank CartPole Easy carry `:benchmark`, `:qualification`, and `:core`
-tags. Wall remains registered with `:available` but is not part of this set.
-Delayed cue carries `:benchmark`, `:memory`, and `:experimental`; benchmark membership
-does not change its experimental software status. Its chance accuracy is 0.5.
+Respect each task's scored horizon, action cadence and port interface.
+Use `task_outcome` to read its key and raw value.
+Upper bounds are task opportunity bounds, not implemented oracle demonstrations.
 
-Pong now defaults to 7,200 ticks with a 1,200-tick warm-up and 6,000 scored ticks. Ball
-events arrive about once per 305 ticks. The scored interval therefore contains about 20
-events instead of the two or three available under the old 1,000-tick interval.
-
-Plank CartPole Easy retains `status=:experimental`. Its benchmark participation describes
-the frozen task harness, not scientific maturity. Poor scores remain valid results; there
-is no cross-task aggregate that lets another task hide them.
-
-## Score use
-
-`task_outcome(sim)` returns the task key, raw value, and normalised value. The normalised
-value uses the task's own anchors and can be clamped by its scoring contract. Report the
-anchor kind and provenance with benchmark results.
-
-The [Experimental catalogue](/experimental/) lists capabilities outside this compact core.
-
-<p class="bl-source">Source: <code>src/tasks/Tasks.jl</code>, <code>src/core/Registry.jl</code>.</p>
+Normalised values remain task-specific. Do not form a cross-task competence score.
+Continue with [calibration](/reference/analysis/) and [platform limits](/platform-limits/).
