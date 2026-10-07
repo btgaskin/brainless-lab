@@ -18,7 +18,7 @@ _program: object | None = None
 @lru_cache(maxsize=1)
 def runtime_fingerprint() -> str:
     distribution = importlib.metadata.distribution("quadrants")
-    hashes = {str(f): hashlib.sha256(distribution.locate_file(f).read_bytes()).hexdigest()
+    hashes = {str(f): hashlib.sha256(Path(str(distribution.locate_file(f))).read_bytes()).hexdigest()
               for f in distribution.files or ()
               if str(f).endswith((".py", ".so", ".dylib", ".pyd"))}
     payload = {"version": distribution.version, "files": hashes}

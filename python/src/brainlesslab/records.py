@@ -228,6 +228,17 @@ def _replay_document(result, trial_key):
         "task": trial.task,
         "node": target.target.composition.node.kind,
         "provenance": {
+            "quadrants_version": result.metadata.get("quadrants_version", "unqualified"),
+            "backend": result.metadata.get("requested_backend", result.metadata.get("backend", "unqualified")),
+            "dtype": result.resolved.request.numerics.dtype,
+            "seed_partition": result.resolved.request.evaluation.seed_partition,
+            "resolved": {
+                "composition": target.target.composition,
+                "model_parameters": target.model_config,
+                "task_options": target.task_options,
+                "horizon": target.horizon,
+                "diagnostic": result.resolved.request.diagnostic,
+            },
             "evidence": result.resolved.request.evidence,
             "contract_hash": result.resolved.contract_hash,
             "composition": target.target.composition,

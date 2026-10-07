@@ -8,7 +8,7 @@
     "dev": "astro dev",
     "start": "astro dev",
     "test": "bun test",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "astro sync && tsc --noEmit",
     "demo:check": "bun test src/components/demo/replay.test.ts",
     "build": "astro build",
     "preview": "astro preview",

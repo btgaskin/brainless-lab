@@ -64,7 +64,7 @@ def _jobs(plan: ResolvedPlan) -> tuple[_Job, ...]:
 
 def _cohort(job: _Job) -> tuple[object, ...]:
     r, comp = job.resolved, job.resolved.target.composition
-    excitatory = (max(1, min(comp.count, round(comp.count / (1 + r.model_config.inhibitory_fraction))))
+    excitatory = (max(1, min(comp.count, round(comp.count / (1 + getattr(r.model_config, "inhibitory_fraction")))))
                   if comp.node.kind == "sorn" else comp.count)
     return (comp.task.kind, r.target.controller, comp.node.kind, comp.count,
             r.n_inputs, r.n_effectors, r.neural_frames, excitatory)
@@ -161,7 +161,7 @@ def execute(plan: Plan | ResolvedPlan, execution: ExecutionSpec | None = None, *
                                        if signature.task in (*DECODABLE_TASKS, "reversal_adaptation")
                                        else None)
     prepared_at = perf_counter()
-    trials = [None] * len(jobs)
+    trials: dict[int, TrialResult] = {}
     events, probe_trials, replays = [], [], {}
     for key, group in groups.items():
         size = capacities[key]
@@ -173,19 +173,22 @@ def execute(plan: Plan | ResolvedPlan, execution: ExecutionSpec | None = None, *
             probe_trials.extend(batch[2])
             replays.update(batch[3])
     run_finished = perf_counter()
-    if any(t is None for t in trials):
+    if set(trials) != set(range(len(jobs))):
         raise RuntimeError("internal scheduler omitted a trial")
-    completed = tuple(trials)
+    completed = tuple(trials[index] for index in range(len(jobs)))
     produced = []
     if resolved.request.operation == "calibrate":
         for target in resolved.targets:
             rows = [t for t in completed if t.target_id == target.target.id]
             if any(t.status != "completed" for t in rows):
                 raise RuntimeError("cannot freeze a calibration containing failed trajectories")
+            scores = [t.outcome.raw for t in rows if t.outcome.raw is not None]
+            if len(scores) != len(rows):
+                raise RuntimeError("cannot freeze a calibration containing missing outcomes")
             signature = calibration_signature(target, resolved.request, runtime)
             produced.append(analytic_calibration(signature) if signature.task in
                             (*DECODABLE_TASKS, "reversal_adaptation") else
-                            create_empirical_calibration(signature, [t.outcome.raw for t in rows],
+                            create_empirical_calibration(signature, scores,
                                                          trajectory_ids=[t.world_seed for t in rows],
                                                          root_seed=resolved.request.evaluation.root_seed))
     summaries = _summarise(resolved, completed, applicable)
@@ -296,6 +299,7 @@ def _run_batch(jobs, plan, execution, calibrations):
             host[:ticks] = np.stack([t.preview(ticks)[:, 0] for t in control_tapes], axis=1)
             controls.from_numpy(host)
         for offset in range(ticks):
+            effectors = None
             kernels.update_active(task.done, finite, task.finite, task.ticks, horizons, active)
             for (tick, verb), selected in selected_masks.items():
                 if tick == start + offset + 1:
@@ -313,6 +317,7 @@ def _run_batch(jobs, plan, execution, calibrations):
                 task.encode(frame, active)
                 kernels.filter_finite(active, finite, task.finite)
                 if model is not None:
+                    assert noise is not None
                     kernels.transform_inputs(task.inputs, permutation, scratch, gains, blind, shuffle)
                     if noise_tile is not None:
                         kernels.noise_frame(noise_tile, noise, active, cursors, offset * frames + frame - 1)
@@ -328,9 +333,12 @@ def _run_batch(jobs, plan, execution, calibrations):
                 kernels.filter_finite(active, finite, task.finite)
                 task.accumulate(effectors, frame, active)
                 kernels.filter_finite(active, finite, task.finite)
+            if effectors is None:
+                raise RuntimeError("task requires at least one neural frame")
             task.advance(effectors, active)
             kernels.filter_finite(active, finite, task.finite)
             if features is not None:
+                assert model is not None and schedule is not None and counts is not None
                 kernels.capture_events(model.activity, task.ticks, active, schedule, features, counts)
             if execution.recording == "replay":
                 snapshot = task.snapshot()
@@ -384,7 +392,8 @@ def _run_batch(jobs, plan, execution, calibrations):
                                               outcome, status, ticks, int(old_cursors[slot]),
                                               seeds["world"], job.wiring_id if model is not None else "none",
                                               seeds, "non-finite trajectory" if failed else None)))
-        if feature_values is not None and status == "completed":
+        if feature_values is not None and status == "completed" and raw is not None:
+            assert feature_counts is not None
             if not np.array_equal(feature_counts[slot], np.ones(3)):
                 raise RuntimeError("probe event schedule did not emit exactly one event per point")
             ids = tuple(f"neuron/{i}" for i in range(n))
@@ -407,7 +416,8 @@ def _interval(values, seed):
         return None
     rng = _rng(seed)
     means = np.mean(np.asarray(values)[rng.integers(0, len(values), (2000, len(values)))], axis=1)
-    return tuple(map(float, np.quantile(means, (0.025, 0.975))))
+    low, high = np.quantile(means, (0.025, 0.975))
+    return (float(low), float(high))
 
 
 def _summarise(plan, trials, calibrations):
