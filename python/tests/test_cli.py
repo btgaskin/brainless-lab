@@ -1,3 +1,4 @@
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -23,6 +24,18 @@ def test_check_does_not_initialise_backend(capsys):
     # Model discovery may import Quadrants, but must not select an architecture.
     assert "Starting on arch" not in output
     assert '"contract_hash"' in output and '"recall_accuracy"' in output
+
+
+def test_fresh_process_check_has_json_only_stdout():
+    run = subprocess.run(
+        [sys.executable, "-m", "brainlesslab", "check", str(PLANS / "delayed-cue.toml")],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert run.returncode == 0, run.stderr
+    assert json.loads(run.stdout)["contract_hash"]
+    assert "Starting on arch" not in run.stderr
 
 
 def test_all_checked_in_plans_validate():
@@ -53,6 +66,7 @@ def test_execution_exception_creates_failed_reserved_record(tmp_path, monkeypatc
     module = types.ModuleType("brainlesslab.evaluation")
 
     def failed(*args, **kwargs):
+        print("[Quadrants] injected execution log")
         raise RuntimeError("injected execution failure")
 
     module.execute = failed
@@ -62,7 +76,9 @@ def test_execution_exception_creates_failed_reserved_record(tmp_path, monkeypatc
     records = list(root.iterdir())
     assert len(records) == 1
     assert (records[0] / "FAILED").exists() and not (records[0] / "DONE").exists()
-    assert "injected execution failure" in capsys.readouterr().err
+    output = capsys.readouterr()
+    assert not output.out
+    assert "injected execution log" in output.err and "injected execution failure" in output.err
 
 
 def test_inspect_reports_bad_record_without_execution(tmp_path, capsys):

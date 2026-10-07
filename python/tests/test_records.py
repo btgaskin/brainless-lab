@@ -141,7 +141,7 @@ def test_installed_wheel_executes_and_keeps_exact_source_receipts(tmp_path):
         "WHEEL_EXPECTED_ENVIRONMENT": str(environment),
     }
     script = """
-import hashlib, importlib.resources, json, os, zipfile
+import hashlib, importlib.resources, json, os, subprocess, sys, zipfile
 from pathlib import Path
 import brainlesslab
 from brainlesslab.cli import main
@@ -154,8 +154,11 @@ plan = profile(CompositionSpec(count=4, task=TaskSpec('delayed_cue',
     {'cue_ticks': 2, 'delays': (2,), 'response_ticks': 2})),
     evaluation=EvaluationSpec(blocks=1, trials_per_block=2, horizon=6), id='wheel-smoke')
 write_plan(plan, 'plan.toml')
-assert main(['run', 'plan.toml', '--root', 'records', '--cpu-threads', '1',
-             '--batch-size', '2', '--recording', 'replay']) == 0
+run = subprocess.run([sys.executable, '-m', 'brainlesslab', 'run', 'plan.toml',
+    '--root', 'records', '--cpu-threads', '1', '--batch-size', '2', '--recording', 'replay'],
+    capture_output=True, text=True, check=False)
+assert run.returncode == 0, run.stdout + run.stderr
+assert json.loads(run.stdout)['status'] == 'complete'
 record, = Path('records').iterdir()
 assert inspect_record(record)['complete']
 assert read_calibration(record)

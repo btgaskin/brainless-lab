@@ -6,6 +6,7 @@ import argparse
 import json
 import secrets
 import sys
+from contextlib import redirect_stdout
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -53,7 +54,8 @@ def main(argv=None) -> int:
             inspection = inspect_record(args.record)
             print(json.dumps(inspection, ensure_ascii=False, sort_keys=True))
             return 0 if inspection["complete"] else 1
-        resolved = resolve(read_plan(args.plan))
+        with redirect_stdout(sys.stderr):
+            resolved = resolve(read_plan(args.plan))
         if args.command == "check":
             print(json.dumps(plain(resolved), ensure_ascii=False, sort_keys=True, allow_nan=False))
             return 0
@@ -76,9 +78,10 @@ def main(argv=None) -> int:
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         reservation = reserve_record(args.root / f"{identity}-{stamp}-{secrets.token_hex(4)}")
         # Execution is deliberately imported after parsing/help and preflight.
-        from .evaluation import execute
+        with redirect_stdout(sys.stderr):
+            from .evaluation import execute
 
-        result = execute(resolved, execution=execution, calibrations=calibrations)
+            result = execute(resolved, execution=execution, calibrations=calibrations)
         destination = write_record(result, reservation.path, reservation=reservation)
         status = inspect_record(destination)["status"]
         print(json.dumps({"record": str(destination), "status": status}, ensure_ascii=False))
