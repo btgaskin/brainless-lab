@@ -39,8 +39,8 @@ bundled here. Fresh runs write their own complete records.
 ## Task null calibrations
 
 The [CPU receipt](cpu-calibration-receipt.json) and
-[Metal receipt](metal-calibration-receipt.json) each cover Tracking, Pong and Plank
-CartPole Easy. Each frozen calibration contains 1,024 unique independent trajectories.
+[Metal receipt](metal-calibration-receipt.json) each cover Tracking, Pong and
+CartPole. Each frozen calibration contains 1,024 unique independent trajectories.
 The three CPU sets contain 3,072 mutually disjoint world identities. Core evaluation
 worlds are also disjoint from those calibration worlds.
 
@@ -73,7 +73,7 @@ Background processes were observed and the diagnostic opt-in was recorded. These
 wall times are not a reliable CPU/GPU throughput comparison. No fixed speedup is
 claimed. Use the [profiling exercises](../learning.md) for a controlled measurement.
 
-The maintained engine has 5,185 nonblank Python lines in 19 modules. Historical Julia
+The maintained engine has 5,185 nonblank Python lines in 19 modules. The earlier implementation's
 `src/` and `ext/` contained 38,273 nonblank lines in 97 files: an 86.5% reduction.
 The new capability scope is narrower. This is not feature equivalence or a measure
 of algorithmic speed. [ARCHIVE.md](../../../ARCHIVE.md) locates the complete predecessor.

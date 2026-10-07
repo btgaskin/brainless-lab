@@ -6,7 +6,7 @@ description: Declare a repeatable composition and preserve native outcomes, unce
 A profile asks how one model/task composition behaves across declared randomised blocks
 and trials. Use it to inspect variability before selecting parameters or claiming a
 mechanism. The Python `profile` operation produces trial outcomes and block summaries;
-it does not run the historical Julia analysis registry.
+it does not run the earlier analysis registry described in [version history](/legacy/).
 
 ## Start from a checked protocol
 
@@ -59,7 +59,7 @@ a full reset of that wiring's initial state and receives its own world stream.
 
 After reviewing the protocol, pass `plan` or `resolved` to `execute` with an
 `ExecutionSpec`. Use `write_plan` to preserve the same scientific request as a v4 TOML
-file. Do not copy an archived Julia plan into the new runner.
+file. Do not copy an archived plan into the new runner.
 
 ## Read the output in the right order
 

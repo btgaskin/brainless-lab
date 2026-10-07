@@ -76,7 +76,7 @@ export class CartPoleRenderer implements Renderer<PlankCartPoleSnapshot> {
     ctx.fill();
     ctx.stroke();
 
-    // Pole angle follows the Julia scene convention: theta=0 is upright.
+    // Recorded pole angles use theta=0 for the upright position.
     const tipX = cartX + polePixels * Math.sin(snap.theta);
     const tipY = trackY - polePixels * Math.cos(snap.theta);
     ctx.strokeStyle = snap.done ? BRAND_COLORS.amber : BRAND_COLORS.teal;
@@ -120,7 +120,7 @@ export class CartPoleRenderer implements Renderer<PlankCartPoleSnapshot> {
     ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
     ctx.fillStyle = snap.done ? BRAND_COLORS.amber : BRAND_COLORS.inkMuted;
     ctx.textAlign = 'left';
-    ctx.fillText(snap.done ? `FELL · ${snap.stepCount} STEPS` : `${snap.stepCount} / ${snap.missionSteps}`, PAD_X, h - 27);
+    ctx.fillText(snap.done ? `ENDED · ${snap.stepCount} STEPS` : `${snap.stepCount} / ${snap.missionSteps}`, PAD_X, h - 27);
     ctx.textAlign = 'right';
     const angle = (snap.theta * 180) / Math.PI;
     ctx.fillText(`θ ${angle.toFixed(1)}°`, w - PAD_X, h - 27);
@@ -136,7 +136,7 @@ export class CartPoleRenderer implements Renderer<PlankCartPoleSnapshot> {
     ctx.textAlign = 'left';
     ctx.fillStyle = BRAND_COLORS.ink;
     ctx.font = '600 11px ui-monospace, SFMono-Regular, Menlo, monospace';
-    ctx.fillText(`PLANK · ${snap.levelLabel.toUpperCase()}`, PAD_X, y);
+    ctx.fillText('CARTPOLE', PAD_X, y);
 
     ctx.textAlign = 'right';
     ctx.fillStyle = snap.done ? BRAND_COLORS.amber : BRAND_COLORS.inkMuted;
@@ -147,11 +147,10 @@ export class CartPoleRenderer implements Renderer<PlankCartPoleSnapshot> {
       y,
     );
 
-    const encoder = 'ARGYLE-4';
     ctx.textAlign = 'right';
     ctx.fillStyle = BRAND_COLORS.inkMuted;
     ctx.font = '9px ui-monospace, SFMono-Regular, Menlo, monospace';
-    ctx.fillText(`${snap.observationLabel} · ${snap.actionCount} ACTIONS · ${encoder}`, w - PAD_X, y + 16);
+    ctx.fillText(`${snap.observationLabel} · ${snap.actionCount} ACTIONS`, w - PAD_X, y + 16);
     ctx.textBaseline = 'alphabetic';
   }
 }

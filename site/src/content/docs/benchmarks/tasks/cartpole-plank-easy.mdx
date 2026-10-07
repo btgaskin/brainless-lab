@@ -1,9 +1,28 @@
 ---
-title: Plank CartPole Easy
+title: CartPole
 description: Balance a pole using signed pulse counts and a 24-frame action vote.
 ---
 
 ## What is the interface?
+
+CartPole asks a controller to keep a pole upright by moving its cart left or right.
+BrainlessLab implements the Plank CartPole Easy interface, with the Spike-FF-2
+flip-flop encoder and cumulative action voting. The task key remains
+`cartpole_plank_easy`.
+
+The source study is Plank et al. (2025),
+[The Cart-Pole Application as a Benchmark for Neuromorphic Computing](https://www.mdpi.com/2079-9268/15/1/5).
+Its [TENNLab interface guide](https://github.com/TENNLab-UTK/framework-open/blob/c346e743dc42d5b3339c4252e4ab23c7a8139635/markdown/cartpole_example.md)
+is pinned to the source revision used for the task design. These references describe
+the interface; they do not establish reproduction of the study's trained agents.
+
+The [Gymnasium guide](https://gymnasium.farama.org/environments/classic_control/cart_pole/)
+describes the classic control problem.
+
+This variant uses eight pulse inputs, 24 neural frames per action, a 15,000-step cap
+and the initial ranges below. Standard Gymnasium CartPole-v1 uses four continuous
+observations, a 500-step cap and different initial ranges. Scores from the two
+protocols are not directly comparable.
 
 The physical state is cart position `x`, velocity `x_dot`, pole angle `theta`
 and angular velocity `theta_dot`. Position uses metres, angle radians and time

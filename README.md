@@ -6,7 +6,7 @@
 
 BrainlessLab is a Python and Quadrants platform for studying locally adapting neural reservoirs in declared tasks. NumPy constructs models and analyses records. Quadrants advances the neural and world state in bounded batches.
 
-The active models are Falandays and SORN. The active tasks are Tracking, Pong, Plank CartPole Easy, delayed cue and six experimental capacity-probe families. The probe library retains 64 difficulty cells. Software availability does not establish learning, cognition or biological fidelity.
+The active models are Falandays and SORN. The active tasks are Tracking, Pong, CartPole, delayed cue and six experimental capacity-probe families. The probe library retains 64 difficulty cells. Software availability does not establish learning, cognition or biological fidelity.
 
 ## Start a recorded evaluation
 
@@ -61,7 +61,7 @@ The CPU reference policy is strict ordered float64 arithmetic. Metal uses an exp
 
 ## Historical research
 
-The Julia implementation is preserved in Git at [revision d0fc756d](https://github.com/btgaskin/brainless-lab/tree/d0fc756d). Its Falandays validation applies to declared reference trajectories at that implementation boundary. Python equation tests and later backend qualification are separate evidence.
+[Version history](https://brainless-lab.pages.dev/legacy/) locates the earlier implementation. Its Falandays validation applies to declared reference trajectories at that implementation boundary. Python equation tests and later backend qualification are separate evidence.
 
 Accepted contributions, experiments, benchmark protocols and historical tables retain their source revisions and evidence states. This rewrite does not rerun or promote them. Use [the public catalogue](https://brainless-lab.pages.dev/research/catalogue/) to find immutable records.
 

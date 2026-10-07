@@ -1,0 +1,45 @@
+---
+import DefaultHeader from '@astrojs/starlight/components/Header.astro';
+
+const entryId = Astro.locals.starlightRoute.entry.id;
+const isHome = entryId === '' || entryId === 'index';
+---
+
+{
+  isHome ? (
+    <nav class="bl-home-nav" aria-label="Primary navigation">
+      <a href="/start/">Docs</a>
+      <a href="https://github.com/btgaskin/brainless-lab">GitHub</a>
+    </nav>
+  ) : <DefaultHeader />
+}
+
+<style>
+  .bl-home-nav {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: clamp(0.75rem, 2vw, 1.75rem);
+    height: 100%;
+  }
+
+  .bl-home-nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding-inline: 0.5rem;
+    color: inherit;
+    font-size: 0.875rem;
+    text-decoration: none;
+  }
+
+  .bl-home-nav a:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.25em;
+  }
+
+  .bl-home-nav a:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+</style>

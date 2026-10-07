@@ -3,7 +3,7 @@ title: Core tasks
 description: Read the physical and delayed-response contracts before comparing outcomes.
 ---
 
-The core task set contains Tracking, Pong, Plank CartPole Easy and delayed cue.
+The core task set contains Tracking, Pong, CartPole and delayed cue.
 Each task declares inputs, effectors, action cadence, an ordinary horizon and one
 primary outcome.
 
@@ -11,7 +11,7 @@ primary outcome.
 | --- | --- | --- |
 | [Tracking](/benchmarks/tasks/tracking/) | Does the observer align with a moving stimulus? | Mean cosine of angular error |
 | [Pong](/benchmarks/tasks/pong/) | Does the paddle intercept approaching balls? | Hit fraction |
-| [Plank CartPole Easy](/benchmarks/tasks/cartpole-plank-easy/) | How long does the pole remain within bounds? | World steps survived |
+| [CartPole](/benchmarks/tasks/cartpole-plank-easy/) | How long does the pole remain within bounds? | World steps survived |
 | [Delayed cue](/benchmarks/tasks/delayed-cue/) | Is one cue retained until go? | Response accuracy |
 
 ```python

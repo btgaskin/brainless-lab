@@ -51,7 +51,7 @@ export default defineConfig({
     starlight({
       title: 'BrainlessLab',
       description:
-        'Behaviour from collectives of simple neuron-like nodes — brainless cognition. A Diverse Intelligences Summer Institute 2026 project.',
+        'Study locally adapting neural reservoirs in declared tasks with Python and Quadrants.',
       logo: {
         light: './src/assets/brainless-lab-icon.png',      // dark ink — for light theme
         dark: './src/assets/brainless-lab-icon-dark.png',   // light ink — for dark theme
@@ -74,6 +74,7 @@ export default defineConfig({
       customCss: ['./src/styles/tailwind.css', 'katex/dist/katex.min.css', './src/styles/theme.css'],
       components: {
         Head: './src/components/Head.astro',
+        Header: './src/components/Header.astro',
         Hero: './src/components/LandingHero.astro',
         PageTitle: './src/components/PageTitle.astro',
       },
@@ -82,16 +83,17 @@ export default defineConfig({
       },
       sidebar: [
         {
-          label: 'Introduction',
+          label: 'Get started',
           items: [
+            { label: 'Start here', slug: 'start' },
             { label: 'Run your first simulation', slug: 'tutorials/first-simulation' },
             { label: 'Create a reproducible profile', slug: 'tutorials/reproducible-profile' },
             { label: 'Compare conditions', slug: 'tutorials/compare-conditions' },
-            { label: 'Extend from another project', slug: 'tutorials/extend-project' },
           ],
         },
         {
-          label: 'Benchmark',
+          label: 'Tasks and models',
+          collapsed: true,
           items: [
             { label: 'Benchmark', slug: 'benchmarks' },
             { label: 'Capacity probes', slug: 'benchmarks/probes' },
@@ -101,7 +103,7 @@ export default defineConfig({
                 { label: 'Overview', slug: 'benchmarks/tasks' },
                 { label: 'Tracking', slug: 'benchmarks/tasks/tracking' },
                 { label: 'Pong', slug: 'benchmarks/tasks/pong' },
-                { label: 'Plank CartPole Easy', slug: 'benchmarks/tasks/cartpole-plank-easy' },
+                { label: 'CartPole', slug: 'benchmarks/tasks/cartpole-plank-easy' },
                 { label: 'Delayed cue', slug: 'benchmarks/tasks/delayed-cue' },
               ],
             },
@@ -116,7 +118,8 @@ export default defineConfig({
           ],
         },
         {
-          label: 'Handbook',
+          label: 'Guide',
+          collapsed: true,
           items: [
             { label: 'System map', slug: 'handbook/system-map' },
             { label: 'Nodes and reservoirs', slug: 'handbook/nodes-reservoirs' },
@@ -127,6 +130,7 @@ export default defineConfig({
             { label: 'Records and results', slug: 'handbook/records-results' },
             { label: 'Experiments and evidence', slug: 'handbook/experiments-evidence' },
             { label: 'Extending BrainlessLab', slug: 'handbook/extending' },
+            { label: 'Extend from another project', slug: 'tutorials/extend-project' },
             { label: 'Platform limits', slug: 'platform-limits' },
             { label: 'Learn the implementation', slug: 'python/learning' },
             { label: 'Measure speed and memory', slug: 'python/performance' },
@@ -134,6 +138,7 @@ export default defineConfig({
         },
         {
           label: 'Reference',
+          collapsed: true,
           items: [
             { label: 'API, plans, and CLI', slug: 'reference' },
             { label: 'Plan file format', slug: 'reference/plan-format' },
@@ -144,13 +149,10 @@ export default defineConfig({
           ],
         },
         {
-          label: 'Research',
+          label: 'History',
+          collapsed: true,
           items: [
-            { label: 'Historical record structure', slug: 'research' },
-            { label: 'Historical accepted runs', slug: 'research/catalogue' },
-            { label: 'Historical experiments', slug: 'experiments' },
-            { label: 'Experimental capabilities', slug: 'experimental' },
-            { label: 'Historical Julia source', slug: 'legacy' },
+            { label: 'Version history', slug: 'legacy' },
           ],
         },
       ],

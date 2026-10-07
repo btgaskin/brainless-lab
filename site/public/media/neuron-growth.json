@@ -1,0 +1,63 @@
+{
+  "source": "https://www.youtube.com/watch?v=0rfi_OL6_x4",
+  "title": "Live 65-hour recording of rat hippocampal neuron growth (day 3 to day 6)",
+  "creators": [
+    "Louis Romette",
+    "Christophe Leterrier"
+  ],
+  "institution": "Aix-Marseille Université, Institut de NeuroPhysioPathologie",
+  "use": "Decorative reference recording; not BrainlessLab simulation output or research evidence",
+  "reuse_permission": "Not recorded; assets are not a publication receipt",
+  "source_derivative": {
+    "dimensions": [
+      1920,
+      1080
+    ],
+    "fps": 25,
+    "duration_seconds": 17.52,
+    "sha256": "5886cd2e1a202f034b3cd41619a5d2bdd9ebacd343e587d9ccf21ac4cbd42809"
+  },
+  "processing": {
+    "crop": [
+      1080,
+      1080,
+      420,
+      0
+    ],
+    "desktop_dimensions": [
+      768,
+      768
+    ],
+    "mobile_dimensions": [
+      512,
+      512
+    ],
+    "fps": 20,
+    "denoise": "hqdn3d=1:1:2:2",
+    "codec": "H.264, yuv420p",
+    "encoder": "libx264, preset slow, crf 28, faststart",
+    "poster": "First decoded frame of desktop derivative, WebP quality 80"
+  },
+  "presentation": {
+    "playback": "Once per page load; clicking the image explicitly restarts playback",
+    "end_fade_fraction": 0.1,
+    "end_opacity": 0.8,
+    "end_state": "Hold the final frame",
+    "edge_fade": "Static circular opacity mask",
+    "scroll_fade": true
+  },
+  "files": {
+    "neuron-growth-desktop.mp4": {
+      "bytes": 1964149,
+      "sha256": "419e4f3d6b56dbccdcf1f200e1b3e56ee16171e30dc53ef5aa5381c0a740b1d8"
+    },
+    "neuron-growth-mobile.mp4": {
+      "bytes": 912673,
+      "sha256": "7a2e987d5b1bb4771ffc9735f7c5260101b4d3500c78ba1bd911d9196ee02c23"
+    },
+    "neuron-growth-poster.webp": {
+      "bytes": 25064,
+      "sha256": "b0ee96fc762e3d57446dad4dc69777b15417f2e91e27bfd899d98066bd649b16"
+    }
+  }
+}

@@ -1,21 +1,17 @@
-/* BrainlessLab visual identity — the same warm editorial palette as the figures
-   (src/viz/Style.jl): warm paper, teal accent, amber, ink. Overrides Starlight's
-   theme variables for both light and dark. */
+/* BrainlessLab palette: paper, black ink and neutral greys. */
 
 :root {
   /* Brand palette */
-  --bl-paper: #fbfaf7;
-  --bl-ink: #24282b;
-  --bl-ink-soft: #52585d;
-  --bl-grid: #dedad0;
-  --bl-teal: #2f6f5e;
-  --bl-teal-ink: #1f4b3f;
-  --bl-amber: #9c6b1f;
+  --bl-paper: #f8f8f6;
+  --bl-ink: #262626;
+  --bl-ink-soft: #5d5d5d;
+  --bl-grid: #dfdfdc;
+  --bl-accent: #444444;
+  --bl-accent-ink: #222222;
 
-  /* Starlight accent = teal */
-  --sl-color-accent-low: #e5efe9;
-  --sl-color-accent: #2f6f5e;
-  --sl-color-accent-high: #1f4b3f;
+  --sl-color-accent-low: #eeeeec;
+  --sl-color-accent: var(--bl-accent);
+  --sl-color-accent-high: var(--bl-accent-ink);
 
   /* Serif display headings to match the docs aesthetic */
   --sl-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
@@ -24,31 +20,30 @@
 /* Light theme surfaces */
 :root[data-theme='light'] {
   --sl-color-bg: var(--bl-paper);
-  --sl-color-bg-sidebar: #f2efe8;
+  --sl-color-bg-sidebar: #f0f0ed;
   --sl-color-bg-nav: var(--bl-paper);
   --sl-color-text: var(--bl-ink);
-  --sl-color-text-accent: var(--bl-teal-ink);
+  --sl-color-text-accent: var(--bl-accent-ink);
   --sl-color-gray-6: var(--bl-grid);
   --sl-color-hairline: var(--bl-grid);
 }
 
-/* Dark theme: warm charcoal surfaces (not cool gray) + brighter teal accent,
-   so the warm identity holds in dark as well as light. */
+/* Dark surfaces use the same neutral palette. */
 :root[data-theme='dark'] {
-  --sl-color-accent-low: #163a30;
-  --sl-color-accent: #5aa98f;
-  --sl-color-accent-high: #d6ece3;
+  --sl-color-accent-low: #333333;
+  --sl-color-accent: #bcbcbc;
+  --sl-color-accent-high: #eeeeee;
 
-  --sl-color-bg: #201f1c;          /* warm near-black */
-  --sl-color-bg-nav: #201f1c;
-  --sl-color-bg-sidebar: #26241f;
-  --sl-color-bg-inline-code: #2c2a25;
-  --sl-color-hairline: #38352e;
-  --sl-color-gray-6: #2c2a25;
-  --sl-color-gray-5: #38352e;
-  --sl-color-text: #ece8df;
-  --sl-color-text-accent: #7dc4ac;
-  --sl-color-white: #f6f3ea;
+  --sl-color-bg: #202020;          /* near-black */
+  --sl-color-bg-nav: #202020;
+  --sl-color-bg-sidebar: #262626;
+  --sl-color-bg-inline-code: #2c2c2c;
+  --sl-color-hairline: #383838;
+  --sl-color-gray-6: #2c2c2c;
+  --sl-color-gray-5: #383838;
+  --sl-color-text: #e8e8e8;
+  --sl-color-text-accent: #dddddd;
+  --sl-color-white: #f6f6f6;
 }
 
 /* Editorial serif for page + section headings */
@@ -61,197 +56,36 @@
   letter-spacing: -0.01em;
 }
 
-/* A "Source" callout linking a doc concept to its Julia implementation */
+/* Keep prose links recognisable after Tailwind's link reset. */
+.sl-markdown-content a[href]:not(:where(.not-content *, .sl-anchor-link)) {
+  color: var(--sl-color-text-accent);
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  padding-block: 3px;
+  cursor: pointer;
+}
+.sl-markdown-content a[href]:hover:not(:where(.not-content *, .sl-anchor-link)) {
+  color: var(--sl-color-text);
+  text-decoration-thickness: 2px;
+}
+.sl-markdown-content a[href]:focus-visible:not(:where(.not-content *, .sl-anchor-link)) {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* Source references in the guide. */
 .bl-source {
-  border-left: 3px solid var(--bl-teal);
-  background: color-mix(in srgb, var(--bl-teal) 6%, transparent);
+  border-left: 3px solid var(--sl-color-accent);
+  background: color-mix(in srgb, var(--sl-color-accent) 6%, transparent);
   padding: 0.5rem 0.9rem;
   border-radius: 6px;
   font-size: 0.9em;
 }
-.bl-source code { color: var(--bl-teal-ink); }
+.bl-source code { color: var(--sl-color-text-accent); }
 
-.bl-qr-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 24rem);
-  align-items: center;
-  gap: 1rem;
-  margin-block: 1.25rem;
-}
-.bl-qr-card > a {
-  display: block;
-  padding: 0.5rem;
-  border: 1px solid var(--bl-grid);
-  border-radius: 0.5rem;
-  background: #fff;
-  line-height: 0;
-}
-.bl-qr-card img {
-  margin: 0;
-}
-.bl-qr-card p {
-  margin: 0;
-}
-@media (max-width: 32rem) {
-  .bl-qr-card {
-    grid-template-columns: 1fr;
-    justify-items: start;
-  }
-}
-
-/* ---------------------------------------------------------------------------
-   Landing page (template: splash + frontmatter hero)
-   One centered editorial column: hero, demo card, and prose all share the
-   same measure. The nav carries the "BrainlessLab" name; the hero h1 is the
-   tagline, so nothing repeats. */
-
-[data-has-hero] {
-  --sl-content-width: 50rem;
-}
-[data-has-hero] .sl-container {
-  margin-inline: auto;
-}
-
-/* The hero and live demonstration form one structural first-viewport stage.
-   Lower Markdown remains outside this box, so the fold does not depend on a
-   tuned pixel height or on one device class. */
-.bl-landing-stage {
-  display: grid;
-  align-content: center;
-  gap: clamp(0.75rem, 2dvh, 1.35rem);
-  min-block-size: calc(100vh - var(--sl-nav-height));
-  min-block-size: calc(100dvh - var(--sl-nav-height));
-  padding-block: 0.75rem 1.5rem;
-}
-
-/* Compact, left-aligned hero (overrides Starlight's tall centered default). */
-[data-has-hero] .hero {
-  grid-template-columns: 1fr;
-  padding-block: 1rem 2.5rem;
-}
-.bl-landing-stage .hero {
-  padding-block: 0;
-}
-/* Two-column masthead: the h1 spans the left; the tagline and the "Read the docs"
-   link stack in the right column, so the link nestles directly under the tagline.
-   Collapses to a single stack on narrow screens. */
-[data-has-hero] .hero .stack {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas:
-    'title tagline'
-    'title actions';
-  align-items: center;
-  justify-content: start;
-  gap: 0.4rem 2.25rem;
-  text-align: start;
-}
-[data-has-hero] .hero .copy {
-  display: contents;
-}
-[data-has-hero] .hero .copy h1 {
-  grid-area: title;
-  align-self: center;
-  max-width: 30rem;
-}
-[data-has-hero] .hero .copy .tagline {
-  grid-area: tagline;
-  align-self: end;
-  max-width: 26rem;
-}
-[data-has-hero] .hero .actions {
-  grid-area: actions;
-  align-self: start;
-}
-@media (max-width: 50rem) {
-  [data-has-hero] .hero .stack {
-    grid-template-columns: 1fr;
-    grid-template-areas: 'title' 'tagline' 'actions';
-  }
-}
-[data-has-hero] .hero h1 {
-  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
-  font-size: clamp(1.85rem, 1.1rem + 2.6vw, 2.5rem);
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  line-height: 1.08;
-}
-[data-has-hero] .hero .tagline {
-  font-size: 1.03rem;
-  line-height: 1.6;
-}
-[data-has-hero] .hero .actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem 1.25rem;
-  justify-content: flex-start;
-}
-[data-has-hero] .hero .actions a {
-  font-size: var(--sl-text-base);
-}
-[data-has-hero] .hero .actions a.minimal {
-  padding: 0;
-}
-[data-has-hero] .hero .actions a.primary {
-  padding: 0.7rem 1.15rem;
-  border-color: var(--bl-teal);
-  background: var(--bl-teal);
-  color: #fff;
-}
-[data-has-hero] .hero .actions a.primary:hover {
-  border-color: var(--bl-teal-ink);
-  background: var(--bl-teal-ink);
-  color: #fff;
-}
-
-/* Core demonstration layout. The settings panel is progressive disclosure on
-   narrow or short screens, and becomes a fixed side column only when both
-   dimensions can support it. */
-.bl-demo-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-}
-.bl-replay-canvas {
-  height: clamp(12rem, 34dvh, 20rem);
-}
-.bl-demo-canvas {
-  position: relative;
-  height: clamp(12rem, 38dvh, 20rem);
-}
-.bl-demo-settings {
-  display: none;
-}
-.bl-demo-settings[data-open='true'] {
-  display: block;
-}
-
-@media (min-width: 50rem) and (min-height: 48rem) {
-  .bl-demo-body {
-    grid-template-columns: minmax(0, 1fr) 14.5rem;
-  }
-  .bl-demo-canvas {
-    aspect-ratio: 3 / 2;
-    height: auto;
-  }
-  .bl-demo-details-toggle {
-    display: none;
-  }
-  .bl-demo-settings,
-  .bl-demo-settings[data-open='true'] {
-    display: block;
-    overflow-y: auto;
-    border-top: 0;
-    border-left: 1px solid var(--bl-grid);
-  }
-}
-
-@media (max-height: 48rem) {
-  .bl-landing-stage {
-    align-content: start;
-  }
-}
-
-/* Demo range inputs: hairline track + teal thumb (appearance-none needs an
+/* Demo range inputs: hairline track + ink thumb (appearance-none needs an
    explicit thumb on WebKit, or it vanishes). */
 .bl-range {
   appearance: none;
@@ -270,7 +104,7 @@
   height: 11px;
   width: 11px;
   border-radius: 50%;
-  background: var(--bl-teal);
+  background: var(--bl-accent);
   border: 2px solid #ffffff;
   box-shadow: 0 0 0 1px var(--bl-grid);
 }
@@ -283,49 +117,9 @@
   height: 7px;
   width: 7px;
   border-radius: 50%;
-  background: var(--bl-teal);
+  background: var(--bl-accent);
   border: 2px solid #ffffff;
   box-shadow: 0 0 0 1px var(--bl-grid);
-}
-
-/* Caption line under the demo — small, muted, with citation links. */
-.bl-caption {
-  max-width: 44rem;
-  margin: 0.9rem auto 0;
-  text-align: center;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: var(--sl-color-gray-3);
-}
-
-/* "More below" chevron cue under the demo. */
-.bl-chevron {
-  display: flex;
-  justify-content: center;
-  margin: 1.1rem auto 0.25rem;
-  color: var(--bl-teal);
-}
-.bl-chevron svg {
-  width: 1.6rem;
-  height: 1.6rem;
-  animation: bl-bob 1.8s ease-in-out infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .bl-chevron svg {
-    animation: none;
-  }
-}
-@keyframes bl-bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(5px);
-  }
-}
-#more {
-  scroll-margin-top: 4rem;
 }
 
 /* Restore list markers inside prose.

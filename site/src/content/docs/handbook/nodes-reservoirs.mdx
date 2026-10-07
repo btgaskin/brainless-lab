@@ -55,8 +55,9 @@ uv run pytest python/tests/test_falandays.py python/tests/test_sorn.py
 
 These suites cover their declared equations, ordering, threshold cases, reset, frozen
 modes, ownership and batch independence. Falandays also has specific archival fixture
-checks. Historical Julia validation covers its declared reference trajectories;
-Python equation conformance and backend qualification remain separate.
+checks. Validation of the earlier implementation covers its declared reference trajectories;
+Python equation conformance and backend qualification remain separate. See
+[version history](/legacy/) for that boundary.
 
 SORN's `inhibitory_fraction` is the historical name for an I/E ratio. Its E-to-E
 construction uses a connection probability, and pruned edges do not regrow. Software

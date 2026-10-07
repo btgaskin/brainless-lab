@@ -41,8 +41,10 @@ Use these terms consistently:
 | record | the portable output of one operation |
 
 Use `simulate` for one in-memory run. Use an operation plan for repeated work.
-Historical Julia bodies, `InteractionCycle`, registries, evolution and `ExperimentSpec`
+Earlier bodies, `InteractionCycle`, registries, evolution and `ExperimentSpec`
 retain their meaning only at their declared source revision.
+Keep implementation migration and language history in
+[version history](../site/src/content/docs/legacy.mdx), rather than the active guide.
 
 Use “validated on declared reference trajectories” for the tested Falandays conformance
 boundary. Do not extend this wording to behavioural or biological equivalence.

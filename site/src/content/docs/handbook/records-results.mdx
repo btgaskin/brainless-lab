@@ -14,7 +14,7 @@ uv run brainlesslab inspect records/RECORD_ID
 ```
 
 Use the directory printed by `run`. Inspection reads metadata and verifies the artifact
-inventory; it does not execute either Python or historical Julia code.
+inventory; it does not execute simulation code.
 
 A successful result has `complete: true`, `checksums_valid: true` and no invalid or
 unlisted artifacts. A checksum establishes byte integrity relative to the manifest.
@@ -50,7 +50,7 @@ package source, the dependency lock and runtime information.
 
 Optional channels add sparse probe tables and feature arrays, replay files, or
 `calibration.json`. They do not turn every record into a raw tick trace or an HTML study
-report. Do not copy an artifact tree from the historical Julia runner as the Python format.
+report. The earlier runner's artifact tree is not the Python format; see [version history](/legacy/).
 
 ## Recognise failed and incomplete runs
 

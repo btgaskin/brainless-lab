@@ -6,11 +6,11 @@ BrainlessLab is an experimental research platform. Preserve software and scienti
 
 Before changing BrainlessLab code, read `skills/brainless-lab/SKILL.md` in full. `.agents/skills/brainless-lab` points to this checked-in file. Use the current worktree; do not install independent global copies.
 
-The active implementation is Python and Quadrants under `python/src/brainlesslab/`. Read `docs/python/README.md` and only relevant references. Historical Julia code is preserved in Git at revision `d0fc756d`. Its protocols and accepted records retain their original source revisions.
+The active implementation is Python and Quadrants under `python/src/brainlesslab/`. Read `docs/python/README.md` and only relevant references. [Version history](site/src/content/docs/legacy.mdx) locates the earlier implementation. Its protocols and accepted records retain their original source revisions.
 
 ## Preserve the scientific boundary
 
-- Historical Falandays validation covers declared Julia reference trajectories. Do not change its fixtures or language to make the rewrite pass.
+- Historical Falandays validation covers declared reference trajectories at their recorded source revision. Do not change its fixtures or language to make the rewrite pass.
 - Python equation conformance, historical fixture parity, backend qualification and observed task performance are separate evidence.
 - A task score operationalises one task. It does not establish cognition, general capability, biological fidelity or external validity.
 - Use `task_outcome` and retain the outcome key, raw value, normalised value, scoring window and calibration status. Other fields remain diagnostics.

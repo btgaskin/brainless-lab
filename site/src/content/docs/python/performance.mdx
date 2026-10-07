@@ -102,7 +102,7 @@ Use this staged matrix as a measurement protocol, not a claim that every cell fi
 | Initial check | Falandays, SORN | 64 | 1, 8 | 8 | Delayed cue |
 | Batch scaling | Falandays, SORN | 64, 256 | 1, 8, 32, 128 | 128 | Delayed cue, Tracking |
 | Larger dense workload | Falandays, SORN | 1024 | 1, 8, then larger admitted capacities | 128 | One already checked task |
-| Interaction timing | Falandays, SORN | 64, 256 | Two useful capacities from earlier stages | 128 | Pong, Plank CartPole Easy |
+| Interaction timing | Falandays, SORN | 64, 256 | Two useful capacities from earlier stages | 128 | Pong, CartPole |
 | Recording cost | One checked composition | Same as its baseline | Same admitted capacity | Same trial identities | Summary, sparse events or replay |
 
 For each batch-scaling cell, keep total trials, independent blocks, seed, model parameters,
@@ -118,7 +118,7 @@ Dense recurrent and plastic-weight work grows approximately with batch size time
 count squared; establish the practical memory and throughput curve before enlarging it.
 
 Tracking ordinarily needs at least 2,000 scored ticks. Pong's normal horizon is 7,200,
-with a 6,000-scored-tick minimum. Plank CartPole Easy allows a 15,000-step episode and
+with a 6,000-scored-tick minimum. CartPole allows a 15,000-step episode and
 uses 24 neural frames per world tick. A shorter physical timing workload requires
 `--diagnostic --horizon VALUE`. State that shorter horizon when reporting it.
 

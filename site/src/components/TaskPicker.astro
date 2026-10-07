@@ -1,0 +1,101 @@
+---
+interface Props { id?: string }
+const { id = 'task-picker' } = Astro.props;
+const options = [
+  { value: 'tracking', label: 'Tracking' },
+  { value: 'pong', label: 'Pong' },
+  { value: 'cartpole', label: 'CartPole' },
+  { value: 'delayed-cue', label: 'Delayed cue' },
+];
+---
+
+<task-picker data-value="tracking" data-label="Tracking">
+  <button class="task-picker-trigger" type="button" disabled
+    aria-label="Task: Tracking" aria-haspopup="listbox" aria-expanded="false"
+    aria-controls={`${id}-options`}>
+    <span class="task-picker-label">Tracking</span>
+    <span class="task-picker-chevron" aria-hidden="true"></span>
+  </button>
+  <div class="task-picker-menu" id={`${id}-options`} role="listbox" aria-label="Task" hidden>
+    {options.map(({ value, label }) => (
+      <button type="button" role="option" data-value={value} data-label={label}
+        aria-selected={value === 'tracking' ? 'true' : 'false'} tabindex="-1">
+        {label}
+      </button>
+    ))}
+  </div>
+</task-picker>
+
+<script>
+  import './task-picker-controller';
+</script>
+
+<style>
+  task-picker {
+    position: relative;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    color: var(--sl-color-text);
+    font: inherit;
+  }
+  button {
+    min-height: 44px;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    padding: 0.65rem 0.8rem;
+    text-align: left;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+  .task-picker-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 5px;
+    background: var(--sl-color-bg);
+  }
+  .task-picker-trigger:disabled { cursor: default; opacity: 0.65; }
+  .task-picker-chevron {
+    width: 0.45rem;
+    height: 0.45rem;
+    flex-shrink: 0;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-0.12rem) rotate(45deg);
+  }
+  .task-picker-menu {
+    position: absolute;
+    inset-inline-start: 0;
+    bottom: calc(100% + 0.35rem);
+    z-index: 20;
+    width: 100%;
+    box-sizing: border-box;
+    max-height: var(--picker-space, 14rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.25rem;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 5px;
+    background: var(--sl-color-bg);
+    box-shadow: 0 0.35rem 1rem color-mix(in srgb, var(--sl-color-text) 12%, transparent);
+  }
+  task-picker[data-opens-down] .task-picker-menu { bottom: auto; top: calc(100% + 0.35rem); }
+  .task-picker-menu[hidden] { display: none; }
+  .task-picker-menu button { border-radius: 3px; }
+  .task-picker-menu button[aria-selected='true'] {
+    background: var(--sl-color-text);
+    color: var(--sl-color-bg);
+  }
+  button:focus-visible { outline: 2px solid currentColor; outline-offset: -3px; }
+  .task-picker-trigger:focus-visible { outline-offset: 3px; }
+  .task-picker-menu button:hover:not([aria-selected='true']) {
+    background: color-mix(in srgb, var(--sl-color-text) 8%, var(--sl-color-bg));
+  }
+</style>

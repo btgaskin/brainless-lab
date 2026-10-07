@@ -11,7 +11,7 @@ The catalogue can include a planned, tuned, or frozen protocol before confirmati
 Confirmed and promoted entries must point to one or more complete operation records.
 
 The frozen `direct_control` version 2 experiment contains the untouched confirmation
-operation for the [four-task benchmark](/benchmarks/). Version 1 remains preserved separately.
+operation for the [four-task benchmark](https://github.com/btgaskin/brainless-lab/tree/d0fc756d/benchmarks/direct-control/v2). Version 1 remains preserved separately.
 Neither protocol has an accepted run yet. Example and
 experimental protocol bundles remain in the repository without appearing as core studies
 on this page.
@@ -19,17 +19,14 @@ on this page.
 ## How an experiment is retained
 
 An experiment directory contains `experiment.toml` and one ordinary plan file per
-operation. Running the experiment writes a small experiment index plus one standard record
+operation. The archived runner writes a small experiment index plus one standard record
 for every operation.
 
-```bash
-julia --project=. bin/brainlesslab.jl check-experiment experiments/my-study
-julia -t auto --project=. bin/brainlesslab.jl run-experiment \
-  experiments/my-study --root experiment-records
-```
+[Read the archived commands and examples](https://github.com/btgaskin/brainless-lab/blob/d0fc756d/site/src/content/docs/experiments/index.mdx).
 
 The protocol fixes the question and named conditions. The operation records retain exact
 submitted and resolved configurations, seeds, tables, summaries, provenance, and checksums.
 
-This page is intentionally a small catalogue stub. The [Research records](/research/) page
-defines how a later phase can discover those records and add search, sorting, and filters.
+This page retains the earlier catalogue and protocol status. Read
+[research records](/research/) for contribution rules or [version history](/legacy/)
+for the implementation boundary.

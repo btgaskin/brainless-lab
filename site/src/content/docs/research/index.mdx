@@ -7,9 +7,10 @@ description: How BrainlessLab retains exact run configurations and accepts publi
 The research area is a small index over standard BrainlessLab records. It does not add a
 database or a separate research runner.
 
-## Current contract
+## Archived record format
 
-Every repeated run uses an operation plan and writes one portable record:
+The earlier implementation wrote one portable record per operation plan.
+For the active format, read [records and results](/handbook/records-results/).
 
 ```text
 record-id/
@@ -25,7 +26,7 @@ record-id/
 ```
 
 `request.toml` retains the exact submitted configuration. `resolved.toml` retains defaults
-and derived values. The seed ledger, raw tables, summary, Git revision, Julia version,
+and derived values. The seed ledger, raw tables, summary, Git revision, runtime version,
 checksums, and completion state make the run reviewable and shareable.
 
 An `ExperimentSpec` groups operation plans under one question and version. Each operation
@@ -35,9 +36,9 @@ all research.
 ## Public indexes
 
 - [Accepted runs](/research/catalogue/) reads the committed contribution catalogue.
-- [Benchmarks](/benchmarks/) lists versioned benchmark protocols and records.
+- [Archived benchmarks](https://github.com/btgaskin/brainless-lab/tree/d0fc756d/benchmarks) retain versioned protocols and records.
 - [Experiments](/experiments/) lists versioned questions and their evidence states.
-- [Experimental](/experimental/) lists software capabilities, not research results.
+- [Archived experimental features](https://github.com/btgaskin/brainless-lab/tree/d0fc756d/site/src/content/docs/experimental) describe earlier software capabilities, not research results.
 
 The accepted-run catalogue lists accepted contributions and explicit pre-pipeline compatibility
 records. It does not aggregate outcomes, rank results, or plot parameter-performance relations.

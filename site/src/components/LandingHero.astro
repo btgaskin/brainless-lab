@@ -1,34 +1,19 @@
 ---
-import { LinkButton } from '@astrojs/starlight/components';
-import BrainlessDemo from './BrainlessDemo';
-
-const { data } = Astro.locals.starlightRoute.entry;
-const { title = data.title, tagline, actions = [] } = data.hero || {};
+import NeuronRecording from './NeuronRecording.astro';
+import '../styles/home.css';
 ---
 
-<section class="bl-landing-stage" aria-labelledby="_top">
-  <div class="hero">
-    <div class="sl-flex stack">
-      <div class="sl-flex copy">
-        <h1 id="_top" data-page-title set:html={title} />
-        {tagline && <div class="tagline" set:html={tagline} />}
-      </div>
-      {
-        actions.length > 0 && (
-          <div class="sl-flex actions">
-            {actions.map(
-              ({ attrs: { class: className, ...attrs } = {}, icon, link: href, text, variant }) => (
-                <LinkButton {href} {variant} icon={icon?.name} class:list={[className]} {...attrs}>
-                  {text}
-                  {icon?.html && <Fragment set:html={icon.html} />}
-                </LinkButton>
-              ),
-            )}
-          </div>
-        )
-      }
+<section class="bl-home-opening" aria-labelledby="_top">
+  <div class="bl-home-copy">
+    <h1 id="_top" data-page-title>BrainlessLab</h1>
+    <p class="bl-home-description">Study locally adapting neural reservoirs in declared tasks.</p>
+    <p class="bl-home-runtime">Build with Python. Run with Quadrants.</p>
+    <div class="bl-home-actions">
+      <a href="/tutorials/first-simulation/">Run your first simulation <span aria-hidden="true">↗</span></a>
+      <a href="/handbook/system-map/">See the system <span aria-hidden="true">↗</span></a>
     </div>
   </div>
-
-  <BrainlessDemo client:load />
+  <div class="bl-home-visual">
+    <NeuronRecording />
+  </div>
 </section>

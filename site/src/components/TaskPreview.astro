@@ -1,0 +1,181 @@
+---
+import TaskPicker from './TaskPicker.astro';
+const ticks = Array.from({ length: 12 }, (_, index) => index * Math.PI / 6);
+---
+
+<task-preview class="not-content task-preview">
+  <div class="preview-controls">
+    <div class="preview-picker"><TaskPicker /></div>
+    <a class="preview-task-link" href="/benchmarks/tasks/tracking/" data-task-link>View docs</a>
+  </div>
+
+  <div class="preview-stage">
+    <svg viewBox="0 0 360 240" role="img" aria-label="Tracking task illustration">
+      <g data-task="tracking" data-page="/benchmarks/tasks/tracking/">
+        <circle cx="180" cy="120" r="96" class="rule" />
+        {ticks.map((angle) => <line x1={180 + Math.cos(angle) * 90} y1={120 + Math.sin(angle) * 90} x2={180 + Math.cos(angle) * 96} y2={120 + Math.sin(angle) * 96} class="rule" stroke-width="1" />)}
+        <g class="motion tracking-target">
+          <circle cx="276" cy="120" r="5" fill="currentColor" opacity="0.75" />
+        </g>
+        <g class="motion tracking-observer">
+          <line x1="180" y1="120" x2="263" y2="168" class="rule" />
+          <line x1="180" y1="120" x2="263" y2="72" class="rule" />
+          <line x1="180" y1="120" x2="211" y2="120" class="ink" stroke-width="2" />
+        </g>
+        <circle cx="180" cy="120" r="4" fill="currentColor" />
+      </g>
+
+      <g data-task="pong" data-page="/benchmarks/tasks/pong/" hidden>
+        <rect x="30" y="42" width="300" height="150" class="rule" />
+        <line x1="52" y1="42" x2="52" y2="192" class="rule" stroke-dasharray="4 4" />
+        <g class="motion pong-paddle">
+          <rect x="50" y="0" width="4" height="40" rx="2" fill="currentColor" />
+        </g>
+        <g class="motion pong-ball">
+          <circle r="5" fill="currentColor" opacity="0.75" />
+        </g>
+      </g>
+
+      <g data-task="cartpole" data-page="/benchmarks/tasks/cartpole-plank-easy/" hidden>
+        <line x1="40" y1="176" x2="320" y2="176" class="rule" />
+        <line x1="40" y1="44" x2="40" y2="192" class="rule" stroke-dasharray="3 5" />
+        <line x1="320" y1="44" x2="320" y2="192" class="rule" stroke-dasharray="3 5" />
+        <line x1="180" y1="44" x2="180" y2="192" class="rule" stroke-dasharray="3 5" />
+        <g class="motion cartpole-cart">
+          <g class="motion cartpole-pole">
+            <line x1="180" y1="176" x2="180" y2="68" class="ink" stroke-width="3" />
+            <circle cx="180" cy="68" r="4" fill="currentColor" />
+          </g>
+          <rect x="164" y="169" width="32" height="14" rx="3" fill="currentColor" opacity="0.65" />
+        </g>
+      </g>
+
+      <g data-task="delayed-cue" data-page="/benchmarks/tasks/delayed-cue/" hidden>
+        <text x="65" y="58" class="phase-label">Cue</text>
+        <text x="180" y="58" class="phase-label">Delay</text>
+        <text x="292" y="58" class="phase-label">Response</text>
+        <circle cx="65" cy="120" r="25" class="rule" />
+        <g class="motion cue-show">
+          <circle cx="65" cy="120" r="25" fill="currentColor" />
+          <text x="65" y="129" class="choice inverted">L</text>
+        </g>
+        <line x1="97" y1="120" x2="145" y2="120" class="rule" />
+        <g class="motion cue-wait">
+          <circle cx="168" cy="120" r="2" fill="currentColor" class="motion delay-dot" />
+          <circle cx="180" cy="120" r="2" fill="currentColor" class="motion delay-dot" style="animation-delay: 0.15s" />
+          <circle cx="192" cy="120" r="2" fill="currentColor" class="motion delay-dot" style="animation-delay: 0.3s" />
+        </g>
+        <line x1="215" y1="120" x2="239" y2="120" class="rule" />
+        <circle cx="265" cy="120" r="20" class="rule" />
+        <circle cx="319" cy="120" r="20" class="rule" />
+        <text x="265" y="128" class="choice">L</text>
+        <text x="319" y="128" class="choice">R</text>
+        <g class="motion cue-respond">
+          <circle cx="265" cy="120" r="20" fill="currentColor" />
+          <text x="265" y="128" class="choice inverted">L</text>
+        </g>
+        <text x="292" y="182" class="phase-label motion cue-go">Go</text>
+      </g>
+    </svg>
+  </div>
+
+  <noscript><p>Read the task guides for <a href="/benchmarks/tasks/pong/">Pong</a>, <a href="/benchmarks/tasks/cartpole-plank-easy/">CartPole</a> and <a href="/benchmarks/tasks/delayed-cue/">delayed cue</a>.</p></noscript>
+</task-preview>
+
+<script>
+  import './task-preview-controller';
+</script>
+
+<style>
+  .task-preview {
+    display: block;
+    color: var(--sl-color-text);
+    --preview-line: color-mix(in srgb, currentColor 22%, transparent);
+  }
+  .task-preview [hidden] { display: none !important; }
+  .preview-controls { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .preview-picker { flex: 1; min-width: 0; }
+  .preview-task-link {
+    display: grid;
+    place-items: center;
+    min-height: 44px;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 5px;
+    background-color: var(--sl-color-bg);
+    color: inherit;
+    font: inherit;
+    font-size: 14px;
+    flex: none;
+    padding-inline: 0.75rem;
+    text-decoration: none;
+  }
+  .preview-task-link:hover { background: color-mix(in srgb, currentColor 6%, var(--sl-color-bg)); }
+  .preview-task-link:focus-visible, .preview-stage:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+  .preview-stage {
+    display: grid;
+    place-items: center;
+    height: clamp(220px, 36vw, 340px);
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 5px;
+    background: color-mix(in srgb, currentColor 2%, var(--sl-color-bg));
+  }
+  .preview-stage[role='button'] { cursor: pointer; }
+  svg { display: block; width: 100%; max-width: 510px; height: 100%; }
+  .rule { fill: none; stroke: var(--preview-line); stroke-width: 1.5; }
+  .ink { stroke: currentColor; stroke-linecap: round; }
+  svg text { fill: currentColor; font: 14px var(--sl-font); text-anchor: middle; }
+  svg .phase-label { font-size: 18px; }
+  svg .choice { font-size: 25px; }
+  svg .inverted { fill: var(--sl-color-bg); }
+
+  /* Scripted diagrams explain objectives. These keyframes contain no model or physics solver. */
+  .motion { animation-play-state: paused !important; }
+  [data-running] .motion { animation-play-state: running !important; }
+  .resetting .motion { animation: none !important; }
+  .tracking-target { transform-origin: 180px 120px; animation: tracking-target 10s linear infinite; }
+  .tracking-observer { transform-origin: 180px 120px; animation: tracking-observer 10s linear infinite; }
+  .pong-ball { animation: pong-ball 8s linear infinite; }
+  .pong-paddle { animation: pong-paddle 8s ease-in-out infinite; }
+  .cartpole-cart { animation: cartpole-cart 6s ease-in-out infinite; }
+  .cartpole-pole { transform-origin: 180px 176px; animation: cartpole-pole 6s ease-in-out infinite; }
+  .cue-show { animation: cue-show 3.6s steps(1) infinite; }
+  .cue-wait { animation: cue-wait 3.6s steps(1) infinite; }
+  .cue-go { animation: cue-go 3.6s steps(1) infinite; }
+  .cue-respond { animation: cue-respond 3.6s steps(1) infinite; }
+  .delay-dot { animation: delay-pulse 0.7s ease-in-out infinite; }
+  @keyframes tracking-target { from { transform: rotate(-40deg); } to { transform: rotate(320deg); } }
+  @keyframes tracking-observer { from { transform: rotate(-60deg); } to { transform: rotate(300deg); } }
+  @keyframes pong-ball {
+    0%, 100% { transform: translate(325px, 82px); }
+    25% { transform: translate(190px, 187px); }
+    50% { transform: translate(59px, 132px); }
+    75% { transform: translate(190px, 47px); }
+  }
+  @keyframes pong-paddle {
+    0%, 100% { transform: translateY(92px); }
+    25% { transform: translateY(145px); }
+    50% { transform: translateY(112px); }
+    75% { transform: translateY(68px); }
+  }
+  @keyframes cartpole-cart {
+    0%, 100% { transform: translateX(-18px); }
+    25% { transform: translateX(16px); }
+    50% { transform: translateX(20px); }
+    75% { transform: translateX(-15px); }
+  }
+  @keyframes cartpole-pole {
+    0%, 100% { transform: rotate(8deg); }
+    25% { transform: rotate(-5deg); }
+    50% { transform: rotate(-8deg); }
+    75% { transform: rotate(5deg); }
+  }
+  @keyframes cue-show { 0%, 16.65% { opacity: 1; } 16.66%, 100% { opacity: 0; } }
+  @keyframes cue-wait { 0%, 16.65%, 66.65%, 100% { opacity: 0; } 16.66%, 66.64% { opacity: 1; } }
+  @keyframes cue-go { 0%, 66.65% { opacity: 0; } 66.66%, 100% { opacity: 1; } }
+  @keyframes cue-respond { 0%, 71.99% { opacity: 0; } 72%, 100% { opacity: 1; } }
+  @keyframes delay-pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+  @media (max-width: 639px) {
+    .preview-controls { gap: 0.375rem; }
+    .preview-stage { height: 240px; }
+  }
+</style>

@@ -1,19 +1,51 @@
 ---
-title: Historical Julia implementation
-description: Reproduce original software and evidence at its recorded source revision.
+title: Version history
+description: Locate earlier implementations and retain the source and evidence boundaries of research records.
 ---
 
-The pre-rewrite source is preserved at
+## Python and Quadrants
+
+The active implementation lives under `python/src/brainlesslab/`. Python constructs
+models and analyses results; Quadrants advances neural and task state in bounded batches.
+Start with [your first simulation](/tutorials/first-simulation/) and read
+[platform limits](/platform-limits/) for supported scope.
+
+Python equation conformance, historical fixture parity, backend qualification and
+observed task performance are separate evidence. Rewriting the software does not
+rerun or promote a study.
+
+## Earlier Julia implementation
+
+The pre-rewrite Julia source is preserved at
 [Git revision d0fc756d](https://github.com/btgaskin/brainless-lab/tree/d0fc756d).
-Use that source for historical Julia interfaces, fixtures and reproducibility commands.
+Its Falandays validation covers declared reference trajectories at that implementation
+boundary. It does not automatically qualify Python equations, arbitrary seeds,
+backends, task performance or biological interpretations.
+
+Use the archived source for its interfaces, commands, registries, evolution and body
+composition. These capabilities do not describe the active Python API.
+
+The local archive tag is `julia-v0.3-final`. To inspect and test that version in a
+separate checkout:
+
+```bash
+git worktree add ../brainlesslab-history d0fc756d4efe23abbad79314574beb0d3500de61
+cd ../brainlesslab-history
+julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
+```
+
+- [Archived documentation](https://github.com/btgaskin/brainless-lab/tree/d0fc756d/site/src/content/docs)
+- [Benchmark protocols and tables](https://github.com/btgaskin/brainless-lab/tree/d0fc756d/benchmarks)
+- [Experiment bundles](https://github.com/btgaskin/brainless-lab/tree/d0fc756d/experiments)
+- [Accepted research catalogue](/research/catalogue/)
 
 Historical experiment bundles, benchmark tables and accepted records retain their
 recorded source revisions and evidence states. A selected historical source can differ
 from the last pre-rewrite revision; follow each record's provenance.
 
-Earlier site pages remain accessible and carry a historical banner.
-They do not describe active Python registries, evolution, embodiment or backend
-qualification. The rewrite does not rerun or promote the studies.
+Earlier site pages remain accessible and carry a historical banner. Accepted bundles
+are immutable; a maintainer replay is a linked reproduction check, not another
+independent result.
 
 Use [the Python first-run guide](/tutorials/first-simulation/) for current work,
 or [the accepted catalogue](/research/catalogue/) for immutable research records.

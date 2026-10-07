@@ -48,15 +48,12 @@ ledgers, scalar analysis statistics, and aggregate series summaries. It does not
 tick traces. These diagnostics can describe estimator behaviour; they do not by themselves
 establish that the network is critical.
 
-Validate the complete protocol without running it:
-
-```bash
-julia --project=. bin/brainlesslab.jl check-experiment \
-  experiments/tracking-plasticity-branching-v1
-```
+The [archived instructions](https://github.com/btgaskin/brainless-lab/blob/d0fc756d/site/src/content/docs/experiments/tracking-plasticity-branching.mdx)
+retain the protocol validation command. See [version history](/legacy/) for its
+implementation boundary.
 
 The evidence state is `planned`, and no result record is attached yet. After a run from a
 clean, committed source revision, its standard records can be listed here and used to draw
 the score, time-series, and heading-error charts directly from the retained CSV tables.
 
-Read the [protocol bundle](https://github.com/btgaskin/brainless-lab/tree/main/experiments/tracking-plasticity-branching-v1).
+Read the [archived protocol bundle](https://github.com/btgaskin/brainless-lab/tree/d0fc756d/experiments/tracking-plasticity-branching-v1).

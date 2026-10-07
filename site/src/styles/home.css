@@ -1,0 +1,166 @@
+/* Scope even hoisted CSS to the homepage so the Starlight guide keeps its
+   navigation, theme and reading column. */
+:root[data-has-hero]:has(.bl-home-opening) {
+  --bl-home-paper: var(--bl-paper);
+  --bl-home-ink: var(--bl-ink);
+  --bl-home-muted: var(--bl-ink-soft);
+  --bl-home-line: var(--bl-grid);
+  --sl-nav-height: 3.5rem;
+  --sl-content-width: 100%;
+  --sl-color-bg: var(--bl-home-paper);
+  --sl-color-bg-nav: var(--bl-home-paper);
+  --sl-color-text: var(--bl-home-ink);
+  --sl-color-white: var(--bl-home-ink);
+  --sl-color-text-accent: var(--bl-accent-ink);
+  --sl-color-gray-2: var(--bl-home-muted);
+  --sl-color-gray-3: #686868;
+  --sl-color-gray-4: #979797;
+  --sl-color-gray-5: var(--bl-home-line);
+  --sl-color-gray-6: #eeede8;
+  --sl-color-black: var(--bl-home-paper);
+  --sl-color-hairline: var(--bl-home-line);
+  --sl-color-hairline-shade: var(--bl-home-line);
+  color-scheme: light;
+}
+
+:root[data-has-hero]:has(.bl-home-opening) body {
+  background: var(--bl-home-paper);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cg fill='%23000' fill-opacity='.025'%3E%3Ccircle cx='8' cy='13' r='.6'/%3E%3Ccircle cx='41' cy='7' r='.5'/%3E%3Ccircle cx='76' cy='29' r='.7'/%3E%3Ccircle cx='23' cy='46' r='.5'/%3E%3Ccircle cx='59' cy='57' r='.6'/%3E%3Ccircle cx='88' cy='73' r='.5'/%3E%3Ccircle cx='14' cy='85' r='.7'/%3E%3Ccircle cx='47' cy='89' r='.5'/%3E%3C/g%3E%3C/svg%3E");
+  color: var(--bl-home-ink);
+}
+
+:root[data-has-hero]:has(.bl-home-opening) header.header {
+  border-bottom: 0;
+}
+
+:root[data-has-hero]:has(.bl-home-opening) main {
+  padding-bottom: 0;
+}
+
+:root[data-has-hero]:has(.bl-home-opening) .content-panel {
+  padding: 0;
+}
+
+:root[data-has-hero]:has(.bl-home-opening) .sl-container {
+  max-width: none;
+  margin: 0;
+}
+
+.bl-home-opening {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  color: var(--bl-home-ink);
+}
+
+.bl-home-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(2.5rem, 7vw, 6rem) clamp(1.5rem, 6vw, 6rem);
+}
+
+.bl-home-copy h1 {
+  margin: 0;
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  font-size: clamp(2.8rem, 5.4vw, 5.5rem);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 1.05;
+}
+
+.bl-home-description {
+  max-width: 25ch;
+  margin-top: 1.75rem;
+  font-size: clamp(1.2rem, 1.7vw, 1.55rem);
+  line-height: 1.45;
+}
+
+.bl-home-runtime {
+  margin-top: 1rem;
+  color: var(--bl-home-muted);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.bl-home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  margin-top: 2rem;
+}
+
+.bl-home-actions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 44px;
+  color: var(--bl-accent-ink);
+  font-size: 0.875rem;
+  text-underline-offset: 0.3em;
+}
+
+.bl-home-actions a:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
+}
+
+.bl-home-visual {
+  display: grid;
+  min-width: 0;
+  block-size: auto;
+  overflow: hidden;
+}
+
+:root[data-has-hero]:has(.bl-home-opening) .sl-markdown-content {
+  width: min(100%, 54rem);
+  margin: 0 auto;
+  padding: clamp(3.5rem, 9vw, 8rem) clamp(1.5rem, 5vw, 3rem) 4rem;
+  color: var(--bl-home-ink);
+}
+
+:root[data-has-hero]:has(.bl-home-opening) .sl-markdown-content h2 {
+  margin-top: 3.5rem;
+  font-size: clamp(1.65rem, 3vw, 2.1rem);
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+:root[data-has-hero]:has(.bl-home-opening) .sl-markdown-content > h2:first-of-type {
+  margin-top: 0;
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+:root[data-has-hero]:has(.bl-home-opening) .sl-markdown-content a {
+  color: var(--bl-accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+:root[data-has-hero]:has(.bl-home-opening) footer {
+  width: min(100%, 54rem);
+  margin-inline: auto;
+  padding: 0 clamp(1.5rem, 5vw, 3rem) 2rem;
+}
+
+@media (min-width: 56rem) {
+  .bl-home-opening {
+    grid-template-columns: minmax(0, 44fr) minmax(0, 56fr);
+    min-block-size: calc(100svh - var(--sl-nav-height));
+  }
+
+  .bl-home-visual {
+    block-size: calc(100svh - var(--sl-nav-height));
+    min-block-size: 32rem;
+  }
+}
+
+@media print {
+  .bl-home-opening {
+    display: block;
+  }
+
+  .bl-home-visual {
+    display: none;
+  }
+}

@@ -15,22 +15,18 @@ export interface Renderer<Snap> {
 }
 
 /**
- * The Julia package's own visual identity — src/viz/Style.jl's BL_*
- * constants, used consistently by ext/BrainlessLabMakieExt.jl for these same
- * task environments (wall/tracking/pong). Kept here as literal hex values
- * (not Tailwind classes) since Canvas2D needs them directly. Semantic
- * mapping, matching the Makie extension exactly: agents/trajectories=teal,
- * source/target/stimulus/warn=amber, structure=ink, surface=paper/card.
+ * Neutral colours for recorded scenes. Canvas2D needs literal colour values.
+ * Separate grey tones distinguish agents, trajectories and stimuli.
  */
 export const BRAND_COLORS = {
-  paper: '#fbfaf7',
+  paper: '#f8f8f6',
   card: '#ffffff',
-  grid: '#dedad0',
-  ink: '#24282b',
-  inkSoft: '#52585d',
-  inkMuted: '#82898f',
-  teal: '#2f6f5e',
-  tealSoft: '#659c8b',
-  amber: '#9c6b1f',
-  amberSoft: '#be9b5b',
+  grid: '#dfdfdc',
+  ink: '#262626',
+  inkSoft: '#5d5d5d',
+  inkMuted: '#828282',
+  teal: '#444444',
+  tealSoft: '#737373',
+  amber: '#666666',
+  amberSoft: '#999999',
 } as const;
