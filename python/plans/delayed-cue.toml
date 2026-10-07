@@ -1,0 +1,39 @@
+format = "brainlesslab-plan"
+format_version = 4
+id = "delayed-cue-development"
+operation = "profile"
+question = "How accurately does this reservoir recall one transient binary cue?"
+version = "1"
+evidence = "exploratory"
+
+[evaluation]
+blocks = 2
+trials_per_block = 2
+horizon = 144
+warmup = 0
+construction_scope = "block"
+root_seed = 11001
+seed_partition = "development"
+
+[numerics]
+dtype = "float64"
+fast_math = false
+reduction = "ordered"
+rng = "philox-host-v1"
+
+[[targets]]
+id = "baseline"
+label = "Falandays transient cue"
+controller = "reservoir"
+[targets.composition]
+count = 64
+input_gain = 1.0
+[targets.composition.node]
+kind = "falandays"
+[targets.composition.task]
+kind = "delayed_cue"
+[targets.composition.task.options]
+cue_ticks = 8
+delays = [8, 32, 128]
+response_ticks = 8
+cue_mode = "transient"

@@ -1,0 +1,55 @@
+format = "brainlesslab-plan"
+format_version = 4
+id = "sorn-core-development"
+operation = "benchmark"
+question = "What are the separate task outcomes for the SORN substrate?"
+version = "1"
+evidence = "exploratory"
+
+[evaluation]
+blocks = 2
+trials_per_block = 2
+warmup = 0
+construction_scope = "block"
+root_seed = 12001
+seed_partition = "development"
+
+[numerics]
+dtype = "float64"
+
+[[targets]]
+id = "tracking"
+[targets.composition]
+count = 64
+[targets.composition.node]
+kind = "sorn"
+[targets.composition.task]
+kind = "tracking"
+
+[[targets]]
+id = "pong"
+[targets.composition]
+count = 64
+[targets.composition.node]
+kind = "sorn"
+[targets.composition.task]
+kind = "pong"
+
+[[targets]]
+id = "cartpole_plank_easy"
+[targets.composition]
+count = 64
+input_gain = 8.0
+[targets.composition.node]
+kind = "sorn"
+[targets.composition.task]
+kind = "cartpole_plank_easy"
+
+[[targets]]
+id = "delayed_cue"
+[targets.composition]
+count = 64
+[targets.composition.node]
+kind = "sorn"
+[targets.composition.task]
+kind = "delayed_cue"

@@ -1,0 +1,26 @@
+format = "brainlesslab-plan"
+format_version = 4
+id = "cartpole-easy-reference-null-calibration"
+operation = "calibrate"
+question = "What is the mean episode duration of the fair binary-action null?"
+version = "1"
+evidence = "exploratory"
+[evaluation]
+blocks = 1024
+trials_per_block = 1
+horizon = 15000
+warmup = 0
+construction_scope = "trial"
+root_seed = 21001
+seed_partition = "calibration"
+[numerics]
+dtype = "float64"
+[[targets]]
+id = "reference_null"
+controller = "reference_null"
+[targets.composition]
+count = 1
+[targets.composition.node]
+kind = "falandays"
+[targets.composition.task]
+kind = "cartpole_plank_easy"

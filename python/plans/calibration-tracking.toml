@@ -1,0 +1,26 @@
+format = "brainlesslab-plan"
+format_version = 4
+id = "tracking-reference-null-calibration"
+operation = "calibrate"
+question = "What is the mean of the task-bound random-action null?"
+version = "1"
+evidence = "exploratory"
+[evaluation]
+blocks = 1024
+trials_per_block = 1
+horizon = 7200
+warmup = 1200
+construction_scope = "trial"
+root_seed = 21001
+seed_partition = "calibration"
+[numerics]
+dtype = "float64"
+[[targets]]
+id = "reference_null"
+controller = "reference_null"
+[targets.composition]
+count = 1
+[targets.composition.node]
+kind = "falandays"
+[targets.composition.task]
+kind = "tracking"
