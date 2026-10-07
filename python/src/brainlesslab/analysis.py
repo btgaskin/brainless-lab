@@ -6,17 +6,23 @@ accuracy here is not a measure of cognition or a native task outcome.
 
 from __future__ import annotations
 
-from collections import defaultdict
-from dataclasses import dataclass
-from collections.abc import Sequence
 import math
+from collections import defaultdict
+from collections.abc import Sequence
+from dataclasses import dataclass
 
 import numpy as np
 
 from .random import generator
 
-DECODABLE_TASKS = ("delayed_cue", "recall_interference", "delayed_xor",
-                   "evidence_accumulation", "context_integration", "temporal_order")
+DECODABLE_TASKS = (
+    "delayed_cue",
+    "recall_interference",
+    "delayed_xor",
+    "evidence_accumulation",
+    "context_integration",
+    "temporal_order",
+)
 POINTS = ("cue_end", "delay_end", "response")
 
 
@@ -109,7 +115,7 @@ def _ridge(features, labels, fit, validation, grid) -> DecoderFit:
     scale = np.std(features[fit], axis=0, ddof=0)
     scale[scale == 0] = 1
     standard = (features - centre) / scale
-    targets = np.where(labels[fit] == 1, 1., -1.)
+    targets = np.where(labels[fit] == 1, 1.0, -1.0)
     intercept = float(np.mean(targets))
     gram = standard[fit].T @ standard[fit]
     rhs = standard[fit].T @ (targets - intercept)
@@ -119,18 +125,33 @@ def _ridge(features, labels, fit, validation, grid) -> DecoderFit:
         predictions = np.where(standard @ weights + intercept >= 0, 1, 2)
         accuracy = float(np.mean(predictions[validation] == labels[validation]))
         if best is None or accuracy > best.validation_accuracy:
-            best = DecoderFit(float(regularisation), tuple(map(float, weights)), intercept,
-                              tuple(map(float, centre)), tuple(map(float, scale)),
-                              tuple(map(int, predictions)), accuracy)
+            best = DecoderFit(
+                float(regularisation),
+                tuple(map(float, weights)),
+                intercept,
+                tuple(map(float, centre)),
+                tuple(map(float, scale)),
+                tuple(map(int, predictions)),
+                accuracy,
+            )
     if best is None:
         raise ValueError("ridge requires at least one regularisation value")
     return best
 
 
-def decode(events: Sequence[ProbeEvent], trials: Sequence[ProbeTrial], *,
-           points=POINTS, fit_trials=256, validation_trials=128, evaluation_trials=256,
-           lambdas=(1e-4, 1e-2, 1., 100.), split_seed=701, permutation_seed=702,
-           memory_budget_bytes=32 * 1024 * 1024) -> tuple[DecoderResult, ...]:
+def decode(
+    events: Sequence[ProbeEvent],
+    trials: Sequence[ProbeTrial],
+    *,
+    points=POINTS,
+    fit_trials=256,
+    validation_trials=128,
+    evaluation_trials=256,
+    lambdas=(1e-4, 1e-2, 1.0, 100.0),
+    split_seed=701,
+    permutation_seed=702,
+    memory_budget_bytes=32 * 1024 * 1024,
+) -> tuple[DecoderResult, ...]:
     """Fit independent ridge diagnostics at each point with one shared trial split.
 
     Exactly the declared number of whole trials is required per wiring block.
@@ -188,7 +209,7 @@ def decode(events: Sequence[ProbeEvent], trials: Sequence[ProbeTrial], *,
             raise ValueError("trial worlds must have distinct seeds")
         order = generator(split_seed, "analysis", "probe-split").permutation(len(members))
         a, b, _ = counts
-        fit, validation, evaluation = order[:a], order[a:a+b], order[a+b:]
+        fit, validation, evaluation = order[:a], order[a : a + b], order[a + b :]
         trial_ids = tuple(t.trial_id for t in members)
         native = np.array([t.native_score for t in members])
         reference_labels = None
@@ -198,7 +219,9 @@ def decode(events: Sequence[ProbeEvent], trials: Sequence[ProbeTrial], *,
             for trial in members:
                 key = (*identity, trial.trial_id, point)
                 if key not in event_map:
-                    raise ValueError("missing observation: exactly one event per trial and point is required")
+                    raise ValueError(
+                        "missing observation: exactly one event per trial and point is required"
+                    )
                 observations.append(event_map[key])
             reference = observations[0]
             feature_identity = (reference.entity_id, reference.feature_ids)
@@ -209,7 +232,7 @@ def decode(events: Sequence[ProbeEvent], trials: Sequence[ProbeTrial], *,
             reference_features = feature_identity
             feature_count = len(reference.feature_ids)
             # X, standardised X, fit copies and solver matrices/workspace.
-            required = 8 * (6 * len(members) * feature_count + 4 * feature_count ** 2)
+            required = 8 * (6 * len(members) * feature_count + 4 * feature_count**2)
             if required > memory_budget_bytes:
                 raise MemoryError("decoder exceeds the declared offline memory budget")
             features = np.stack([e.features for e in observations])
@@ -219,7 +242,9 @@ def decode(events: Sequence[ProbeEvent], trials: Sequence[ProbeTrial], *,
             reference_labels = labels.copy()
             for subset in (fit, validation, evaluation):
                 if len(np.unique(labels[subset])) != 2:
-                    raise ValueError("every split needs both classes; revise the declared split seed")
+                    raise ValueError(
+                        "every split needs both classes; revise the declared split seed"
+                    )
             fitted = _ridge(features, labels, fit, validation, grid)
             permuted = labels.copy()
             rng = generator(permutation_seed, "analysis", "probe-label-permutation")
@@ -227,14 +252,26 @@ def decode(events: Sequence[ProbeEvent], trials: Sequence[ProbeTrial], *,
             permuted[validation] = rng.permutation(labels[validation])
             null = _ridge(features, permuted, fit, validation, grid)
             constant = 1 if np.count_nonzero(labels[fit] == 1) >= len(fit) / 2 else 2
-            results.append(DecoderResult(
-                *identity, point, reference.entity_id, reference.feature_ids, trial_ids,
-                tuple(trial_ids[i] for i in fit), tuple(trial_ids[i] for i in validation),
-                tuple(trial_ids[i] for i in evaluation), tuple(map(int, labels)),
-                tuple(map(int, permuted)), tuple(map(float, native)), fitted, null,
-                float(np.mean(np.array(fitted.predictions)[evaluation] == labels[evaluation])),
-                float(np.mean(native[evaluation])),
-                float(np.mean(np.array(null.predictions)[evaluation] == labels[evaluation])),
-                float(np.mean(labels[evaluation] == constant)), constant,
-            ))
+            results.append(
+                DecoderResult(
+                    *identity,
+                    point,
+                    reference.entity_id,
+                    reference.feature_ids,
+                    trial_ids,
+                    tuple(trial_ids[i] for i in fit),
+                    tuple(trial_ids[i] for i in validation),
+                    tuple(trial_ids[i] for i in evaluation),
+                    tuple(map(int, labels)),
+                    tuple(map(int, permuted)),
+                    tuple(map(float, native)),
+                    fitted,
+                    null,
+                    float(np.mean(np.array(fitted.predictions)[evaluation] == labels[evaluation])),
+                    float(np.mean(native[evaluation])),
+                    float(np.mean(np.array(null.predictions)[evaluation] == labels[evaluation])),
+                    float(np.mean(labels[evaluation] == constant)),
+                    constant,
+                )
+            )
     return tuple(results)

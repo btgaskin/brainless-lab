@@ -1,0 +1,12 @@
+{
+  "format": "brainlesslab-backend-conformance",
+  "version": 1,
+  "status": "passed",
+  "snapshots": 637,
+  "dtype": "float32",
+  "rtol": 2e-05,
+  "atol": 2e-05,
+  "maximum_absolute_difference": 1.9073486328125e-06,
+  "coverage": "12 injected model frames, freeze/reset/inactive slots; all ten task families",
+  "limits": "one host, short deterministic action tapes; no long-run bit-equality claim"
+}

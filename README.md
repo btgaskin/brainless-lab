@@ -40,13 +40,15 @@ Offline decoding uses sparse emitted-activity observations, whole-trial fit/vali
 
 ```bash
 uv sync --locked --group dev
-uv run pytest
-uv run ruff check python
-uv run pyright
 uv build
+BRAINLESSLAB_TEST_WHEEL=dist/brainlesslab-0.4.0-py3-none-any.whl uv run pytest
+uv run ruff check python
+uv run ruff format --check python
+uv run pyright
 cd site
 bun install --frozen-lockfile
 bun test
+bun run typecheck
 bun run build
 ```
 
@@ -58,4 +60,4 @@ The Julia implementation is preserved in Git at [revision d0fc756d](https://gith
 
 Accepted contributions, experiments, benchmark protocols and historical tables retain their source revisions and evidence states. This rewrite does not rerun or promote them. Use [the public catalogue](https://brainless-lab.pages.dev/research/catalogue/) to find immutable records.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), the project-local [BrainlessLab skill](skills/brainless-lab/SKILL.md), and [the implementation exercises](docs/python/learning.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md), the project-local [BrainlessLab skill](skills/brainless-lab/SKILL.md), [qualification receipts](docs/python/qualification/README.md), and [the implementation exercises](docs/python/learning.md).

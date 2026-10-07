@@ -1,0 +1,89 @@
+{
+  "format": "brainlesslab-final-software-qualification",
+  "version": 1,
+  "date": "2026-10-07",
+  "environment": {
+    "python": "3.12.13",
+    "system": "Darwin",
+    "machine": "arm64",
+    "quadrants": "1.3.3",
+    "quadrants_build_commit": "00423caa",
+    "llvm": "22.1.0",
+    "runtime_fingerprint": "9ecadde90fb5e27f83a25f3b48add66a5a5d92130a6e2183bb0adc466adcfa5a"
+  },
+  "source_sha256": {
+    "python/src/brainlesslab/__init__.py": "0b499a233bbbd02cd9bcac536883c13a69f444c9176a353fa7278c6a5a544dec",
+    "python/src/brainlesslab/__main__.py": "935a1c1166b0c1ea35a82256345000bf2c73ded718d77773bc27a71ecce28f7d",
+    "python/src/brainlesslab/_kernels.py": "ccea8970cd3fc44fffca426852a1378df0ef458e940018f4330b5e11c13c1b5a",
+    "python/src/brainlesslab/analysis.py": "f786e77e1adbd1e8074d57bba33910779fbf2adb8563b67f7bbf7cec73136ce8",
+    "python/src/brainlesslab/backend.py": "6fbb1485cafccb15cd0d64a3eef9d8587ad2849352ca7182ba58b7d446e64e4a",
+    "python/src/brainlesslab/calibration.py": "68795e1d7a52d5a0c4f32deb1d3a83a89b3b9895dc4acd0236534dbb004ba9ba",
+    "python/src/brainlesslab/cli.py": "9bd83f55b3de79fc9be770fdfdb7bb994b4da54b2b971a4fc702a18fa8f65351",
+    "python/src/brainlesslab/evaluation.py": "4d23daaa5c84541f9082f9387ed0f6613ecd95cf22eb561ecc250a522f5e79fc",
+    "python/src/brainlesslab/models/_validation.py": "f3c4a3951bad796637c4130eb81dcbb329bc3a9b344d093afe8f1ce60bb0e768",
+    "python/src/brainlesslab/models/falandays.py": "c50881c78648a7ddd3548f4eaee046e9a2c824c7d9f6da950071f382cd0878e6",
+    "python/src/brainlesslab/models/sorn.py": "b9723a0a0c9c7513d411000e9769ab01a0bfeb9e7145abd5e4b18fcf1fedcc96",
+    "python/src/brainlesslab/plans.py": "557534a7ea45956e802af2b7ed144113656d6ec465e0649446eedb84d639f879",
+    "python/src/brainlesslab/random.py": "54c4048d15a81c36048300eb562bbc1c2fb1b5dbc304dad8567fc8f8de0cdf4b",
+    "python/src/brainlesslab/records.py": "8667cc36e0c09978acf567654d49cf173cccdac55ea582fe10840baef7c4b39f",
+    "python/src/brainlesslab/results.py": "695d6f6ce30beef640867a6d639d0b77859d80ec67aa8e2b9a30befe0130ad6e",
+    "python/src/brainlesslab/specs.py": "8fb484b53b62c3de9056c87bae42bc0668144b4a26f31ef056f6d170f17541aa",
+    "python/src/brainlesslab/tasks/__init__.py": "123f5b61b0dcd32b8c8693b97fd32705fe15c8c926edb824b56aad9c75eeb5d6",
+    "python/src/brainlesslab/tasks/_prepare.py": "c94083fe890be1b5fb6ec9d8efa3ae6033b90dd1f10ee571a6b05108ac625f50",
+    "python/src/brainlesslab/tasks/_runtime.py": "dc615fb2fc4f5e8af4610764eb9047ea9eeb3b0f85d2b15dd493e28fc1f044ac"
+  },
+  "world_source_hashes": {
+    "_kernels.py": "ccea8970cd3fc44fffca426852a1378df0ef458e940018f4330b5e11c13c1b5a",
+    "evaluation.py": "4d23daaa5c84541f9082f9387ed0f6613ecd95cf22eb561ecc250a522f5e79fc",
+    "random.py": "54c4048d15a81c36048300eb562bbc1c2fb1b5dbc304dad8567fc8f8de0cdf4b",
+    "tasks/_prepare.py": "c94083fe890be1b5fb6ec9d8efa3ae6033b90dd1f10ee571a6b05108ac625f50",
+    "tasks/_runtime.py": "dc615fb2fc4f5e8af4610764eb9047ea9eeb3b0f85d2b15dd493e28fc1f044ac"
+  },
+  "cpu_suite": {
+    "passed": 182,
+    "failed": 0,
+    "installed_wheel_executed": true,
+    "seconds": 22.95
+  },
+  "host_tools": {
+    "ruff_check": "passed",
+    "ruff_format": "passed",
+    "pyright_errors": 0,
+    "pyright_warnings": 0
+  },
+  "metal_fused_controls": {
+    "dtype": "float32",
+    "task_controller_pairs": 55,
+    "staged_selected_world_failures": 27,
+    "state_and_frame_ledger_parity": "exact",
+    "out_of_bounds_checking": "unsupported on Metal"
+  },
+  "site": {
+    "tests_passed": 8,
+    "assertions": 43,
+    "typecheck": "passed",
+    "build": "passed",
+    "pages_built": 58,
+    "visual_checks": [
+      "desktop",
+      "390x844 mobile",
+      "select case",
+      "step",
+      "final frame",
+      "reset"
+    ]
+  },
+  "core_nonblank_lines": {
+    "historical_julia_src_and_ext": 38273,
+    "historical_files": 97,
+    "python_engine": 5185,
+    "python_modules": 19,
+    "reduction_percent": 86.5,
+    "limit": "Reduced capability scope; not feature equivalence."
+  },
+  "limits": [
+    "Local macOS arm64 CPU and Metal checks only. Configured CI platforms have not run.",
+    "Development/calibration software checks do not promote historical research.",
+    "No reliable CPU/GPU throughput comparison; background processes were observed."
+  ]
+}

@@ -255,7 +255,9 @@ def _replay_document(result, trial_key):
         "node": target.target.composition.node.kind,
         "provenance": {
             "quadrants_version": result.metadata.get("quadrants_version", "unqualified"),
-            "backend": result.metadata.get("requested_backend", result.metadata.get("backend", "unqualified")),
+            "backend": result.metadata.get(
+                "requested_backend", result.metadata.get("backend", "unqualified")
+            ),
             "dtype": result.resolved.request.numerics.dtype,
             "seed_partition": result.resolved.request.evaluation.seed_partition,
             "resolved": {

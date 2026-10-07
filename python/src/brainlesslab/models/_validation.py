@@ -1,7 +1,7 @@
 """Reject precision overflow before allocating any device state."""
 
-from dataclasses import fields, is_dataclass
 from collections.abc import Mapping
+from dataclasses import fields, is_dataclass
 
 import numpy as np
 
@@ -28,4 +28,6 @@ def validate_cast(values, dtype):
         for name in ("threshold_mult", "targ_min"):
             config = getattr(value, "config", None)
             if hasattr(config, name) and np.asarray(getattr(config, name), dtype=dtype) <= 0:
-                raise ValueError(f"{name} must remain positive after casting to {np.dtype(dtype).name}")
+                raise ValueError(
+                    f"{name} must remain positive after casting to {np.dtype(dtype).name}"
+                )

@@ -3,7 +3,6 @@ from dataclasses import replace
 import numpy as np
 import pytest
 import quadrants as qd
-
 from brainlesslab.backend import initialise
 from brainlesslab.models import falandays, sorn
 from brainlesslab.specs import ExecutionSpec, NumericalPolicy
@@ -21,10 +20,13 @@ def upload(values, integer=False):
     return result
 
 
-@pytest.mark.parametrize("module,config", [
-    (falandays, falandays.FalandaysConfig(lrate_wmat=1e40)),
-    (sorn, sorn.SORNConfig(eta_stdp=1e40)),
-])
+@pytest.mark.parametrize(
+    "module,config",
+    [
+        (falandays, falandays.FalandaysConfig(lrate_wmat=1e40)),
+        (sorn, sorn.SORNConfig(eta_stdp=1e40)),
+    ],
+)
 def test_precision_overflow_rejected_before_upload(module, config):
     state = module.construct(config, 2, 1, 1, np.random.default_rng(0))
     with pytest.raises(ValueError, match="after casting"):
@@ -34,19 +36,36 @@ def test_precision_overflow_rejected_before_upload(module, config):
 def test_dale_clamp_cannot_hide_learning_overflow():
     config = falandays.FalandaysConfig(axis="dale", leak=0, lrate_wmat=1e38, lrate_targ=0)
     initial = falandays.construct(config, 2, 1, 1, np.random.default_rng(0))
-    initial = replace(initial, weights=np.array([[0., 1.], [1., 0.]]),
-                      recurrent_mask=np.array([[0, 1], [1, 0]]), signs=np.ones(2),
-                      spikes=np.ones(2), input_weights=np.ones((2, 1)))
+    initial = replace(
+        initial,
+        weights=np.array([[0.0, 1.0], [1.0, 0.0]]),
+        recurrent_mask=np.array([[0, 1], [1, 0]]),
+        signs=np.ones(2),
+        spikes=np.ones(2),
+        input_weights=np.ones((2, 1)),
+    )
     batch = falandays.ModelBatch([initial], dtype="float32")
     batch.step(upload([[1e38]]), upload([[0, 0]]), upload([1], True))
     assert batch.finite.to_numpy()[0] == 0
 
 
 def test_sorn_row_sum_overflow_cannot_be_normalised_away():
-    initial = sorn.construct(sorn.SORNConfig(inhibitory_fraction=0, eta_stdp=0, eta_ip=0),
-                             3, 1, 1, np.random.default_rng(0))
-    initial = replace(initial, w_ee=np.full((3, 3), 2e38), ee_mask=np.ones((3, 3)),
-                      c_e=np.ones(3), x=np.zeros(3), w_eu=np.zeros((3, 1)), t_e=np.ones(3))
+    initial = sorn.construct(
+        sorn.SORNConfig(inhibitory_fraction=0, eta_stdp=0, eta_ip=0),
+        3,
+        1,
+        1,
+        np.random.default_rng(0),
+    )
+    initial = replace(
+        initial,
+        w_ee=np.full((3, 3), 2e38),
+        ee_mask=np.ones((3, 3)),
+        c_e=np.ones(3),
+        x=np.zeros(3),
+        w_eu=np.zeros((3, 1)),
+        t_e=np.ones(3),
+    )
     batch = sorn.ModelBatch([initial], dtype="float32")
     batch.step(upload([[0]]), upload([[0, 0, 0]]), upload([1], True))
     assert batch.finite.to_numpy()[0] == 0
@@ -65,8 +84,13 @@ def test_full_falandays_reset_matches_initial_snapshot():
 
 
 def test_target_floor_cannot_hide_overflow():
-    initial = falandays.construct(falandays.FalandaysConfig(
-        lrate_wmat=0, lrate_targ=1e38, leak=0), 2, 1, 1, np.random.default_rng(0))
+    initial = falandays.construct(
+        falandays.FalandaysConfig(lrate_wmat=0, lrate_targ=1e38, leak=0),
+        2,
+        1,
+        1,
+        np.random.default_rng(0),
+    )
     initial = replace(initial, input_weights=np.ones((2, 1)))
     batch = falandays.ModelBatch([initial], dtype="float32")
     batch.step(upload([[-1e38]]), upload([[0, 0]]), upload([1], True))
@@ -74,8 +98,9 @@ def test_target_floor_cannot_hide_overflow():
 
 
 def test_required_positive_values_cannot_underflow():
-    initial = falandays.construct(falandays.FalandaysConfig(targ_min=1e-50),
-                                  2, 1, 1, np.random.default_rng(0))
+    initial = falandays.construct(
+        falandays.FalandaysConfig(targ_min=1e-50), 2, 1, 1, np.random.default_rng(0)
+    )
     with pytest.raises(ValueError, match="positive after casting"):
         falandays.ModelBatch([initial], dtype="float32")
 

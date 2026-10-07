@@ -3,16 +3,24 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, is_dataclass
 from types import MappingProxyType
-from typing import Literal, Mapping
+from typing import Literal
 
 type Value = str | int | float | bool | tuple[Value, ...]
 type Options = Mapping[str, Value]
 
 TASKS = (
-    "tracking", "pong", "cartpole_plank_easy", "delayed_cue", "recall_interference",
-    "delayed_xor", "evidence_accumulation", "context_integration", "temporal_order",
+    "tracking",
+    "pong",
+    "cartpole_plank_easy",
+    "delayed_cue",
+    "recall_interference",
+    "delayed_xor",
+    "evidence_accumulation",
+    "context_integration",
+    "temporal_order",
     "reversal_adaptation",
 )
 BENCHMARK_TASKS = TASKS[:4]
@@ -191,7 +199,15 @@ class Plan:
             raise ValueError("condition IDs must be unique")
         if self.operation not in ("profile", "sweep", "ablate", "benchmark", "calibrate"):
             raise ValueError("unsupported operation")
-        if self.evidence not in ("planned", "exploratory", "tuned", "frozen", "confirmed", "promoted", "retired"):
+        if self.evidence not in (
+            "planned",
+            "exploratory",
+            "tuned",
+            "frozen",
+            "confirmed",
+            "promoted",
+            "retired",
+        ):
             raise ValueError("unknown evidence state")
         if self.evidence in ("confirmed", "promoted"):
             raise ValueError("the development runner cannot confer confirmed or promoted evidence")

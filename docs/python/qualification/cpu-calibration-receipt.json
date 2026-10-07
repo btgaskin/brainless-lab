@@ -1,0 +1,56 @@
+[
+  {
+    "task": "tracking",
+    "backend": "cpu",
+    "dtype": "float64",
+    "record": "cpu-tracking",
+    "calibration_id": "de6328339702d33c8d24e28a73af83715b0266a9dba594ce078f7908d0012f82",
+    "null_mean": 0.0009137005807769039,
+    "null_interval": [
+      -0.005543560411933,
+      0.007584165958633708
+    ],
+    "trajectories": 1024,
+    "timings": {
+      "resolve_and_runtime_seconds": 0.33519416698254645,
+      "construction_compile_run_seconds": 0.8659767911303788,
+      "total_seconds": 1.23346162494272
+    }
+  },
+  {
+    "task": "pong",
+    "backend": "cpu",
+    "dtype": "float64",
+    "record": "cpu-pong",
+    "calibration_id": "d4cde488436da5ab6640d1f58772589bd2bfefc7769a47c436f7fe1dc2914882",
+    "null_mean": 0.26388208451744904,
+    "null_interval": [
+      0.2591932750731003,
+      0.2688206090153277
+    ],
+    "trajectories": 1024,
+    "timings": {
+      "resolve_and_runtime_seconds": 0.021667457884177566,
+      "construction_compile_run_seconds": 3.204218416940421,
+      "total_seconds": 3.2491542079951614
+    }
+  },
+  {
+    "task": "cartpole_plank_easy",
+    "backend": "cpu",
+    "dtype": "float64",
+    "record": "cpu-cartpole_plank_easy",
+    "calibration_id": "da8e4304893a41ed49aa02c6a612cf30370eeb57756d03a9d220ac80b2ec3317",
+    "null_mean": 21.9609375,
+    "null_interval": [
+      21.212744140625,
+      22.710278320312497
+    ],
+    "trajectories": 1024,
+    "timings": {
+      "resolve_and_runtime_seconds": 0.023524750024080276,
+      "construction_compile_run_seconds": 0.23321283305995166,
+      "total_seconds": 0.28047287510707974
+    }
+  }
+]

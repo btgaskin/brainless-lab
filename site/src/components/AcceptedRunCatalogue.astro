@@ -72,7 +72,7 @@ type CatalogueContribution = AcceptedContribution | PrePipelineContribution;
 
 const repositoryRoot = [process.cwd(), resolve(process.cwd(), '..')].find(
   (candidate) =>
-    existsSync(resolve(candidate, 'Project.toml')) &&
+    existsSync(resolve(candidate, 'pyproject.toml')) &&
     existsSync(resolve(candidate, 'site', 'src', 'content.config.ts')),
 );
 
@@ -83,7 +83,7 @@ if (!repositoryRoot) {
 const cataloguePath = resolve(repositoryRoot, 'research', 'catalogue.json');
 if (!existsSync(cataloguePath)) {
   throw new Error(
-    'research/catalogue.json is missing; generate and commit it with `bin/brainlesslab.jl index-research`',
+    'research/catalogue.json is missing; restore the immutable historical catalogue from its declared source revision',
   );
 }
 

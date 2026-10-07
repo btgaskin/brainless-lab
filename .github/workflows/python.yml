@@ -44,14 +44,18 @@ jobs:
           actual=platform.machine().lower(); expected=os.environ['EXPECTED_ARCH'];
           print(platform.platform(), actual);
           assert actual in ({'x64': ('x86_64','amd64'), 'arm64': ('arm64','aarch64')}[expected])"
+      - name: Build Python distribution
+        run: uv build
       - name: CPU equations, runtime, records and offline analyses
+        env:
+          BRAINLESSLAB_TEST_WHEEL: ${{ github.workspace }}/dist/brainlesslab-0.4.0-py3-none-any.whl
         run: uv run pytest -m "not metal"
       - name: Lint
         run: uv run ruff check python
+      - name: Check formatting
+        run: uv run ruff format --check python
       - name: Type check
         run: uv run pyright
-      - name: Build Python distribution
-        run: uv build
 
   site:
     name: Recorded replay UI and documentation

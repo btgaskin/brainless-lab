@@ -14,7 +14,9 @@ SCHEME = "philox-host-v1"
 def seed_for(root_seed: int, partition: str, stream: str, *keys: str | int) -> int:
     payload = json.dumps(
         [SCHEME, root_seed, partition, stream, [[type(k).__name__, k] for k in keys]],
-        ensure_ascii=True, separators=(",", ":"), allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        allow_nan=False,
     ).encode("utf-8")
     return int.from_bytes(hashlib.sha256(payload).digest(), "little")
 
@@ -51,14 +53,17 @@ class NoiseTape:
         """Return a future prefix without advancing logical consumption."""
         if count < 1 or count > self.tile_frames:
             raise ValueError("preview must fit within one configured tile")
-        remaining = self._tile[self._offset:]
+        remaining = self._tile[self._offset :]
         if len(remaining) < count:
             shape = (count - len(remaining), self.width)
-            fresh = (self.rng.standard_normal(shape) if self.distribution == "normal"
-                     else self.rng.random(shape))
+            fresh = (
+                self.rng.standard_normal(shape)
+                if self.distribution == "normal"
+                else self.rng.random(shape)
+            )
             self._tile = np.concatenate((remaining, fresh), axis=0)
             self._offset = 0
-        return self._tile[self._offset:self._offset + count]
+        return self._tile[self._offset : self._offset + count]
 
     def consume(self, count: int) -> None:
         if count < 0 or count > len(self._tile) - self._offset:
@@ -68,7 +73,8 @@ class NoiseTape:
 
     def state(self) -> dict[str, object]:
         return {
-            "scheme": SCHEME, "consumed_frames": self.consumed,
+            "scheme": SCHEME,
+            "consumed_frames": self.consumed,
             "generator": self.rng.bit_generator.state,
-            "unused_tail": self._tile[self._offset:].copy(),
+            "unused_tail": self._tile[self._offset :].copy(),
         }

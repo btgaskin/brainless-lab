@@ -37,7 +37,7 @@ const { recordPath } = Astro.props;
 const candidates = [process.cwd(), resolve(process.cwd(), '..')];
 const repositoryRoot = candidates.find((candidate) => {
   try {
-    readFileSync(resolve(candidate, 'Project.toml'));
+    readFileSync(resolve(candidate, 'pyproject.toml'));
     readFileSync(resolve(candidate, 'site', 'package.json'));
     return true;
   } catch {

@@ -1,0 +1,143 @@
+{
+  "format": "brainlesslab-runtime-verification",
+  "version": 1,
+  "verified_at": "2026-10-07T02:57:47.518027+00:00",
+  "backend": "cpu",
+  "dtype": "float64",
+  "core_plans": [
+    {
+      "node": "falandays",
+      "plan": "python/plans/falandays-core.toml",
+      "record": "falandays-core-development-20261007T025606Z-09a83378",
+      "checksums_valid": true,
+      "completed_trials": 32,
+      "failed_trials": 0,
+      "raw_and_normalised_trials": 32,
+      "task_summaries": 8,
+      "paired_contrasts": 4,
+      "independent_blocks_per_target": 2,
+      "unique_world_seeds": 16,
+      "calibration_worlds_disjoint": true
+    },
+    {
+      "node": "sorn",
+      "plan": "python/plans/sorn-core.toml",
+      "record": "sorn-core-development-20261007T025611Z-10ef5997",
+      "checksums_valid": true,
+      "completed_trials": 32,
+      "failed_trials": 0,
+      "raw_and_normalised_trials": 32,
+      "task_summaries": 8,
+      "paired_contrasts": 4,
+      "independent_blocks_per_target": 2,
+      "unique_world_seeds": 16,
+      "calibration_worlds_disjoint": true
+    }
+  ],
+  "calibrations": {
+    "tracking": {
+      "path": "docs/python/qualification/calibrations/cpu-tracking.json",
+      "id": "de6328339702d33c8d24e28a73af83715b0266a9dba594ce078f7908d0012f82",
+      "method": "empirical",
+      "trajectories": 1024,
+      "unique_world_seeds": 1024,
+      "backend": "cpu",
+      "architecture": "Arch.arm64",
+      "sha256": "7b2cc272030f6755f074bc820f39c11587bfb3f18dfd16f1647ea2b0b23443c9"
+    },
+    "pong": {
+      "path": "docs/python/qualification/calibrations/cpu-pong.json",
+      "id": "d4cde488436da5ab6640d1f58772589bd2bfefc7769a47c436f7fe1dc2914882",
+      "method": "empirical",
+      "trajectories": 1024,
+      "unique_world_seeds": 1024,
+      "backend": "cpu",
+      "architecture": "Arch.arm64",
+      "sha256": "bab710e81a5ba461f2bfea1a2dbd54508efed1006d47f1fd47c7eee866be691f"
+    },
+    "cartpole_plank_easy": {
+      "path": "docs/python/qualification/calibrations/cpu-cartpole_plank_easy.json",
+      "id": "da8e4304893a41ed49aa02c6a612cf30370eeb57756d03a9d220ac80b2ec3317",
+      "method": "empirical",
+      "trajectories": 1024,
+      "unique_world_seeds": 1024,
+      "backend": "cpu",
+      "architecture": "Arch.arm64",
+      "sha256": "76aa376fd013101f76b21aa8a3dc4962a2baf8c4b9b18c96bce4d2c98ecde250"
+    }
+  },
+  "calibration_total_unique_world_seeds": 3072,
+  "calibration_worlds_mutually_disjoint": true,
+  "core_nodes_use_matched_worlds": true,
+  "profile_probe": {
+    "record": "brainlesslab-final-probe-example",
+    "checksums_valid": true,
+    "completed_trials": 16,
+    "events": 48
+  },
+  "capacity_library": [
+    {
+      "node": "falandays",
+      "destination": "brainlesslab-final-capacity-falandays",
+      "authored_plans": 64,
+      "validated_plans": 64,
+      "executed_plans": 0,
+      "limits": "Plan-authoring example only; all 64 plans resolved without running trajectories."
+    },
+    {
+      "node": "sorn",
+      "destination": "brainlesslab-final-capacity-sorn",
+      "authored_plans": 64,
+      "validated_plans": 64,
+      "executed_plans": 0,
+      "limits": "Plan-authoring example only; all 64 plans resolved without running trajectories."
+    }
+  ],
+  "sparse_event_decoders": [
+    {
+      "node": "falandays",
+      "completed_trials": 64,
+      "independent_blocks": 2,
+      "events": 192,
+      "decoder_results": 6,
+      "fit_validation_evaluation": [
+        16,
+        8,
+        8
+      ],
+      "split_seed": 701,
+      "permutation_seed": 702,
+      "record": "falandays-record",
+      "decoder": "falandays-decoder.json",
+      "checksums_valid": true,
+      "limits": "Development diagnostic of emitted activity; no learning, cognition, or sealed-evidence claim.",
+      "decoder_sha256": "01ac5874b134a2695dba60bc2cfeb6914238e5fb63ef704c237b8434d2c40a11"
+    },
+    {
+      "node": "sorn",
+      "completed_trials": 64,
+      "independent_blocks": 2,
+      "events": 192,
+      "decoder_results": 6,
+      "fit_validation_evaluation": [
+        16,
+        8,
+        8
+      ],
+      "split_seed": 701,
+      "permutation_seed": 702,
+      "record": "sorn-record",
+      "decoder": "sorn-decoder.json",
+      "checksums_valid": true,
+      "limits": "Development diagnostic of emitted activity; no learning, cognition, or sealed-evidence claim.",
+      "decoder_sha256": "90a383aa01c1d5b9e242fafec595d8e6ff72a84aff2db69fa34c50cf337e0f11"
+    }
+  ],
+  "failures": [],
+  "limits": [
+    "Software execution and conformance checks only; no timing qualification was performed.",
+    "All worlds and plans use development/calibration partitions; no sealed evaluation data was inspected.",
+    "Two independent wiring blocks per core target and decoder case; ticks and neurons are not additional independent observations.",
+    "Raw and null-adjusted task outcomes and fitted decoding do not establish learning, cognition or external validity."
+  ]
+}

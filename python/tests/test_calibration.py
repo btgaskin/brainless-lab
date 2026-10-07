@@ -1,20 +1,30 @@
-from dataclasses import replace
 import json
+from dataclasses import replace
 
 import numpy as np
 import pytest
-
-from brainlesslab.calibration import (CalibrationSignature, analytic_calibration,
-                                      create_empirical_calibration, adjusted_interval,
-                                      null_adjusted)
+from brainlesslab.calibration import (
+    CalibrationSignature,
+    adjusted_interval,
+    analytic_calibration,
+    create_empirical_calibration,
+    null_adjusted,
+)
 from brainlesslab.random import generator
 from brainlesslab.specs import NumericalPolicy, plain
 
 
 def signature(task="tracking", **changes):
-    values = dict(task=task, task_options={}, initialisation_policy="task-default-v1",
-                  scoring_horizon=2000, warmup=0, action_cadence=1,
-                  numerics=NumericalPolicy(), world_source_hashes={"world": "sha256-example"})
+    values = dict(
+        task=task,
+        task_options={},
+        initialisation_policy="task-default-v1",
+        scoring_horizon=2000,
+        warmup=0,
+        action_cadence=1,
+        numerics=NumericalPolicy(),
+        world_source_hashes={"world": "sha256-example"},
+    )
     values.update(changes)
     return CalibrationSignature(**values)
 
@@ -40,16 +50,23 @@ def test_content_identity_ownership_signature_and_empirical_uncertainty():
     assert record.frozen
     same = create_empirical_calibration(sig, record.trial_scores, root_seed=11, repetitions=100)
     assert same.id == record.id
-    assert create_empirical_calibration(sig, record.trial_scores, root_seed=12, repetitions=100).id != record.id
+    assert (
+        create_empirical_calibration(sig, record.trial_scores, root_seed=12, repetitions=100).id
+        != record.id
+    )
     json.dumps(plain(record), allow_nan=False)
 
 
 def test_task_and_protocol_signature_changes_not_reservoir_design():
     sig = signature()
-    for field, value in (("scoring_horizon", 2001), ("warmup", 1), ("action_cadence", 2),
-                         ("world_source_hashes", {"world": "different"}),
-                         ("numerics", NumericalPolicy(dtype="float32")),
-                         ("null_policy", "different-policy")):
+    for field, value in (
+        ("scoring_horizon", 2001),
+        ("warmup", 1),
+        ("action_cadence", 2),
+        ("world_source_hashes", {"world": "different"}),
+        ("numerics", NumericalPolicy(dtype="float32")),
+        ("null_policy", "different-policy"),
+    ):
         assert replace(sig, **{field: value}).id != sig.id
     for forbidden in ("node", "input_gain", "count", "topology"):
         with pytest.raises(ValueError, match="reservoir"):
@@ -63,8 +80,9 @@ def test_analytic_chance_and_upper_bound_are_declared_without_oracle_claim():
     assert cal.null_interval == (0.5, 0.5)
     with pytest.raises(ValueError, match="binary"):
         analytic_calibration(signature("pong"))
-    cart = create_empirical_calibration(signature("cartpole_plank_easy"),
-                                        np.full(1024, 1000.), repetitions=10)
+    cart = create_empirical_calibration(
+        signature("cartpole_plank_easy"), np.full(1024, 1000.0), repetitions=10
+    )
     assert cart.upper_bound == 15000
 
 
@@ -91,9 +109,15 @@ def test_bootstrap_uses_independent_model_blocks_and_null_trajectories():
         model_draws.append(np.mean(blocks[model_rng.integers(0, 4, size=4)]))
         null_draws.append(np.mean(scores[null_rng.integers(0, 1024, size=1024)]))
     ratios = (np.array(model_draws) - null_draws) / (1 - np.array(null_draws))
-    np.testing.assert_array_equal(result.interval, np.quantile(ratios, [.025, .975], method="linear"))
-    np.testing.assert_array_equal(result.raw_interval, np.quantile(model_draws, [.025, .975], method="linear"))
-    np.testing.assert_array_equal(result.null_interval, np.quantile(null_draws, [.025, .975], method="linear"))
+    np.testing.assert_array_equal(
+        result.interval, np.quantile(ratios, [0.025, 0.975], method="linear")
+    )
+    np.testing.assert_array_equal(
+        result.raw_interval, np.quantile(model_draws, [0.025, 0.975], method="linear")
+    )
+    np.testing.assert_array_equal(
+        result.null_interval, np.quantile(null_draws, [0.025, 0.975], method="linear")
+    )
     assert result.estimate == pytest.approx(0.5)
     assert result.status == "available"
 
@@ -119,7 +143,7 @@ def test_invalid_denominator_point_and_draws_are_unavailable_never_dropped():
     result = adjusted_interval([0.8, 0.9], cal, repetitions=30)
     assert result.interval is None and result.invalid_denominator_draws == 30
     assert result.repetitions == 30
-    assert result.raw_interval is not None and result.null_interval == (1., 1.)
+    assert result.raw_interval is not None and result.null_interval == (1.0, 1.0)
     # A valid point estimate cannot rescue a draw whose sampled null equals U.
     scores = np.ones(1024)
     scores[0] = 0
@@ -130,7 +154,7 @@ def test_invalid_denominator_point_and_draws_are_unavailable_never_dropped():
 
 
 def test_invalid_calibration_inputs_rejected():
-    for scores in ([0.5] * 100, [np.nan] * 1024, [-1.1] * 1024, [2.] * 1024):
+    for scores in ([0.5] * 100, [np.nan] * 1024, [-1.1] * 1024, [2.0] * 1024):
         with pytest.raises(ValueError):
             create_empirical_calibration(signature(), scores)
     with pytest.raises(ValueError, match="unique"):

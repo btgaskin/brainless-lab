@@ -1,0 +1,876 @@
+{
+  "format": "brainlesslab-backend-profile",
+  "version": 1,
+  "python_version": "3.12.13",
+  "machine": "arm64",
+  "background_activity": [
+    {
+      "pid": 9031,
+      "executable": "node"
+    },
+    {
+      "pid": 18266,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 18267,
+      "executable": "node"
+    },
+    {
+      "pid": 18272,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 25519,
+      "executable": "node"
+    },
+    {
+      "pid": 28305,
+      "executable": "bun"
+    },
+    {
+      "pid": 28306,
+      "executable": "node"
+    },
+    {
+      "pid": 28537,
+      "executable": "node"
+    },
+    {
+      "pid": 32567,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 32568,
+      "executable": "node"
+    },
+    {
+      "pid": 32690,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 33094,
+      "executable": "node"
+    },
+    {
+      "pid": 34442,
+      "executable": "node"
+    },
+    {
+      "pid": 40590,
+      "executable": "node"
+    },
+    {
+      "pid": 55858,
+      "executable": "node"
+    },
+    {
+      "pid": 91872,
+      "executable": "node"
+    },
+    {
+      "pid": 92569,
+      "executable": "node"
+    },
+    {
+      "pid": 50265,
+      "executable": "node"
+    },
+    {
+      "pid": 50266,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 50268,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 77995,
+      "executable": "node"
+    },
+    {
+      "pid": 77996,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 77997,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 65936,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 65938,
+      "executable": "node"
+    },
+    {
+      "pid": 65939,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 71394,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 71396,
+      "executable": "node"
+    },
+    {
+      "pid": 71485,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 69991,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 69992,
+      "executable": "node"
+    },
+    {
+      "pid": 69993,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 70113,
+      "executable": "node"
+    },
+    {
+      "pid": 70114,
+      "executable": "node"
+    },
+    {
+      "pid": 67613,
+      "executable": "node"
+    },
+    {
+      "pid": 67614,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 67711,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 92536,
+      "executable": "node"
+    },
+    {
+      "pid": 92537,
+      "executable": "node"
+    },
+    {
+      "pid": 5946,
+      "executable": "node"
+    },
+    {
+      "pid": 5947,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 6040,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 28772,
+      "executable": "node"
+    },
+    {
+      "pid": 28773,
+      "executable": "node"
+    },
+    {
+      "pid": 29634,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 29635,
+      "executable": "node"
+    },
+    {
+      "pid": 29636,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 29690,
+      "executable": "node"
+    },
+    {
+      "pid": 8411,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 8413,
+      "executable": "node"
+    },
+    {
+      "pid": 8502,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 7870,
+      "executable": "node"
+    },
+    {
+      "pid": 7871,
+      "executable": "node"
+    },
+    {
+      "pid": 9613,
+      "executable": "node"
+    },
+    {
+      "pid": 9615,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 9619,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 15898,
+      "executable": "node"
+    },
+    {
+      "pid": 15899,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 16021,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 76678,
+      "executable": "node"
+    },
+    {
+      "pid": 76679,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 76724,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 79385,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 79387,
+      "executable": "node"
+    },
+    {
+      "pid": 79479,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 95621,
+      "executable": "node"
+    },
+    {
+      "pid": 95622,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 95675,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 95875,
+      "executable": "node"
+    },
+    {
+      "pid": 95876,
+      "executable": "node"
+    },
+    {
+      "pid": 44992,
+      "executable": "node"
+    },
+    {
+      "pid": 44994,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 45083,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 62111,
+      "executable": "node"
+    },
+    {
+      "pid": 62112,
+      "executable": "node"
+    },
+    {
+      "pid": 80468,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 80469,
+      "executable": "node"
+    },
+    {
+      "pid": 80603,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 93686,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 93688,
+      "executable": "node"
+    },
+    {
+      "pid": 93821,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 94710,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 94711,
+      "executable": "node"
+    },
+    {
+      "pid": 94767,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 18118,
+      "executable": "node"
+    },
+    {
+      "pid": 18119,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 18121,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 30980,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 30982,
+      "executable": "node"
+    },
+    {
+      "pid": 30983,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 31001,
+      "executable": "node"
+    },
+    {
+      "pid": 96336,
+      "executable": "node"
+    },
+    {
+      "pid": 96338,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 96342,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 98479,
+      "executable": "node"
+    },
+    {
+      "pid": 98480,
+      "executable": "node"
+    },
+    {
+      "pid": 19994,
+      "executable": "node"
+    },
+    {
+      "pid": 19996,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 20044,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 1458,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 1460,
+      "executable": "node"
+    },
+    {
+      "pid": 1512,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 26969,
+      "executable": "node_repl"
+    },
+    {
+      "pid": 26970,
+      "executable": "node"
+    },
+    {
+      "pid": 27103,
+      "executable": "node_repl"
+    }
+  ],
+  "background_activity_allowed": true,
+  "measurements": [
+    {
+      "phase": "cold_cache_new_process",
+      "status": "complete",
+      "process_wall_seconds": 1.3621504590846598,
+      "actual_arch": "Arch.arm64",
+      "backend": "cpu",
+      "batch_size": 8,
+      "count": 256,
+      "dtype": "float32",
+      "fast_math": false,
+      "node": "falandays",
+      "qualification": "software timing and bounded-specialisation diagnostic only",
+      "samples": [
+        {
+          "compiled_functions": 22,
+          "phase": "first_run",
+          "raw_outcomes": [
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "timings": {
+            "construction_compile_run_seconds": 0.6046254588291049,
+            "resolve_and_runtime_seconds": 0.14843666600063443,
+            "total_seconds": 0.7629577908664942
+          },
+          "trial_statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ],
+          "wall_seconds": 0.7629699169192463
+        },
+        {
+          "compiled_functions": 22,
+          "phase": "warm_process",
+          "raw_outcomes": [
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "timings": {
+            "construction_compile_run_seconds": 0.09493420808576047,
+            "resolve_and_runtime_seconds": 0.0004088329151272774,
+            "total_seconds": 0.10064862482249737
+          },
+          "trial_statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ],
+          "wall_seconds": 0.10067245899699628
+        },
+        {
+          "compiled_functions": 22,
+          "phase": "warm_process",
+          "raw_outcomes": [
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "timings": {
+            "construction_compile_run_seconds": 0.09766637487336993,
+            "resolve_and_runtime_seconds": 0.00040429201908409595,
+            "total_seconds": 0.10349399992264807
+          },
+          "trial_statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ],
+          "wall_seconds": 0.10351283405907452
+        }
+      ],
+      "typed_bundle_compiled_counts": [
+        23,
+        23,
+        23,
+        24
+      ]
+    },
+    {
+      "phase": "warm_cache_new_process",
+      "status": "complete",
+      "process_wall_seconds": 0.7674289999995381,
+      "actual_arch": "Arch.arm64",
+      "backend": "cpu",
+      "batch_size": 8,
+      "count": 256,
+      "dtype": "float32",
+      "fast_math": false,
+      "node": "falandays",
+      "qualification": "software timing and bounded-specialisation diagnostic only",
+      "samples": [
+        {
+          "compiled_functions": 22,
+          "phase": "first_run",
+          "raw_outcomes": [
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "timings": {
+            "construction_compile_run_seconds": 0.26287091709673405,
+            "resolve_and_runtime_seconds": 0.08135000010952353,
+            "total_seconds": 0.35216379212215543
+          },
+          "trial_statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ],
+          "wall_seconds": 0.35217666695825756
+        },
+        {
+          "compiled_functions": 22,
+          "phase": "warm_process",
+          "raw_outcomes": [
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "timings": {
+            "construction_compile_run_seconds": 0.09688275004737079,
+            "resolve_and_runtime_seconds": 0.00039354199543595314,
+            "total_seconds": 0.10274700005538762
+          },
+          "trial_statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ],
+          "wall_seconds": 0.10276583302766085
+        },
+        {
+          "compiled_functions": 22,
+          "phase": "warm_process",
+          "raw_outcomes": [
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "timings": {
+            "construction_compile_run_seconds": 0.09685116703622043,
+            "resolve_and_runtime_seconds": 0.00038650003261864185,
+            "total_seconds": 0.10258495900779963
+          },
+          "trial_statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ],
+          "wall_seconds": 0.10260158311575651
+        }
+      ],
+      "typed_bundle_compiled_counts": [
+        23,
+        23,
+        23,
+        24
+      ]
+    },
+    {
+      "phase": "cold_cache_new_process",
+      "status": "complete",
+      "process_wall_seconds": 1.440324875060469,
+      "actual_arch": "Arch.metal",
+      "backend": "metal",
+      "batch_size": 8,
+      "count": 256,
+      "dtype": "float32",
+      "fast_math": false,
+      "node": "falandays",
+      "qualification": "software timing and bounded-specialisation diagnostic only",
+      "samples": [
+        {
+          "compiled_functions": 22,
+          "phase": "first_run",
+          "raw_outcomes": [
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "timings": {
+            "construction_compile_run_seconds": 0.6287406249903142,
+            "resolve_and_runtime_seconds": 0.16196754109114408,
+            "total_seconds": 0.7988083329983056
+          },
+          "trial_statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ],
+          "wall_seconds": 0.7988579589873552
+        },
+        {
+          "compiled_functions": 22,
+          "phase": "warm_process",
+          "raw_outcomes": [
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "timings": {
+            "construction_compile_run_seconds": 0.17479145899415016,
+            "resolve_and_runtime_seconds": 0.00040241610258817673,
+            "total_seconds": 0.1815902499947697
+          },
+          "trial_statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ],
+          "wall_seconds": 0.18166750017553568
+        },
+        {
+          "compiled_functions": 22,
+          "phase": "warm_process",
+          "raw_outcomes": [
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "timings": {
+            "construction_compile_run_seconds": 0.16934404196217656,
+            "resolve_and_runtime_seconds": 0.0004921250510960817,
+            "total_seconds": 0.17586837499402463
+          },
+          "trial_statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ],
+          "wall_seconds": 0.1759335829410702
+        }
+      ],
+      "typed_bundle_compiled_counts": [
+        23,
+        23,
+        23,
+        24
+      ]
+    },
+    {
+      "phase": "warm_cache_new_process",
+      "status": "complete",
+      "process_wall_seconds": 1.193455500062555,
+      "actual_arch": "Arch.metal",
+      "backend": "metal",
+      "batch_size": 8,
+      "count": 256,
+      "dtype": "float32",
+      "fast_math": false,
+      "node": "falandays",
+      "qualification": "software timing and bounded-specialisation diagnostic only",
+      "samples": [
+        {
+          "compiled_functions": 22,
+          "phase": "first_run",
+          "raw_outcomes": [
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "timings": {
+            "construction_compile_run_seconds": 0.3005123750772327,
+            "resolve_and_runtime_seconds": 0.18792045791633427,
+            "total_seconds": 0.4974595829844475
+          },
+          "trial_statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ],
+          "wall_seconds": 0.49750279099680483
+        },
+        {
+          "compiled_functions": 22,
+          "phase": "warm_process",
+          "raw_outcomes": [
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "timings": {
+            "construction_compile_run_seconds": 0.18414225010201335,
+            "resolve_and_runtime_seconds": 0.0004445828963071108,
+            "total_seconds": 0.19023962481878698
+          },
+          "trial_statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ],
+          "wall_seconds": 0.19028858398087323
+        },
+        {
+          "compiled_functions": 22,
+          "phase": "warm_process",
+          "raw_outcomes": [
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "timings": {
+            "construction_compile_run_seconds": 0.1745563328731805,
+            "resolve_and_runtime_seconds": 0.0004074170719832182,
+            "total_seconds": 0.1806369589176029
+          },
+          "trial_statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ],
+          "wall_seconds": 0.18070108303800225
+        }
+      ],
+      "typed_bundle_compiled_counts": [
+        23,
+        23,
+        23,
+        24
+      ]
+    }
+  ],
+  "interpretation": "No learning or fixed speed claim; compare matched numerics and workload."
+}

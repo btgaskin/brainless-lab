@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-
 from brainlesslab.backend import admit_batch
 from brainlesslab.random import NoiseTape, generator, seed_for
 from brainlesslab.specs import EvaluationSpec, ExecutionSpec, NodeSpec, NumericalPolicy, TaskSpec
@@ -37,8 +36,12 @@ def test_configuration_ownership_validation_and_admission():
     assert task.options["delays"] == (8, 32)
     with pytest.raises(TypeError):
         task.options["delay"] = 0
-    for call in (lambda: NodeSpec("ctrnn"), lambda: NumericalPolicy(fast_math=True),
-                 lambda: EvaluationSpec(blocks=0), lambda: ExecutionSpec(backend="cuda")):
+    for call in (
+        lambda: NodeSpec("ctrnn"),
+        lambda: NumericalPolicy(fast_math=True),
+        lambda: EvaluationSpec(blocks=0),
+        lambda: ExecutionSpec(backend="cuda"),
+    ):
         with pytest.raises(ValueError):
             call()
     execution = ExecutionSpec(memory_budget_bytes=1000, reserve_fraction=0.25, batch_size=32)

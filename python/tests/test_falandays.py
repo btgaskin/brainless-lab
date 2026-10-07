@@ -4,17 +4,15 @@ NPZ inputs come from the immutable predecessor implementation fixtures. The
 authors JLD2 files are repository transcriptions, not the authors' own data.
 """
 
-from dataclasses import replace
 import hashlib
-from pathlib import Path
 import tempfile
+from dataclasses import replace
+from pathlib import Path
 
 import numpy as np
 import pytest
 import quadrants as qd
-
 from brainlesslab.models.falandays import FalandaysConfig, InitialState, ModelBatch, construct
-
 
 FIXTURES = Path(__file__).resolve().parents[2] / "test" / "fixtures"
 HASHES = {
@@ -28,17 +26,26 @@ HASHES = {
 def runtime():
     # A repository conftest can initialise another explicitly selected backend.
     try:
-        qd.lang.impl.get_runtime().prog
+        _ = qd.lang.impl.get_runtime().prog
     except qd.lang.exception.QuadrantsRuntimeError:
-        qd.init(arch=qd.cpu, default_fp=qd.f64, fast_math=False,
-                enable_fallback=False, cpu_max_num_threads=1, debug=True,
-                raise_on_templated_floats=True,
-                offline_cache_file_path=str(Path(tempfile.gettempdir()) / "brainlesslab-falandays-qd-cache"))
+        qd.init(
+            arch=qd.cpu,
+            default_fp=qd.f64,
+            fast_math=False,
+            enable_fallback=False,
+            cpu_max_num_threads=1,
+            debug=True,
+            raise_on_templated_floats=True,
+            offline_cache_file_path=str(
+                Path(tempfile.gettempdir()) / "brainlesslab-falandays-qd-cache"
+            ),
+        )
 
 
 def upload(value, dtype=qd.f64):
-    host = np.array(value, dtype=np.int32 if dtype == qd.i32 else
-                    np.float32 if dtype == qd.f32 else np.float64)
+    host = np.array(
+        value, dtype=np.int32 if dtype == qd.i32 else np.float32 if dtype == qd.f32 else np.float64
+    )
     array = qd.ndarray(dtype, host.shape)
     array.from_numpy(host)
     return array
@@ -48,14 +55,33 @@ def fixture_initial(name):
     path = FIXTURES / name
     assert hashlib.sha256(path.read_bytes()).hexdigest() == HASHES[name]
     data = dict(np.load(path))
-    config = FalandaysConfig(**{key: float(data[key]) for key in (
-        "leak", "lrate_wmat", "lrate_targ", "threshold_mult", "targ_min",
-        "input_weight", "weight_init_std", "membrane_noise", "noise_gain")},
-        learn_on=bool(data["learn_on"]), rectify=bool(data["rectify"]),
+    config = FalandaysConfig(
+        **{
+            key: float(data[key])
+            for key in (
+                "leak",
+                "lrate_wmat",
+                "lrate_targ",
+                "threshold_mult",
+                "targ_min",
+                "input_weight",
+                "weight_init_std",
+                "membrane_noise",
+                "noise_gain",
+            )
+        },
+        learn_on=bool(data["learn_on"]),
+        rectify=bool(data["rectify"]),
         axis="dale" if "dale" in name else "unsigned",
-        drive="oosawa" if "oosawa" in name else "none")
-    initial = InitialState.from_source_target(config, **{key: data[key] for key in (
-        "wmat0", "recurrent_mask", "input_wmat", "output_mask", "sign")})
+        drive="oosawa" if "oosawa" in name else "none",
+    )
+    initial = InitialState.from_source_target(
+        config,
+        **{
+            key: data[key]
+            for key in ("wmat0", "recurrent_mask", "input_wmat", "output_mask", "sign")
+        },
+    )
     return initial, data
 
 
@@ -68,7 +94,9 @@ def reference_step(initial, state, inputs, noise, weights_enabled=True, learning
     acts += state["weights"] @ (previous * initial.signs)
     threshold = state["targets"] * config.threshold_mult
     if config.drive == "oosawa":
-        acts += noise * (config.membrane_noise + config.noise_gain * np.maximum(0, threshold - acts))
+        acts += noise * (
+            config.membrane_noise + config.noise_gain * np.maximum(0, threshold - acts)
+        )
     if config.rectify:
         acts = np.maximum(0, acts)
     spikes = (acts >= threshold).astype(float)
@@ -88,19 +116,34 @@ def reference_step(initial, state, inputs, noise, weights_enabled=True, learning
                         weights[i, selected] = np.maximum(0, weights[i, selected])
                     else:
                         weights[i, selected] -= delta
-            if config.axis == "dale" and np.any((initial.recurrent_mask != 0) & (previous[None, :] != 0)):
+            if config.axis == "dale" and np.any(
+                (initial.recurrent_mask != 0) & (previous[None, :] != 0)
+            ):
                 weights[initial.recurrent_mask == 0] = 0
         targets = np.maximum(config.targ_min, targets + errors * config.lrate_targ)
     denominator = initial.output_mask.sum(axis=0)
-    effectors = np.divide(spikes @ initial.output_mask, denominator,
-                          out=np.zeros_like(denominator), where=denominator > 0)
-    return dict(acts=acts, targets=targets, spikes=spikes, previous=previous,
-                errors=errors, weights=weights, effectors=effectors)
+    effectors = np.divide(
+        spikes @ initial.output_mask,
+        denominator,
+        out=np.zeros_like(denominator),
+        where=denominator > 0,
+    )
+    return dict(
+        acts=acts,
+        targets=targets,
+        spikes=spikes,
+        previous=previous,
+        errors=errors,
+        weights=weights,
+        effectors=effectors,
+    )
 
 
 def reference_initial(initial):
-    return {name: np.array(getattr(initial, name), copy=True)
-            for name in ("acts", "targets", "spikes", "weights")}
+    return {
+        name: np.array(getattr(initial, name), copy=True)
+        for name in ("acts", "targets", "spikes", "weights")
+    }
 
 
 @pytest.mark.parametrize("name", HASHES)
@@ -119,7 +162,9 @@ def test_immutable_npz_trajectory(name):
         np.testing.assert_allclose(actual["acts"][0], data["acts_T"][tick], atol=1e-9, rtol=0)
         np.testing.assert_allclose(actual["targets"][0], data["targets_T"][tick], atol=1e-9, rtol=0)
         certified = np.abs(data["margin_T"][tick]) > 1e-6
-        np.testing.assert_array_equal(actual["spikes"][0][certified], data["spikes_T"][tick][certified])
+        np.testing.assert_array_equal(
+            actual["spikes"][0][certified], data["spikes_T"][tick][certified]
+        )
         reference = reference_step(initial, reference, currents, data["noise_draws"][tick])
         for key in reference:
             np.testing.assert_allclose(actual[key][0], reference[key], atol=1e-9, rtol=0)
@@ -129,11 +174,17 @@ def test_immutable_npz_trajectory(name):
 
 def tiny_initial(config=None, *, acts=None, spikes=None, weights=None, mask=None, output=None):
     config = config or FalandaysConfig(leak=0, lrate_wmat=1, lrate_targ=0.1, rectify=False)
-    return InitialState(config, np.zeros((2, 2)) if weights is None else weights,
-                        np.ones((2, 2), dtype=np.int32) if mask is None else mask,
-                        np.eye(2), np.eye(2) if output is None else output,
-                        np.ones(2, dtype=np.int32), np.zeros(2) if acts is None else acts,
-                        np.ones(2), np.zeros(2) if spikes is None else spikes)
+    return InitialState(
+        config,
+        np.zeros((2, 2)) if weights is None else weights,
+        np.ones((2, 2), dtype=np.int32) if mask is None else mask,
+        np.eye(2),
+        np.eye(2) if output is None else output,
+        np.ones(2, dtype=np.int32),
+        np.zeros(2) if acts is None else acts,
+        np.ones(2),
+        np.zeros(2) if spikes is None else spikes,
+    )
 
 
 def test_threshold_equality_residual_error_and_target_floor():
@@ -161,8 +212,17 @@ def test_learning_uses_previous_spikes_and_destination_mask():
 
 def test_dale_signed_learning_floor_and_unmasked_clearing():
     config = FalandaysConfig(axis="dale", leak=0, lrate_targ=0)
-    initial = InitialState(config, [[0.1, 0.2], [0.4, 0.1]], [[1, 0], [1, 1]],
-                           np.eye(2), np.eye(2), [-1, 1], [0, 0], [1, 1], [1, 0])
+    initial = InitialState(
+        config,
+        [[0.1, 0.2], [0.4, 0.1]],
+        [[1, 0], [1, 1]],
+        np.eye(2),
+        np.eye(2),
+        [-1, 1],
+        [0, 0],
+        [1, 1],
+        [1, 0],
+    )
     batch = ModelBatch([initial])
     batch.step(upload([[0, 2]]), upload([[0, 0]]), upload([1], qd.i32))
     actual = batch.snapshot()
@@ -178,7 +238,11 @@ def test_freeze_weights_and_freeze_plasticity_are_distinct_and_reset_restores_fl
     batch = ModelBatch([initial, initial, initial])
     batch.freeze_weights(upload([0, 1, 0], qd.i32))
     batch.freeze_plasticity(upload([0, 0, 1], qd.i32))
-    inputs, noise, active = upload([[1.5, 1.5]] * 3), upload([[0, 0]] * 3), upload([1, 1, 1], qd.i32)
+    inputs, noise, active = (
+        upload([[1.5, 1.5]] * 3),
+        upload([[0, 0]] * 3),
+        upload([1, 1, 1], qd.i32),
+    )
     batch.step(inputs, noise, active)
     actual = batch.snapshot()
     np.testing.assert_array_equal(actual["weights"][1:], [initial.weights, initial.weights])
@@ -199,7 +263,9 @@ def test_freeze_weights_and_freeze_plasticity_are_distinct_and_reset_restores_fl
 
 def test_batched_slots_match_scalar_runs_and_inactive_slots_hold_state():
     rng = np.random.default_rng(42)
-    initials = [construct(FalandaysConfig(drive="oosawa", noise_gain=0.1), 7, 3, 2, rng) for _ in range(3)]
+    initials = [
+        construct(FalandaysConfig(drive="oosawa", noise_gain=0.1), 7, 3, 2, rng) for _ in range(3)
+    ]
     batch = ModelBatch(initials)
     references = [reference_initial(v) for v in initials]
     active = upload([1, 0, 1], qd.i32)
@@ -248,8 +314,16 @@ def test_zero_effector_degree_float32_and_nonfinite_detection():
     np.testing.assert_array_equal(batch.finite.to_numpy(), [1])
 
 
-@pytest.mark.parametrize("kwargs", [dict(leak=1.1), dict(link_p=-0.1), dict(noise_gain=np.nan),
-                                  dict(targ_min=0), dict(weight_init_mode="unknown")])
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        dict(leak=1.1),
+        dict(link_p=-0.1),
+        dict(noise_gain=np.nan),
+        dict(targ_min=0),
+        dict(weight_init_mode="unknown"),
+    ],
+)
 def test_invalid_config_rejected(kwargs):
     with pytest.raises(ValueError):
         FalandaysConfig(**kwargs)

@@ -1,13 +1,12 @@
 """Independent equation checks for the Python SORN software contract."""
 
+import tempfile
 from dataclasses import replace
 from pathlib import Path
-import tempfile
 
 import numpy as np
 import pytest
 import quadrants as qd
-
 from brainlesslab.models.sorn import ModelBatch, SORNConfig, construct
 
 
@@ -15,26 +14,38 @@ from brainlesslab.models.sorn import ModelBatch, SORNConfig, construct
 def cpu_runtime():
     # A package-level fixture may already have selected the backend.
     try:
-        qd.lang.impl.get_runtime().prog
+        _ = qd.lang.impl.get_runtime().prog
     except qd.lang.exception.QuadrantsRuntimeError:
-        qd.init(arch=qd.cpu, default_fp=qd.f64, offline_cache=False,
-                cpu_max_num_threads=1, debug=True, fast_math=False,
-                enable_fallback=False,
-                offline_cache_file_path=str(Path(tempfile.gettempdir()) / "brainlesslab-sorn-test-cache"))
+        qd.init(
+            arch=qd.cpu,
+            default_fp=qd.f64,
+            offline_cache=False,
+            cpu_max_num_threads=1,
+            debug=True,
+            fast_math=False,
+            enable_fallback=False,
+            offline_cache_file_path=str(
+                Path(tempfile.gettempdir()) / "brainlesslab-sorn-test-cache"
+            ),
+        )
 
 
 def device(values, integer=False, dtype="float64"):
     values = np.asarray(values, dtype=np.int32 if integer else dtype)
-    array = qd.ndarray(qd.i32 if integer else (qd.f32 if dtype == "float32" else qd.f64), shape=values.shape)
+    array = qd.ndarray(
+        qd.i32 if integer else (qd.f32 if dtype == "float32" else qd.f64), shape=values.shape
+    )
     array.from_numpy(values)
     return array
 
 
 def step(batch, inputs, active=None):
     active = np.ones(batch.batch_size, dtype=np.int32) if active is None else active
-    batch.step(device(inputs, dtype=batch.dtype),
-               device(np.zeros((batch.batch_size, batch.count)), dtype=batch.dtype),
-               device(active, integer=True))
+    batch.step(
+        device(inputs, dtype=batch.dtype),
+        device(np.zeros((batch.batch_size, batch.count)), dtype=batch.dtype),
+        device(active, integer=True),
+    )
 
 
 def equation(initial, inputs, steps):
@@ -45,8 +56,9 @@ def equation(initial, inputs, steps):
     config = initial.config
     for index in range(steps):
         old_x, old_y = x.copy(), y.copy()
-        x = (weights @ old_x - initial.w_ei @ old_y +
-             initial.w_eu @ inputs[index] - te >= 0).astype(float)
+        x = (
+            weights @ old_x - initial.w_ei @ old_y + initial.w_eu @ inputs[index] - te >= 0
+        ).astype(float)
         y = (initial.w_ie @ old_x - initial.t_i >= 0).astype(float)
         if config.learn_on:
             delta = config.eta_stdp * (np.outer(x, old_x) - np.outer(old_x, x))
@@ -58,16 +70,18 @@ def equation(initial, inputs, steps):
                 if totals[row] > 0 and initial.c_e[row] > 0:
                     weights[row] *= initial.c_e[row] / totals[row]
             te += config.eta_ip * (x - config.H_ip)
-    outputs = np.array([x[selection].mean() if selection.any() else 0
-                        for selection in initial.output_mask])
+    outputs = np.array(
+        [x[selection].mean() if selection.any() else 0 for selection in initial.output_mask]
+    )
     return x, y, weights, mask, te, outputs
 
 
 @pytest.mark.parametrize("dtype,tolerance", [("float64", 1e-13), ("float32", 2e-6)])
 def test_equations_against_independent_numpy(dtype, tolerance):
-    initial = construct(SORNConfig(eta_stdp=0.07, eta_ip=0.03, p_ee=0.4),
-                        8, 2, 3, np.random.default_rng(13))
-    initial = replace(initial, x=np.array([1, 0, 1, 0, 0, 1, 0.]), y=np.ones(1))
+    initial = construct(
+        SORNConfig(eta_stdp=0.07, eta_ip=0.03, p_ee=0.4), 8, 2, 3, np.random.default_rng(13)
+    )
+    initial = replace(initial, x=np.array([1, 0, 1, 0, 0, 1, 0.0]), y=np.ones(1))
     inputs = np.random.default_rng(29).uniform(-0.3, 1.7, size=(12, 2))
     batch = ModelBatch([initial], dtype=dtype)
     for frame, values in enumerate(inputs):
@@ -87,30 +101,42 @@ def test_equations_against_independent_numpy(dtype, tolerance):
 
 def test_threshold_equality_and_synchronous_old_populations():
     initial = construct(SORNConfig(learn_on=False), 3, 1, 1, np.random.default_rng(1))
-    initial = replace(initial, w_ee=np.zeros((2, 2)), w_ei=np.ones((2, 1)),
-                      w_ie=np.array([[1., 0.]]), w_eu=np.ones((2, 1)),
-                      x=np.array([1., 0.]), y=np.array([0.]),
-                      t_e=np.array([1., 1.]), t_i=np.array([1.]))
+    initial = replace(
+        initial,
+        w_ee=np.zeros((2, 2)),
+        w_ei=np.ones((2, 1)),
+        w_ie=np.array([[1.0, 0.0]]),
+        w_eu=np.ones((2, 1)),
+        x=np.array([1.0, 0.0]),
+        y=np.array([0.0]),
+        t_e=np.array([1.0, 1.0]),
+        t_i=np.array([1.0]),
+    )
     batch = ModelBatch([initial])
-    step(batch, [[1.]])
+    step(batch, [[1.0]])
     # All drives equal thresholds. New inhibition must not affect this E update.
-    np.testing.assert_array_equal(batch.activity.to_numpy(), [[1., 1., 1.]])
+    np.testing.assert_array_equal(batch.activity.to_numpy(), [[1.0, 1.0, 1.0]])
 
 
 def test_pruning_is_permanent_zero_rows_stay_zero_and_reset_restores_mask():
     config = SORNConfig(inhibitory_fraction=0, eta_stdp=0.001, eta_ip=0)
     initial = construct(config, 2, 1, 1, np.random.default_rng(4))
-    initial = replace(initial, w_ee=np.array([[0., 0.0005], [0.2, 0.]]),
-                      ee_mask=np.array([[False, True], [True, False]]),
-                      c_e=np.array([0.0005, 0.2]), w_eu=np.array([[1.], [0.]]),
-                      t_e=np.array([2., -1.]), x=np.array([1., 0.]))
+    initial = replace(
+        initial,
+        w_ee=np.array([[0.0, 0.0005], [0.2, 0.0]]),
+        ee_mask=np.array([[False, True], [True, False]]),
+        c_e=np.array([0.0005, 0.2]),
+        w_eu=np.array([[1.0], [0.0]]),
+        t_e=np.array([2.0, -1.0]),
+        x=np.array([1.0, 0.0]),
+    )
     batch = ModelBatch([initial])
-    step(batch, [[0.]])
+    step(batch, [[0.0]])
     first = batch.snapshot()
     assert first["w_ee"][0, 0, 1] == 0
     assert first["ee_mask"][0, 0, 1] == 0
     assert first["finite"][0] == 1  # No zero-row division.
-    step(batch, [[3.]])  # This transition would potentiate the deleted edge.
+    step(batch, [[3.0]])  # This transition would potentiate the deleted edge.
     assert batch.snapshot()["w_ee"][0, 0, 1] == 0
     assert batch.snapshot()["ee_mask"][0, 0, 1] == 0
     batch.reset(device([1], integer=True))
@@ -119,25 +145,29 @@ def test_pruning_is_permanent_zero_rows_stay_zero_and_reset_restores_mask():
 
 
 def test_zero_original_normalisation_target_skips_scaling():
-    initial = construct(SORNConfig(inhibitory_fraction=0, eta_stdp=0.1, eta_ip=0),
-                        2, 1, 1, np.random.default_rng(4))
-    initial = replace(initial, w_ee=np.array([[0., 0.2], [0.2, 0.]]),
-                      c_e=np.zeros(2), x=np.array([1., 0.]),
-                      t_e=np.array([2., -1.]))
+    initial = construct(
+        SORNConfig(inhibitory_fraction=0, eta_stdp=0.1, eta_ip=0), 2, 1, 1, np.random.default_rng(4)
+    )
+    initial = replace(
+        initial,
+        w_ee=np.array([[0.0, 0.2], [0.2, 0.0]]),
+        c_e=np.zeros(2),
+        x=np.array([1.0, 0.0]),
+        t_e=np.array([2.0, -1.0]),
+    )
     batch = ModelBatch([initial])
-    step(batch, [[0.]])
-    np.testing.assert_allclose(batch.snapshot()["w_ee"][0], [[0., 0.1], [0.3, 0.]])
+    step(batch, [[0.0]])
+    np.testing.assert_allclose(batch.snapshot()["w_ee"][0], [[0.0, 0.1], [0.3, 0.0]])
 
 
 def test_freeze_modes_reset_and_owned_storage():
-    initial = construct(SORNConfig(eta_ip=0.04, eta_stdp=0.08),
-                        5, 1, 2, np.random.default_rng(10))
+    initial = construct(SORNConfig(eta_ip=0.04, eta_stdp=0.08), 5, 1, 2, np.random.default_rng(10))
     batch = ModelBatch([initial, initial, initial])
     original = batch.snapshot()
     batch.freeze_weights(device([1, 0, 0], integer=True))
     batch.freeze_plasticity(device([0, 1, 0], integer=True))
     for _ in range(4):
-        step(batch, [[1.], [1.], [1.]])
+        step(batch, [[1.0], [1.0], [1.0]])
     after = batch.snapshot()
     for index in (0, 1):
         np.testing.assert_array_equal(after["w_ee"][index], original["w_ee"][index])
@@ -160,9 +190,9 @@ def test_inactive_batch_members_are_unchanged_and_batching_matches_single():
     batch = ModelBatch(initials)
     single = ModelBatch(initials[:1])
     before = batch.snapshot()
-    for inputs in ([[0.2, 1.]], [[0.8, 0.4]], [[0., 0.]]):
+    for inputs in ([[0.2, 1.0]], [[0.8, 0.4]], [[0.0, 0.0]]):
         step(single, inputs)
-        step(batch, [inputs[0], [999., 999.]], active=[1, 0])
+        step(batch, [inputs[0], [999.0, 999.0]], active=[1, 0])
     for key, values in batch.snapshot().items():
         np.testing.assert_array_equal(values[0], single.snapshot()[key][0])
         np.testing.assert_array_equal(values[1], before[key][1])
@@ -190,21 +220,29 @@ def test_one_node_no_inhibitory_population_and_initial_learning_disabled():
     batch = ModelBatch([initial])
     before = batch.snapshot()
     for _ in range(3):
-        step(batch, [[1.]])
+        step(batch, [[1.0]])
     after = batch.snapshot()
     assert after["y"].shape == (1, 0)
     assert after["w_ei"].shape == (1, 1, 0)
     assert after["w_ie"].shape == (1, 0, 1)
-    np.testing.assert_array_equal(after["activity"], [[1.]])
-    np.testing.assert_array_equal(after["effectors"], [[1.]])
+    np.testing.assert_array_equal(after["activity"], [[1.0]])
+    np.testing.assert_array_equal(after["effectors"], [[1.0]])
     np.testing.assert_array_equal(after["t_e"], before["t_e"])
     np.testing.assert_array_equal(after["w_ee"], before["w_ee"])
     batch.reset(device([1], integer=True))
     np.testing.assert_array_equal(batch.snapshot()["plasticity"], [[0, 0]])
 
 
-@pytest.mark.parametrize("parameters", [{"inhibitory_fraction": 1.01}, {"p_ee": -0.1},
-                                       {"eta_ip": np.inf}, {"H_ip": np.nan}, {"learn_on": 1}])
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        {"inhibitory_fraction": 1.01},
+        {"p_ee": -0.1},
+        {"eta_ip": np.inf},
+        {"H_ip": np.nan},
+        {"learn_on": 1},
+    ],
+)
 def test_invalid_config_rejected(parameters):
     with pytest.raises((ValueError, TypeError)):
         SORNConfig(**parameters)
@@ -219,12 +257,12 @@ def test_incompatible_batch_and_ports_rejected():
         ModelBatch([replace(a, w_ee=np.ones((2, 2)))])
     batch = ModelBatch([a])
     with pytest.raises(ValueError, match="inputs"):
-        batch.step(device([[1., 2.]]), device(np.zeros((1, 5))), device([1], integer=True))
+        batch.step(device([[1.0, 2.0]]), device(np.zeros((1, 5))), device([1], integer=True))
 
 
 def test_nonfinite_drive_is_reported_even_when_threshold_output_is_binary():
     initial = construct(SORNConfig(learn_on=False), 1, 1, 1, np.random.default_rng(1))
     batch = ModelBatch([initial])
     step(batch, [[np.inf]])
-    np.testing.assert_array_equal(batch.activity.to_numpy(), [[1.]])
+    np.testing.assert_array_equal(batch.activity.to_numpy(), [[1.0]])
     np.testing.assert_array_equal(batch.finite.to_numpy(), [0])

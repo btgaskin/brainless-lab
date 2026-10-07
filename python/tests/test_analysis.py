@@ -2,14 +2,17 @@ from dataclasses import replace
 
 import numpy as np
 import pytest
-
 from brainlesslab.analysis import ProbeEvent, ProbeTrial, decode
 from brainlesslab.random import generator
 from brainlesslab.specs import plain
 
-
-OPTIONS = dict(fit_trials=128, validation_trials=64, evaluation_trials=128,
-               split_seed=412, permutation_seed=413)
+OPTIONS = dict(
+    fit_trials=128,
+    validation_trials=64,
+    evaluation_trials=128,
+    split_seed=412,
+    permutation_seed=413,
+)
 
 
 def observations(n=320):
@@ -17,13 +20,37 @@ def observations(n=320):
     events, trials = [], []
     for index in range(n):
         label = 1 + index % 2
-        features = np.r_[1. if label == 1 else -1., rng.normal(size=2), 4.]
-        trials.append(ProbeTrial("condition", "delayed_cue", 1, index, index % 2,
-                                 "fixed-wiring", f"world-{index}", "node-hash", "interface-hash"))
+        features = np.r_[1.0 if label == 1 else -1.0, rng.normal(size=2), 4.0]
+        trials.append(
+            ProbeTrial(
+                "condition",
+                "delayed_cue",
+                1,
+                index,
+                index % 2,
+                "fixed-wiring",
+                f"world-{index}",
+                "node-hash",
+                "interface-hash",
+            )
+        )
         for point in ("cue_end", "delay_end", "response"):
             # Coincident timestamps remain distinct semantic observation points.
-            events.append(ProbeEvent("condition", "delayed_cue", 1, index, "entity-a",
-                                     ("n1", "n2", "n3", "n4"), point, 10, 1, label, features))
+            events.append(
+                ProbeEvent(
+                    "condition",
+                    "delayed_cue",
+                    1,
+                    index,
+                    "entity-a",
+                    ("n1", "n2", "n3", "n4"),
+                    point,
+                    10,
+                    1,
+                    label,
+                    features,
+                )
+            )
     return events, trials
 
 
@@ -31,21 +58,30 @@ def test_equations_shared_whole_trial_splits_and_portable_metadata():
     events, trials = observations()
     results = decode(events, trials, **OPTIONS)
     first = results[0]
-    assert all(r.fit_trial_ids == first.fit_trial_ids and
-               r.validation_trial_ids == first.validation_trial_ids and
-               r.evaluation_trial_ids == first.evaluation_trial_ids for r in results)
-    fit, valid, test = map(set, (first.fit_trial_ids, first.validation_trial_ids, first.evaluation_trial_ids))
+    assert all(
+        r.fit_trial_ids == first.fit_trial_ids
+        and r.validation_trial_ids == first.validation_trial_ids
+        and r.evaluation_trial_ids == first.evaluation_trial_ids
+        for r in results
+    )
+    fit, valid, test = map(
+        set, (first.fit_trial_ids, first.validation_trial_ids, first.evaluation_trial_ids)
+    )
     assert not fit & valid and not fit & test and not valid & test
     assert fit | valid | test == set(range(320))
     assert first.accuracy == 1
     assert first.fitted.regularisation == 1e-4
     assert 0.35 <= first.permutation_accuracy <= 0.65
-    assert first.native_accuracy == np.mean([trials[i].native_score for i in first.evaluation_trial_ids])
+    assert first.native_accuracy == np.mean(
+        [trials[i].native_score for i in first.evaluation_trial_ids]
+    )
     assert first.fitted.scale[3] == 1
     x = np.stack([e.features for e in events if e.point == "cue_end"])
     np.testing.assert_allclose(first.fitted.centre, x[list(first.fit_trial_ids)].mean(axis=0))
-    np.testing.assert_allclose(first.fitted.scale[:3], x[list(first.fit_trial_ids), :3].std(axis=0, ddof=0))
-    target = np.where(np.array(first.labels)[list(first.fit_trial_ids)] == 1, 1., -1.)
+    np.testing.assert_allclose(
+        first.fitted.scale[:3], x[list(first.fit_trial_ids), :3].std(axis=0, ddof=0)
+    )
+    target = np.where(np.array(first.labels)[list(first.fit_trial_ids)] == 1, 1.0, -1.0)
     assert first.fitted.intercept == target.mean()
     serial = plain(first)
     assert isinstance(serial["fitted"]["weights"], list)
@@ -56,10 +92,21 @@ def test_evaluation_features_and_labels_do_not_change_fit_scaling_or_tuning():
     events, trials = observations()
     original = decode(events, trials, **OPTIONS)[0]
     evaluation = set(original.evaluation_trial_ids)
-    changed = [replace(e, features=e.features + 10000, label=3-e.label)
-               if e.trial_id in evaluation else e for e in events]
+    changed = [
+        replace(e, features=e.features + 10000, label=3 - e.label)
+        if e.trial_id in evaluation
+        else e
+        for e in events
+    ]
     current = decode(changed, trials, **OPTIONS)[0]
-    for name in ("weights", "centre", "scale", "regularisation", "intercept", "validation_accuracy"):
+    for name in (
+        "weights",
+        "centre",
+        "scale",
+        "regularisation",
+        "intercept",
+        "validation_accuracy",
+    ):
         assert getattr(current.fitted, name) == getattr(original.fitted, name)
         assert getattr(current.permutation, name) == getattr(original.permutation, name)
 
@@ -79,21 +126,29 @@ def test_null_permutes_fit_and_validation_separately_never_evaluation():
 
 
 def test_observation_features_own_storage():
-    values = np.array([1., 2.])
+    values = np.array([1.0, 2.0])
     event = ProbeEvent("a", "delayed_cue", 1, 1, "e", ("x", "y"), "response", 0, 1, 1, values)
     values[:] = 999
-    np.testing.assert_array_equal(event.features, [1., 2.])
+    np.testing.assert_array_equal(event.features, [1.0, 2.0])
     assert not event.features.flags.writeable
     assert not np.shares_memory(values, event.features)
 
 
-@pytest.mark.parametrize("mutation,message", [
-    ("duplicate_event", "one observation"), ("missing_event", "missing observation"),
-    ("duplicate_trial", "duplicate"), ("wiring", "fixed wiring"),
-    ("world", "distinct seeds"), ("feature", "feature IDs"),
-    ("entity", "entity"), ("channel", "emitted activity"),
-    ("reset", "full reset"), ("task", "six stimulus"),
-])
+@pytest.mark.parametrize(
+    "mutation,message",
+    [
+        ("duplicate_event", "one observation"),
+        ("missing_event", "missing observation"),
+        ("duplicate_trial", "duplicate"),
+        ("wiring", "fixed wiring"),
+        ("world", "distinct seeds"),
+        ("feature", "feature IDs"),
+        ("entity", "entity"),
+        ("channel", "emitted activity"),
+        ("reset", "full reset"),
+        ("task", "six stimulus"),
+    ],
+)
 def test_invalid_data_rejected(mutation, message):
     events, trials = observations()
     if mutation == "duplicate_event":
@@ -136,5 +191,5 @@ def test_trial_counts_classes_options_and_memory_budget():
 
 def test_exact_lambda_tie_keeps_smallest_even_for_unsorted_duplicate_grid():
     events, trials = observations()
-    result = decode(events, trials, **OPTIONS, lambdas=(100., 1., 0.01, 0.0001, 0.01))[0]
+    result = decode(events, trials, **OPTIONS, lambdas=(100.0, 1.0, 0.01, 0.0001, 0.01))[0]
     assert result.fitted.regularisation == 0.0001

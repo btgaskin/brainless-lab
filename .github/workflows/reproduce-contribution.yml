@@ -1,4 +1,4 @@
-name: Reproduce merged research protocol
+name: Reproduce historical merged Julia protocol
 
 on:
   workflow_dispatch:
@@ -49,6 +49,8 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           git merge-base --is-ancestor "$SOURCE_SHA" origin/main
           test -d "$EXPERIMENT_PATH"
+          test -f Project.toml
+          test -f bin/brainlesslab.jl
           test -z "$(git status --porcelain)"
       - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32 # v3
         with:

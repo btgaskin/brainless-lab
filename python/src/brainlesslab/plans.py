@@ -7,21 +7,37 @@ import importlib
 import itertools
 import json
 import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Mapping
+from types import MappingProxyType
+from typing import TYPE_CHECKING
 
 import tomli_w
 
+if TYPE_CHECKING:
+    from .models.falandays import FalandaysConfig
+    from .models.sorn import SORNConfig
+
 from .specs import (
-    BENCHMARK_TASKS, CompositionSpec, EvaluationSpec, EvaluationTarget, Intervention,
-    NodeSpec, NumericalPolicy, Plan, TaskSpec, Value, plain,
+    BENCHMARK_TASKS,
+    CompositionSpec,
+    EvaluationSpec,
+    EvaluationTarget,
+    Intervention,
+    NodeSpec,
+    NumericalPolicy,
+    Plan,
+    TaskSpec,
+    Value,
+    plain,
 )
 
 
 def digest(value: object) -> str:
-    return hashlib.sha256(json.dumps(plain(value), sort_keys=True, separators=(",", ":"),
-                                    allow_nan=False).encode()).hexdigest()
+    return hashlib.sha256(
+        json.dumps(plain(value), sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+    ).hexdigest()
 
 
 def model_module(kind: str):
@@ -35,7 +51,7 @@ def model_module(kind: str):
 class ResolvedTarget:
     target: EvaluationTarget
     horizon: int
-    model_config: object
+    model_config: FalandaysConfig | SORNConfig
     n_inputs: int
     n_effectors: int
     neural_frames: int
@@ -52,7 +68,8 @@ class ResolvedPlan:
 
 
 def resolve(plan: Plan) -> ResolvedPlan:
-    from .tasks import definition, resolve as resolve_task, validate_controller
+    from .tasks import definition, validate_controller
+    from .tasks import resolve as resolve_task
 
     targets = []
     for target in plan.targets:
@@ -80,13 +97,24 @@ def resolve(plan: Plan) -> ResolvedPlan:
             if verb.startswith("freeze_") and not config.learn_on:
                 raise ValueError("cannot freeze learning which is already disabled")
             if verb == "freeze_weights":
-                if frozen_weights or frozen_plasticity or (comp.node.kind == "falandays" and config.lrate_wmat == 0):
+                if (
+                    frozen_weights
+                    or frozen_plasticity
+                    or (comp.node.kind == "falandays" and config.lrate_wmat == 0)
+                ):
                     raise ValueError("freeze_weights would not change the declared mechanism")
                 frozen_weights = True
             elif verb == "freeze_plasticity":
-                if frozen_plasticity or (comp.node.kind == "falandays" and config.lrate_wmat == 0 and config.lrate_targ == 0):
+                if frozen_plasticity or (
+                    comp.node.kind == "falandays"
+                    and config.lrate_wmat == 0
+                    and config.lrate_targ == 0
+                ):
                     raise ValueError("freeze_plasticity would not change the declared mechanism")
-                if any(i.tick == intervention.tick and i.verb == "freeze_weights" for i in target.interventions):
+                if any(
+                    i.tick == intervention.tick and i.verb == "freeze_weights"
+                    for i in target.interventions
+                ):
                     raise ValueError("same-tick freeze_weights and freeze_plasticity are redundant")
                 frozen_plasticity = True
             elif verb == "blind_input":
@@ -103,13 +131,30 @@ def resolve(plan: Plan) -> ResolvedPlan:
             if target.controller != "reservoir":
                 raise ValueError("reservoir interventions require a reservoir controller")
         if plan.operation == "calibrate":
-            if target.controller != "reference_null" or plan.evaluation.seed_partition != "calibration":
-                raise ValueError("calibration requires the reference null and calibration seed bank")
+            if (
+                target.controller != "reference_null"
+                or plan.evaluation.seed_partition != "calibration"
+            ):
+                raise ValueError(
+                    "calibration requires the reference null and calibration seed bank"
+                )
             if plan.diagnostic or plan.evaluation.blocks * plan.evaluation.trials_per_block != 1024:
-                raise ValueError("empirical calibration requires 1024 full independent trajectories")
-        targets.append(ResolvedTarget(target, horizon, config, info.n_inputs, info.n_effectors,
-                                      info.neural_frames, info.outcome_key, info.upper_bound,
-                                      resolve_task(comp.task)))
+                raise ValueError(
+                    "empirical calibration requires 1024 full independent trajectories"
+                )
+        targets.append(
+            ResolvedTarget(
+                target,
+                horizon,
+                config,
+                info.n_inputs,
+                info.n_effectors,
+                info.neural_frames,
+                info.outcome_key,
+                info.upper_bound,
+                MappingProxyType(resolve_task(comp.task)),
+            )
+        )
     return ResolvedPlan(plan, tuple(targets), digest({"request": plan, "targets": targets}))
 
 
@@ -133,10 +178,16 @@ def read_plan(path: str | Path) -> Plan:
         task = _checked(TaskSpec, composition.pop("task", {}))
         comp = _checked(CompositionSpec, {**composition, "node": node, "task": task})
         interventions = tuple(_checked(Intervention, v) for v in item.pop("interventions", []))
-        targets.append(_checked(EvaluationTarget, {**item, "composition": comp, "interventions": interventions}))
+        targets.append(
+            _checked(
+                EvaluationTarget, {**item, "composition": comp, "interventions": interventions}
+            )
+        )
     evaluation = _checked(EvaluationSpec, data.pop("evaluation", {}))
     numerics = _checked(NumericalPolicy, data.pop("numerics", {}))
-    return _checked(Plan, {**data, "targets": tuple(targets), "evaluation": evaluation, "numerics": numerics})
+    return _checked(
+        Plan, {**data, "targets": tuple(targets), "evaluation": evaluation, "numerics": numerics}
+    )
 
 
 def without_none(value: object) -> object:
@@ -161,15 +212,33 @@ def write_plan(plan: Plan, path: str | Path) -> Path:
     return destination
 
 
-def profile(composition: CompositionSpec, *, evaluation: EvaluationSpec | None = None,
-            numerics: NumericalPolicy | None = None, id="profile", diagnostic=False) -> Plan:
-    return Plan(id, (EvaluationTarget("baseline", composition),), evaluation or EvaluationSpec(),
-                numerics or NumericalPolicy(), "profile", diagnostic=diagnostic)
+def profile(
+    composition: CompositionSpec,
+    *,
+    evaluation: EvaluationSpec | None = None,
+    numerics: NumericalPolicy | None = None,
+    id="profile",
+    diagnostic=False,
+) -> Plan:
+    return Plan(
+        id,
+        (EvaluationTarget("baseline", composition),),
+        evaluation or EvaluationSpec(),
+        numerics or NumericalPolicy(),
+        "profile",
+        diagnostic=diagnostic,
+    )
 
 
-def sweep(composition: CompositionSpec, axes: Mapping[str, tuple[Value, ...]], *,
-          evaluation: EvaluationSpec | None = None, numerics: NumericalPolicy | None = None,
-          id="sweep", diagnostic=False) -> Plan:
+def sweep(
+    composition: CompositionSpec,
+    axes: Mapping[str, tuple[Value, ...]],
+    *,
+    evaluation: EvaluationSpec | None = None,
+    numerics: NumericalPolicy | None = None,
+    id="sweep",
+    diagnostic=False,
+) -> Plan:
     if not axes or any(not values for values in axes.values()):
         raise ValueError("sweep needs non-empty explicit parameter axes")
     names = tuple(axes)
@@ -177,24 +246,66 @@ def sweep(composition: CompositionSpec, axes: Mapping[str, tuple[Value, ...]], *
     for values in itertools.product(*(axes[name] for name in names)):
         parameters = {**composition.node.parameters, **dict(zip(names, values, strict=True))}
         comp = replace(composition, node=replace(composition.node, parameters=parameters))
-        targets.append(EvaluationTarget(digest(parameters)[:16], comp, label=str(dict(zip(names, values, strict=True)))))
-    return Plan(id, tuple(targets), evaluation or EvaluationSpec(), numerics or NumericalPolicy(),
-                "sweep", diagnostic=diagnostic)
+        targets.append(
+            EvaluationTarget(
+                digest(parameters)[:16], comp, label=str(dict(zip(names, values, strict=True)))
+            )
+        )
+    return Plan(
+        id,
+        tuple(targets),
+        evaluation or EvaluationSpec(),
+        numerics or NumericalPolicy(),
+        "sweep",
+        diagnostic=diagnostic,
+    )
 
 
-def ablate(composition: CompositionSpec, verbs=("freeze_weights", "freeze_plasticity"), *,
-           tick=1, evaluation=None, numerics=None, id="ablation", diagnostic=False) -> Plan:
+def ablate(
+    composition: CompositionSpec,
+    verbs=("freeze_weights", "freeze_plasticity"),
+    *,
+    tick=1,
+    evaluation=None,
+    numerics=None,
+    id="ablation",
+    diagnostic=False,
+) -> Plan:
     targets = [EvaluationTarget("baseline", composition)]
-    targets.extend(EvaluationTarget(verb, composition, interventions=(Intervention(tick, verb),)) for verb in verbs)
-    return Plan(id, tuple(targets), evaluation or EvaluationSpec(), numerics or NumericalPolicy(),
-                "ablate", diagnostic=diagnostic)
+    targets.extend(
+        EvaluationTarget(verb, composition, interventions=(Intervention(tick, verb),))
+        for verb in verbs
+    )
+    return Plan(
+        id,
+        tuple(targets),
+        evaluation or EvaluationSpec(),
+        numerics or NumericalPolicy(),
+        "ablate",
+        diagnostic=diagnostic,
+    )
 
 
-def benchmark(node: NodeSpec | None = None, *, count=200, evaluation=None,
-              numerics=None, id="benchmark") -> Plan:
-    targets = tuple(target for task in BENCHMARK_TASKS for target in (
-        EvaluationTarget(task, CompositionSpec(node or NodeSpec(), TaskSpec(task), count),
-                         pairing_key=f"benchmark/{task}"),
-        EvaluationTarget(f"{task}_null", CompositionSpec(node or NodeSpec(), TaskSpec(task), count),
-                         pairing_key=f"benchmark/{task}", controller="reference_null")))
-    return Plan(id, targets, evaluation or EvaluationSpec(), numerics or NumericalPolicy(), "benchmark")
+def benchmark(
+    node: NodeSpec | None = None, *, count=200, evaluation=None, numerics=None, id="benchmark"
+) -> Plan:
+    targets = tuple(
+        target
+        for task in BENCHMARK_TASKS
+        for target in (
+            EvaluationTarget(
+                task,
+                CompositionSpec(node or NodeSpec(), TaskSpec(task), count),
+                pairing_key=f"benchmark/{task}",
+            ),
+            EvaluationTarget(
+                f"{task}_null",
+                CompositionSpec(node or NodeSpec(), TaskSpec(task), count),
+                pairing_key=f"benchmark/{task}",
+                controller="reference_null",
+            ),
+        )
+    )
+    return Plan(
+        id, targets, evaluation or EvaluationSpec(), numerics or NumericalPolicy(), "benchmark"
+    )

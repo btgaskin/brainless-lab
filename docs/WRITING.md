@@ -30,19 +30,19 @@ Use these terms consistently:
 | --- | --- |
 | node | the local neural unit model |
 | reservoir | a runtime population of nodes |
-| `NodeSpec` | registered node metadata, builder, parameters, and capabilities |
-| `TaskSpec` | registered task setup, ports, outcome, anchors, and defaults |
-| body | the sensorimotor organisation coupled to a task |
-| `InteractionCycle` | neural frames executed within one world step |
+| `NodeSpec` | the model kind and local adaptation parameters |
+| `TaskSpec` | the task kind and task options; resolution supplies ports, timing and outcome |
 | `CompositionSpec` | the complete runtime composition |
 | `EvaluationSpec` | the outer trial, seed, reset, and aggregation protocol |
-| `EvaluationTarget` | one named composition with one evaluation protocol |
-| operation plan | a profile, sweep, ablation, evolution, or benchmark plan |
-| `ExperimentSpec` | a versioned scientific protocol over named conditions and operations |
+| `EvaluationTarget` | one named composition with pairing, mechanism streams and interventions |
+| `NumericalPolicy` | precision, arithmetic, reduction and RNG scheme |
+| `ExecutionSpec` | backend, batch size, memory budgets, cache and recording |
+| operation plan | a profile, sweep, ablation, calibration or benchmark plan |
 | record | the portable output of one operation |
 
-Use `simulate` for one in-memory run. Use an operation plan for repeated work. Do not call
-`ExperimentSpec` another runner.
+Use `simulate` for one in-memory run. Use an operation plan for repeated work.
+Historical Julia bodies, `InteractionCycle`, registries, evolution and `ExperimentSpec`
+retain their meaning only at their declared source revision.
 
 Use “validated on declared reference trajectories” for the tested Falandays conformance
 boundary. Do not extend this wording to behavioural or biological equivalence.
@@ -73,7 +73,7 @@ declared interface, validation rule, or scoring definition.
 Before merging prose, check:
 
 - every command, path, type, and field exists;
-- public guidance uses the typed registries and current plan schema;
+- public guidance uses the implemented specifications and current plan schema;
 - no archived study route or bespoke experiment runner appears as current guidance;
 - uncertainty and evidence status remain visible;
 - links use stable routes;

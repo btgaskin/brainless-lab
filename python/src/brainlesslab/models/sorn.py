@@ -5,9 +5,9 @@ historical name but denotes the I/E ratio, rather than the fraction of all units
 Construction is host-side; neural dynamics and adaptation run in Quadrants.
 """
 
-from dataclasses import dataclass, fields
-from collections.abc import Sequence
 import math
+from collections.abc import Sequence
+from dataclasses import dataclass, fields
 
 import numpy as np
 import quadrants as qd
@@ -35,8 +35,15 @@ class SORNConfig:
     learn_on: bool = True
 
     def __post_init__(self):
-        probabilities = {"inhibitory_fraction", "p_ee", "p_ei", "p_ie",
-                         "p_input", "p_output", "H_ip"}
+        probabilities = {
+            "inhibitory_fraction",
+            "p_ee",
+            "p_ei",
+            "p_ie",
+            "p_input",
+            "p_output",
+            "H_ip",
+        }
         for field in fields(self):
             if field.name == "learn_on":
                 if not isinstance(self.learn_on, bool):
@@ -77,10 +84,17 @@ class InitialState:
             raise ValueError("n_e cannot exceed count")
         n_i = self.count - self.n_e
         shapes = {
-            "w_ee": (self.n_e, self.n_e), "ee_mask": (self.n_e, self.n_e),
-            "c_e": (self.n_e,), "w_ei": (self.n_e, n_i), "w_ie": (n_i, self.n_e),
-            "w_eu": (self.n_e, self.n_inputs), "output_mask": (self.n_effectors, self.n_e),
-            "t_e": (self.n_e,), "t_i": (n_i,), "x": (self.n_e,), "y": (n_i,),
+            "w_ee": (self.n_e, self.n_e),
+            "ee_mask": (self.n_e, self.n_e),
+            "c_e": (self.n_e,),
+            "w_ei": (self.n_e, n_i),
+            "w_ie": (n_i, self.n_e),
+            "w_eu": (self.n_e, self.n_inputs),
+            "output_mask": (self.n_effectors, self.n_e),
+            "t_e": (self.n_e,),
+            "t_i": (n_i,),
+            "x": (self.n_e,),
+            "y": (n_i,),
         }
         for name, shape in shapes.items():
             raw = np.asarray(getattr(self, name))
@@ -88,7 +102,9 @@ class InitialState:
                 raise ValueError(f"{name} must be finite and have shape {shape}")
             if name in ("ee_mask", "output_mask", "x", "y") and not np.all(np.isin(raw, (0, 1))):
                 raise ValueError(f"{name} must be binary before conversion")
-            owned = np.array(raw, dtype=bool if name in ("ee_mask", "output_mask") else np.float64, copy=True)
+            owned = np.array(
+                raw, dtype=bool if name in ("ee_mask", "output_mask") else np.float64, copy=True
+            )
             object.__setattr__(self, name, owned)
 
 
@@ -126,10 +142,10 @@ def _weights(mask, target, rng):
     return weights
 
 
-def construct(config: SORNConfig, count: int, n_inputs: int,
-              n_effectors: int, rng: np.random.Generator) -> InitialState:
-    for name, value in (("count", count), ("n_inputs", n_inputs),
-                        ("n_effectors", n_effectors)):
+def construct(
+    config: SORNConfig, count: int, n_inputs: int, n_effectors: int, rng: np.random.Generator
+) -> InitialState:
+    for name, value in (("count", count), ("n_inputs", n_inputs), ("n_effectors", n_effectors)):
         if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or value < 1:
             raise ValueError(f"{name} must be a positive integer")
     if not isinstance(rng, np.random.Generator):
@@ -143,12 +159,22 @@ def construct(config: SORNConfig, count: int, n_inputs: int,
     outputs = _fanout(n_e, n_effectors, config.p_output, rng).T.copy()
     w_ee = _weights(ee, config.ee_row_sum, rng)
     return InitialState(
-        config, count, n_inputs, n_effectors, n_e, w_ee, ee.copy(),
-        np.sum(w_ee, axis=1), _weights(ei, config.ei_row_sum, rng),
+        config,
+        count,
+        n_inputs,
+        n_effectors,
+        n_e,
+        w_ee,
+        ee.copy(),
+        np.sum(w_ee, axis=1),
+        _weights(ei, config.ei_row_sum, rng),
         _weights(ie, config.ie_row_sum, rng),
-        _weights(inputs, config.input_row_sum, rng), outputs,
-        config.T_E_max * rng.random(n_e), config.T_I_max * rng.random(n_i),
-        np.zeros(n_e), np.zeros(n_i),
+        _weights(inputs, config.input_row_sum, rng),
+        outputs,
+        config.T_E_max * rng.random(n_e),
+        config.T_I_max * rng.random(n_i),
+        np.zeros(n_e),
+        np.zeros(n_i),
     )
 
 
@@ -189,8 +215,9 @@ def _remember(s: Arrays, active: qd.types.NDArray[qd.i32, 1], n_i: qd.i32):
 
 
 @qd.kernel(fastcache=True)
-def _advance(s: Arrays, inputs: qd.types.NDArray[None, 2],
-             active: qd.types.NDArray[qd.i32, 1], n_i: qd.i32):
+def _advance(
+    s: Arrays, inputs: qd.types.NDArray[None, 2], active: qd.types.NDArray[qd.i32, 1], n_i: qd.i32
+):
     for b, i in qd.ndrange(s.x.shape[0], s.x.shape[1]):
         if active[b] != 0:
             # Each destination owns its ordered sums. There are no float atomics.
@@ -225,7 +252,8 @@ def _adapt(s: Arrays, active: qd.types.NDArray[qd.i32, 1]):
                     weight = s.x[b, i] * 0
                     if s.ee_mask[b, i, j] != 0:
                         weight = s.w_ee[b, i, j] + s.parameters[b, 0] * (
-                            s.x[b, i] * s.prev_x[b, j] - s.prev_x[b, i] * s.x[b, j])
+                            s.x[b, i] * s.prev_x[b, j] - s.prev_x[b, i] * s.x[b, j]
+                        )
                         if qd.math.isnan(weight) or qd.math.isinf(weight):
                             s.adaptation_finite[b, i] = 0
                         if weight <= 0:
@@ -243,8 +271,7 @@ def _adapt(s: Arrays, active: qd.types.NDArray[qd.i32, 1]):
                         if s.ee_mask[b, i, j] != 0:
                             s.w_ee[b, i, j] = s.w_ee[b, i, j] * scale
             if s.plasticity[b, 1] != 0:
-                s.t_e[b, i] = s.t_e[b, i] + s.parameters[b, 1] * (
-                    s.x[b, i] - s.parameters[b, 2])
+                s.t_e[b, i] = s.t_e[b, i] + s.parameters[b, 1] * (s.x[b, i] - s.parameters[b, 2])
 
 
 @qd.kernel(fastcache=True)
@@ -253,13 +280,15 @@ def _emit(s: Arrays, active: qd.types.NDArray[qd.i32, 1], n_i: qd.i32):
         if active[b] != 0:
             valid = 1
             for i in range(s.activity.shape[1]):
-                valid = valid & qd.cast(not qd.math.isnan(s.drive[b, i]) and
-                                        not qd.math.isinf(s.drive[b, i]), qd.i32)
+                valid = valid & qd.cast(
+                    not qd.math.isnan(s.drive[b, i]) and not qd.math.isinf(s.drive[b, i]), qd.i32
+                )
             for i in range(s.x.shape[1]):
                 valid = valid & s.adaptation_finite[b, i]
                 s.activity[b, i] = s.x[b, i]
-                valid = valid & qd.cast(not qd.math.isnan(s.t_e[b, i]) and
-                                        not qd.math.isinf(s.t_e[b, i]), qd.i32)
+                valid = valid & qd.cast(
+                    not qd.math.isnan(s.t_e[b, i]) and not qd.math.isinf(s.t_e[b, i]), qd.i32
+                )
             for k in range(n_i):
                 s.activity[b, s.x.shape[1] + k] = s.y[b, k]
             for k in range(s.effectors.shape[1]):
@@ -333,17 +362,24 @@ class ModelBatch:
                 raise ValueError("invalid excitatory population size")
             n_i = state.count - state.n_e
             expected = {
-                "w_ee": (state.n_e, state.n_e), "ee_mask": (state.n_e, state.n_e),
-                "c_e": (state.n_e,), "w_ei": (state.n_e, n_i),
-                "w_ie": (n_i, state.n_e), "w_eu": (state.n_e, state.n_inputs),
+                "w_ee": (state.n_e, state.n_e),
+                "ee_mask": (state.n_e, state.n_e),
+                "c_e": (state.n_e,),
+                "w_ei": (state.n_e, n_i),
+                "w_ie": (n_i, state.n_e),
+                "w_eu": (state.n_e, state.n_inputs),
                 "output_mask": (state.n_effectors, state.n_e),
-                "t_e": (state.n_e,), "t_i": (n_i,),
-                "x": (state.n_e,), "y": (n_i,),
+                "t_e": (state.n_e,),
+                "t_i": (n_i,),
+                "x": (state.n_e,),
+                "y": (n_i,),
             }
             for name, shape in expected.items():
                 value = np.asarray(getattr(state, name))
                 if value.shape != shape or not np.isfinite(value).all():
-                    raise ValueError(f"initial {name} must have dimensions {shape} and finite values")
+                    raise ValueError(
+                        f"initial {name} must have dimensions {shape} and finite values"
+                    )
         first = initials[0]
         dimensions = (first.count, first.n_inputs, first.n_effectors, first.n_e)
         if any((s.count, s.n_inputs, s.n_effectors, s.n_e) != dimensions for s in initials):
@@ -359,8 +395,19 @@ class ModelBatch:
         qd_dtype = qd.f32 if np_dtype == np.dtype("float32") else qd.f64
         self._real = qd_dtype
         arrays = {}
-        for name in ("w_ee", "ee_mask", "c_e", "w_ei", "w_ie", "w_eu",
-                     "output_mask", "t_e", "t_i", "x", "y"):
+        for name in (
+            "w_ee",
+            "ee_mask",
+            "c_e",
+            "w_ei",
+            "w_ie",
+            "w_eu",
+            "output_mask",
+            "t_e",
+            "t_i",
+            "x",
+            "y",
+        ):
             values = np.stack([getattr(s, name) for s in initials])
             # Quadrants backends need non-empty allocations. The padded I slot is
             # never used and snapshots expose the declared zero-width population.
@@ -368,10 +415,14 @@ class ModelBatch:
                 values = np.zeros(tuple(max(1, dim) for dim in values.shape), dtype=values.dtype)
             arrays[name] = values
         arrays.update(
-            prev_x=arrays["x"].copy(), prev_y=arrays["y"].copy(),
-            parameters=np.array([[s.config.eta_stdp, s.config.eta_ip, s.config.H_ip]
-                                 for s in initials]),
-            plasticity=np.array([[s.config.learn_on, s.config.learn_on] for s in initials], dtype=np.int32),
+            prev_x=arrays["x"].copy(),
+            prev_y=arrays["y"].copy(),
+            parameters=np.array(
+                [[s.config.eta_stdp, s.config.eta_ip, s.config.H_ip] for s in initials]
+            ),
+            plasticity=np.array(
+                [[s.config.learn_on, s.config.learn_on] for s in initials], dtype=np.int32
+            ),
             activity=np.stack([np.concatenate((s.x, s.y)) for s in initials]),
             drive=np.zeros((self.batch_size, self.count)),
             effectors=np.zeros((self.batch_size, self.n_effectors)),
@@ -382,7 +433,13 @@ class ModelBatch:
         def upload():
             uploaded = {}
             for name, values in arrays.items():
-                integer = name in ("ee_mask", "output_mask", "plasticity", "finite", "adaptation_finite")
+                integer = name in (
+                    "ee_mask",
+                    "output_mask",
+                    "plasticity",
+                    "finite",
+                    "adaptation_finite",
+                )
                 value = np.ascontiguousarray(values, dtype=np.int32 if integer else np_dtype)
                 device = qd.ndarray(qd.i32 if integer else qd_dtype, shape=value.shape)
                 device.from_numpy(value)
@@ -425,8 +482,10 @@ class ModelBatch:
         _freeze(self.state, active, 1)
 
     def snapshot(self):
-        result = {field.name: getattr(self.state, field.name).to_numpy().copy()
-                  for field in fields(Arrays)}
+        result = {
+            field.name: getattr(self.state, field.name).to_numpy().copy()
+            for field in fields(Arrays)
+        }
         if self.n_i == 0:
             for name in ("y", "prev_y", "t_i", "w_ie"):
                 result[name] = result[name][:, :0].copy()

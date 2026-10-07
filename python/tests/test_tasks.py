@@ -1,30 +1,46 @@
 """Task conformance and observation-only controls on development worlds."""
 
-from dataclasses import fields, replace
-from pathlib import Path
 import hashlib
 import math
+from dataclasses import fields, replace
+from pathlib import Path
+
 import numpy as np
 import pytest
 import quadrants as qd
-
-from brainlesslab.specs import TaskSpec, TASKS
-from brainlesslab.tasks import TaskBatch, capacity_probe_presets, definition, prepare, resolve, validate_controller
+from brainlesslab.specs import TASKS, TaskSpec
+from brainlesslab.tasks import (
+    TaskBatch,
+    capacity_probe_presets,
+    definition,
+    prepare,
+    resolve,
+    validate_controller,
+)
 from brainlesslab.tasks._runtime import _Controller, _SensoryController
 
 
 @pytest.fixture(scope="module", autouse=True)
 def runtime():
     try:
-        qd.lang.impl.get_runtime().prog
+        _ = qd.lang.impl.get_runtime().prog
     except qd.lang.exception.QuadrantsRuntimeError:
-        qd.init(arch=qd.cpu, default_fp=qd.f64, fast_math=False, enable_fallback=False,
-                cpu_max_num_threads=1, raise_on_templated_floats=True, debug=True,
-                offline_cache_file_path="/private/tmp/brainlesslab-tasks-qd-cache")
+        qd.init(
+            arch=qd.cpu,
+            default_fp=qd.f64,
+            fast_math=False,
+            enable_fallback=False,
+            cpu_max_num_threads=1,
+            raise_on_templated_floats=True,
+            debug=True,
+            offline_cache_file_path="/private/tmp/brainlesslab-tasks-qd-cache",
+        )
 
 
 def upload(values, dtype=qd.f64):
-    host = np.array(values, dtype=np.int32 if dtype == qd.i32 else np.float32 if dtype == qd.f32 else np.float64)
+    host = np.array(
+        values, dtype=np.int32 if dtype == qd.i32 else np.float32 if dtype == qd.f32 else np.float64
+    )
     array = qd.ndarray(dtype, host.shape)
     array.from_numpy(host)
     return array
@@ -52,21 +68,29 @@ def test_ten_families_and_all_64_named_presets():
     assert sum(c.task == "context_integration" for c in presets) == 36
     for kind in dict.fromkeys(c.task for c in presets):
         selected = [c for c in presets if c.task == kind]
-        initials = [prepare(TaskSpec(c.task, c.task_options), np.random.default_rng(100 + i))
-                    for i, c in enumerate(selected)]
+        initials = [
+            prepare(TaskSpec(c.task, c.task_options), np.random.default_rng(100 + i))
+            for i, c in enumerate(selected)
+        ]
         batch = run_control(initials, horizon=max(c.horizon for c in selected))
         snapshot = batch.snapshot()
         np.testing.assert_array_equal(snapshot["done"], np.ones(len(selected)))
         np.testing.assert_array_equal(snapshot["finite"], np.ones(len(selected)))
-        np.testing.assert_array_equal(snapshot["outcome"], np.full(len(selected), 15 / 16 if kind == "reversal_adaptation" else 1))
+        np.testing.assert_array_equal(
+            snapshot["outcome"],
+            np.full(len(selected), 15 / 16 if kind == "reversal_adaptation" else 1),
+        )
         np.testing.assert_array_equal(snapshot["ticks"], [v.stimuli.shape[0] for v in initials])
 
 
-@pytest.mark.parametrize("kind,policy,options", [
-    ("context_integration", "irrelevant", {"congruency": "conflicting"}),
-    ("temporal_order", "bag", {}),
-    ("delayed_cue", "memoryless", {}),
-])
+@pytest.mark.parametrize(
+    "kind,policy,options",
+    [
+        ("context_integration", "irrelevant", {"congruency": "conflicting"}),
+        ("temporal_order", "bag", {}),
+        ("delayed_cue", "memoryless", {}),
+    ],
+)
 def test_negative_controls_answer_different_questions(kind, policy, options):
     initials = [prepare(TaskSpec(kind, options), np.random.default_rng(i)) for i in range(48)]
     actual = run_control(initials, policy).snapshot()["outcome"]
@@ -94,7 +118,13 @@ def test_controllers_cannot_read_labels_and_construction_is_owned():
 
 @pytest.mark.parametrize("kind", ["tracking", "pong"])
 def test_physical_oracle_uses_only_declared_receptor_observations(kind):
-    assert {f.name for f in fields(_SensoryController)} == {"kind", "inputs", "angles", "movement_amp", "effectors"}
+    assert {f.name for f in fields(_SensoryController)} == {
+        "kind",
+        "inputs",
+        "angles",
+        "movement_amp",
+        "effectors",
+    }
     original = prepare(TaskSpec(kind), np.random.default_rng(17))
     physical = original.physical.copy()
     physical[:] = np.arange(8) * 987.0
@@ -110,15 +140,18 @@ def test_physical_oracle_uses_only_declared_receptor_observations(kind):
         validate_controller(TaskSpec(kind), "irrelevant")
 
 
-@pytest.mark.parametrize("kind,option,hidden", [
-    ("delayed_cue", "cue_mode", "hidden"),
-    ("recall_interference", "cue_mode", "hidden"),
-    ("delayed_xor", "cue_mode", "hidden"),
-    ("evidence_accumulation", "input_mode", "hidden"),
-    ("context_integration", "context_mode", "hidden"),
-    ("temporal_order", "input_mode", "hidden"),
-    ("reversal_adaptation", "feedback_mode", "hidden"),
-])
+@pytest.mark.parametrize(
+    "kind,option,hidden",
+    [
+        ("delayed_cue", "cue_mode", "hidden"),
+        ("recall_interference", "cue_mode", "hidden"),
+        ("delayed_xor", "cue_mode", "hidden"),
+        ("evidence_accumulation", "input_mode", "hidden"),
+        ("context_integration", "context_mode", "hidden"),
+        ("temporal_order", "input_mode", "hidden"),
+        ("reversal_adaptation", "feedback_mode", "hidden"),
+    ],
+)
 def test_visibility_controls_preserve_random_world_and_schedules(kind, option, hidden):
     a = prepare(TaskSpec(kind), np.random.default_rng(91))
     b = prepare(TaskSpec(kind, {option: hidden}), np.random.default_rng(91))
@@ -128,7 +161,10 @@ def test_visibility_controls_preserve_random_world_and_schedules(kind, option, h
 
 
 def test_delayed_cue_pre_response_discard_ties_left_incomplete_and_early_stop():
-    initial = prepare(TaskSpec("delayed_cue", {"cue_ticks": 2, "delays": (3,), "response_ticks": 2}), np.random.default_rng(2))
+    initial = prepare(
+        TaskSpec("delayed_cue", {"cue_ticks": 2, "delays": (3,), "response_ticks": 2}),
+        np.random.default_rng(2),
+    )
     batch = TaskBatch([initial, initial])
     active = upload([1, 0], qd.i32)
     output = upload([[0, 1], [1, 0]])
@@ -157,13 +193,19 @@ def test_uniform_signed_physical_null_and_fair_choice_hold_scopes():
         np.testing.assert_array_equal(result, [[0, 1], [0, 0], [1, 0]])
     batch = TaskBatch([prepare(TaskSpec("cartpole_plank_easy"), np.random.default_rng(1))])
     active = upload([1], qd.i32)
-    np.testing.assert_array_equal(batch.control("reference_null", upload([0.6]), active).to_numpy(), [[0, 1]])
-    np.testing.assert_array_equal(batch.control("reference_null", upload([0.1]), active).to_numpy(), [[0, 1]])
+    np.testing.assert_array_equal(
+        batch.control("reference_null", upload([0.6]), active).to_numpy(), [[0, 1]]
+    )
+    np.testing.assert_array_equal(
+        batch.control("reference_null", upload([0.1]), active).to_numpy(), [[0, 1]]
+    )
     initial = prepare(TaskSpec("delayed_cue"), np.random.default_rng(1))
     batch = TaskBatch([initial])
     first = batch.control("reference_null", upload([0.1]), active).to_numpy()
     batch.advance(upload([[1, 0]]), active)
-    np.testing.assert_array_equal(batch.control("reference_null", upload([0.9]), active).to_numpy(), first)
+    np.testing.assert_array_equal(
+        batch.control("reference_null", upload([0.9]), active).to_numpy(), first
+    )
 
 
 @pytest.mark.parametrize("kind", ["tracking", "pong"])
@@ -173,22 +215,29 @@ def test_physical_current_contract_with_archival_input_sequence(kind):
     # plateau includes the exact four-degree edge and Pong starts at x=995,
     # whereas these older worlds exclude that edge and start at x=985.
     fixture_dir = Path(__file__).resolve().parents[2] / "test" / "fixtures"
-    hashes = {"tracking": "f03a56f72761da5ec0e6d527a2f2e31645187ee18db0c3f80dd85b074ce9dc7f",
-              "pong": "b662a85d940c32a3f1fb80888be0c3e441e289360e03cc79f4f03a7a5d1b5d37"}
+    hashes = {
+        "tracking": "f03a56f72761da5ec0e6d527a2f2e31645187ee18db0c3f80dd85b074ce9dc7f",
+        "pong": "b662a85d940c32a3f1fb80888be0c3e441e289360e03cc79f4f03a7a5d1b5d37",
+    }
     path = fixture_dir / f"env_{kind}.npz"
     assert hashlib.sha256(path.read_bytes()).hexdigest() == hashes[kind]
     data = dict(np.load(path))
-    initial = prepare(TaskSpec(kind, {"randomize_start": False} if kind == "tracking" else {}), np.random.default_rng(1))
+    initial = prepare(
+        TaskSpec(kind, {"randomize_start": False} if kind == "tracking" else {}),
+        np.random.default_rng(1),
+    )
     batch = TaskBatch([initial])
     active = upload([1], qd.i32)
     physical = initial.physical.copy()
     scores = []
     hits, misses = 0, 0
-    for tick, effectors in enumerate(data["effs"]):
+    for _tick, effectors in enumerate(data["effs"]):
         batch.encode(1, active)
         if kind == "tracking":
             angles = np.array([eye + offset for eye in (30, -30) for offset in range(-60, 61, 4)])
-            delta = (physical[0] * 180 / np.pi + angles - physical[1] * 180 / np.pi + 180) % 360 - 180
+            delta = (
+                physical[0] * 180 / np.pi + angles - physical[1] * 180 / np.pi + 180
+            ) % 360 - 180
             observed = np.where(np.abs(delta) <= 4, 1.0, np.exp(-delta * delta / 10))
         else:
             bearing = np.arctan2(physical[1] - physical[2], physical[0] - 100) * 180 / np.pi
@@ -198,7 +247,9 @@ def test_physical_current_contract_with_archival_input_sequence(kind):
         batch.advance(upload([effectors]), active)
         actual = batch.snapshot()
         if kind == "tracking":
-            physical[0] = (physical[0] + np.pi / 180 * 10 * (effectors[0] - effectors[1]) + np.pi) % (2 * np.pi) - np.pi
+            physical[0] = (
+                physical[0] + np.pi / 180 * 10 * (effectors[0] - effectors[1]) + np.pi
+            ) % (2 * np.pi) - np.pi
             physical[1] = (physical[1] + physical[2] * np.pi / 180 + np.pi) % (2 * np.pi) - np.pi
             scores.append(np.cos((physical[0] - physical[1] + np.pi) % (2 * np.pi) - np.pi))
             np.testing.assert_allclose(actual["physical"][0], physical, atol=1e-9, rtol=0)
@@ -222,10 +273,18 @@ def test_physical_current_contract_with_archival_input_sequence(kind):
                 misses += 1
                 physical[6] += 1
                 draw = initial.draws[int(physical[6])]
-                physical[0], physical[1], physical[3], physical[4], physical[5] = 995, 1 + 498 * draw[0], -5, 5 if draw[1] >= 0.5 else -5, 0
+                physical[0], physical[1], physical[3], physical[4], physical[5] = (
+                    995,
+                    1 + 498 * draw[0],
+                    -5,
+                    5 if draw[1] >= 0.5 else -5,
+                    0,
+                )
             np.testing.assert_allclose(actual["physical"][0], physical, atol=1e-9, rtol=0)
             assert actual["hits"][0] == hits and actual["misses"][0] == misses
-    expected = np.mean(scores) if kind == "tracking" else hits / (hits + misses) if hits + misses else 0
+    expected = (
+        np.mean(scores) if kind == "tracking" else hits / (hits + misses) if hits + misses else 0
+    )
     np.testing.assert_allclose(batch.outcome.to_numpy(), [expected], atol=1e-9, rtol=0)
 
 
@@ -236,7 +295,7 @@ def test_tracking_reversal_and_warmup_score_exclusion():
     output = upload([[0, 0]])
     reference = []
     theta, phi, direction = initial.physical[:3]
-    for tick in range(720):
+    for _tick in range(720):
         batch.advance(output, active)
         phi = (phi + direction * math.pi / 180 + math.pi) % (2 * math.pi) - math.pi
         reference.append(math.cos((theta - phi + math.pi) % (2 * math.pi) - math.pi))
@@ -248,8 +307,8 @@ def test_tracking_reversal_and_warmup_score_exclusion():
 def cartpole_reference(state, force):
     x, xd, theta, td = state
     cosine, sine = np.cos(theta), np.sin(theta)
-    temp = (force + 0.1 * 0.5 * td ** 2 * sine) / 1.1
-    ta = (9.8 * sine - cosine * temp) / (0.5 * (4 / 3 - 0.1 * cosine ** 2 / 1.1))
+    temp = (force + 0.1 * 0.5 * td**2 * sine) / 1.1
+    ta = (9.8 * sine - cosine * temp) / (0.5 * (4 / 3 - 0.1 * cosine**2 / 1.1))
     xa = temp - 0.1 * 0.5 * ta * cosine / 1.1
     return np.array([x + 0.02 * xd, xd + 0.02 * xa, theta + 0.02 * td, td + 0.02 * ta])
 
@@ -273,8 +332,12 @@ def test_spike_ff2_24_frame_schedule_explicit_euler_votes_and_tie():
     np.testing.assert_array_equal(total, [0, 3, 1, 0, 0, 1, 3, 0])
     batch.advance(upload([[1, 0], [1, 0]]), active)
     actual = batch.snapshot()
-    np.testing.assert_allclose(actual["physical"][0, :4], cartpole_reference(physical[:4], -10), atol=1e-12)
-    np.testing.assert_allclose(actual["physical"][1, :4], cartpole_reference(physical[:4], 10), atol=1e-12)
+    np.testing.assert_allclose(
+        actual["physical"][0, :4], cartpole_reference(physical[:4], -10), atol=1e-12
+    )
+    np.testing.assert_allclose(
+        actual["physical"][1, :4], cartpole_reference(physical[:4], 10), atol=1e-12
+    )
     np.testing.assert_array_equal(actual["outcome"], [1, 1])
 
 
@@ -302,14 +365,23 @@ def test_nonfinite_effectors_rejected_on_device_and_float32_task_storage():
     np.testing.assert_array_equal(batch.ticks.to_numpy(), [0])
 
 
-@pytest.mark.parametrize("kind,options", [
-    ("delayed_cue", {"cue_ticks": 0}), ("delayed_cue", {"delays": (1, 1)}),
-    ("recall_interference", {"delay": 8}), ("recall_interference", {"distractors": 20}),
-    ("delayed_xor", {"gap": -1}), ("evidence_accumulation", {"pulse_count": 17}),
-    ("evidence_accumulation", {"evidence_fraction": 1}), ("temporal_order", {"terminal_ticks": 0}),
-    ("reversal_adaptation", {"reversal_range": (90, 95)}), ("pong", {"unknown": 2}),
-    ("tracking", {"sensor_offsets_deg": ()}), ("cartpole_plank_easy", {"initial_ranges": ((1, 0),) * 4}),
-])
+@pytest.mark.parametrize(
+    "kind,options",
+    [
+        ("delayed_cue", {"cue_ticks": 0}),
+        ("delayed_cue", {"delays": (1, 1)}),
+        ("recall_interference", {"delay": 8}),
+        ("recall_interference", {"distractors": 20}),
+        ("delayed_xor", {"gap": -1}),
+        ("evidence_accumulation", {"pulse_count": 17}),
+        ("evidence_accumulation", {"evidence_fraction": 1}),
+        ("temporal_order", {"terminal_ticks": 0}),
+        ("reversal_adaptation", {"reversal_range": (90, 95)}),
+        ("pong", {"unknown": 2}),
+        ("tracking", {"sensor_offsets_deg": ()}),
+        ("cartpole_plank_easy", {"initial_ranges": ((1, 0),) * 4}),
+    ],
+)
 def test_task_option_validation(kind, options):
     with pytest.raises(ValueError):
         definition(TaskSpec(kind, options))

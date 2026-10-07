@@ -14,23 +14,59 @@ import numpy as np
 from ..specs import TaskSpec
 
 DEFAULTS = {
-    "tracking": dict(stim_speed_rad=math.pi / 180, movement_amp=10.0,
-                     eye_offset_deg=30.0, sensor_offsets_deg=tuple(range(-60, 61, 4)),
-                     sensory_gain=1.0, randomize_start=True, theta0=None, phi0=None, direction0=None),
+    "tracking": dict(
+        stim_speed_rad=math.pi / 180,
+        movement_amp=10.0,
+        eye_offset_deg=30.0,
+        sensor_offsets_deg=tuple(range(-60, 61, 4)),
+        sensory_gain=1.0,
+        randomize_start=True,
+        theta0=None,
+        phi0=None,
+        direction0=None,
+    ),
     "pong": dict(sensory_gain=1.0),
-    "cartpole_plank_easy": dict(initial_ranges=((-1.2, 1.2), (-0.05, 0.05),
-                               (-0.10475, 0.10475), (-0.05, 0.05))),
+    "cartpole_plank_easy": dict(
+        initial_ranges=((-1.2, 1.2), (-0.05, 0.05), (-0.10475, 0.10475), (-0.05, 0.05))
+    ),
     "delayed_cue": dict(cue_ticks=8, delays=(8, 32, 128), response_ticks=8, cue_mode="transient"),
-    "recall_interference": dict(cue_ticks=8, delay=32, response_ticks=8, distractors=1,
-                                distractor_ticks=4, cue_mode="transient", distractor_mode="random"),
+    "recall_interference": dict(
+        cue_ticks=8,
+        delay=32,
+        response_ticks=8,
+        distractors=1,
+        distractor_ticks=4,
+        cue_mode="transient",
+        distractor_mode="random",
+    ),
     "delayed_xor": dict(cue_ticks=8, gap=32, response_ticks=8, cue_mode="transient"),
-    "evidence_accumulation": dict(pulse_count=32, evidence_fraction=0.25, pulse_ticks=1,
-                                  response_ticks=8, input_mode="visible"),
-    "context_integration": dict(cue_ticks=8, pulse_count=32, evidence_fraction=0.25,
-                                pulse_ticks=1, response_ticks=8, context_mode="transient", congruency="mixed"),
-    "temporal_order": dict(cue_ticks=8, gap=8, terminal_ticks=8, response_ticks=8, input_mode="visible"),
-    "reversal_adaptation": dict(rounds=96, cue_ticks=8, response_ticks=8, feedback_ticks=8,
-                                reversal_range=(32, 64), feedback_mode="visible"),
+    "evidence_accumulation": dict(
+        pulse_count=32,
+        evidence_fraction=0.25,
+        pulse_ticks=1,
+        response_ticks=8,
+        input_mode="visible",
+    ),
+    "context_integration": dict(
+        cue_ticks=8,
+        pulse_count=32,
+        evidence_fraction=0.25,
+        pulse_ticks=1,
+        response_ticks=8,
+        context_mode="transient",
+        congruency="mixed",
+    ),
+    "temporal_order": dict(
+        cue_ticks=8, gap=8, terminal_ticks=8, response_ticks=8, input_mode="visible"
+    ),
+    "reversal_adaptation": dict(
+        rounds=96,
+        cue_ticks=8,
+        response_ticks=8,
+        feedback_ticks=8,
+        reversal_range=(32, 64),
+        feedback_mode="visible",
+    ),
 }
 KINDS = {name: i for i, name in enumerate(DEFAULTS)}
 
@@ -52,7 +88,14 @@ def resolve(spec: TaskSpec) -> dict:
     if unknown:
         raise ValueError(f"unknown options for {spec.kind}: {sorted(unknown)}")
     options = DEFAULTS[spec.kind] | dict(spec.options)
-    for key in ("cue_ticks", "response_ticks", "distractor_ticks", "pulse_ticks", "terminal_ticks", "feedback_ticks"):
+    for key in (
+        "cue_ticks",
+        "response_ticks",
+        "distractor_ticks",
+        "pulse_ticks",
+        "terminal_ticks",
+        "feedback_ticks",
+    ):
         if key in options:
             options[key] = _integer(options[key], key)
     for key in ("gap", "delay", "distractors"):
@@ -73,7 +116,11 @@ def resolve(spec: TaskSpec) -> dict:
         k, d, w = (options[key] for key in ("distractors", "delay", "distractor_ticks"))
         if k and (d < 32 or k * w + k + 1 > d):
             raise ValueError("distractors need delay >= 32 and blank frames between cues")
-        _mode(options["distractor_mode"], "distractor_mode", ("random", "matched", "opposite", "absent"))
+        _mode(
+            options["distractor_mode"],
+            "distractor_mode",
+            ("random", "matched", "opposite", "absent"),
+        )
     if "pulse_count" in options:
         n = options["pulse_count"] = _integer(options["pulse_count"], "pulse_count", 4)
         fraction = float(options["evidence_fraction"])
@@ -98,7 +145,14 @@ def resolve(spec: TaskSpec) -> dict:
         if not math.isfinite(gain) or gain < 0:
             raise ValueError("sensory_gain must be finite and nonnegative")
     if spec.kind == "tracking":
-        for key in ("stim_speed_rad", "movement_amp", "eye_offset_deg", "theta0", "phi0", "direction0"):
+        for key in (
+            "stim_speed_rad",
+            "movement_amp",
+            "eye_offset_deg",
+            "theta0",
+            "phi0",
+            "direction0",
+        ):
             if options[key] is not None:
                 value = options[key] = float(options[key])
                 if not math.isfinite(value):
@@ -113,7 +167,9 @@ def resolve(spec: TaskSpec) -> dict:
             raise ValueError("randomize_start must be boolean")
     if spec.kind == "cartpole_plank_easy":
         ranges = tuple(tuple(float(x) for x in r) for r in options["initial_ranges"])
-        if len(ranges) != 4 or any(len(r) != 2 or not all(map(math.isfinite, r)) or r[0] > r[1] for r in ranges):
+        if len(ranges) != 4 or any(
+            len(r) != 2 or not all(map(math.isfinite, r)) or r[0] > r[1] for r in ranges
+        ):
             raise ValueError("initial_ranges needs four finite ordered pairs")
         options["initial_ranges"] = ranges
     return options
@@ -135,7 +191,9 @@ def definition(spec: TaskSpec) -> Definition:
     o = resolve(spec)
     kind = spec.kind
     if kind == "tracking":
-        return Definition(2 * len(o["sensor_offsets_deg"]), 2, 1, 2000, 2000, "track_score", 1.0, False)
+        return Definition(
+            2 * len(o["sensor_offsets_deg"]), 2, 1, 2000, 2000, "track_score", 1.0, False
+        )
     if kind == "pong":
         return Definition(46, 2, 1, 7200, 6000, "hit_rate", 1.0, False)
     if kind == "cartpole_plank_easy":
@@ -155,7 +213,13 @@ def definition(spec: TaskSpec) -> Definition:
         width, horizon = 4, 2 * c + o["gap"] + o["terminal_ticks"] + r
     else:
         width, horizon = 8, o["rounds"] * (c + r + o["feedback_ticks"])
-    key = "recall_accuracy" if kind == "delayed_cue" else "adaptation_accuracy" if kind == "reversal_adaptation" else "probe_accuracy"
+    key = (
+        "recall_accuracy"
+        if kind == "delayed_cue"
+        else "adaptation_accuracy"
+        if kind == "reversal_adaptation"
+        else "probe_accuracy"
+    )
     return Definition(width, 2, 1, horizon, 1, key, 1.0, True)
 
 
@@ -213,22 +277,30 @@ class InitialState:
                 raise ValueError(f"{name} must contain finite numeric values")
             if kind == np.int32:
                 limits = np.iinfo(np.int32)
-                if (np.any(raw != np.floor(raw)) or np.any(raw < limits.min)
-                        or np.any(raw > limits.max)):
+                if (
+                    np.any(raw != np.floor(raw))
+                    or np.any(raw < limits.min)
+                    or np.any(raw > limits.max)
+                ):
                     raise ValueError(f"{name} must contain exactly representable int32 integers")
             value = np.array(raw, dtype=kind, order="C", copy=True)
             value.flags.writeable = False
             object.__setattr__(self, name, value)
         if self.physical.shape != (8,):
             raise ValueError("physical must have shape (8,)")
-        if (self.stimuli.ndim != 2 or self.stimuli.shape[0] < 1
-                or self.stimuli.shape[1] != self.definition.n_inputs):
+        if (
+            self.stimuli.ndim != 2
+            or self.stimuli.shape[0] < 1
+            or self.stimuli.shape[1] != self.definition.n_inputs
+        ):
             raise ValueError("stimuli must have shape (T, n_inputs), with T >= 1")
         if self.draws.ndim != 2 or self.draws.shape[0] < 1 or self.draws.shape[1] != 2:
             raise ValueError("draws must have shape (K, 2), with K >= 1")
         schedules = (self.response_start, self.response_end, self.cue_ends, self.labels)
-        if (any(value.ndim != 1 for value in schedules)
-                or len({value.size for value in schedules}) != 1):
+        if (
+            any(value.ndim != 1 for value in schedules)
+            or len({value.size for value in schedules}) != 1
+        ):
             raise ValueError("labels, response schedules and cue ends must be equal-length vectors")
         rounds = self.labels.size
         if self.round_bounds.shape != (rounds, 2):
@@ -237,11 +309,16 @@ class InitialState:
             if not rounds or np.any((self.labels != 1) & (self.labels != 2)):
                 raise ValueError("probes require labels 1 or 2")
             start, end = self.round_bounds.T
-            if (np.any(start < 0) or np.any(end > self.stimuli.shape[0]) or np.any(start >= end)
-                    or np.any(start[1:] < end[:-1]) or np.any(self.cue_ends <= start)
-                    or np.any(self.cue_ends > self.response_start)
-                    or np.any(self.response_start >= self.response_end)
-                    or np.any(self.response_end > end)):
+            if (
+                np.any(start < 0)
+                or np.any(end > self.stimuli.shape[0])
+                or np.any(start >= end)
+                or np.any(start[1:] < end[:-1])
+                or np.any(self.cue_ends <= start)
+                or np.any(self.cue_ends > self.response_start)
+                or np.any(self.response_start >= self.response_end)
+                or np.any(self.response_end > end)
+            ):
                 raise ValueError(
                     "probe schedules must be ordered within their rounds and stimulus horizon"
                 )
@@ -250,8 +327,11 @@ class InitialState:
         if self.spec.kind == "reversal_adaptation":
             reversal = _integer(self.metadata.get("reversal_round"), "reversal_round", 2)
             lo, hi = self.options["reversal_range"]
-            if (rounds != self.options["rounds"] or not lo <= reversal <= hi
-                    or reversal - 1 + 15 >= rounds):
+            if (
+                rounds != self.options["rounds"]
+                or not lo <= reversal <= hi
+                or reversal - 1 + 15 >= rounds
+            ):
                 raise ValueError(
                     "reversal must leave sixteen scored rounds within the declared range"
                 )
@@ -282,7 +362,9 @@ def _pulses(rng, n, fraction, label):
     left_count = int(n * (1 + (fraction if label == 1 else -fraction)) / 2)
     final = int(rng.integers(1, 3))
     left = left_count - (final == 1)
-    pulses = np.concatenate((np.ones(left, dtype=np.int32), np.full(n - 1 - left, 2, dtype=np.int32)))
+    pulses = np.concatenate(
+        (np.ones(left, dtype=np.int32), np.full(n - 1 - left, 2, dtype=np.int32))
+    )
     rng.shuffle(pulses)
     return np.append(pulses, final)
 
@@ -299,9 +381,19 @@ def prepare(spec: TaskSpec, rng: np.random.Generator, *, horizon=None) -> Initia
     metadata = {}
     if kind == "tracking":
         random = o["randomize_start"]
-        physical[:3] = [o["theta0"] if o["theta0"] is not None else 2 * math.pi * rng.random() if random else math.pi / 2,
-                        o["phi0"] if o["phi0"] is not None else 2 * math.pi * rng.random() if random else 0,
-                        o["direction0"] if o["direction0"] is not None else (1 if rng.integers(2) else -1) if random else 1]
+        physical[:3] = [
+            o["theta0"]
+            if o["theta0"] is not None
+            else 2 * math.pi * rng.random()
+            if random
+            else math.pi / 2,
+            o["phi0"] if o["phi0"] is not None else 2 * math.pi * rng.random() if random else 0,
+            o["direction0"]
+            if o["direction0"] is not None
+            else (1 if rng.integers(2) else -1)
+            if random
+            else 1,
+        ]
     elif kind == "pong":
         draws = rng.random((horizon + 1, 2))
         physical[:5] = [995, 1 + 498 * draws[0, 0], 250, -5, 5 if draws[0, 1] >= 0.5 else -5]
@@ -333,19 +425,25 @@ def prepare(spec: TaskSpec, rng: np.random.Generator, *, horizon=None) -> Initia
             distractor_starts = [c + i * (delay - w) // (k + 1) for i in range(1, k + 1)]
             for start, random_label in zip(distractor_starts, distractor_labels, strict=True):
                 mode = o["distractor_mode"]
-                label = cue if mode == "matched" else 3 - cue if mode == "opposite" else random_label
+                label = (
+                    cue if mode == "matched" else 3 - cue if mode == "opposite" else random_label
+                )
                 if mode != "absent":
-                    stimuli[start:start + w, :2] = 0
-                    stimuli[start:start + w, label - 1] = 1
+                    stimuli[start : start + w, :2] = 0
+                    stimuli[start : start + w, label - 1] = 1
             starts, ends, cues, labels = [c + delay], [length], [c], [cue]
-            metadata = dict(cue=cue, distractor_labels=tuple(int(v) for v in distractor_labels), distractor_starts=tuple(distractor_starts))
+            metadata = dict(
+                cue=cue,
+                distractor_labels=tuple(int(v) for v in distractor_labels),
+                distractor_starts=tuple(distractor_starts),
+            )
         elif kind == "delayed_xor":
             a, b = (int(v) for v in rng.integers(1, 3, 2))
             stimuli = np.zeros((length, 5))
             second = c + o["gap"]
             if o["cue_mode"] != "hidden":
                 stimuli[:c, a - 1] = 1
-                stimuli[second:second + c, b + 1] = 1
+                stimuli[second : second + c, b + 1] = 1
             if o["cue_mode"] == "persistent":
                 stimuli[:, a - 1] = 1
                 stimuli[second:, b + 1] = 1
@@ -360,12 +458,18 @@ def prepare(spec: TaskSpec, rng: np.random.Generator, *, horizon=None) -> Initia
                 visible = o["input_mode"] == "visible"
                 for i, pulse in enumerate(streams[0]):
                     if visible:
-                        stimuli[i * p:(i + 1) * p, pulse - 1] = 1
+                        stimuli[i * p : (i + 1) * p, pulse - 1] = 1
                 cues = [p]
             else:
                 context, label, other_draw = (int(v) for v in rng.integers(1, 3, 3))
                 congruency = o["congruency"]
-                other = label if congruency == "congruent" else 3 - label if congruency == "conflicting" else other_draw
+                other = (
+                    label
+                    if congruency == "congruent"
+                    else 3 - label
+                    if congruency == "conflicting"
+                    else other_draw
+                )
                 stream_labels = (label, other) if context == 1 else (other, label)
                 streams = [_pulses(rng, n, fraction, v) for v in stream_labels]
                 stimuli = np.zeros((length, 7))
@@ -375,7 +479,7 @@ def prepare(spec: TaskSpec, rng: np.random.Generator, *, horizon=None) -> Initia
                     stimuli[:, context - 1] = 1
                 for stream, pulses in enumerate(streams):
                     for i, pulse in enumerate(pulses):
-                        stimuli[c + i * p:c + (i + 1) * p, 2 + 2 * stream + pulse - 1] = 1
+                        stimuli[c + i * p : c + (i + 1) * p, 2 + 2 * stream + pulse - 1] = 1
                 cues = [c]
                 metadata = dict(context=context, congruent=label == other)
             starts, ends, labels = [c + n * p], [length], [label]
@@ -384,8 +488,8 @@ def prepare(spec: TaskSpec, rng: np.random.Generator, *, horizon=None) -> Initia
             stimuli = np.zeros((length, 4))
             if o["input_mode"] == "visible":
                 stimuli[:c, label - 1] = 1
-                stimuli[c + o["gap"]:2 * c + o["gap"], 2 - label] = 1
-            stimuli[2 * c + o["gap"]:length - r, 2] = 1
+                stimuli[c + o["gap"] : 2 * c + o["gap"], 2 - label] = 1
+            stimuli[2 * c + o["gap"] : length - r, 2] = 1
             starts, ends, cues, labels = [length - r], [length], [c], [label]
         else:
             mapping = bool(rng.integers(2))
@@ -396,8 +500,8 @@ def prepare(spec: TaskSpec, rng: np.random.Generator, *, horizon=None) -> Initia
             stimuli = np.zeros((length, 8))
             for round_, cue in enumerate(trial_cues):
                 start = round_ * (c + r + f)
-                stimuli[start:start + c + r, cue - 1] = 1
-                stimuli[start + c + r:start + c + r + f, 3] = 1
+                stimuli[start : start + c + r, cue - 1] = 1
+                stimuli[start + c + r : start + c + r + f, 3] = 1
                 starts.append(start + c)
                 ends.append(start + c + r)
                 cues.append(start + c)
@@ -408,11 +512,27 @@ def prepare(spec: TaskSpec, rng: np.random.Generator, *, horizon=None) -> Initia
             stimuli[start:end, 2 if kind == "reversal_adaptation" else d.n_inputs - 1] = 1
         if not bounds:
             bounds = [(0, length)]
-    metadata |= dict(cue_ends=tuple(cues), response_start=tuple(starts), response_end=tuple(ends),
-                     labels=tuple(labels), round_bounds=tuple(bounds))
-    return InitialState(spec, d, o, physical, stimuli,
-                        np.asarray(starts), np.asarray(ends), np.asarray(cues), np.asarray(labels),
-                        np.array(bounds, dtype=np.int32).reshape(-1, 2), draws, metadata)
+    metadata |= dict(
+        cue_ends=tuple(cues),
+        response_start=tuple(starts),
+        response_end=tuple(ends),
+        labels=tuple(labels),
+        round_bounds=tuple(bounds),
+    )
+    return InitialState(
+        spec,
+        d,
+        o,
+        physical,
+        stimuli,
+        np.asarray(starts),
+        np.asarray(ends),
+        np.asarray(cues),
+        np.asarray(labels),
+        np.array(bounds, dtype=np.int32).reshape(-1, 2),
+        draws,
+        metadata,
+    )
 
 
 @dataclass(frozen=True)
@@ -430,13 +550,25 @@ def capacity_probe_presets() -> tuple[Preset, ...]:
     def add(task, suffix, **overrides):
         options = DEFAULTS[task] | overrides
         spec = TaskSpec(task, options)
-        cells.append(Preset(f"{task}__{suffix}", task, MappingProxyType(options), definition(spec).default_horizon))
+        cells.append(
+            Preset(
+                f"{task}__{suffix}",
+                task,
+                MappingProxyType(options),
+                definition(spec).default_horizon,
+            )
+        )
 
     for delay in (0, 8, 32, 128, 256):
         add("delayed_cue", f"delay_{delay}", delays=(delay,))
         if delay >= 32:
             for distractors in (1, 3):
-                add("recall_interference", f"delay_{delay}_distractors_{distractors}", delay=delay, distractors=distractors)
+                add(
+                    "recall_interference",
+                    f"delay_{delay}_distractors_{distractors}",
+                    delay=delay,
+                    distractors=distractors,
+                )
     for gap in (0, 8, 32, 128):
         add("delayed_xor", f"gap_{gap}", gap=gap)
     for n in (16, 32, 64):
@@ -445,8 +577,14 @@ def capacity_probe_presets() -> tuple[Preset, ...]:
             add("evidence_accumulation", suffix, pulse_count=n, evidence_fraction=fraction)
             for congruency in ("congruent", "conflicting"):
                 for mode in ("transient", "persistent"):
-                    add("context_integration", f"{suffix}_{congruency}_{mode}", pulse_count=n,
-                        evidence_fraction=fraction, congruency=congruency, context_mode=mode)
+                    add(
+                        "context_integration",
+                        f"{suffix}_{congruency}_{mode}",
+                        pulse_count=n,
+                        evidence_fraction=fraction,
+                        congruency=congruency,
+                        context_mode=mode,
+                    )
     for gap in (0, 8, 32):
         add("temporal_order", f"gap_{gap}", gap=gap)
     add("reversal_adaptation", "single_reversal")

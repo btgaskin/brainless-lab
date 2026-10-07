@@ -5,6 +5,191 @@ operation = "benchmark"
 question = "What are the separate task outcomes for the SORN substrate?"
 version = "1"
 evidence = "exploratory"
+diagnostic = false
+
+[[targets]]
+id = "tracking"
+label = ""
+pairing_key = "paired-worlds"
+construction_key = "paired-construction"
+mechanism_key = "paired-mechanism"
+controller = "reservoir"
+interventions = []
+
+[targets.composition]
+count = 64
+input_gain = 1.0
+
+[targets.composition.node]
+kind = "sorn"
+
+[targets.composition.node.parameters]
+
+[targets.composition.task]
+kind = "tracking"
+
+[targets.composition.task.options]
+
+[[targets]]
+id = "pong"
+label = ""
+pairing_key = "paired-worlds"
+construction_key = "paired-construction"
+mechanism_key = "paired-mechanism"
+controller = "reservoir"
+interventions = []
+
+[targets.composition]
+count = 64
+input_gain = 1.0
+
+[targets.composition.node]
+kind = "sorn"
+
+[targets.composition.node.parameters]
+
+[targets.composition.task]
+kind = "pong"
+
+[targets.composition.task.options]
+
+[[targets]]
+id = "cartpole_plank_easy"
+label = ""
+pairing_key = "paired-worlds"
+construction_key = "paired-construction"
+mechanism_key = "paired-mechanism"
+controller = "reservoir"
+interventions = []
+
+[targets.composition]
+count = 64
+input_gain = 8.0
+
+[targets.composition.node]
+kind = "sorn"
+
+[targets.composition.node.parameters]
+
+[targets.composition.task]
+kind = "cartpole_plank_easy"
+
+[targets.composition.task.options]
+
+[[targets]]
+id = "delayed_cue"
+label = ""
+pairing_key = "paired-worlds"
+construction_key = "paired-construction"
+mechanism_key = "paired-mechanism"
+controller = "reservoir"
+interventions = []
+
+[targets.composition]
+count = 64
+input_gain = 1.0
+
+[targets.composition.node]
+kind = "sorn"
+
+[targets.composition.node.parameters]
+
+[targets.composition.task]
+kind = "delayed_cue"
+
+[targets.composition.task.options]
+
+[[targets]]
+id = "tracking_null"
+label = ""
+pairing_key = "paired-worlds"
+construction_key = "paired-construction"
+mechanism_key = "paired-mechanism"
+controller = "reference_null"
+interventions = []
+
+[targets.composition]
+count = 64
+input_gain = 1.0
+
+[targets.composition.node]
+kind = "sorn"
+
+[targets.composition.node.parameters]
+
+[targets.composition.task]
+kind = "tracking"
+
+[targets.composition.task.options]
+
+[[targets]]
+id = "pong_null"
+label = ""
+pairing_key = "paired-worlds"
+construction_key = "paired-construction"
+mechanism_key = "paired-mechanism"
+controller = "reference_null"
+interventions = []
+
+[targets.composition]
+count = 64
+input_gain = 1.0
+
+[targets.composition.node]
+kind = "sorn"
+
+[targets.composition.node.parameters]
+
+[targets.composition.task]
+kind = "pong"
+
+[targets.composition.task.options]
+
+[[targets]]
+id = "cartpole_plank_easy_null"
+label = ""
+pairing_key = "paired-worlds"
+construction_key = "paired-construction"
+mechanism_key = "paired-mechanism"
+controller = "reference_null"
+interventions = []
+
+[targets.composition]
+count = 64
+input_gain = 8.0
+
+[targets.composition.node]
+kind = "sorn"
+
+[targets.composition.node.parameters]
+
+[targets.composition.task]
+kind = "cartpole_plank_easy"
+
+[targets.composition.task.options]
+
+[[targets]]
+id = "delayed_cue_null"
+label = ""
+pairing_key = "paired-worlds"
+construction_key = "paired-construction"
+mechanism_key = "paired-mechanism"
+controller = "reference_null"
+interventions = []
+
+[targets.composition]
+count = 64
+input_gain = 1.0
+
+[targets.composition.node]
+kind = "sorn"
+
+[targets.composition.node.parameters]
+
+[targets.composition.task]
+kind = "delayed_cue"
+
+[targets.composition.task.options]
 
 [evaluation]
 blocks = 2
@@ -16,40 +201,6 @@ seed_partition = "development"
 
 [numerics]
 dtype = "float64"
-
-[[targets]]
-id = "tracking"
-[targets.composition]
-count = 64
-[targets.composition.node]
-kind = "sorn"
-[targets.composition.task]
-kind = "tracking"
-
-[[targets]]
-id = "pong"
-[targets.composition]
-count = 64
-[targets.composition.node]
-kind = "sorn"
-[targets.composition.task]
-kind = "pong"
-
-[[targets]]
-id = "cartpole_plank_easy"
-[targets.composition]
-count = 64
-input_gain = 8.0
-[targets.composition.node]
-kind = "sorn"
-[targets.composition.task]
-kind = "cartpole_plank_easy"
-
-[[targets]]
-id = "delayed_cue"
-[targets.composition]
-count = 64
-[targets.composition.node]
-kind = "sorn"
-[targets.composition.task]
-kind = "delayed_cue"
+fast_math = false
+reduction = "ordered"
+rng = "philox-host-v1"

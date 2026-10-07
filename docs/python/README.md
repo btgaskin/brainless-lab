@@ -1,5 +1,10 @@
 # Active Python implementation
 
+The [architecture ontology](architecture.md) describes responsibilities and
+runtime boundaries. [ARCHIVE.md](../../ARCHIVE.md) locates historical capabilities.
+The [local qualification receipts](qualification/README.md) record the package,
+backend, calibration and website checks.
+
 Use the [first-run guide](../../site/src/content/docs/tutorials/first-simulation.mdx) to resolve and run the locked example. The package lives under `python/src/brainlesslab/`; historical Julia source is preserved at Git revision `d0fc756d`.
 
 The public layers are `NodeSpec`, `TaskSpec`, `CompositionSpec`, `EvaluationSpec`, `EvaluationTarget`, `Plan`, `NumericalPolicy` and `ExecutionSpec`. Scientific specifications are immutable host values. Execution policy owns placement and memory budgets. The runtime owns Quadrants arrays; snapshots own their host storage.

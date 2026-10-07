@@ -8,7 +8,7 @@
       "node": "falandays",
       "label": "Falandays \u00b7 Tracking \u00b7 development",
       "path": "/replays/falandays-tracking.json",
-      "sha256": "bc66becb4cf60f56098f71f68316784fd84918b6731eafc37028baaf8b8db011"
+      "sha256": "e5e808a6f1f2ebea2afbc58d18439aeaac847b45988bfdc8cb4237ca8d168cc8"
     },
     {
       "id": "falandays-pong",
@@ -16,7 +16,7 @@
       "node": "falandays",
       "label": "Falandays \u00b7 Pong \u00b7 development",
       "path": "/replays/falandays-pong.json",
-      "sha256": "418ff51788f6c583909bbb37d3f578426439440432789895abe64c3618ed184f"
+      "sha256": "376864c11bfa81992dffce8fe0271cc3ec7b826b05c46d845f3a92658b704c73"
     },
     {
       "id": "falandays-cartpole-plank-easy",
@@ -24,7 +24,7 @@
       "node": "falandays",
       "label": "Falandays \u00b7 Cartpole Plank Easy \u00b7 development",
       "path": "/replays/falandays-cartpole-plank-easy.json",
-      "sha256": "1a257050dcb28073a49086968c4794600428f1838fd1d26fc7d396551b1b24c1"
+      "sha256": "a80ecc9cd7218f7a45ed459896cdd6ea5533afd58d24cf0e7895fd42fc0332b9"
     },
     {
       "id": "falandays-delayed-cue",
@@ -32,39 +32,39 @@
       "node": "falandays",
       "label": "Falandays \u00b7 Delayed Cue \u00b7 development",
       "path": "/replays/falandays-delayed-cue.json",
-      "sha256": "87c74b5ce3bcfc36a1568201e7bb49cfea156a8ca2b00622799271559e6ff3f7"
+      "sha256": "5041d7479f693dd97a771707ceeabc781037d9e4d6ada8826d6b9a59b93a9e5d"
     },
     {
       "id": "sorn-tracking",
       "task": "tracking",
       "node": "sorn",
-      "label": "Sorn \u00b7 Tracking \u00b7 development",
+      "label": "SORN \u00b7 Tracking \u00b7 development",
       "path": "/replays/sorn-tracking.json",
-      "sha256": "e8266eba9deb696cc5c95d3f933f679e570abfe052b84530bbb8aea56469717b"
+      "sha256": "98606300af07ff73c83fea3e83761ffa4629b1f8decb2512b5482d39285aceeb"
     },
     {
       "id": "sorn-pong",
       "task": "pong",
       "node": "sorn",
-      "label": "Sorn \u00b7 Pong \u00b7 development",
+      "label": "SORN \u00b7 Pong \u00b7 development",
       "path": "/replays/sorn-pong.json",
-      "sha256": "ad7590c0fc4f21c9743069c92e7e439b56a3cec0dd32b8d55c16eee18c98ad95"
+      "sha256": "cb94f170d2350c4043e78b1b4e8c0a14b8f5aa92af923f4a0d2c2603e9f9fc6c"
     },
     {
       "id": "sorn-cartpole-plank-easy",
       "task": "cartpole_plank_easy",
       "node": "sorn",
-      "label": "Sorn \u00b7 Cartpole Plank Easy \u00b7 development",
+      "label": "SORN \u00b7 Cartpole Plank Easy \u00b7 development",
       "path": "/replays/sorn-cartpole-plank-easy.json",
-      "sha256": "574428b6b9e8ba4730331050a769bdf7942f5d5e4b5000602b2217dbd40d9f74"
+      "sha256": "a6ad925eb260175d3c0bed3c9b4cd5222a9b05d66c6c06cce95169805c8a769f"
     },
     {
       "id": "sorn-delayed-cue",
       "task": "delayed_cue",
       "node": "sorn",
-      "label": "Sorn \u00b7 Delayed Cue \u00b7 development",
+      "label": "SORN \u00b7 Delayed Cue \u00b7 development",
       "path": "/replays/sorn-delayed-cue.json",
-      "sha256": "74cc1028dac7a8841ffc011c3a46a6f85db1f4ad30617886e8cfd5fd64520636"
+      "sha256": "4c3cd6e8a4ae9d68ac627bd5cad383b312ef8f14d457471efb435abc8bf1a58d"
     }
   ]
 }

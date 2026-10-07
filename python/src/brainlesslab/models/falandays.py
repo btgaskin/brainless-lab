@@ -5,8 +5,8 @@ source-by-destination matrices; :meth:`InitialState.from_source_target` is the
 explicit adapter. The fixture gates establish implementation conformance only.
 """
 
-from dataclasses import dataclass, fields
 from collections.abc import Sequence
+from dataclasses import dataclass, fields
 
 import numpy as np
 import quadrants as qd
@@ -44,8 +44,15 @@ class FalandaysConfig:
         for name in ("link_p", "inhibitory_frac", "leak"):
             if not 0 <= getattr(self, name) <= 1:
                 raise ValueError(f"{name} must lie in [0, 1]")
-        for name in ("lrate_wmat", "lrate_targ", "input_weight", "weight_init_std",
-                     "recurrent_init_scale", "membrane_noise", "noise_gain"):
+        for name in (
+            "lrate_wmat",
+            "lrate_targ",
+            "input_weight",
+            "weight_init_std",
+            "recurrent_init_scale",
+            "membrane_noise",
+            "noise_gain",
+        ):
             if getattr(self, name) < 0:
                 raise ValueError(f"{name} must be nonnegative")
         if self.threshold_mult <= 0 or self.targ_min <= 0:
@@ -81,8 +88,16 @@ class InitialState:
             raise ValueError("signs must be exactly +1 or -1")
         if not np.all(np.isin(np.asarray(self.signs), (-1, 1))):
             raise ValueError("signs must be +1 or -1")
-        for name in ("weights", "recurrent_mask", "input_weights", "output_mask",
-                     "signs", "acts", "targets", "spikes"):
+        for name in (
+            "weights",
+            "recurrent_mask",
+            "input_weights",
+            "output_mask",
+            "signs",
+            "acts",
+            "targets",
+            "spikes",
+        ):
             kind = np.int32 if name in ("recurrent_mask", "signs") else np.float64
             value = np.array(getattr(self, name), dtype=kind, order="C", copy=True)
             if not np.all(np.isfinite(value)):
@@ -94,9 +109,17 @@ class InitialState:
             raise ValueError("acts must be a nonempty vector")
         if self.weights.shape != (n, n) or self.recurrent_mask.shape != (n, n):
             raise ValueError("recurrent arrays must be destination-by-source square matrices")
-        if self.input_weights.ndim != 2 or self.input_weights.shape[0] != n or self.input_weights.shape[1] < 1:
+        if (
+            self.input_weights.ndim != 2
+            or self.input_weights.shape[0] != n
+            or self.input_weights.shape[1] < 1
+        ):
             raise ValueError("input_weights must be node-by-receptor")
-        if self.output_mask.ndim != 2 or self.output_mask.shape[0] != n or self.output_mask.shape[1] < 1:
+        if (
+            self.output_mask.ndim != 2
+            or self.output_mask.shape[0] != n
+            or self.output_mask.shape[1] < 1
+        ):
             raise ValueError("output_mask must be node-by-effector")
         if any(getattr(self, name).shape != (n,) for name in ("signs", "targets", "spikes")):
             raise ValueError("node vectors must have equal widths")
@@ -108,21 +131,32 @@ class InitialState:
             raise ValueError("unsigned axis requires positive signs")
 
     @classmethod
-    def from_source_target(cls, config, *, wmat0, recurrent_mask, input_wmat,
-                           output_mask, sign=None):
+    def from_source_target(
+        cls, config, *, wmat0, recurrent_mask, input_wmat, output_mask, sign=None
+    ):
         """Own and transpose the declared archival source-by-target arrays."""
         n = np.asarray(wmat0).shape[0]
-        return cls(config, np.asarray(wmat0).T, np.asarray(recurrent_mask).T,
-                   np.asarray(input_wmat).T, output_mask,
-                   np.ones(n, dtype=np.int32) if sign is None else sign,
-                   np.zeros(n), np.full(n, config.targ_min), np.zeros(n))
+        return cls(
+            config,
+            np.asarray(wmat0).T,
+            np.asarray(recurrent_mask).T,
+            np.asarray(input_wmat).T,
+            output_mask,
+            np.ones(n, dtype=np.int32) if sign is None else sign,
+            np.zeros(n),
+            np.full(n, config.targ_min),
+            np.zeros(n),
+        )
 
 
-def construct(config: FalandaysConfig, count: int, n_inputs: int,
-              n_effectors: int, rng: np.random.Generator) -> InitialState:
+def construct(
+    config: FalandaysConfig, count: int, n_inputs: int, n_effectors: int, rng: np.random.Generator
+) -> InitialState:
     """Construct seeded wiring; RNG equality with Julia is not a contract."""
-    if any(isinstance(v, bool) or not isinstance(v, (int, np.integer)) or v < 1
-           for v in (count, n_inputs, n_effectors)):
+    if any(
+        isinstance(v, bool) or not isinstance(v, (int, np.integer)) or v < 1
+        for v in (count, n_inputs, n_effectors)
+    ):
         raise ValueError("node and port counts must be positive integers")
     if not isinstance(rng, np.random.Generator):
         raise TypeError("rng must be an owned numpy Generator")
@@ -138,7 +172,9 @@ def construct(config: FalandaysConfig, count: int, n_inputs: int,
     input_mask = rng.random((count, n_inputs)) < input_p
     output_mask = rng.random((count, n_effectors)) < config.link_p
     if config.repair_masks:
-        eligible = np.flatnonzero(np.full(n_inputs, config.link_p) if probabilities is None else probabilities)
+        eligible = np.flatnonzero(
+            np.full(n_inputs, config.link_p) if probabilities is None else probabilities
+        )
         if config.axis == "unsigned" and eligible.size:
             for i in range(count):
                 if not mask[i].any() and not input_mask[i].any():
@@ -159,9 +195,17 @@ def construct(config: FalandaysConfig, count: int, n_inputs: int,
         weights = config.weight_init_std * rng.standard_normal((count, count))
     weights *= mask
     weights *= config.recurrent_init_scale
-    return InitialState(config, weights, mask, input_mask * config.input_weight,
-                        output_mask, signs, np.zeros(count),
-                        np.full(count, config.targ_min), np.zeros(count))
+    return InitialState(
+        config,
+        weights,
+        mask,
+        input_mask * config.input_weight,
+        output_mask,
+        signs,
+        np.zeros(count),
+        np.full(count, config.targ_min),
+        np.zeros(count),
+    )
 
 
 # Live annotations are intentional: Quadrants expands these frozen bundles.
@@ -211,9 +255,14 @@ def _real_zero(precision: qd.template()):  # pyright: ignore[reportInvalidTypeFo
 
 
 @qd.kernel(fastcache=True)
-def _integrate(s: _State, f: _Fixed, inputs: qd.types.NDArray[None, 2],
-               noise: qd.types.NDArray[None, 2], active: qd.types.NDArray[qd.i32, 1],
-               real: qd.template()):  # pyright: ignore[reportInvalidTypeForm]
+def _integrate(
+    s: _State,
+    f: _Fixed,
+    inputs: qd.types.NDArray[None, 2],
+    noise: qd.types.NDArray[None, 2],
+    active: qd.types.NDArray[qd.i32, 1],
+    real: qd.template(),  # pyright: ignore[reportInvalidTypeForm]
+):
     for b, i in qd.ndrange(s.acts.shape[0], s.acts.shape[1]):
         if active[b] != 0:
             sensory = _real_zero(real)
@@ -276,8 +325,7 @@ def _learn(s: _State, f: _Fixed, active: qd.types.NDArray[qd.i32, 1]):
 
 
 @qd.kernel(fastcache=True)
-def _readout(s: _State, f: _Fixed, active: qd.types.NDArray[qd.i32, 1],
-             real: qd.template()):  # pyright: ignore[reportInvalidTypeForm]
+def _readout(s: _State, f: _Fixed, active: qd.types.NDArray[qd.i32, 1], real: qd.template()):  # pyright: ignore[reportInvalidTypeForm]
     for b, e in qd.ndrange(s.effectors.shape[0], s.effectors.shape[1]):
         if active[b] != 0:
             total = _real_zero(real)
@@ -304,7 +352,11 @@ def _finite(s: _State, active: qd.types.NDArray[qd.i32, 1]):
             for i in range(s.acts.shape[1]):
                 if s.raw_finite[b, i] == 0:
                     valid = 0
-                if not _is_finite(s.acts[b, i]) or not _is_finite(s.targets[b, i]) or not _is_finite(s.errors[b, i]):
+                if (
+                    not _is_finite(s.acts[b, i])
+                    or not _is_finite(s.targets[b, i])
+                    or not _is_finite(s.errors[b, i])
+                ):
                     valid = 0
             for e in range(s.effectors.shape[1]):
                 if not _is_finite(s.effectors[b, e]):
@@ -354,8 +406,15 @@ class ModelBatch:
         if dtype not in (np.dtype("float64"), np.dtype("float32")):
             raise ValueError("dtype must be float64 or float32")
         validate_cast(initials, dtype)
-        shape = (initials[0].acts.size, initials[0].input_weights.shape[1], initials[0].output_mask.shape[1])
-        if any((v.acts.size, v.input_weights.shape[1], v.output_mask.shape[1]) != shape for v in initials):
+        shape = (
+            initials[0].acts.size,
+            initials[0].input_weights.shape[1],
+            initials[0].output_mask.shape[1],
+        )
+        if any(
+            (v.acts.size, v.input_weights.shape[1], v.output_mask.shape[1]) != shape
+            for v in initials
+        ):
             raise ValueError("batch slots must have equal node and port widths")
         self.batch_size = len(initials)
         self.count, self.n_inputs, self.n_effectors = shape
@@ -372,24 +431,65 @@ class ModelBatch:
         def stack(name, integer=False):
             return upload(np.stack([getattr(v, name) for v in initials]), integer)
 
-        acts, targets, spikes, weights = (stack(name) for name in ("acts", "targets", "spikes", "weights"))
-        zeros = lambda: upload(np.zeros((self.batch_size, self.count)))
+        acts, targets, spikes, weights = (
+            stack(name) for name in ("acts", "targets", "spikes", "weights")
+        )
+
+        def zeros():
+            return upload(np.zeros((self.batch_size, self.count)))
+
         learning = upload([v.config.learn_on for v in initials], True)
-        self._state = _State(acts, targets, spikes, zeros(), zeros(), zeros(), weights,
-                             upload(np.zeros((self.batch_size, self.n_effectors))),
-                             upload(np.ones(self.batch_size), True), learning,
-                             upload([v.config.learn_on for v in initials], True),
-                             upload(np.ones((self.batch_size, self.count)), True))
-        self._fixed = _Fixed(stack("recurrent_mask", True), stack("input_weights"),
-                             stack("output_mask"), stack("signs", True),
-                             upload([[v.config.leak, v.config.lrate_wmat, v.config.lrate_targ,
-                                      v.config.threshold_mult, v.config.targ_min,
-                                      v.config.membrane_noise, v.config.noise_gain] for v in initials]),
-                             upload([[v.config.rectify, v.config.axis == "dale", v.config.drive == "oosawa",
-                                      v.config.learn_on] for v in initials], True),
-                             stack("weights"), stack("acts"), stack("targets"), stack("spikes"))
-        _readout(self._state, self._fixed,
-                 upload(np.ones(self.batch_size), True), self._precision)
+        self._state = _State(
+            acts,
+            targets,
+            spikes,
+            zeros(),
+            zeros(),
+            zeros(),
+            weights,
+            upload(np.zeros((self.batch_size, self.n_effectors))),
+            upload(np.ones(self.batch_size), True),
+            learning,
+            upload([v.config.learn_on for v in initials], True),
+            upload(np.ones((self.batch_size, self.count)), True),
+        )
+        self._fixed = _Fixed(
+            stack("recurrent_mask", True),
+            stack("input_weights"),
+            stack("output_mask"),
+            stack("signs", True),
+            upload(
+                [
+                    [
+                        v.config.leak,
+                        v.config.lrate_wmat,
+                        v.config.lrate_targ,
+                        v.config.threshold_mult,
+                        v.config.targ_min,
+                        v.config.membrane_noise,
+                        v.config.noise_gain,
+                    ]
+                    for v in initials
+                ]
+            ),
+            upload(
+                [
+                    [
+                        v.config.rectify,
+                        v.config.axis == "dale",
+                        v.config.drive == "oosawa",
+                        v.config.learn_on,
+                    ]
+                    for v in initials
+                ],
+                True,
+            ),
+            stack("weights"),
+            stack("acts"),
+            stack("targets"),
+            stack("spikes"),
+        )
+        _readout(self._state, self._fixed, upload(np.ones(self.batch_size), True), self._precision)
 
     @property
     def activity(self):
@@ -409,7 +509,10 @@ class ModelBatch:
 
     def step(self, inputs, noise, active):
         self._check_active(active)
-        if inputs.shape != (self.batch_size, self.n_inputs) or noise.shape != (self.batch_size, self.count):
+        if inputs.shape != (self.batch_size, self.n_inputs) or noise.shape != (
+            self.batch_size,
+            self.count,
+        ):
             raise ValueError("input or noise shape does not match model batch")
         if inputs.dtype != self._real or noise.dtype != self._real:
             raise ValueError("inputs and noise must match the model dtype")
@@ -434,5 +537,7 @@ class ModelBatch:
 
     def snapshot(self):
         """Return independent host arrays for diagnostics, outside the hot path."""
-        return {item.name: np.array(getattr(self._state, item.name).to_numpy(), copy=True)
-                for item in fields(_State)}
+        return {
+            item.name: np.array(getattr(self._state, item.name).to_numpy(), copy=True)
+            for item in fields(_State)
+        }

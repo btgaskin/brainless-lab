@@ -18,6 +18,19 @@ A passing equation test establishes its declared software boundary. It does not 
 
 ## Separate kernel compilation from execution
 
+Start with the serial receipt generator:
+
+```bash
+uv run python python/examples/profile_backend.py scratch-profile --backends cpu --dtype float64
+uv run python python/examples/qualify_backends.py scratch-conformance
+```
+
+The second command needs CPU32 and Metal32 on an Apple host.
+Both commands use new output directories. Run GPU workloads one at a time.
+The profiling command reports background compute and refuses an unacknowledged
+busy system. An explicit diagnostic opt-in records interference; it does not
+turn noisy wall time into a speed claim.
+
 Run one small CPU composition, then repeat the warmed call with the same rank and dtype. Record first-call latency separately from warmed time. Change batch size and node count without changing rank. Inspect which kernels compile again, and relate this to the typed ndarray bundles and runtime dimensions.
 
 Quadrants exposes compiler diagnostics through `qd.init(print_ir=True)` and cache settings. Use these in a scratch process, because runtime initialisation is process-wide. Compare the IR for destination-owned reductions with a deliberately copied scalar example. The [Quadrants guide](https://genesis-embodied-ai.github.io/quadrants/user_guide/index.html) is the source for supported diagnostic options.
@@ -37,6 +50,11 @@ Inspect construction, random-tape preparation, host/device copies, Python launch
 On macOS, attach Instruments to the Python process. Compare Time Profiler and Metal System Trace where the installed tools support them. Record signposts or explicit timestamps around construction, compilation and scored execution. Read [Apple's Instruments guide](https://developer.apple.com/documentation/xcode/improving-your-app-s-performance) before interpreting GPU and CPU overlap.
 
 ## Explore backend tools within the supported boundary
+
+The [local Quadrants reproduction](upstream/README.md) and
+[issue draft](upstream/issue-draft.md) show how to reduce an application failure
+to a compiler contract question. They contain measured CPU64, CPU32 and Metal32
+diagnostics. They have not been submitted upstream.
 
 NVIDIA Nsight and RenderDoc are later exercises for an explicitly supported backend or upstream Quadrants example. This BrainlessLab release does not qualify CUDA, Vulkan or RenderDoc capture. Do not add a backend label or checkpoint/autodiff claim merely because upstream has a related feature.
 

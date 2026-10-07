@@ -20,31 +20,36 @@ def test_prepared_families_satisfy_structural_contract(kind):
         assert value.flags.c_contiguous and not value.flags.writeable
     assert initial.round_bounds.shape == (initial.labels.size, 2)
     if not initial.definition.is_probe:
-        assert all(getattr(initial, name).size == 0 for name in
-                   ("labels", "response_start", "response_end", "cue_ends"))
+        assert all(
+            getattr(initial, name).size == 0
+            for name in ("labels", "response_start", "response_end", "cue_ends")
+        )
 
 
-@pytest.mark.parametrize("name,value", [
-    ("physical", np.zeros((1, 8))),
-    ("physical", np.zeros(7)),
-    ("stimuli", np.zeros((3, 4))),
-    ("stimuli", np.zeros((0, 3))),
-    ("draws", np.zeros((4, 3))),
-    ("draws", np.zeros((0, 2))),
-    ("response_start", [[8]]),
-    ("response_end", []),
-    ("cue_ends", [8, 9]),
-    ("labels", [0]),
-    ("labels", [3]),
-    ("labels", [1.5]),
-    ("response_start", [2**32 + 8]),
-    ("round_bounds", [0, 16]),
-    ("round_bounds", [[0, 17]]),
-    ("round_bounds", [[8, 16]]),
-    ("response_start", [7]),
-    ("response_end", [8]),
-    ("cue_ends", [0]),
-])
+@pytest.mark.parametrize(
+    "name,value",
+    [
+        ("physical", np.zeros((1, 8))),
+        ("physical", np.zeros(7)),
+        ("stimuli", np.zeros((3, 4))),
+        ("stimuli", np.zeros((0, 3))),
+        ("draws", np.zeros((4, 3))),
+        ("draws", np.zeros((0, 2))),
+        ("response_start", [[8]]),
+        ("response_end", []),
+        ("cue_ends", [8, 9]),
+        ("labels", [0]),
+        ("labels", [3]),
+        ("labels", [1.5]),
+        ("response_start", [2**32 + 8]),
+        ("round_bounds", [0, 16]),
+        ("round_bounds", [[0, 17]]),
+        ("round_bounds", [[8, 16]]),
+        ("response_start", [7]),
+        ("response_end", [8]),
+        ("cue_ends", [0]),
+    ],
+)
 def test_malformed_shapes_labels_and_schedules_fail_before_cast(name, value):
     with pytest.raises(ValueError):
         replace(probe(), **{name: value})

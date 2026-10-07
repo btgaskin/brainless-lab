@@ -1,0 +1,94 @@
+format = "brainlesslab-plan"
+format_version = 4
+id = "sweep"
+operation = "sweep"
+question = "How does leak rate change delayed-cue outcomes under paired development worlds?"
+version = "1"
+evidence = "exploratory"
+diagnostic = false
+
+[[targets]]
+id = "84f6b98f6e57c127"
+label = "{'leak': 0.1}"
+pairing_key = "paired-worlds"
+construction_key = "paired-construction"
+mechanism_key = "paired-mechanism"
+controller = "reservoir"
+interventions = []
+
+[targets.composition]
+count = 16
+input_gain = 1.0
+
+[targets.composition.node]
+kind = "falandays"
+
+[targets.composition.node.parameters]
+leak = 0.1
+
+[targets.composition.task]
+kind = "delayed_cue"
+
+[targets.composition.task.options]
+
+[[targets]]
+id = "e902202a74b75788"
+label = "{'leak': 0.25}"
+pairing_key = "paired-worlds"
+construction_key = "paired-construction"
+mechanism_key = "paired-mechanism"
+controller = "reservoir"
+interventions = []
+
+[targets.composition]
+count = 16
+input_gain = 1.0
+
+[targets.composition.node]
+kind = "falandays"
+
+[targets.composition.node.parameters]
+leak = 0.25
+
+[targets.composition.task]
+kind = "delayed_cue"
+
+[targets.composition.task.options]
+
+[[targets]]
+id = "c5ffb217c5bae322"
+label = "{'leak': 0.5}"
+pairing_key = "paired-worlds"
+construction_key = "paired-construction"
+mechanism_key = "paired-mechanism"
+controller = "reservoir"
+interventions = []
+
+[targets.composition]
+count = 16
+input_gain = 1.0
+
+[targets.composition.node]
+kind = "falandays"
+
+[targets.composition.node.parameters]
+leak = 0.5
+
+[targets.composition.task]
+kind = "delayed_cue"
+
+[targets.composition.task.options]
+
+[evaluation]
+blocks = 2
+trials_per_block = 2
+warmup = 0
+construction_scope = "block"
+root_seed = 0
+seed_partition = "development"
+
+[numerics]
+dtype = "float64"
+fast_math = false
+reduction = "ordered"
+rng = "philox-host-v1"

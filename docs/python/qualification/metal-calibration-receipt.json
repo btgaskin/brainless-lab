@@ -1,0 +1,56 @@
+[
+  {
+    "task": "tracking",
+    "backend": "metal",
+    "dtype": "float32",
+    "record": "metal-tracking",
+    "calibration_id": "e96ef4916ee2e5cfb96951cf876f4d8ae8466975f2e371eb7d55df6d46025e93",
+    "null_mean": 0.0009135059606251161,
+    "null_interval": [
+      -0.005472330775563705,
+      0.007323553261936408
+    ],
+    "trajectories": 1024,
+    "timings": {
+      "resolve_and_runtime_seconds": 0.39558733301237226,
+      "construction_compile_run_seconds": 1.2297882919665426,
+      "total_seconds": 1.6514203329570591
+    }
+  },
+  {
+    "task": "pong",
+    "backend": "metal",
+    "dtype": "float32",
+    "record": "metal-pong",
+    "calibration_id": "015a36fe623f3ae8e03aca2179032220ddfb453fb303cc57438687af82689684",
+    "null_mean": 0.2638820869178744,
+    "null_interval": [
+      0.2590960318570069,
+      0.26848996436137895
+    ],
+    "trajectories": 1024,
+    "timings": {
+      "resolve_and_runtime_seconds": 0.019548999844118953,
+      "construction_compile_run_seconds": 1.675741958199069,
+      "total_seconds": 1.7177962909918278
+    }
+  },
+  {
+    "task": "cartpole_plank_easy",
+    "backend": "metal",
+    "dtype": "float32",
+    "record": "metal-cartpole_plank_easy",
+    "calibration_id": "dfb1debd125226ef4b795f51037048493c38d077ed91e130b7a7c4209578bb0f",
+    "null_mean": 21.9609375,
+    "null_interval": [
+      21.2001953125,
+      22.76181640625
+    ],
+    "trajectories": 1024,
+    "timings": {
+      "resolve_and_runtime_seconds": 0.01715675019659102,
+      "construction_compile_run_seconds": 0.5177778748329729,
+      "total_seconds": 0.5518676671199501
+    }
+  }
+]

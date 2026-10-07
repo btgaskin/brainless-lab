@@ -4,8 +4,7 @@ import os
 import subprocess
 import sys
 
-
-SOURCE = '''
+SOURCE = """
 import numpy as np
 import quadrants as qd
 qd.init(arch=qd.cpu, default_fp=qd.f64, fast_math=False, enable_fallback=False,
@@ -23,7 +22,7 @@ array.from_numpy(np.zeros(2))
 run(array)
 np.testing.assert_array_equal(array.to_numpy(), [OFFSET, OFFSET])
 print("HELPER_VALUE=" + str(array.to_numpy()[0]))
-'''
+"""
 
 
 def test_fastcache_tracks_changed_helper_source(tmp_path):
@@ -31,7 +30,11 @@ def test_fastcache_tracks_changed_helper_source(tmp_path):
     script = tmp_path / "case.py"
     for value in (1, 1, 2):
         script.write_text(SOURCE.replace("CACHE", repr(str(cache))).replace("OFFSET", str(value)))
-        run = subprocess.run([sys.executable, str(script)], capture_output=True, text=True,
-                             env=os.environ | {"PYTHONDONTWRITEBYTECODE": "1"})
+        run = subprocess.run(
+            [sys.executable, str(script)],
+            capture_output=True,
+            text=True,
+            env=os.environ | {"PYTHONDONTWRITEBYTECODE": "1"},
+        )
         assert run.returncode == 0, run.stderr + run.stdout
         assert f"HELPER_VALUE={value}.0" in run.stdout
