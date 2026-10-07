@@ -34,3 +34,12 @@ examples/output/
 /experiments/figures/Manifest.toml
 # Python analysis bytecode
 __pycache__/
+
+# Python/Quadrants successor
+.venv/
+.pytest_cache/
+.ruff_cache/
+.cache/
+*.egg-info/
+dist/
+python/records/

@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "brainlesslab"
+version = "0.4.0"
+description = "Batched, locally adapting neural reservoirs with Quadrants"
+requires-python = ">=3.12,<3.14"
+license = "MIT"
+dependencies = ["quadrants==1.3.3", "numpy>=2.2,<3", "tomli-w>=1.2,<2"]
+
+[project.scripts]
+brainlesslab = "brainlesslab.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8.3,<10", "ruff>=0.12,<1", "pyright>=1.1.400,<2"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["python/src/brainlesslab"]
+
+[tool.pytest.ini_options]
+testpaths = ["python/tests"]
+addopts = "-ra"
+markers = ["metal: requires an explicitly selected Metal runtime", "qualification: longer backend qualification"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pyright]
+include = ["python/src/brainlesslab"]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+
