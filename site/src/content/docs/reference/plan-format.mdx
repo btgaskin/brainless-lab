@@ -1,24 +1,75 @@
 ---
 title: Plan file format
-description: Use the checked example and one scientific schema.
+description: Store the scientific question, named conditions and protocol in one TOML schema.
 ---
 
-A `Plan` contains an ID, named targets, an `EvaluationSpec`, a `NumericalPolicy`,
-operation, question, version and evidence state. Targets retain composition and stable
-pairing, construction and mechanism identities.
+## What belongs in a plan?
 
-The maintained syntax example is `python/plans/delayed-cue.toml`.
-Use its real field structure rather than copying a historical Julia operation plan:
+A `Plan` names a question, version, operation and evidence state. Its targets contain
+compositions and stable identities for world pairing, construction and mechanism
+streams. The shared `EvaluationSpec` defines independent repetitions; the
+`NumericalPolicy` defines arithmetic and random-stream policy.
+
+The current portable syntax is format `brainlesslab-plan`, version `4`:
+
+```toml
+format = "brainlesslab-plan"
+format_version = 4
+id = "cue-example"
+operation = "profile"
+question = "Can this reservoir retain a transient cue for 32 ticks?"
+version = "1"
+evidence = "exploratory"
+
+[evaluation]
+blocks = 2
+trials_per_block = 4
+horizon = 48
+warmup = 0
+construction_scope = "block"
+root_seed = 97
+seed_partition = "development"
+
+[numerics]
+dtype = "float64"
+fast_math = false
+reduction = "ordered"
+rng = "philox-host-v1"
+
+[[targets]]
+id = "baseline"
+controller = "reservoir"
+[targets.composition]
+count = 32
+input_gain = 1.0
+[targets.composition.node]
+kind = "sorn"
+[targets.composition.task]
+kind = "delayed_cue"
+[targets.composition.task.options]
+delays = [32]
+```
+
+Save this as a new TOML file, then pass its path to `brainlesslab check`. The
+maintained repository example can be checked directly:
 
 ```bash
 uv run brainlesslab check python/plans/delayed-cue.toml
 ```
 
-Successful resolution should expose compatible ports, declared horizons and random
-stream policy without simulation. Invalid configurations fail before execution.
+A successful check reports resolved targets, task ports, horizons and seed policy
+without simulation. Unknown options, incompatible horizons and unsupported evidence
+claims fail before execution.
 
-Placement, batch size, memory and recording belong to `ExecutionSpec`.
-Do not create a new plan schema for each operation.
-A development plan cannot confer confirmed or promoted evidence.
+## Keep execution choices separate
 
-Continue with [the system map](/handbook/system-map/) and [CLI reference](/reference/).
+`ExecutionSpec` controls backend, batch size, managed memory, cache, thread count and
+recording. These choices do not belong in the scientific TOML plan and must not
+silently shorten a task or reduce the declared node count.
+
+`read_plan(path)` and `write_plan(plan, path)` provide the Python boundary.
+Profile, sweep, ablation, benchmark and calibration use the same plan schema.
+The run command preserves both submitted and resolved values in a record.
+
+See [evaluation](/handbook/evaluation/) for seed and reset rules, then
+[records](/handbook/records-results/) to inspect a completed run.

@@ -1,23 +1,57 @@
 ---
 title: Benchmark
-description: Preserve task-specific raw units and historical evidence boundaries.
+description: Compare task performance while preserving each outcome's native units.
 ---
 
-The active evaluation path compares named conditions within a task.
-It retains native raw outcomes, matched independent-block contrasts and optional
-task-matched null adjustments. It creates no cross-task competence score.
+## What is being compared?
 
-The four benchmark coordinates remain Tracking, Pong, Plank CartPole Easy and delayed
-cue. Falandays and SORN are the active model families. Experimental capacity probes
-extend the task opportunity without extending historical validation.
+The `benchmark` helper constructs reservoir and reference-null conditions for
+Tracking, Pong, Plank CartPole Easy and delayed cue. Each pair shares its declared
+world opportunity. The output is a set of task coordinates, not a common
+competence score.
 
-```bash
-uv run brainlesslab check python/plans/delayed-cue.toml
+```python
+from brainlesslab import EvaluationSpec, NodeSpec, benchmark, resolve
+
+plan = benchmark(
+    NodeSpec("sorn"), count=32,
+    evaluation=EvaluationSpec(blocks=2, trials_per_block=4, root_seed=130),
+)
+for target in resolve(plan).targets:
+    print(target.target.id, target.target.controller,
+          target.horizon, target.outcome_key)
 ```
 
-Use the example to inspect the active plan syntax.
-A development run does not satisfy a frozen historical confirmation protocol.
-Existing Julia benchmark tables and accepted records retain their source and evidence state.
+Expect eight targets: a reservoir and random-action reference for each task.
+With no shared horizon override, every task retains its own default.
+This snippet checks configuration only.
 
-Read [tasks](/benchmarks/tasks/), [models](/benchmarks/models/),
-[capacity probes](/benchmarks/probes/) and [evidence](/handbook/experiments-evidence/).
+`benchmark` concerns task performance. To measure warm runtime, compilation,
+recording or transfer costs, use [performance](/python/performance/).
+
+## Read coordinates in native units
+
+Tracking reports mean cosine alignment, Pong reports hit fraction, CartPole
+reports world steps survived and delayed cue reports response accuracy.
+A physical reference-null target is a matched comparison; it is not automatically
+a frozen 1,024-trajectory calibration.
+
+Use matching [calibration](/reference/analysis/) when reporting adjusted values.
+Report raw values, scoring windows, null policy and intervals as separate fields.
+Within-task paired raw contrasts answer the condition difference directly.
+Do not average adjusted coordinates into an overall cognitive ranking.
+
+## Separate available software from study evidence
+
+Falandays and SORN are active model families. The
+[capacity-probe library](/benchmarks/probes/) adds experimental task opportunities.
+Neither model availability nor a successful development record satisfies a frozen
+historical confirmation protocol.
+
+Historical benchmark tables and accepted contributions keep their original
+source revisions, plans and evidence states. Query the
+[research catalogue](/research/catalogue/) before citing them.
+
+Start with [task contracts](/benchmarks/tasks/), choose a
+[model](/benchmarks/models/) and run a small
+[reproducible profile](/tutorials/reproducible-profile/) before a full benchmark.

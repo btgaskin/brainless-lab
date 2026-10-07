@@ -1,27 +1,91 @@
 ---
 title: Evaluation
-description: Declare independent worlds, reset policy and disjoint seed partitions.
+description: Define independent randomised blocks, full trial resets and matched scientific streams.
 ---
 
-Evaluation defines the independent observations for a question.
-`EvaluationSpec` declares blocks, trials per block, horizon, warm-up, construction scope,
-root seed and scientific seed partition.
+Evaluation determines what counts as an observation. A world tick advances a simulation;
+a trial produces a task outcome; a block is the outer randomised unit used in summaries.
+More neural units, ticks or execution slots do not create more independent blocks.
+
+## Declare the protocol before execution
+
+```python
+from brainlesslab import EvaluationSpec
+
+evaluation = EvaluationSpec(
+    blocks=4,
+    trials_per_block=8,
+    construction_scope="block",
+    root_seed=74,
+    seed_partition="development",
+)
+print(evaluation)
+```
+
+A plan combines this value with named targets. Validate a complete example with:
 
 ```bash
 uv run brainlesslab check python/plans/delayed-cue.toml
 ```
 
-Resolve before execution. Respect task-specific minimum scored horizons and completed
-episode requirements. A short diagnostic must remain labelled.
+Resolution checks task options, controller availability, ports, scoring opportunity and
+intervention timing. It does not construct random worlds or initialise a backend.
 
-Paired conditions can share declared world streams within a block while keeping their
-mechanism streams distinct. Preserve condition, block, trial and entity identities
-independently of batch slots. Keep calibration, tuning and confirmation seed banks disjoint.
+`horizon` is a maximum number of world ticks, including warm-up. If it is omitted, each
+task supplies its default. Physical tasks enforce minimum scored horizons unless the
+plan explicitly declares `diagnostic=True`. Probe plans must contain the longest configured
+episode or session even when marked diagnostic.
 
-For offline decoding, construct one fixed wiring per block and fully reset every trial.
-Require distinct world seeds across trials. Fit, validation and evaluation splits contain
-whole trials, and the same split applies across observation points.
+Warm-up advances the model and world while excluding those ticks from physical scoring.
+It is supported for Tracking and Pong. CartPole and stimulus-driven episodes require
+zero warm-up. Do not assume that warm-up disables adaptation.
 
-Reset, initial construction and snapshot ownership are software contracts.
-They do not establish empirical learning. Continue with
-[decoding](/benchmarks/probes/decoding/) and [evidence](/handbook/experiments-evidence/).
+## Choose the construction scope
+
+| Scope | Wiring construction | Interpretation of block summaries |
+| --- | --- | --- |
+| `"block"` | Once per block, reused across its trials | Independent wiring blocks |
+| `"trial"` | Once per trial | Trials have distinct construction; aggregation still uses randomised blocks |
+| `"evaluation"` | Once for the whole evaluation | World-block variability conditional on one fixed wiring |
+
+All implemented evaluations fully reset each trial. The reset restores initial weights,
+masks, dynamic state, thresholds or targets, and plasticity flags. There is no continuous
+learning across independent trials. Reversal rounds instead belong to one continuous
+session, so their state persists until the session ends.
+
+Block construction is required for offline decoding. The decoder checks fixed wiring,
+node/interface signatures, full reset and distinct world identities within each block.
+A change of physical batch size must preserve these scientific identities.
+
+## Keep streams and pairing explicit
+
+The root seed, named seed partition and stable keys derive separate construction, world,
+drive and control streams. World identity includes the pairing key, task family, block
+and trial. Construction also depends on model family, count, ports and construction scope.
+
+Targets with the same world pairing key receive matched world draws. Task options still
+determine how those draws become observations. Pair a comparison only when task options,
+horizon and warm-up represent the same opportunity.
+
+Use separate named partitions for calibration, development, tuning, variance pilots,
+confirmation and robustness. Changing a partition changes the scientific stream. Changing
+an execution slot does not. The runner records realised identities in `seeds.csv`.
+
+## Inspect completion and uncertainty
+
+A trial completes when its task terminates normally or reaches its declared horizon.
+A shorter delayed-cue episode stops when its response ends; it is not padded to the
+longest possible delay. CartPole termination is a scored survival result. Numerical
+failure is different: its raw outcome is unavailable.
+
+Trial outcomes retain their realised scoring window. Summaries also retain the declared
+protocol window. Inspect both when episode lengths or stopping times differ.
+
+The runner averages trials within each block, then block means across the evaluation.
+A target containing any failed or incomplete trial has no aggregate raw estimate or
+interval. Fewer than two model blocks give no model confidence interval. This prevents
+a changing sample from being hidden behind a successful summary.
+
+Continue with [records](/handbook/records-results/),
+[whole-trial decoding](/benchmarks/probes/decoding/) and
+[evidence states](/handbook/experiments-evidence/).

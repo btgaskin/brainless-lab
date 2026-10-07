@@ -1,18 +1,69 @@
 ---
 title: Falandays
-description: Preserve the historical reference boundary while testing the Python equations.
+description: Follow the activity, synaptic adaptation and target updates of the active model.
 ---
 
-Falandays is the canonical historical local adaptation model.
-Its Julia implementation was validated on declared reference trajectories.
-The Python construction/update path and each numerical backend need their own checks.
+## What changes locally?
+
+The Falandays model maintains membrane activity, binary spikes, recurrent weights
+and one activity target per node. The default model has unsigned excitatory sources,
+leak 0.25, threshold multiplier 2, synaptic learning rate 1 and target learning rate
+0.01. Its default random connectivity probability is 0.1.
+
+```python
+from brainlesslab import CompositionSpec, NodeSpec, TaskSpec, profile, resolve
+
+resolved = resolve(profile(CompositionSpec(
+    node=NodeSpec("falandays", parameters={"leak": 0.25}),
+    task=TaskSpec("delayed_cue"),
+    count=32,
+)))
+print(resolved.targets[0].model_config)
+```
+
+The resolved model configuration contains the submitted leak override and all
+model defaults. Construction then uses this complete configuration.
+
+## Read the update order
+
+Each step first copies the old spikes. The membrane retains `1 - leak` of its
+previous value, then receives recurrent drive from old spikes and encoded task input.
+Source signs apply to recurrent drive in the optional Dale mode. Optional declared
+noise is added before thresholding; rectification is an explicit option.
+
+A node fires when its activity is greater than or equal to its target multiplied by
+the threshold multiplier. Firing subtracts the threshold once; it does not reset the
+membrane to zero.
+
+Plasticity uses the resulting membrane error relative to the target. Synaptic
+changes are distributed over connected sources that fired in the previous step.
+The target moves by its learning rate times that error and has a declared lower
+bound. Dale mode changes the inhibitory update sign and clips weight magnitudes
+at zero. Default unsigned mode uses its own equation.
+
+These local changes do not use task correctness or diagnostic labels. Effectors
+are means of selected binary node spikes; an empty selected set returns zero.
+
+## Freeze and reset deliberately
+
+`freeze_weights` stops synaptic updates while target adaptation continues.
+`freeze_plasticity` stops both. A full trial reset restores initial weights,
+targets, membrane, spikes and learning flags.
+
+Noise, initialisation mode, source-sign policy and input connectivity are scientific
+choices, not backend tuning knobs. Dense destination/source matrices remain the
+runtime baseline even when their masks are sparse.
+
+## Check the equation boundary
 
 ```bash
 uv run pytest python/tests/test_falandays.py
 ```
 
-Read what the suite compares before describing parity.
-Keep weight freezing separate from all-plasticity freezing.
-Task performance and a biological interpretation require different evidence.
+These checks cover the active Python equations, reset and ownership. Historical
+Falandays validation covers declared Julia reference trajectories at its recorded
+source revision; it does not qualify every Python seed or backend.
 
-Continue with [model contracts](/handbook/nodes-reservoirs/) and [limits](/platform-limits/).
+Continue with [Tracking](/benchmarks/tasks/tracking/), a
+[paired plasticity comparison](/tutorials/compare-conditions/) or
+[platform limits](/platform-limits/).

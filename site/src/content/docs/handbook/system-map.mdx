@@ -1,40 +1,64 @@
 ---
 title: System map
-description: Follow scientific values through placement, runtime and offline records.
+description: Trace a scientific question through resolution, bounded execution and inspectable results.
 ---
 
-BrainlessLab separates what a study means from where and how it executes.
+BrainlessLab separates a study's meaning from its execution placement. This lets a
+declared protocol retain its identities while compatible work is divided into batches.
+It does not make every backend or arithmetic policy equivalent.
 
 ```text
 NodeSpec + TaskSpec + count + input_gain
-  -> CompositionSpec
-CompositionSpec + stable target identities
-  -> EvaluationTarget
-targets + EvaluationSpec + NumericalPolicy + operation
-  -> Plan
-Plan + ExecutionSpec
-  -> resolved protocol + bounded Quadrants runtime
-completed trials
-  -> native outcomes + portable records + offline diagnostics
+    -> CompositionSpec
+CompositionSpec + stable IDs + controller + interventions
+    -> EvaluationTarget
+targets + EvaluationSpec + NumericalPolicy + question + operation
+    -> Plan
+Plan -> resolve -> validated ports, defaults and horizons
+Plan + ExecutionSpec -> execute -> EvaluationResult
+EvaluationResult -> task_outcome / offline decode / portable record
 ```
 
-`NodeSpec` names Falandays or SORN and its model parameters.
-`TaskSpec` names a task and its options.
-`CompositionSpec` adds node count and input gain.
-`EvaluationSpec` declares independent blocks, trials, horizon, warm-up and seed partition.
+## Assign one responsibility to each value
 
-`EvaluationTarget` gives a condition stable pairing, construction and mechanism identities.
-`Plan` adds an operation, question, version and evidence state.
-`NumericalPolicy` declares dtype, ordered reduction and the versioned RNG.
-`ExecutionSpec` selects CPU or Metal, batch size, memory budgets and recording.
+| Value | Owns |
+| --- | --- |
+| `NodeSpec` | Model family and local equation/construction parameters |
+| `TaskSpec` | Task family and task options |
+| `CompositionSpec` | Model/task combination, node count and input gain |
+| `EvaluationTarget` | Stable condition ID, stream keys, controller and interventions |
+| `EvaluationSpec` | Blocks, trials, construction scope, horizon, warm-up and seed partition |
+| `NumericalPolicy` | Dtype, strict ordered arithmetic and versioned RNG |
+| `Plan` | Targets, operation, question, version and evidence state |
+| `ExecutionSpec` | Backend, admitted batching, memory, cache, threads and recording |
 
-NumPy performs construction and offline analysis. Quadrants advances model and world state.
-Returned host snapshots own their storage. Labels belong to diagnostics and never enter
-the online task controller.
+The resolver validates the assembled specification. Host construction creates seeded
+wiring and world tapes. Quadrants advances neural and task state. NumPy performs
+construction and bounded offline decoding. Returned snapshots own their host storage.
+
+## Inspect the layers without executing
 
 ```bash
 uv run brainlesslab check python/plans/delayed-cue.toml
 ```
 
-The command resolves these layers without simulation. Continue with
-[evaluation](/handbook/evaluation/) and [platform limits](/platform-limits/).
+Expect JSON containing the original request and resolved targets. The command does not
+advance state or generate a research result. To execute, use `run` or the public
+`execute` function with a reviewed execution policy.
+
+The scheduler groups compatible task/model work and admits it against managed memory
+and recording budgets. Batch slots are physical placement. They do not replace target,
+block, trial, wiring or feature identity.
+
+A result contains per-trial statuses and outcomes, block summaries and provenance.
+Optional recording adds sparse probe events or development replay frames. The task's
+label truth stays outside the online controller.
+
+A complete record or a successful kernel test does not promote a study. Biological
+interpretation, sealed confirmation, source conformance and backend qualification each
+need their own evidence.
+
+Continue with [evaluation](/handbook/evaluation/),
+[records](/handbook/records-results/), [interfaces](/reference/interfaces/) and
+[runtime performance](/python/performance/). Historical Julia components are linked from
+[the historical boundary](/legacy/).

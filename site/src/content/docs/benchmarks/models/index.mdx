@@ -1,17 +1,31 @@
 ---
-title: Models
-description: Read each active model's own equation and conformance boundary.
+title: Neural models
+description: Select a local dynamical mechanism and retain its specific evidence boundary.
 ---
 
-The active families are [Falandays](/benchmarks/models/falandays/) and
-[SORN](/benchmarks/models/sorn/). Both use host construction and Quadrants dynamics.
+BrainlessLab currently implements two dense neural models. Both receive task inputs,
+emit binary node activity and read selected activity into task effectors.
+Neither is trained by a task-labelled loss.
 
-```bash
-uv run pytest python/tests/test_falandays.py python/tests/test_sorn.py
+- [Falandays](/benchmarks/models/falandays/) adapts synaptic weights and activity targets.
+- [SORN](/benchmarks/models/sorn/) combines excitatory/inhibitory activity, STDP,
+  synaptic normalisation and intrinsic plasticity.
+
+```python
+from brainlesslab import CompositionSpec, NodeSpec, TaskSpec, profile, resolve
+
+for kind in ("falandays", "sorn"):
+    resolved = resolve(profile(CompositionSpec(
+        node=NodeSpec(kind), task=TaskSpec("delayed_cue"), count=32,
+    )))
+    print(resolved.targets[0].target.composition.node.kind)
 ```
 
-Focused tests establish declared software contracts. Historical Falandays trajectory
-validation and later backend qualification remain separate.
-These checks do not prove learning, cognition or biological fidelity.
+Both configurations should resolve. Availability means the software can construct
+and step these models; it does not establish equivalent resource use, author-code
+trajectory parity or task competence.
 
-Continue with [nodes and reservoirs](/handbook/nodes-reservoirs/).
+Choose one model, declare its parameters and test a task protocol with
+[independent blocks](/handbook/evaluation/). Compare frozen modes only after reading
+the model's plasticity rules. See [performance](/python/performance/) for measurement
+of execution costs.

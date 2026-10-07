@@ -1,22 +1,71 @@
 ---
 title: Task ports and interaction
-description: Use the declared task interface without assuming a general body system.
+description: Follow observations through neural frames, readout and world updates.
 ---
 
-Each active task declares neural input and effector widths, world-state rules and
-action cadence. Check these values before tick zero.
+The active Python interface couples a reservoir to a declared task through input and
+effector arrays. This closes the observation/action loop without a generic body component
+system. A port's width and timing are part of the task contract.
+
+## Inspect the declared interface
+
+```python
+from brainlesslab import TaskSpec
+from brainlesslab.tasks import definition
+
+for kind in ("tracking", "pong", "cartpole_plank_easy", "delayed_cue"):
+    info = definition(TaskSpec(kind))
+    print(kind, info.n_inputs, info.n_effectors, info.neural_frames)
+```
+
+Expect input widths 62, 46, 8 and 3 respectively under default options. Each task has
+two effectors. CartPole executes 24 neural frames per world tick; the other three use one.
+Changing Tracking's sensor offsets changes its input width.
+
+Validate an assembled composition before execution:
 
 ```bash
 uv run brainlesslab check python/plans/delayed-cue.toml
 ```
 
-The resolved protocol should expose compatible model and task ports.
-Neural and world state advance in Quadrants; host construction and recording do not
-define extra neural dynamics.
+The resolved widths must match model construction. Input weights connect receptor
+channels to nodes; output masks select the emitted activity contributing to each effector.
+Readouts are fixed construction values, rather than fitted task classifiers.
 
-A generic body/geometry/physiology composition system and heterogeneous ecological
-populations are historical Julia capabilities, rather than active Python interfaces.
-Read their original source at [d0fc756d](https://github.com/btgaskin/brainless-lab/tree/d0fc756d).
+## Follow one world tick
 
-Use [the active task catalogue](/reference/core-catalog/) and
-[platform limits](/platform-limits/) to choose a supported composition.
+The world supplies observations for the current tick. The task encodes them into receptor
+values. For each neural frame, the runner applies declared input gain or interventions,
+advances the reservoir, and accumulates effectors. The task then applies one world action
+and updates its state.
+
+CartPole's encoder distributes four state variables across sign-specific spike channels
+over 24 frames. It sums effector votes across those frames and applies one force.
+An equality in the total votes chooses left. Advancing physics once per neural frame
+would implement a different task.
+
+Binary probes accumulate effectors only inside their response windows. Their go channel
+marks that window. Pre-response output does not count toward the decision, and equal
+response evidence chooses left.
+
+A numerical failure disables subsequent work for that trajectory. An inactive batch
+slot does not advance neural or world state. These execution guards must not turn an
+unfinished episode into a completed score.
+
+## Keep observation and diagnostic truth separate
+
+Reference policies receive only their declared observations. Offline labels, cue
+identities, hidden mappings and response schedules are retained for scoring and analysis;
+they are not online inputs. Visible reversal feedback reports a chosen action and its
+correctness, which differs from revealing the hidden mapping.
+
+Physical snapshots and replay frames expose diagnostic world state after execution.
+The website displays generated development recordings; it does not execute another
+implementation of these equations.
+
+Generic `Embodiment`, geometry/physiology composition and ecological populations belong
+to historical Julia at [d0fc756d](https://github.com/btgaskin/brainless-lab/tree/d0fc756d).
+They are not active Python extension interfaces.
+
+Continue with [task pages](/benchmarks/tasks/),
+[implementation interfaces](/reference/interfaces/) and [limits](/platform-limits/).

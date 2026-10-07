@@ -1,21 +1,35 @@
 ---
-title: Benchmark tasks
-description: Keep four native task outcomes separate.
+title: Core tasks
+description: Read the physical and delayed-response contracts before comparing outcomes.
 ---
 
-Tracking, Pong, Plank CartPole Easy and delayed cue ask different questions.
-They remain separate benchmark coordinates, even after a null adjustment.
+The core task set contains Tracking, Pong, Plank CartPole Easy and delayed cue.
+Each task declares inputs, effectors, action cadence, an ordinary horizon and one
+primary outcome.
 
-- [Tracking](/benchmarks/tasks/tracking/) measures following a moving stimulus.
-- [Pong](/benchmarks/tasks/pong/) measures paddle interception.
-- [Plank CartPole Easy](/benchmarks/tasks/cartpole-plank-easy/) measures surviving steps.
-- [Delayed cue](/benchmarks/tasks/delayed-cue/) measures a delayed binary response.
+| Task | Question | Native unit |
+| --- | --- | --- |
+| [Tracking](/benchmarks/tasks/tracking/) | Does the observer align with a moving stimulus? | Mean cosine of angular error |
+| [Pong](/benchmarks/tasks/pong/) | Does the paddle intercept approaching balls? | Hit fraction |
+| [Plank CartPole Easy](/benchmarks/tasks/cartpole-plank-easy/) | How long does the pole remain within bounds? | World steps survived |
+| [Delayed cue](/benchmarks/tasks/delayed-cue/) | Is one cue retained until go? | Response accuracy |
 
-```bash
-uv run brainlesslab check python/plans/delayed-cue.toml
+```python
+from brainlesslab import TaskSpec
+from brainlesslab.tasks import definition
+
+for kind in ("tracking", "pong", "cartpole_plank_easy", "delayed_cue"):
+    print(kind, definition(TaskSpec(kind)))
 ```
 
-Inspect the task's ports, action cadence and scored horizon.
-Read its outcome key and raw units before interpreting an adjusted score.
-Existing historical benchmark protocols retain their separate evidence status.
-Continue with [calibration](/reference/analysis/).
+The output exposes port widths, neural cadence, default horizon, minimum scored
+ticks, outcome key and bound. Resolution also checks task options and protocol
+compatibility before allocation.
+
+The six [additional capacity families](/benchmarks/probes/) are available
+experimental software. Historical benchmark tables retain their original protocols
+and source revisions; current availability does not promote them.
+
+Compare conditions within a task using [independent blocks](/handbook/evaluation/)
+and a suitable [null](/reference/analysis/). Use
+[performance](/python/performance/) for execution speed rather than task scores.

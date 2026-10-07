@@ -4,7 +4,7 @@ BrainlessLab is an experimental research platform. Preserve software and scienti
 
 ## Read the maintained guidance
 
-Before changing BrainlessLab code, read `skills/brainless-lab/SKILL.md` and `skills/julia/SKILL.md` in full. The latter identifies the historical Julia boundary. `.agents/skills/` exposes relative discovery links to these checked-in files. Use the current worktree; do not install independent global copies.
+Before changing BrainlessLab code, read `skills/brainless-lab/SKILL.md` in full. `.agents/skills/brainless-lab` points to this checked-in file. Use the current worktree; do not install independent global copies.
 
 The active implementation is Python and Quadrants under `python/src/brainlesslab/`. Read `docs/python/README.md` and only relevant references. Historical Julia code is preserved in Git at revision `d0fc756d`. Its protocols and accepted records retain their original source revisions.
 
@@ -63,8 +63,6 @@ bun run build
 ```
 
 Warm kernels before timing. Separate compilation, transfer, runtime and recording costs. Check exports, executable examples, deterministic streams, reset/ownership, batch independence and `git diff --check` for public changes. Match README, site and project skills to implemented vocabulary. CPU64 is the reference arithmetic policy; Metal32 and each CPU architecture require explicit qualification receipts. CI configuration alone is not a passed receipt.
-
-For a historical Julia change, work at its source revision and apply its original package, ambiguity and fixture gates. Do not claim those historical gates qualify Python.
 
 ## Documentation
 

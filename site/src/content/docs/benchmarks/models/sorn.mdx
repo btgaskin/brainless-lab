@@ -1,19 +1,65 @@
 ---
 title: SORN
-description: Inspect synchronous E/I dynamics and local online plasticity.
+description: Distinguish synchronous activity, STDP, normalisation and intrinsic plasticity.
 ---
 
-SORN implements synchronous binary excitatory/inhibitory dynamics,
-E-to-E STDP, incoming-row normalisation and intrinsic threshold plasticity.
-The historical `inhibitory_fraction` parameter denotes an I/E ratio.
-Pruned E-to-E edges cannot regrow.
+## Which populations are constructed?
+
+SORN separates excitatory and inhibitory nodes. The parameter `inhibitory_fraction`
+is the inhibitory-to-excitatory ratio, despite its historical name. With its default
+0.2, the excitatory count is round-to-even of `count / 1.2`, clamped to at least one;
+the remainder is inhibitory. A one-node model therefore has no inhibitory nodes.
+
+```python
+from brainlesslab import CompositionSpec, NodeSpec, TaskSpec, profile, resolve
+
+resolved = resolve(profile(CompositionSpec(
+    node=NodeSpec("sorn", parameters={"eta_stdp": 0.001, "eta_ip": 0.001}),
+    task=TaskSpec("delayed_cue"),
+    count=32,
+)))
+print(resolved.targets[0].target.composition.node.kind)
+```
+
+This resolves SORN with explicit learning rates. The default excitatory connection
+probability is `10 / 166`; it is a probability, not a fixed in-degree.
+Excitatory self-links are removed.
+
+## Read the four update stages
+
+1. Compute new excitatory and inhibitory spikes from the old populations.
+   Excitatory drive combines excitatory recurrence, inhibitory subtraction and task
+   input. Inhibitory drive receives old excitatory activity. Threshold equality fires.
+2. Update excitatory weights by STDP:
+   `eta_stdp * (new_destination * old_source - old_destination * new_source)`.
+3. Remove weights at or below zero and permanently clear their connectivity masks.
+   Normalise nonzero excitatory incoming rows to their initial row-sum targets.
+   Zero rows are skipped; pruned edges do not regrow.
+4. Shift excitatory thresholds by `eta_ip * (new_spike - H_ip)`.
+   This intrinsic update is not clipped.
+
+Inhibitory weights and thresholds stay fixed. Task input weights stay fixed.
+The common model noise argument is unused by SORN.
+
+Emitted activity contains excitatory followed by inhibitory spikes. Task effectors
+average selected excitatory spikes only; an empty selection returns zero.
+Matrices use destination/source orientation.
+
+## Freeze and reset deliberately
+
+`freeze_weights` stops STDP and synaptic normalisation while intrinsic plasticity
+continues. `freeze_plasticity` also stops threshold adaptation.
+Setting `eta_stdp=0` alone does not disable normalisation or intrinsic plasticity.
+
+Full reset restores weights, pruned masks, thresholds, spikes and plasticity flags.
+Each independent trial starts from its declared construction, including initially
+empty rows. Current storage is dense.
 
 ```bash
 uv run pytest python/tests/test_sorn.py
 ```
 
-Tests cover the declared equations, ordering, pruning, zero rows, reset,
-frozen modes, ownership and batching. Software conformance does not establish
-authors-code trajectory parity, criticality or biological fidelity.
-
-Continue with [the active model interface](/reference/interfaces/) and [limits](/platform-limits/).
+These tests establish equation conformance and runtime ownership for the declared
+implementation. They do not establish the authors' code trajectories or biological
+validity. Continue with [capacity probes](/benchmarks/probes/) or
+[a paired ablation](/tutorials/compare-conditions/).

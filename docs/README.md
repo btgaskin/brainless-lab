@@ -1,28 +1,35 @@
 # BrainlessLab documentation
 
-The public guide lives under [`site/`](../site/) and is published at
-<https://brainless-lab.pages.dev>. It is the human-readable account of the current public
-interfaces.
+The maintained guide lives under `site/src/content/docs/`. Start with the task you
+want to perform:
 
-The main entry points are:
+| Task | Guide |
+| --- | --- |
+| Run and inspect a simulation | [First simulation](../site/src/content/docs/tutorials/first-simulation.mdx) |
+| Compare conditions | [Comparison guide](../site/src/content/docs/tutorials/compare-conditions.mdx) |
+| Understand the design | [System map](../site/src/content/docs/handbook/system-map.mdx) |
+| Measure speed and memory | [Performance guide](../site/src/content/docs/python/performance.mdx) |
+| Change or extend the code | [Contributing](../CONTRIBUTING.md) |
+| Check supported capabilities | [Platform limits](../site/src/content/docs/platform-limits.mdx) |
 
-- [Run your first simulation](https://brainless-lab.pages.dev/tutorials/first-simulation/)
-- [System map](https://brainless-lab.pages.dev/handbook/system-map/)
-- [Research records](https://brainless-lab.pages.dev/research/)
-- [Extend BrainlessLab](https://brainless-lab.pages.dev/handbook/extending/)
-- [Platform limits](https://brainless-lab.pages.dev/platform-limits/)
+`docs/python/` contains the architecture, implementation exercises, qualification
+receipts and upstream issue draft. The small [BrainlessLab skill](../skills/brainless-lab/SKILL.md)
+routes agents to these same maintained sources.
 
-Run the site locally:
+Preview or check the site:
 
 ```bash
 cd site
-bun install
+bun install --frozen-lockfile
 bun run dev
 ```
 
-Use [`WRITING.md`](WRITING.md) when changing repository prose. It defines the maintained
-soft-STE profile, British spelling, and preferred platform terms.
+```bash
+bun test
+bun run typecheck
+bun run build
+```
 
-Checked-in plans, experiments, examples, tests, and generated records are executable
-sources of truth. Documentation must agree with them, but it must not present a planned
-protocol or software-ready capability as scientific evidence.
+Follow [WRITING.md](WRITING.md). Commands and claims must match source, tests and
+records. Historical scientific artefacts retain their original source revisions;
+[ARCHIVE.md](../ARCHIVE.md) provides the boundary without maintaining another runtime guide.

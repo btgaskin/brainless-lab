@@ -1,45 +1,69 @@
 # Contributing to BrainlessLab
 
-Work in the active Python and Quadrants implementation. Historical Julia software and its original research protocols remain available at [revision d0fc756d](https://github.com/btgaskin/brainless-lab/tree/d0fc756d).
+Work on the Python and Quadrants implementation. Read [AGENTS.md](AGENTS.md) and the
+small project-local [skill](skills/brainless-lab/SKILL.md). The public guide documents
+the current contract; source, tests and immutable records establish what it implements.
 
-## Set up the locked environment
+## Set up and resolve a plan
 
 ```bash
 uv sync --locked --group dev
 uv run brainlesslab check python/plans/delayed-cue.toml
 ```
 
-The check command should resolve a declared composition and protocol without advancing a world. Read [AGENTS.md](AGENTS.md) and both maintained project skills before changing the implementation.
+The check resolves model defaults, task options, ports and timing without advancing
+a world. Use a small development plan to reproduce an issue. Preserve unrelated
+dirty files and use an isolated worktree for broad or parallel work.
 
-## Make a reviewable change
+## Make one reviewable change
 
-1. Inspect the branch, worktree and dirty files. Preserve unrelated work.
-2. Use a small contract test to reproduce the problem.
-3. Keep model construction, scientific specifications, placement, runtime buffers and offline analysis separate.
-4. Preserve destination/source matrix orientation, stable identities and owned snapshots.
-5. Warm a kernel before measuring its steady-state cost. Record compilation separately.
-6. Run the relevant tests and update the public guide when its contract changes.
+Keep scientific specifications, execution policy, device buffers and offline analysis
+separate. Use stable IDs, destination/source matrices, synchronous updates, owned
+snapshots and complete reset. Preserve per-frame failure masks and deterministic streams.
+
+Use the existing narrow model, task or analysis module. There is no general plugin
+registry. Update the guide when commands, outputs or supported scope change.
+Add tests for the failing contract and run the smallest relevant checks first.
+
+For a public change:
 
 ```bash
-uv run pytest
-uv run ruff check python
-uv run pyright
 uv build
+BRAINLESSLAB_TEST_WHEEL=dist/brainlesslab-0.4.0-py3-none-any.whl uv run pytest
+uv run ruff check python
+uv run ruff format --check python
+uv run pyright
 cd site
 bun test
+bun run typecheck
 bun run build
 ```
 
-CPU64 equation agreement, immutable Julia fixtures, CPU32 checks and Metal32 qualification are separate gates. Passing one does not imply another. The CI matrix has explicit CPU architecture jobs; record actual receipts before claiming those platforms are qualified.
+Check `git diff --check` and execute referenced examples. Configured architecture jobs
+need actual CI receipts before their platforms are called qualified.
 
-## Preserve study evidence
+## Report performance with enough context
 
-A task score operationalises that task. A diagnostic decoder does not replace the native outcome or drive the controller. Ticks and agents within one world are not independent replicates. Keep training, tuning, calibration and confirmation seed partitions disjoint.
+Follow the [performance protocol](docs/python/performance.md). Keep precision, trial
+identities and recording fixed across execution comparisons. Retain repeated samples,
+actual completed work, failed trials, admitted batch capacity and host conditions.
+Separate compilation, warmed evaluation, recording and tracing.
 
-Do not inspect sealed evaluation data for implementation or debugging. Do not edit accepted contribution directories, benchmark tables or fidelity fixtures to accommodate a rewrite. Only a human maintainer accepts research contributions. Historical contributor/replay pairs retain linked roles and are not extra independent results.
+Warm evaluation includes construction and summaries. Process RSS is not VRAM.
+A noisy diagnostic, a compiler count or a faster random-action kernel does not establish
+a reservoir speedup. Use a minimal standalone reproduction for a Quadrants issue.
 
-A new Python record makes a run inspectable. It does not transfer historical validation, confirm a development observation or establish a biological interpretation. Current limitations belong in [the platform guide](site/src/content/docs/platform-limits.mdx).
+## Preserve research evidence
 
-## Handoff
+Do not inspect sealed data for implementation or debugging. Do not edit accepted
+contributions, benchmark tables or reference fixtures to accommodate a code change.
+Keep calibration, selection and confirmation worlds disjoint. Blocks or trials are
+the inferential units; their ticks and neurons are not extra samples.
 
-Explain the resulting behaviour, exact checks, numerical policy and any measured performance. Keep software conformance, observed task performance and study evidence distinct. Report missing backend or architecture receipts explicitly. See [the implementation exercises](docs/python/learning.md) for profiling and compiler inspection.
+Only a human maintainer accepts research contributions. A linked maintainer replay
+is reproduction, not independent evidence. Historical records retain their source
+revisions through [ARCHIVE.md](ARCHIVE.md).
+
+In the handoff, state resulting behaviour, checks, numerical policy, measured
+performance and remaining limits. Keep software conformance, task behaviour and
+scientific evidence distinct. Continue with [implementation exercises](docs/python/learning.md).

@@ -1,40 +1,57 @@
 ---
-legacy: true
-title: Context-dependent integration
-description: Use an initial context cue to select the relevant evidence stream.
+title: Context integration
+description: Use an initial context to select the relevant evidence stream.
 ---
 
-Context integration asks whether a controller can retain a cue that determines which
-input matters. Two simultaneous pulse streams can favour the same response or disagree.
-The initial context selects the stream that determines the answer.
+## Which stream determines the answer?
+
+`context_integration` presents a binary context cue, then two simultaneous evidence
+streams. Context 1 selects stream 1; context 2 selects stream 2.
+The seven receptors are two context channels, two left/right stream pairs and go.
+Two effectors respond during go; there is one neural frame per world tick.
 
 ```text
-context (8) → two simultaneous evidence streams (16, 32 or 64) → response (8)
-              congruent or conflicting; context transient or persistent
+context (8) → two evidence streams (32 pulses) → go / response (8)
 ```
 
-`:context_integration` has seven receptors: context one/two, stream-one left/right,
-stream-two left/right, and go. Each stream uses the
-[evidence pulse construction](/benchmarks/probes/evidence/), including an answer-independent
-final pulse. Evidence fractions are 0.125, 0.25 and 0.5. The outcome is `probe_accuracy`,
-raw and normalised in [0, 1], with chance 0.5.
+```python
+from brainlesslab import TaskSpec
+from brainlesslab.tasks import definition, resolve
 
-```julia
-using BrainlessLab
-target = EvaluationTarget(:context,
-    CompositionSpec(:context, :null_random, :context_integration; n_nodes=8,
-        task_options=Dict(:congruency => :conflicting, :context_mode => :transient)),
-    EvaluationSpec(horizon=48, root_seed=1610500))
-task_outcome(only(evaluate(target).trials).simulation)
+task = TaskSpec("context_integration",
+                options={"congruency": "conflicting", "context_mode": "transient"})
+print(resolve(task))
+print(definition(task))
 ```
 
-`probe_control(:context_integration)` accumulates the stream selected by the observed
-context. It should achieve full accuracy. Its `:context_blind` policy always uses stream
-one; `:irrelevant` uses the other stream and should fail on conflicting trials. Congruent
-trials alone cannot establish context use. Persistent context removes the retention
-requirement; `context_mode=:hidden` removes the selector. `congruency=:mixed` samples
-congruent and conflicting trials with equal probability.
+Expect seven inputs, two effectors and horizon 48. The defaults use 32 one-tick
+pulses and evidence fraction 0.25.
 
-Compare both congruencies and context modes. Recoverable context information in a
-[decoder](/benchmarks/probes/decoding/) does not establish that native actions use it.
-See the [study protocol](/benchmarks/probes/study/) for planned comparisons. This is a candidate task.
+## Make selection necessary
+
+`congruency="congruent"` gives both streams the same majority.
+`"conflicting"` makes their majorities opposite. `"mixed"` draws the irrelevant
+stream's majority independently. Context and relevant answer are balanced choices.
+Each stream controls its final pulse as in
+[evidence accumulation](/benchmarks/probes/evidence/).
+
+`context_mode="transient"` removes context after the initial cue;
+`"persistent"` retains it through response; `"hidden"` removes context only.
+Evidence remains visible in all three modes.
+Success on congruent streams alone cannot establish context-dependent selection.
+
+The observation-based oracle counts the selected stream.
+`context_blind` always selects stream 1; `irrelevant` selects the other.
+The latter is systematically wrong on conflicting trials. These references answer
+different questions from the random-action null.
+
+## Report the declared difficulty
+
+The 36 presets cross three pulse counts, three evidence fractions, congruent or
+conflicting streams and transient or persistent context.
+`probe_accuracy` is one binary result per complete trial; ties choose left,
+chance is 0.5 and warm-up is zero.
+
+Compare matched worlds and full resets within fixed-wiring blocks.
+Continue with [decoding](/benchmarks/probes/decoding/) to inspect context and
+answer information at separate observation points.

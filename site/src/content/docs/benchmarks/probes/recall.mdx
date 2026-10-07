@@ -1,44 +1,64 @@
 ---
-legacy: true
 title: Recall duration and interference
-description: Retain a binary cue through blank intervals and competing signals.
+description: Vary the blank interval and competing cues without changing the response interface.
 ---
 
-Recall probes ask how long a controller retains a cue and how competing input affects
-that retention. `:delayed_cue` keeps its existing behaviour. The new
-`:recall_interference` task inserts distractors on the same two cue channels.
+## Which information must survive?
+
+[Delayed cue](/benchmarks/tasks/delayed-cue/) asks for the first binary cue after a
+blank delay. `recall_interference` inserts later cues on the same receptor channels.
+Both have three inputs—left, right and go—and two effectors. One neural frame is
+one world tick.
 
 ```text
-cue (8) → delay (0, 8, 32, 128 or 256) → go and response (8)
-                  ↳ interference: one or three distractors, four frames each
+initial cue (8) → delay, possibly with distractors → go / response (8)
 ```
 
-The receptors are left cue, right cue and go. Outputs choose left or right. Only the
-response window contributes to `recall_accuracy` on delayed cue or `probe_accuracy`
-on interference. Both use raw and normalised accuracy in [0, 1], with chance 0.5.
+The preset bank has five delayed-cue cells with delays 0, 8, 32, 128 and 256.
+Interference adds six cells: delays 32, 128 and 256 crossed with one or three
+four-tick distractors.
 
-```julia
-using BrainlessLab
-cell = only(c for c in capacity_probe_presets()
-    if c.id == :recall_interference__delay_32_distractors_3)
-target = EvaluationTarget(cell.id,
-    CompositionSpec(cell.id, :null_random, cell.task; n_nodes=8, task_options=cell.task_options),
-    EvaluationSpec(horizon=cell.horizon, root_seed=1610200))
-task_outcome(only(evaluate(target).trials).simulation)
+```python
+from brainlesslab import CompositionSpec, NodeSpec, TaskSpec, profile, resolve
+from brainlesslab.tasks import capacity_probe_presets
+
+cell = next(cell for cell in capacity_probe_presets()
+            if cell.id == "recall_interference__delay_32_distractors_3")
+target = resolve(profile(CompositionSpec(
+    node=NodeSpec("sorn"),
+    task=TaskSpec(cell.task, options=cell.task_options),
+    count=32,
+))).targets[0]
+print(cell.id, target.horizon, target.n_inputs)
 ```
 
-Distractors require at least 32 delay frames and blank spacing between events.
-`distractor_mode` accepts `:random`, `:matched`, `:opposite` and `:absent`.
-The seeded random distractor sequence stays fixed when visibility changes.
-`cue_mode` accepts `:transient`, `:persistent` and `:hidden`. Hidden-cue controls
-should use random or absent distractors: matched or opposite distractors reveal the cue.
+Expect the selected ID, horizon 48 and three inputs. Nonzero distractors require
+at least 32 delay ticks and enough blank spacing between events.
+The distractor schedule lies inside the delay and does not extend it.
 
-An observation-only `probe_control(:recall_interference)` remembers the initial cue and
-ignores later distractors. It should answer every completed trial correctly. A memoryless
-controller succeeds when the cue remains visible through response. Hidden cue and constant
-response establish the balanced-label chance reference. A short successful delay alone
-does not establish long-duration retention or resistance to interference.
+## Distinguish visibility from retention
 
-Use the [decoding diagnostic](/benchmarks/probes/decoding/) to locate recoverable cue
-information, then compare the declared delay and distractor cells in the
-[planned study](/benchmarks/probes/study/). Interference has not entered the core benchmark.
+`cue_mode` accepts `transient`, `persistent` and `hidden`.
+`distractor_mode` accepts `random`, `matched`, `opposite` and `absent`.
+Random draws are retained when visibility changes. During a visible distractor,
+its cue replaces the initial cue channels; a persistent initial cue returns
+after that interval.
+
+Matched and opposite distractors reveal the initial answer even when the original
+cue is hidden. Use random or absent distractors for an uninformed hidden-cue control.
+Persistent cue permits a current-input shortcut.
+
+The observation-based oracle remembers the first cue and ignores distractors;
+a last-cue reference tests overwriting. Constant and random references answer
+different null questions.
+
+## Report the curve
+
+The primary keys are `recall_accuracy` for delayed cue and `probe_accuracy` for
+interference. Each complete trial contributes one binary response; ties select
+left. Chance is 0.5 and the signed adjustment may be negative. Warm-up is zero.
+
+Report delay, distractor count and visibility alongside each outcome. One successful
+short cell does not establish durable retention or interference resistance.
+Continue with [whole-trial decoding](/benchmarks/probes/decoding/) and
+[paired comparisons](/tutorials/compare-conditions/).

@@ -1,37 +1,71 @@
 ---
 title: Analysis and calibration
-description: Keep task adjustment and offline decoding independent of the controller.
+description: Interpret raw outcomes, signed null adjustments and offline diagnostic decoders.
 ---
 
-Raw outcomes retain native task units. A frozen task-matched calibration adds:
+## What does a score mean?
+
+Use `task_outcome(result)` to retrieve the declared primary outcome. Retain its
+key, raw value, normalised value, scoring window and calibration status. When a
+result has several targets, this function returns a mapping by target ID.
+
+A matching calibration defines a signed adjustment:
 
 ```text
-null_adjusted = (raw - null_mean) / (upper_bound - null_mean)
+adjusted = (raw - null_mean) / (upper_bound - null_mean)
 ```
 
-Negative values remain visible. An unavailable or non-positive denominator leaves
-the adjustment unavailable. Tracking and Pong have bound 1, CartPole has its declared
-step bound up to 15,000, and binary probes have bound 1. These bounds are not implemented
-oracles. Analytic binary chance is 0.5 where declared.
+Chance performance maps to zero; the task bound maps to one. Values below the null
+remain negative. Different task units and null policies remain different quantities,
+so this transformation does not authorise a cross-task competence average.
 
-Empirical calibration freezes 1,024 independent null trajectory scores.
-Its signature includes task options, initialisation, scored horizon, warm-up, action
-cadence, numerical/RNG policy and world-source hashes. It excludes reservoir count,
-kind, topology and input gain.
+## Freeze the relevant null
 
-Adjusted intervals independently resample model blocks and calibration trajectories,
-recompute each ratio and report linear 2.5%/97.5% quantiles. Any invalid denominator draw
-makes the interval unavailable; no draws are dropped. Fewer than two independent model
-blocks yields no adjusted interval. Report raw and null intervals separately.
-
-Offline `decode` consumes owned sparse emitted-activity features and labels.
-It fits whole trials, scales from fit data only and tunes on validation data only.
-The permutation null shuffles fit and validation labels separately.
-Evaluation truth remains unchanged. The decoder never drives the task.
+Binary probes declare analytic chance 0.5. Physical tasks use exactly 1,024
+independent trajectories of their declared random-action reference. The supplied
+calibration plans can be resolved before any expensive execution:
 
 ```bash
-uv run pytest python/tests/test_analysis.py python/tests/test_calibration.py
+uv run brainlesslab check python/plans/calibration-tracking.toml
+uv run brainlesslab check python/plans/calibration-pong.toml
+uv run brainlesslab check python/plans/calibration-cartpole-easy.toml
 ```
 
-These tests check implementation safeguards, not a measured learning capacity.
-Continue with [the decoding guide](/benchmarks/probes/decoding/).
+A successful check reports the calibration protocol; it does not produce a
+calibration. Execute the chosen plan through `brainlesslab run` and retain its
+complete record. Supply that record with the run command's `--calibration` option
+only when its signature matches the target.
+
+The signature includes task options, initialisation, total horizon, warm-up, action
+cadence, numerical/RNG policy, backend, architecture, runtime fingerprint and world-source hashes.
+It excludes reservoir kind, count, topology and input gain. Calibration and evaluated
+world streams must be disjoint. A random-action null answers a different question
+from blind input, shifted input or a plasticity ablation.
+
+## Report uncertainty separately
+
+Summaries first average trial values within each independent model block.
+Adjusted intervals independently resample model blocks and calibration trajectories,
+then recompute the ratio. The default bootstrap uses 2,000 draws and linear 2.5%
+and 97.5% quantiles. Raw and null intervals remain separate reported quantities.
+
+Fewer than two model blocks gives no model interval. Invalid denominators make the
+adjusted interval unavailable; the procedure does not discard those bootstrap draws.
+A missing physical calibration leaves the raw outcome available and the adjusted
+value unavailable.
+
+## Decode observations offline
+
+`decode` fits a ridge decoder to sparse recorded emitted activity. It is a diagnostic
+analysis of recoverable task information, not a trained online controller.
+It supports the six single-episode capacity families and excludes physical tasks
+and action-dependent reversal sessions.
+
+The default split is 256 fit trials, 128 validation trials and 256 evaluation trials
+per independent fixed-wiring block. Scaling uses fit trials only; validation selects
+the ridge penalty separately at each observation point. A permutation null shuffles
+fit and validation labels separately and leaves evaluation labels unchanged.
+
+See the [decoding procedure](/benchmarks/probes/decoding/) for recording, ownership
+and split checks. For task performance comparisons use [operations](/handbook/operations/);
+for runtime speed use [performance](/python/performance/).

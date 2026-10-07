@@ -1,21 +1,50 @@
 ---
 title: Delayed cue
-description: Keep native a binary response after a delay outcomes and their protocol explicit.
+description: Recall one binary cue after a declared blank interval.
 ---
 
-Delayed cue asks about a binary response after a delay in one declared task.
-Its native outcome is binary recall accuracy with bound 1. Declared analytic random-choice chance is 0.5. Complete each configured episode; diagnostic observation labels remain outside the controller.
+## What is remembered?
 
-```bash
-uv run brainlesslab check python/plans/delayed-cue.toml
+The task presents either left or right cue for eight ticks, waits a chosen delay,
+then presents go for an eight-tick response. Its three receptors are left cue,
+right cue and go; its two effectors choose left or right. There is one neural
+frame per world tick.
+
+```text
+cue (8) → delay (chosen from 8, 32, 128) → go / response (8)
 ```
 
-The supplied example checks the active plan syntax. Select this task through its
-`TaskSpec` and inspect its resolved ports, scoring window and seed policy before running.
-Use `task_outcome` and retain the key, raw units and calibration status.
+Labels are balanced binary draws from the world stream. Effector values accumulate
+only during response; ties choose left. The default horizon 144 contains the
+longest default delay, while a completed short-delay episode ends sooner.
 
-A signed null adjustment does not make this outcome comparable to another task's units.
-Task performance does not establish general competence, learning or biological fidelity.
-Historical benchmark protocols and tables retain their original evidence status.
+```python
+from brainlesslab import CompositionSpec, NodeSpec, TaskSpec, profile, resolve
 
-Continue with [evaluation](/handbook/evaluation/) and [calibration](/reference/analysis/).
+target = resolve(profile(CompositionSpec(
+    node=NodeSpec("sorn"),
+    task=TaskSpec("delayed_cue", options={"delays": [32]}),
+    count=32,
+))).targets[0]
+print(target.horizon, target.n_inputs, target.outcome_key)
+```
+
+Expect `48 3 recall_accuracy`. The horizon follows cue plus delay plus response.
+Warm-up is zero and the complete episode must fit inside the declared horizon.
+
+## Choose the visibility control
+
+`cue_mode="transient"` removes the cue after its initial window.
+`"persistent"` leaves it visible through response, allowing a memoryless solution.
+`"hidden"` removes it throughout. These choices preserve the seeded episode choices
+but answer different questions.
+
+`recall_accuracy` is zero or one for a trial and an accuracy across trials.
+Analytic chance is 0.5; the signed adjustment is `2 * raw - 1`.
+The observation-based oracle remembers the initial cue. Memoryless, last-cue,
+constant and random-action references test narrower shortcuts.
+
+Success at one short delay does not establish a retention curve.
+Use [recall interference](/benchmarks/probes/recall/) for declared difficulty cells,
+then [offline decoding](/benchmarks/probes/decoding/) to ask whether emitted
+activity contains recoverable cue information.

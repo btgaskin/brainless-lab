@@ -22,18 +22,25 @@ A passing equation test establishes its declared software boundary. It does not 
 
 ## Separate kernel compilation from execution
 
+Use the [performance guide](/python/performance/) for the bounded measurement
+procedure and work-count checks before starting these exercises.
+
 Run one small CPU composition, then repeat the warmed call with the same rank and dtype. Record first-call latency separately from warmed time. Change batch size and node count without changing rank. Inspect which kernels compile again, and relate this to the typed ndarray bundles and runtime dimensions.
 
 Quadrants exposes compiler diagnostics through `qd.init(print_ir=True)` and cache settings. Use these in a scratch process, because runtime initialisation is process-wide. Compare the IR for destination-owned reductions with a deliberately copied scalar example. The [Quadrants guide](https://genesis-embodied-ai.github.io/quadrants/user_guide/index.html) is the source for supported diagnostic options.
 
-Measure compilation with a fresh cache and execution with a warm cache. Preserve the exact Quadrants version, backend, dtype, thread count and fast-math policy. A faster float32 run does not by itself qualify float32 numerics.
+Compare first-result latency with an empty application cache and repeated evaluations
+with a populated cache. These include construction and transfers; use compiler traces
+to isolate compilation. Preserve the exact Quadrants version, backend, dtype, thread
+count and fast-math policy. A faster float32 run does not qualify float32 numerics.
 
 ## Find host costs and transfer boundaries
 
 Profile a bounded example with [py-spy](https://github.com/benfred/py-spy):
 
 ```bash
-uv run --with py-spy py-spy record -o profile.svg -- brainlesslab run python/plans/delayed-cue.toml --root scratch-records
+uv run --with py-spy py-spy record -o profile.svg -- \
+  python -m brainlesslab.cli run python/plans/delayed-cue.toml --root scratch-records
 ```
 
 Inspect construction, random-tape preparation, host/device copies, Python launch overhead and record writing. py-spy samples host stacks; it does not resolve GPU kernel time.

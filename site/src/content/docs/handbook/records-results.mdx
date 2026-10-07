@@ -1,28 +1,88 @@
 ---
 title: Records and results
-description: Inspect native outcomes and provenance before interpreting a run.
+description: Check completion, provenance and native outcomes before comparing a portable record.
 ---
 
-A record makes an executed protocol inspectable. It retains requested and resolved
-settings, random identities, raw trial outcomes, summaries and checksums.
+A record preserves an executed scientific request and its realised output. Use it to
+review a result without recreating the device state. A complete record remains software
+output until its scientific evidence and acceptance are established separately.
+
+## Inspect before interpreting
 
 ```bash
 uv run brainlesslab inspect records/RECORD_ID
 ```
 
-Use the path printed by `run`. Check the task, node, horizon, warm-up, reset,
-construction scope, numerical policy and seed partition before comparing records.
+Use the directory printed by `run`. Inspection reads metadata and verifies the artifact
+inventory; it does not execute either Python or historical Julia code.
 
-Report the outcome key, raw value, scoring window and calibration status together.
-A missing calibration leaves the adjusted value unavailable. A valid null adjustment
-may be negative; retain that sign.
+A successful result has `complete: true`, `checksums_valid: true` and no invalid or
+unlisted artifacts. A checksum establishes byte integrity relative to the manifest.
+It does not establish that the scientific design or interpretation is correct.
 
-Intervals use independent model blocks. Empirical null calibration retains its own
-1,024 independent trajectories and uncertainty. Keep raw and null intervals separate
-from the adjusted ratio interval. Invalid denominator draws make that interval unavailable.
+## Find the authoritative artifacts
 
-Historical accepted records keep their original schema, source revision and evidence
-state. A maintainer replay is a linked reproduction check, not another independent sample.
-Only a human maintainer accepts a research contribution.
+A fresh Python record uses `brainlesslab-record` format version 2:
 
-Continue with [analysis](/reference/analysis/) and [historical research](/research/catalogue/).
+```text
+record-id/
+  record.toml
+  request.toml
+  resolved.toml
+  trials.csv
+  seeds.csv
+  summary/summary.json
+  environment/environment.json
+  environment/source.json
+  environment/package-source.zip
+  environment/uv.lock
+  DONE
+```
+
+`request.toml` preserves the v4 plan. `resolved.toml` includes model defaults, resolved
+task options, ports and horizons. `trials.csv` keeps target/block/trial identities,
+status, completed ticks, attempted neural frames and the native `TaskOutcome` fields.
+`seeds.csv` keeps realised stream identities and wiring IDs.
+
+The summary contains target estimates, raw intervals, adjusted intervals where applicable,
+paired raw contrasts, timings and execution metadata. The environment bundle preserves
+package source, the dependency lock and runtime information.
+
+Optional channels add sparse probe tables and feature arrays, replay files, or
+`calibration.json`. They do not turn every record into a raw tick trace or an HTML study
+report. Do not copy an artifact tree from the historical Julia runner as the Python format.
+
+## Recognise failed and incomplete runs
+
+The writer creates `DONE` only when all trials completed. It writes `FAILED` when a
+trial failed or remained incomplete, or when generation itself failed. Inspection can
+also report an incomplete directory whose completion marker is absent.
+
+Retain failed rows and their error information. A target containing a failed trial has
+an unavailable aggregate rather than an estimate over survivors. Attempted neural-frame
+counts can exceed completed world ticks times cadence when a later operation fails.
+
+The record writer refuses an existing destination. CLI invocations choose a new
+timestamped record name. Do not modify an accepted contribution directory or replace
+an earlier record with a corrected run; write a new linked result.
+
+## Read an outcome and its uncertainty together
+
+Report the outcome key, raw native value, normalised value, scoring window and calibration
+status. A missing physical calibration leaves normalisation unavailable. Binary chance
+and matching empirical calibrations produce signed null adjustments; retain negative values.
+
+Raw intervals resample independent model block means. Empirical calibration has its own
+1,024 trajectories. The adjusted interval independently resamples these two sources and
+recomputes the ratio. Invalid denominator draws make that interval unavailable instead
+of being removed. Keep raw, null and adjusted intervals separate.
+
+A paired raw contrast answers a condition comparison in native task units. It is separate
+from uncertainty in the null-adjusted scale. Neither justifies a cross-task aggregate.
+
+For accepted public research, query `research/catalogue.json` first and follow its
+source revisions and submitted artifacts. Maintainer replay is a linked reproduction
+check, not another independent result. Historical records remain immutable.
+
+Continue with [analysis and calibration](/reference/analysis/),
+[evaluation](/handbook/evaluation/) and [historical research](/research/catalogue/).

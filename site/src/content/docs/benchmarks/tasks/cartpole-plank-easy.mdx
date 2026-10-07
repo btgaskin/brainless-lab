@@ -1,21 +1,52 @@
 ---
 title: Plank CartPole Easy
-description: Keep native surviving balance steps outcomes and their protocol explicit.
+description: Balance a pole using signed pulse counts and a 24-frame action vote.
 ---
 
-Plank CartPole Easy asks about surviving balance steps in one declared task.
-Its native outcome retains surviving steps. The declared task bound is at most 15,000 steps; a shorter protocol must retain its actual bound. This is an opportunity bound, not an implemented oracle.
+## What is the interface?
 
-```bash
-uv run brainlesslab check python/plans/delayed-cue.toml
+The physical state is cart position `x`, velocity `x_dot`, pole angle `theta`
+and angular velocity `theta_dot`. Position uses metres, angle radians and time
+seconds. Each state variable supplies positive and negative receptor channels,
+giving eight inputs.
+
+Within each world tick, the encoder schedules signed pulses at neural frames
+1, 4, 7, …, 22. Pulse count is the ceiling of eight times the absolute state
+divided by its scale, clamped to eight. The scales are 2.4, 2, 0.2095 and 2.
+A zero value emits no pulses.
+
+The two effectors vote over all 24 neural frames. A tied vote selects left.
+The winning command applies force −10 or +10, followed by one explicit Euler
+physics step of 0.02 seconds. The reference parameters are gravity 9.8,
+cart mass 1, pole mass 0.1 and pole-length parameter 0.5.
+
+```python
+from brainlesslab import CompositionSpec, NodeSpec, TaskSpec, profile, resolve
+
+target = resolve(profile(CompositionSpec(
+    node=NodeSpec("falandays"), task=TaskSpec("cartpole_plank_easy"), count=32,
+))).targets[0]
+print(target.horizon, target.n_inputs, target.neural_frames)
 ```
 
-The supplied example checks the active plan syntax. Select this task through its
-`TaskSpec` and inspect its resolved ports, scoring window and seed policy before running.
-Use `task_outcome` and retain the key, raw units and calibration status.
+Expect `15000 8 24`. This is a configuration check, not 15,000 neural steps:
+a full surviving trial executes 360,000 neural frames.
 
-A signed null adjustment does not make this outcome comparable to another task's units.
-Task performance does not establish general competence, learning or biological fidelity.
-Historical benchmark protocols and tables retain their original evidence status.
+## Interpret survival
 
-Continue with [evaluation](/handbook/evaluation/) and [calibration](/reference/analysis/).
+A trial ends when `abs(x) > 2.4`, `abs(theta) > 0.2095` or 15,000 world ticks
+have completed. `fitness` is survival in world steps, with upper bound 15,000.
+Early physical termination is an ordinary completed outcome; numerical failure
+is a failed trial.
+
+Initial state ranges default to ±1.2 for position, ±0.05 for velocity,
+±0.10475 for angle and ±0.05 for angular velocity. `initial_ranges` can declare
+four finite ordered pairs. Warm-up is zero.
+
+The null makes one fair binary action choice per world tick and holds that choice
+through all 24 frames. Calibration needs 1,024 independent full-protocol
+trajectories. A short diagnostic run changes the observation window and does not
+qualify the ordinary task.
+
+Continue with [calibration](/reference/analysis/) and
+[execution performance](/python/performance/) before budgeting a large run.

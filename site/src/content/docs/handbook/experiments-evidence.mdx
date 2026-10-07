@@ -1,34 +1,71 @@
 ---
 title: Experiments and evidence
-description: Separate software conformance, development and sealed confirmation.
+description: Keep implementation checks, development selection and scientific confirmation separate.
 ---
 
-Follow the evidence ladder:
+A research result has a question, a protocol and an evidence boundary. The active `Plan`
+preserves that question, a version, named targets, an operation and an evidence state.
+These fields make work inspectable; they do not confer scientific acceptance.
 
 ```text
 conformance -> calibration -> exploration -> tuning/training -> variance pilot
-  -> frozen protocol -> sealed confirmation -> robustness -> promoted evidence
+    -> frozen protocol -> sealed confirmation -> robustness -> promoted evidence
 ```
 
-A `Plan` retains a question, version, named conditions and evidence state.
-The active development runner cannot confer confirmed or promoted evidence.
-A successful software gate or complete record does not promote a study.
+## Use each stage for its own decision
+
+Conformance checks whether the equations, state transitions and records implement their
+declared contracts. Backend qualification checks a specific arithmetic/device path.
+Calibration measures the declared task null under a matched protocol.
+
+Exploration and tuning identify promising development settings. A variance pilot estimates
+the independent sample needed for a later comparison. Freezing fixes the question,
+conditions, settings, exclusions and seed policy before confirmation.
+
+The Python development runner accepts planned, exploratory, tuned, frozen and retired
+states. It rejects `confirmed` and `promoted` requests. A program cannot grant those
+states merely by completing a run.
+
+## Validate without examining sealed outcomes
 
 ```bash
 uv run brainlesslab check python/plans/delayed-cue.toml
 ```
 
-The check command verifies a declared protocol without examining or executing a sealed
-evaluation set. Keep calibration, tuning, confirmation and robustness seeds disjoint.
+This command checks the requested protocol without simulation. Use source, tests and
+development worlds for implementation and debugging. Do not inspect sealed evaluation
+data to choose parameters, diagnose a surprising result or repair a comparison.
 
-A task score operationalises performance on that task. A diagnostic decoder measures
-recoverable labelled information under its estimator and split policy.
-Neither establishes cognition, general capability or biological fidelity.
+Keep calibration, development, training/selection, variance-pilot, confirmation and
+robustness streams disjoint. Pair declared worlds within a causal comparison, and retain
+distinct mechanism streams where its design requires them.
 
-Accepted historical contributions, experiment bundles and benchmark tables retain their
-source references and status. This rewrite does not rerun, supersede or promote them.
-The historical Julia `ExperimentSpec` authoring workflow remains at
-[d0fc756d](https://github.com/btgaskin/brainless-lab/tree/d0fc756d).
+## Match the claim to the control
 
-Continue with [comparison controls](/tutorials/compare-conditions/) and
-[platform limits](/platform-limits/).
+A reference random-action policy estimates one task floor. Blind input asks about access
+to observations. Shuffled input changes the correspondence between channels and wiring.
+Weight and full-plasticity freezes distinguish declared adaptation paths.
+None is a universal null for every claim.
+
+A native score describes one task opportunity. An offline decoder describes recoverable
+labelled information under a particular estimator and whole-trial split. Neither alone
+establishes cognition, biological fidelity, a task-controlled learning mechanism or
+external validity.
+
+Use independent randomised blocks or trials as inferential units. Ticks, nodes, event
+points and agents within a world do not add replicates. Retain unsuccessful and
+unavailable results rather than selecting only representative runs.
+
+## Preserve historical evidence
+
+Accepted historical records, benchmark tables and experiment bundles keep their original
+source revision and status. Query `research/catalogue.json` before examining accepted
+public contributions. A maintainer replay is a linked reproduction check, not another
+independent sample.
+
+The rewrite does not rerun or promote these studies. Historical `ExperimentSpec` tools
+remain at [d0fc756d](https://github.com/btgaskin/brainless-lab/tree/d0fc756d); they are not
+a second active Python plan schema.
+
+Continue with [comparison controls](/tutorials/compare-conditions/),
+[records](/handbook/records-results/) and [limits](/platform-limits/).

@@ -1,32 +1,81 @@
 ---
 title: Compare conditions
-description: Keep paired worlds, independent blocks and causal controls explicit.
+description: Match worlds and protocols while making mechanism changes and inferential units explicit.
 ---
 
-A condition comparison asks whether declared mechanisms differ under a matched protocol.
-The control must answer that question. Random action, blind input, shuffled input and
-a plasticity freeze answer different questions.
+A comparison asks whether a declared change affects a task outcome under matched
+opportunities. Start by naming that change. Freezing recurrent weights, removing input
+and replacing the controller with random action answer different questions.
 
-Use named `EvaluationTarget` values in one `Plan`. Pair the declared world identity
-across conditions. Keep distinct mechanism identities when the comparison requires
-separate stochastic mechanisms. Stable identities make the schedule independent of
-physical batch slots.
+## Check an ablation example
 
 ```bash
-uv run brainlesslab check python/plans/delayed-cue.toml
+uv run brainlesslab check python/plans/ablate-delayed-cue.toml
 ```
 
-Check the supplied syntax before authoring a comparison.
-Use the public `ablate` or `benchmark` operation and explicit target identifiers;
-do not introduce an operation-specific configuration schema.
+The example contains a baseline and two plasticity interventions. All targets share the
+task, horizon and declared world pairing. Run it only after checking the intervention
+tick and the model's enabled learning rates:
 
-Compare raw outcomes within a task and matched independent blocks.
-Report raw paired contrasts separately from calibration and adjusted-score uncertainty.
-Agents and ticks within one world are not extra independent samples.
+```bash
+uv run brainlesslab run python/plans/ablate-delayed-cue.toml --root records
+uv run brainlesslab inspect records/RECORD_ID
+```
 
-`freeze_weights` disables weight adaptation while target or threshold adaptation
-continues where the model supports it. `freeze_plasticity` freezes all declared
-adaptation. Preserve the intervention tick in the scientific protocol.
+Expect separate target summaries and `paired_raw` contrasts against `baseline`.
+The contrast subtracts baseline from intervention within each paired trial, averages
+within a block, then compares independent block differences. It retains native task units.
 
-Review [evaluation](/handbook/evaluation/), [calibration](/reference/analysis/)
-and [evidence states](/handbook/experiments-evidence/).
+## Declare the change directly
+
+```python
+from brainlesslab import (
+    CompositionSpec, EvaluationSpec, NodeSpec, TaskSpec, ablate, resolve,
+)
+
+plan = ablate(
+    CompositionSpec(NodeSpec("sorn"), TaskSpec("delayed_cue"), count=32),
+    verbs=("freeze_weights", "freeze_plasticity"),
+    tick=9,
+    evaluation=EvaluationSpec(blocks=4, trials_per_block=8, root_seed=52),
+)
+resolved = resolve(plan)
+print([(target.target.id, target.target.interventions) for target in resolved.targets])
+```
+
+The tick is one-based and absolute within each trial. The intervention takes effect
+before that tick's neural frames. At tick 9, an eight-tick initial cue has ended.
+Changing the timing changes the scientific comparison.
+
+`freeze_weights` disables weight adaptation. Falandays target adaptation and SORN
+intrinsic threshold adaptation continue. `freeze_plasticity` disables all declared
+adaptation. Neither resets dynamic state at the intervention. A full trial reset restores
+the original state and learning flags for the next trial.
+
+The resolver rejects redundant or inapplicable freezes, interventions beyond the horizon,
+and reservoir interventions attached to direct reference controllers. A zero learning
+rate is a different initial condition from freezing an adapting model later.
+
+## Preserve pairing without assuming identity
+
+`pairing_key` identifies shared world streams. `construction_key` identifies
+construction streams, and `mechanism_key` identifies drive streams. Defaults deliberately
+match these keys across simple ablation targets. Use explicit keys when another
+comparison needs distinct mechanisms or construction.
+
+Matching a construction stream does not prove identical topology after changing a
+parameter that alters construction. Inspect realised wiring IDs. Stable target, block
+and trial IDs remain meaningful when execution batch slots change.
+
+For an arbitrary pair of model configurations, create named `EvaluationTarget` values in
+one `Plan`. The runner automatically emits paired contrasts for ablations against their
+baseline and reservoir targets against a matching reference-null target. It does not
+invent every possible pairwise comparison.
+
+Report raw paired contrasts separately from null-adjusted uncertainty. A positive contrast
+supports a difference under this task and protocol. It does not identify a learning
+mechanism without the appropriate interventions, nor establish general competence.
+
+Continue with [evaluation](/handbook/evaluation/),
+[analysis and calibration](/reference/analysis/) and
+[evidence states](/handbook/experiments-evidence/).

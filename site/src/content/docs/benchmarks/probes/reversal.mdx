@@ -1,48 +1,57 @@
 ---
-legacy: true
 title: Reversal adaptation
-description: Adapt a cue-response rule using action and correctness feedback.
+description: Measure responses after a hidden cue-to-action mapping changes within a session.
 ---
 
-Reversal adaptation asks whether a controller changes its responses when a previously
-useful rule changes. One independent trial is a continuous 96-round session. The initial
-mapping is random, and one unannounced reversal occurs between rounds 32 and 64 inclusive.
+## What changes during a trial?
 
-```text
-each round: cue (8) → cue plus response (8) → action and correctness feedback (8)
-session:   initial random mapping → hidden reversal → sixteen primary scored rounds → continue
+`reversal_adaptation` runs 96 rounds by default. Each round has eight cue ticks,
+eight response ticks and eight feedback ticks. One neural frame is one world tick,
+so the default full-session horizon is 2,304.
+
+The initial binary cue-to-action mapping is random. It flips at a randomly selected
+round from 32 through 64 inclusive. The correct mapping is never supplied directly
+to the controller.
+
+Eight receptors carry cue-left, cue-right, go, feedback-phase, chosen-left,
+chosen-right, correct and incorrect. Feedback describes the controller's actual
+preceding choice. The cue remains visible through response; two effectors choose
+an action, with ties selecting left.
+
+```python
+from brainlesslab import TaskSpec
+from brainlesslab.tasks import definition, resolve
+
+task = TaskSpec("reversal_adaptation",
+                options={"rounds": 96, "reversal_range": [32, 64]})
+print(resolve(task))
+print(definition(task))
 ```
 
-`:reversal_adaptation` exposes eight receptors: left cue, right cue, go, feedback-phase
-marker, chosen left, chosen right, correct and incorrect. Feedback reports the chosen
-action and its correctness; it does not expose the hidden mapping. The cue remains
-visible during response so the task does not add a separate within-round recall demand.
+Expect eight inputs, two effectors and horizon 2,304.
+The reversal range must leave 16 scored rounds; at least 48 total rounds are required.
 
-```julia
-using BrainlessLab
-target = EvaluationTarget(:reversal,
-    CompositionSpec(:reversal, :null_random, :reversal_adaptation; n_nodes=8),
-    EvaluationSpec(horizon=2304, root_seed=1610700))
-sim = only(evaluate(target).trials).simulation
-task_outcome(sim)
-sim.metrics.pre_reversal_accuracy
-sim.metrics.recovery_rounds
-```
+## Keep adaptation within the session
 
-The primary `adaptation_accuracy` is accuracy on the first sixteen rounds starting at
-the reversal. Raw and normalised values use [0, 1]; chance is separately 0.5. Diagnostics
-include accuracy before reversal and the number of rounds until the first run of eight
-correct responses after reversal. Recovery is missing when that run is absent.
+There is no neural reset between rounds. Full reset occurs between independent
+sessions. `feedback_mode="hidden"` removes feedback observations while retaining
+the world choices and reversal schedule.
 
-`probe_control(:reversal_adaptation)` is a feedback-aware finite-state reference.
-It starts with an uninformed mapping and learns from each observed action and feedback.
-It incurs one error at reversal, so its primary accuracy is 15/16. An initial error may
-also occur. Full accuracy is an analytic scale endpoint, not this oracle's guarantee.
-Compare `policy=:fixed_mapping`, `feedback_mode=:hidden`, and applicable
-`:freeze_plasticity` ablations through an ordinary `AblationPlan`.
+With visible feedback, the observation-based oracle infers the mapping, then updates after
+a reversal error. Its expected scored result is 15/16 because the first reversed
+round is unpredictable from previous observations.
+A fixed-mapping reference does not adapt from feedback. Neither this reference
+nor the upper bound 1 is a claim about reservoir performance.
 
-Neural state persists between rounds. A new independent session uses a full reset.
-Session accuracy does not distinguish synaptic change from adaptation in recurrent state;
-that claim needs interventions. Offline decoding cannot replace action-dependent feedback,
-so the probe decoder rejects this task. See the [planned study](/benchmarks/probes/study/).
-Core admission and model comparisons are pending.
+## Read the primary window
+
+`adaptation_accuracy` scores the first 16 rounds starting at reversal, including
+the first reversed round. It does not average all 96 rounds.
+Analytic binary chance is 0.5; the adjusted score is signed. Warm-up is zero.
+
+The current result does not expose historical pre-reversal accuracy or recovery-round
+metrics as separate primary outcomes. The offline single-episode decoder excludes
+this task because feedback depends on actions and a session contains multiple rounds.
+
+Use [paired interventions](/tutorials/compare-conditions/) for a mechanism question,
+and treat sessions or fixed-wiring blocks as the independent units.

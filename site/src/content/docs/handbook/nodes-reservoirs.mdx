@@ -1,32 +1,68 @@
 ---
 title: Nodes and reservoirs
-description: Keep neural equations, construction and adaptation explicit.
+description: Separate local equations, seeded wiring, dynamic state and task readout.
 ---
 
-A node defines a local neural rule. A reservoir is the runtime population coupled to
-declared task inputs and effectors. Count belongs to `CompositionSpec`, rather than
-to model coordinates.
+A node specifies a local neural rule. A reservoir is a population of those nodes with
+wiring and dynamic state. `NodeSpec` selects the model family and its parameters;
+`CompositionSpec.count` sets population size.
 
-The active models are Falandays and SORN. Both construct owned arrays on the host and
-advance in Quadrants. Matrices use destination/source orientation. Dense storage is
-the baseline; no sparse performance claim follows from a sparse construction mask.
+## Resolve a model in a task
 
-Falandays has a historical Julia validation boundary on declared reference trajectories.
-Python equation tests and backend qualification are separate gates.
+```python
+from brainlesslab import CompositionSpec, NodeSpec, TaskSpec, profile, resolve
 
-SORN uses synchronous binary excitatory/inhibitory threshold dynamics, E-to-E STDP,
-incoming-row normalisation and intrinsic threshold adaptation. Its historical
-`inhibitory_fraction` name denotes an I/E ratio. Pruned edges cannot regrow.
-This software boundary does not establish authors-code trajectory parity or criticality.
-
-```bash
-uv run pytest python/tests/test_sorn.py
-uv run pytest python/tests/test_falandays.py
+plan = profile(
+    CompositionSpec(NodeSpec("sorn"), TaskSpec("delayed_cue"), count=32)
+)
+target = resolve(plan).targets[0]
+print(target.model_config)
+print(target.n_inputs, target.n_effectors)
 ```
 
-These checks test their declared implementation boundaries.
-Keep `freeze_weights` separate from `freeze_plasticity`; reset restores initial
-weights, masks, dynamic state and plasticity flags.
+Resolution shows the completed configuration and task ports without allocating a device.
+It does not certify that the selected wiring will perform well.
 
-Continue with [the system map](/handbook/system-map/) and
-[implementation exercises](/python/learning/).
+The active families are [Falandays](/benchmarks/models/falandays/) and
+[SORN](/benchmarks/models/sorn/). Both construct owned arrays on the host and advance
+state in Quadrants. Runtime matrices use `[destination, source]` orientation; batches add
+a leading slot dimension. Readouts average selected binary activity into effector values.
+
+Dense arrays are the current baseline. A sparse construction mask can remove connections,
+but it does not make storage or stepping a sparse algorithm. Runtime node and batch
+dimensions have fixed ndarray ranks.
+
+## Distinguish state from adaptation
+
+Falandays combines leaky activation, threshold firing, recurrent weight adaptation and
+target adaptation. Its unsigned and Dale-axis configurations have distinct rules.
+SORN combines synchronous excitatory/inhibitory binary state, E-to-E STDP, row
+normalisation and intrinsic excitatory-threshold adaptation.
+
+Online adaptation is part of these equations. It does not require a teacher or task loss.
+An improved task score alone does not show which adaptation caused the change; compare
+appropriate frozen and input controls.
+
+`freeze_weights` leaves Falandays target adaptation or SORN intrinsic plasticity active.
+`freeze_plasticity` disables all declared adaptation. Neither stops recurrent dynamics.
+A full reset restores initial weights, masks, dynamic state and plasticity flags.
+
+## Check the software boundary
+
+```bash
+uv run pytest python/tests/test_falandays.py python/tests/test_sorn.py
+```
+
+These suites cover their declared equations, ordering, threshold cases, reset, frozen
+modes, ownership and batch independence. Falandays also has specific archival fixture
+checks. Historical Julia validation covers its declared reference trajectories;
+Python equation conformance and backend qualification remain separate.
+
+SORN's `inhibitory_fraction` is the historical name for an I/E ratio. Its E-to-E
+construction uses a connection probability, and pruned edges do not regrow. Software
+checks do not establish parity with every author's implementation, criticality or
+biological fidelity.
+
+Use separate processes for different arithmetic/backend policies. Warm compiled kernels
+before timing them. Continue with [runtime performance](/python/performance/),
+[interfaces](/reference/interfaces/) and [learning exercises](/python/learning/).

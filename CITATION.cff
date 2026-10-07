@@ -1,13 +1,12 @@
 cff-version: 1.2.0
 message: >-
   If you use BrainlessLab, please cite this software, and also cite the
-  original Falandays et al. work on which the :falandays model is based.
-title: BrainlessLab.jl
+  original work underlying the Falandays or SORN model you use.
+title: BrainlessLab
 abstract: >-
-  An experimental Julia research platform for behaviour that emerges from
-  collectives of simple neuron-like nodes, built around a Falandays et al.
-  homeostatic spiking reservoir that is validated on declared reference
-  trajectories.
+  A Python and Quadrants research platform for locally adapting Falandays
+  and SORN reservoirs in declared tasks, with bounded batching, independent
+  numerical checks, task calibration and portable records.
 type: software
 authors:
   - given-names: Polyphony
@@ -18,8 +17,7 @@ authors:
     family-names: Jackson
   - given-names: William
     family-names: O'Hearn
-version: 0.3.0
-date-released: "2026-08-01"
+version: 0.4.0
 license: MIT
 repository-code: "https://github.com/btgaskin/brainless-lab"
 url: "https://brainless-lab.pages.dev"
@@ -46,16 +44,30 @@ references:
         family-names: Spivey
     journal: Cognitive Neurodynamics
     year: 2024
-    volume: 18
-    issue: 4
-    start: 1811
-    end: 1834
+    volume: "18"
+    issue: "4"
+    start: "1811"
+    end: "1834"
     doi: 10.1007/s11571-023-09988-2
+  - type: article
+    title: "SORN: a self-organizing recurrent neural network"
+    authors:
+      - given-names: Andreea
+        family-names: Lazar
+      - given-names: Gordon
+        family-names: Pipa
+      - given-names: Jochen
+        family-names: Triesch
+    journal: Frontiers in Computational Neuroscience
+    year: 2009
+    volume: "3"
+    doi: 10.3389/neuro.10.023.2009
+    url: "https://www.frontiersin.org/journals/computational-neuroscience/articles/10.3389/neuro.10.023.2009/full"
   - type: software
     title: ReservoirModel_followups
     notes: >-
-      The authors' own Julia source for the model implemented by the :falandays
-      node. Read and cited for constant provenance; not vendored or
+      The authors' own source for the Falandays model. Read and cited for
+      constant provenance; not vendored or
       redistributed by BrainlessLab, which is an independent reimplementation.
       The upstream repository carries no licence file.
     authors:

@@ -1,26 +1,77 @@
 ---
 title: Operations
-description: Keep one scientific plan format for active repeated work.
+description: Choose one question and preserve it in the shared scientific plan format.
 ---
 
-The public operations are `profile`, `sweep`, `ablate`, `benchmark` and `calibrate`.
-They use one `Plan` with named targets, a scientific protocol and evidence state.
+An operation records why named conditions are being evaluated. The active runner uses
+one `Plan` representation for profiles, sweeps, ablations, benchmarks and calibration.
+Its operation field does not create a different neural update rule.
 
-A profile characterises one composition. A sweep compares explicit development cells.
-An ablation changes a declared mechanism. A benchmark retains task-specific native
-units and paired contrasts. Calibration freezes a task-matched null policy.
+## Choose the question
 
-```bash
-uv run brainlesslab check python/plans/delayed-cue.toml
-uv run brainlesslab run python/plans/delayed-cue.toml --root records
+| Operation | Question | Main output |
+| --- | --- | --- |
+| `profile` | How does one composition behave across the declared protocol? | Native trial outcomes and block summaries |
+| `sweep` | How do explicit parameter cells differ on development worlds? | Named cell summaries |
+| `ablate` | What changes when a declared mechanism is disabled? | Baseline, intervention summaries and paired raw contrasts |
+| `benchmark` | How does a model perform on the four task coordinates? | Task-specific reservoir and reference-null results |
+| `calibrate` | What does the declared null policy score under this task contract? | Frozen task calibration |
+
+`profile`, `sweep`, `ablate` and `benchmark` are constructors that return a plan.
+`execute` runs a plan with an execution policy. The convenience function `calibrate`
+executes its fixed calibration protocol and returns an `EvaluationResult`.
+
+The `benchmark` API measures task performance. It is not a speed test. Use
+[runtime performance](/python/performance/) for compilation, throughput and recording costs.
+
+## Resolve a development sweep
+
+```python
+from brainlesslab import (
+    CompositionSpec, EvaluationSpec, NodeSpec, TaskSpec, resolve, sweep,
+)
+
+plan = sweep(
+    CompositionSpec(NodeSpec("falandays"), TaskSpec("delayed_cue"), count=32),
+    {"leak": (0.1, 0.25, 0.5)},
+    evaluation=EvaluationSpec(blocks=2, trials_per_block=4, root_seed=85),
+)
+print([(target.target.id, target.model_config.leak) for target in resolve(plan).targets])
 ```
 
-Inspect the new record printed by the command. A successful run preserves its protocol,
-random identities and outputs; it does not confirm a hypothesis.
-Use `decode` offline for sparse probe diagnostics.
+The Cartesian product of the explicit axes becomes named targets. The example contains
+three cells. It shares declared world streams across cells; different construction
+parameters may still produce different realised wiring. A selected cell is a development
+result, not a confirmed optimum.
 
-Evolution, general checkpoint/resume, autodiff and distributed operation execution
-are not implemented in this release. Historical Julia operations remain at their
-original source revision.
+The checked TOML example uses the same mechanism:
 
-Continue with [records](/handbook/records-results/) and [limits](/platform-limits/).
+```bash
+uv run brainlesslab check python/plans/sweep-delayed-cue.toml
+uv run brainlesslab run python/plans/sweep-delayed-cue.toml --root records
+```
+
+Read the printed record, then inspect its native outcomes and seed ledger before choosing
+a follow-up. Selection and later confirmation must use disjoint seed partitions.
+
+## Treat controls as different mechanisms
+
+The ablation helper supplies an implicit `baseline` and named intervention targets.
+It supports weight freeze, full-plasticity freeze, blind input and shuffled input at a
+declared absolute trial tick. Validation rejects redundant changes.
+
+The benchmark helper supplies reservoir and reference-null targets for Tracking, Pong,
+Plank CartPole Easy and delayed cue. It preserves each task's native units and default
+horizon. It does not average these coordinates into a competence score.
+
+Empirical physical calibration uses exactly 1,024 independent reference-null trajectories
+in the calibration partition. Binary tasks declare analytic chance separately.
+Calibration is not parameter search or evidence of a model learning.
+
+`decode` is an offline diagnostic over recorded events and trial metadata. It does not
+control the task or become an operation-specific plan format.
+
+Evolution, general autodiff, durable checkpoint/resume, broad analysis registries and
+distributed execution are not implemented. Historical operations retain their original
+Julia source revision. Continue with [plan syntax](/reference/plan-format/),
+[comparison controls](/tutorials/compare-conditions/) and [limits](/platform-limits/).

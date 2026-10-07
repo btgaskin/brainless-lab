@@ -1,39 +1,49 @@
 ---
-legacy: true
 title: Evidence accumulation
-description: Integrate left and right pulses before responding.
+description: Choose the majority of a pulse stream whose final pulse does not reveal the answer.
 ---
 
-Evidence accumulation asks whether a controller uses information distributed across a
-stream. Each trial has more left or more right pulses; the correct response selects the
-majority. Stream length and evidence strength set the difficulty.
+## What must be accumulated?
 
-```text
-16, 32 or 64 one-frame pulses → go and response (8)
-signed count difference / pulse count: ±0.125, ±0.25 or ±0.5
+`evidence_accumulation` supplies left or right pulses followed by go.
+Its three receptors are left pulse, right pulse and go; two effectors choose a side
+during response. Each pulse lasts `pulse_ticks` world ticks, with one neural frame
+per tick.
+
+A balanced hidden label chooses the majority side. For `n` pulses and fraction `f`,
+the majority count is `n * (1 + f) / 2` and the minority count is
+`n * (1 - f) / 2`. Counts must be integral, both sides must occur and
+`0 < f < 1`.
+
+```python
+from brainlesslab import TaskSpec
+from brainlesslab.tasks import definition, resolve
+
+task = TaskSpec("evidence_accumulation",
+                options={"pulse_count": 32, "evidence_fraction": 0.25})
+print(resolve(task))
+print(definition(task))
 ```
 
-`:evidence_accumulation` exposes left pulse, right pulse and go. The answer label is
-balanced in expectation. The final pulse is drawn independently of that label, then the
-remaining sequence is shuffled to produce the exact count difference. A final-pulse
-response therefore has no systematic answer advantage. The first pulse can carry partial
-evidence and is an informative limited-observation control, not necessarily a chance policy.
+Expect 32 one-tick pulses, an eight-tick response and horizon 40.
+The majority has 20 pulses and the minority 12.
+Nine presets cross 16, 32 and 64 pulses with fractions 0.125, 0.25 and 0.5.
 
-```julia
-using BrainlessLab
-target = EvaluationTarget(:evidence,
-    CompositionSpec(:evidence, :null_random, :evidence_accumulation;
-        n_nodes=8, task_options=Dict(:pulse_count => 32, :evidence_fraction => 0.25)),
-    EvaluationSpec(horizon=40, root_seed=1610400))
-task_outcome(only(evaluate(target).trials).simulation)
-```
+## Why is the last pulse controlled?
 
-The outcome is `probe_accuracy`, raw and normalised in [0, 1], with chance 0.5.
-`probe_control(:evidence_accumulation)` counts observed evidence and should achieve full
-accuracy. Compare its `:first`, `:last` and constant policies. `input_mode=:hidden`
-removes the pulses while preserving the seeded world and response timing.
+The final pulse is chosen uniformly independently of the answer.
+The remaining sequence is adjusted to preserve the declared counts and shuffled.
+This makes the last observation alone uninformative in expectation, rather than
+letting a lucky final pulse stand in for accumulation.
 
-Reject pulse counts and evidence fractions that cannot produce integral counts.
-This task tests integration of a designed stream; it does not establish probabilistic
-reasoning in other settings. Continue to [context integration](/benchmarks/probes/context/)
-or the [planned study](/benchmarks/probes/study/). Core admission is pending.
+`input_mode="hidden"` removes the pulses while preserving world choices and timing.
+Go remains the response marker. A counting oracle operates on visible observations;
+first-pulse, last-pulse and constant references test narrower solutions.
+
+`probe_accuracy` is the complete-trial binary result, with left selected on ties.
+Analytic chance is 0.5; warm-up is zero. Report performance across both stream length
+and evidence fraction. Accuracy in a single easy cell does not establish a general
+integration mechanism.
+
+Continue with [context integration](/benchmarks/probes/context/) for selection
+between two streams, or [offline decoding](/benchmarks/probes/decoding/).

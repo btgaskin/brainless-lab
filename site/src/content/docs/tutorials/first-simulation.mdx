@@ -1,72 +1,90 @@
 ---
 title: Run your first simulation
-description: Resolve a declared Python protocol and inspect a recorded task outcome.
+description: Install the locked Python package, execute a small protocol and inspect its outcome.
 ---
 
-A first run checks that a model, task and protocol can execute together.
-It is an implementation diagnostic, not evidence of a learned capability.
+Start with delayed cue to check the complete path from a declared model to a task
+outcome. This task presents a binary cue, waits, then asks for a left or right response.
+A completed run shows that this composition executes. It does not establish learning.
 
-## Install the locked environment
+## Install and resolve
 
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then clone the repository:
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then use the
+repository's locked environment:
 
 ```bash
 git clone https://github.com/btgaskin/brainless-lab.git
 cd brainless-lab
-uv sync --locked
+uv sync --locked --group dev
 uv run brainlesslab check python/plans/delayed-cue.toml
 ```
 
-The check command resolves the model, task, port widths, horizon and seed policy.
-It does not advance a world. If it reports an incompatible protocol, correct the
-declared configuration before running.
+`check` prints the requested and resolved protocol as JSON. It resolves model
+parameters, task options, input/output widths and horizon without initialising a device.
+The checked example uses Falandays with 64 nodes, two blocks and two trials per block.
+Its longest default cue episode lasts 144 world ticks.
 
-## Run and inspect
+Read the resolved fields before running. Check that the task is `delayed_cue`, its ports
+are three inputs and two effectors, and warm-up is zero. Invalid options or an episode
+that cannot finish should produce an error rather than a shortened protocol.
+
+## Execute and inspect the record
 
 ```bash
 uv run brainlesslab run python/plans/delayed-cue.toml --root records
 uv run brainlesslab inspect records/RECORD_ID
 ```
 
-Replace `RECORD_ID` with the directory printed by the run command.
-A record retains the request, resolved settings, realised random identities,
-native outcomes, summaries and checksums. Inspect it before drawing a conclusion.
+Replace `RECORD_ID` with the directory printed by `run`. The command prints JSON with
+the record path and its completion status. Each invocation creates a new directory;
+it does not overwrite an earlier result.
 
-Read the outcome key, raw value, scoring window and calibration status together.
-An unavailable calibration leaves the normalised value unavailable.
-Do not treat a short diagnostic as a task's full evaluation protocol.
+A successful inspection reports `complete: true` and `checksums_valid: true`.
+Read `trials.csv` for individual outcomes and `summary/summary.json` for block summaries.
+The record also preserves the original plan, resolved parameters, random-stream
+identities, source bundle and execution environment.
 
-## Use the Python interface
+A `FAILED` marker or an unavailable outcome is a finding to inspect. Do not remove
+failed trials to improve a summary. A `DONE` marker means all trials completed and the
+record was written; it does not mean a hypothesis was confirmed.
 
-The public package exports `NodeSpec`, `TaskSpec`, `CompositionSpec`,
-`EvaluationSpec`, `EvaluationTarget`, `Plan`, `NumericalPolicy` and `ExecutionSpec`.
-Use `simulate` for one diagnostic, or `resolve` and `execute` for a declared plan.
-`task_outcome` returns the task-declared outcome rather than an arbitrary diagnostic.
+## Run the same layers in Python
 
-For a small in-memory plan, construct the same layers directly:
+This small example returns an in-memory `EvaluationResult` instead of writing a record:
 
 ```python
 from brainlesslab import (
-    CompositionSpec, EvaluationSpec, EvaluationTarget, NodeSpec, Plan, TaskSpec, resolve,
+    CompositionSpec, EvaluationSpec, NodeSpec, TaskSpec, simulate, task_outcome,
 )
 
 composition = CompositionSpec(
-    node=NodeSpec("sorn"), task=TaskSpec("delayed_cue"), count=32,
+    node=NodeSpec("sorn"),
+    task=TaskSpec("delayed_cue"),
+    count=16,
 )
-plan = Plan(
-    "first-cue", (EvaluationTarget("sorn-cue", composition),),
+result = simulate(
+    composition,
     evaluation=EvaluationSpec(blocks=2, trials_per_block=2, root_seed=26),
 )
-resolved = resolve(plan)
-print(resolved)
+outcome = task_outcome(result)
+print(outcome)
+print([(trial.status, trial.completed_ticks) for trial in result.trials])
 ```
 
-This resolves without executing. Inspect its task horizon and ports before calling
-`execute` with a declared `ExecutionSpec`.
+Expect a `TaskOutcome` with key `recall_accuracy`. Individual completed trials score
+zero or one; the summary averages trial scores within blocks and then across blocks.
+Binary probes have a declared analytic random-choice mean of 0.5. Their signed
+null-adjusted score can therefore be negative.
 
-Scientific settings belong to the composition and evaluation. Backend, batch size,
-memory and recording belong to `ExecutionSpec`. The default CPU policy is float64.
-Metal requires explicit float32 numerics and a separate qualification.
+Retain the key, raw value, normalised value, scoring window and calibration status
+together. Physical tasks need their own matching empirical calibration; a missing
+calibration does not prevent reporting a native outcome.
 
-Continue with [a reproducible profile](/tutorials/reproducible-profile/) and
+Scientific settings belong to the composition, evaluation and numerical policy.
+`ExecutionSpec` controls backend, batch size, memory and recording. CPU float64 is the
+default. A Metal run requires explicit float32 numerics and its own qualification;
+changing placement does not authorise changing the scientific protocol.
+
+Continue with [a reproducible profile](/tutorials/reproducible-profile/),
+[delayed-cue timing](/benchmarks/tasks/delayed-cue/) and
 [platform limits](/platform-limits/).

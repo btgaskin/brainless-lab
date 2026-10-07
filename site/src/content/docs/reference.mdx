@@ -1,16 +1,47 @@
 ---
 title: API, plans and CLI
-description: Find active scientific specifications and commands.
+description: Choose the smallest public operation that answers your question.
 ---
 
-The public package exports `NodeSpec`, `TaskSpec`, `CompositionSpec`,
-`EvaluationSpec`, `EvaluationTarget`, `Plan`, `NumericalPolicy`, `ExecutionSpec`
-and `TaskOutcome`.
+## Resolve before running
 
-Use `simulate` for one diagnostic and `task_outcome` for its declared outcome.
-Use `resolve` and `execute` for a scientific plan.
-Named operations are `profile`, `sweep`, `ablate`, `benchmark` and `calibrate`.
-`decode` is an offline diagnostic over sparse emitted-activity observations.
+The public Python package is `brainlesslab`. Specifications describe science;
+`resolve` checks them; `execute` runs a plan. `simulate` is a convenience for
+executing a profile and returns the same result structure.
+
+```python
+from brainlesslab import (
+    CompositionSpec, EvaluationSpec, NodeSpec, TaskSpec, profile, resolve,
+)
+
+plan = profile(
+    CompositionSpec(node=NodeSpec("sorn"), task=TaskSpec("delayed_cue"), count=32),
+    evaluation=EvaluationSpec(blocks=2, trials_per_block=4, root_seed=108),
+)
+resolved = resolve(plan)
+print(resolved.request.id, len(resolved.targets))
+```
+
+Expect one target. This validates a configuration without allocating device state
+or producing observations.
+
+| Entry point | Result and purpose |
+| --- | --- |
+| `profile` | One-target `Plan` for descriptive evaluation |
+| `sweep` | `Plan` containing declared parameter cells |
+| `ablate` | `Plan` with a baseline and timed interventions |
+| `benchmark` | `Plan` for task cases and reference comparisons |
+| `resolve` | Validated scientific targets and stream policy |
+| `execute` | `EvaluationResult` from a plan |
+| `simulate` | `EvaluationResult` from a composition |
+| `calibrate` | Execute the fixed empirical null protocol |
+| `decode` | Offline diagnostic decoder results |
+| `task_outcome` | Primary outcome, or outcomes keyed by target ID |
+
+`benchmark` measures task performance. Runtime speed, compilation and transfer costs
+have a [separate guide](/python/performance/).
+
+## Use the CLI for portable records
 
 ```bash
 uv run brainlesslab check python/plans/delayed-cue.toml
@@ -18,9 +49,14 @@ uv run brainlesslab run python/plans/delayed-cue.toml --root records
 uv run brainlesslab inspect records/RECORD_ID
 ```
 
-Check resolves without simulation. Run prints a new record path.
-Inspect verifies the record for review; no command accepts study evidence automatically.
+Replace `RECORD_ID` with the directory printed by `run`. `check` is read-only.
+`run` writes a new versioned record; `inspect` validates its completion status and
+checksums. Preserve a `FAILED` record when investigating an incomplete run.
 
-Read [plan format](/reference/plan-format/), [task catalogue](/reference/core-catalog/)
-and [analysis](/reference/analysis/). The Python package lives under
-`python/src/brainlesslab/`. Historical Julia API pages identify their source revision.
+Use `uv run brainlesslab --help` and each subcommand's `--help` for execution
+options. Placement and recording are separate from the submitted scientific plan.
+
+The current package has no generic evolution, body registry or durable
+checkpoint/resume API. Start with [the first simulation](/tutorials/first-simulation/),
+then read [plan format](/reference/plan-format/) and
+[record contents](/handbook/records-results/).

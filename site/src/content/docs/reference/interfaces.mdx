@@ -1,27 +1,57 @@
 ---
 title: Interfaces
-description: Keep scientific values and owned runtime storage separate.
+description: Follow the boundary from scientific specifications to owned device state.
 ---
 
-Scientific specifications are immutable Python values.
-The public layers are `NodeSpec`, `TaskSpec`, `CompositionSpec`,
-`EvaluationSpec`, `EvaluationTarget`, `Plan` and `NumericalPolicy`.
-`ExecutionSpec` controls placement and bounded resource use.
+## What connects a model to a task?
 
-Model construction returns owned NumPy arrays.
-A model batch owns Quadrants ndarrays. Frozen typed bundles expose fixed ranks;
-batch and node dimensions remain runtime values. Matrices use destination/source
-orientation. Ordered destination-owned sums avoid floating-point atomics.
+A `CompositionSpec` selects a `NodeSpec`, `TaskSpec`, node count and input gain.
+The task declares receptor and effector widths and neural frames per world tick.
+Resolution checks these values before allocating a model. Scientific specifications
+remain independent of backend, batch size and memory budgets.
 
-A step receives declared inputs, noise and an active-slot mask.
-Inactive slots must not advance state. Reset restores initial weights, masks,
-thresholds/targets, dynamic state and plasticity flags.
-Snapshots own their host storage.
+```python
+from brainlesslab import CompositionSpec, NodeSpec, TaskSpec, profile, resolve
 
-```bash
-uv run pytest python/tests/test_sorn.py
+resolved = resolve(profile(CompositionSpec(
+    node=NodeSpec("sorn"), task=TaskSpec("tracking"), count=32,
+)))
+target = resolved.targets[0]
+print(target.n_inputs, target.n_effectors, target.neural_frames)
 ```
 
-Review the tests for exact ordering, frozen modes and ownership.
-A general third-party registry or arbitrary body system is not part of this release.
-Continue with [the extension guide](/handbook/extending/).
+Tracking declares 62 receptors, two effectors and one neural frame per world tick.
+Successful resolution establishes compatible configuration; it does not run a trial.
+
+## Construction, stepping and reset
+
+Each model constructs owned host arrays from an explicit random generator. A model
+batch owns Quadrants ndarrays; immutable typed bundles refer to this storage.
+Ranks remain fixed while batch and node dimensions are runtime values.
+
+A step receives inputs shaped `[batch, receptors]`, noise shaped `[batch, nodes]`
+and an integer active-slot mask. It emits activity, effectors and a finite-state
+flag. Inactive slots must retain their state. SORN accepts the common noise argument
+but does not consume it.
+
+Matrices use `[destination, source]` orientation. Each destination computes its
+sum in a declared order. Floating-point atomics are excluded from these reductions.
+The task turns effector values into its command; models contain no task labels or
+task-specific rewards.
+
+Full reset restores initial weights, connectivity masks, thresholds or targets,
+dynamic state and plasticity flags. Snapshots copy into owned NumPy storage so a
+later step or reset cannot change an earlier snapshot.
+
+## Verify a changed interface
+
+```bash
+uv run pytest python/tests/test_sorn.py python/tests/test_falandays.py
+```
+
+Review shape rejection, ownership, reset, inactive-slot behaviour and batch
+independence alongside equation tests. A general third-party registry and arbitrary
+body composition are outside the current interface.
+
+Continue with [extending the project](/tutorials/extend-project/) and
+[execution performance](/python/performance/).

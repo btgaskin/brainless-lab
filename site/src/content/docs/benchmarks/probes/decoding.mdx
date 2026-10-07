@@ -1,34 +1,83 @@
 ---
 title: Offline probe decoding
-description: Fit whole-trial diagnostics without leaking labels or events into evaluation.
+description: Test recoverable information with whole-trial splits and an independent permutation null.
 ---
 
-A regularised linear diagnostic asks whether emitted activity contains recoverable
-information about a declared binary label. It never controls the task and does not
-replace the native outcome.
+## Does emitted activity retain task information?
 
-Use one fixed reservoir wiring per independent block, full trial resets and distinct
-world seeds. The default split contains 256 fit, 128 validation and 256 evaluation
-trials. Share those whole-trial subsets across cue_end, delay_end and response.
-Coincident timestamps remain distinct observation points, rather than extra samples.
+Native response success and information recoverable from neural activity are
+different questions. `decode` fits an offline linear ridge diagnostic at three
+points: `cue_end`, `delay_end` and `response`. It never feeds predictions or
+diagnostic labels back to the online controller.
 
-Fit feature centres and population standard deviations from fit trials only.
-Replace a zero standard deviation with 1. Tune ridge regularisation on validation
-accuracy over `[1e-4, 1e-2, 1, 100]`. Exact ties keep the smaller value.
-Each observation point fits its own diagnostic.
+The supported tasks are delayed cue, recall interference, delayed XOR, evidence
+accumulation, context integration and temporal order. Physical tasks and reversal
+sessions are excluded.
 
-The null separately shuffles fit and validation labels, then tunes by the same rule.
-It never shuffles evaluation truth into training. Report diagnostic accuracy,
-native accuracy on the same evaluation subset, constant prediction and permutation
-accuracy separately. Preserve coefficients, scalers, split IDs and predictions.
+## Record complete fixed-wiring blocks
 
-```bash
-uv run pytest python/tests/test_analysis.py
+The default decoder requires exactly 640 complete trials per block:
+256 fit, 128 validation and 256 evaluation trials. Construct once per block and
+fully reset between trials. Select `probe_events` recording rather than a dense
+all-tick trajectory.
+
+```python
+from brainlesslab import (
+    CompositionSpec, EvaluationSpec, ExecutionSpec, NodeSpec, TaskSpec,
+    decode, profile, resolve,
+)
+
+plan = profile(
+    CompositionSpec(node=NodeSpec("sorn"), task=TaskSpec("delayed_cue",
+                    options={"delays": [32]}), count=32),
+    evaluation=EvaluationSpec(blocks=2, trials_per_block=640,
+                              construction_scope="block", root_seed=119),
+)
+resolved = resolve(plan)
+recording = ExecutionSpec(recording="probe_events")
+print(resolved.targets[0].horizon, plan.evaluation.trials_per_block)
+
+def analyse_recorded_result(result):
+    return decode(result.events, result.probe_trials)
 ```
 
-These tests exercise leakage, stable identities, missing/duplicate observations,
-ownership, split-local permutation and solver storage bounds.
-The six supported tasks exclude reversal adaptation and physical control.
-A positive diagnostic result does not establish a task-controlled learning mechanism.
+Expect `48 640`. This snippet resolves the protocol without running 1,280 trials.
+When ready, pass `plan` and `recording` to `execute`, then pass its result to the
+function above. Budget that execution explicitly.
 
-Continue with [calibration](/reference/analysis/) and [evaluation](/handbook/evaluation/).
+Each event owns its feature array and carries stable target, task, block, trial,
+entity and feature IDs, observation point, tick and diagnostic label.
+`cue_end` is after the initial cue, `delay_end` is the response start and
+`response` averages emitted activity over response ticks. Two points at the same
+tick remain separate named observations.
+
+## Fit without leaking evaluation information
+
+All three points share the same whole-trial split within a block.
+Each point fits its own centre and population standard deviation on fit trials
+only; zero standard deviations become one. The decoder uses binary signed targets,
+a fitted intercept and ridge penalties `[1e-4, 1e-2, 1, 100]`.
+
+Validation accuracy selects a penalty independently for each point.
+Exact ties choose the smaller penalty. Evaluation trials are used once after
+that choice; a score of zero predicts left.
+
+The permutation null separately shuffles fit labels and validation labels.
+Evaluation labels remain untouched. Native accuracy and the fit-majority constant
+reference use the same evaluation subset as the decoder.
+
+## Check the returned evidence
+
+Results retain coefficients, scaler values, chosen penalties, split trial IDs,
+predictions and metadata. Reject missing or duplicate observations, incompatible
+feature identities, changing wiring or interface signatures, repeated world seeds,
+incomplete trials and splits lacking either class.
+
+The default offline memory budget is 32 MiB and is separate from managed runtime
+memory. Custom split counts remain explicit analysis choices, not extra trials.
+
+Decodability shows that a particular diagnostic can recover labels from recorded
+features. It does not establish that the controller uses this information.
+For intervals, independent blocks remain the inferential units.
+Continue with [analysis and calibration](/reference/analysis/) and
+[records](/handbook/records-results/).

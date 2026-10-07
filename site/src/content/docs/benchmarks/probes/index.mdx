@@ -1,27 +1,49 @@
 ---
 title: Capacity probes
-description: Explore 64 experimental difficulty cells with native outcomes and offline diagnostics.
+description: Choose a declared binary task and test its shortcuts before interpreting success.
 ---
 
-The six additional families are recall interference, delayed XOR, evidence accumulation,
-context integration, temporal order and reversal adaptation.
-Together they retain 64 declared difficulty cells.
+## Which question does each probe ask?
 
-Delayed cue supplies the core binary recall coordinate.
-A task score operationalises one response opportunity. It does not validate cognition,
-a general capability or a biological interpretation.
+The capacity library contains 64 development cells across delayed cue and six
+additional task families. They share binary responses but differ in the observations
+that make the answer recoverable.
 
-```bash
-uv run brainlesslab check python/plans/delayed-cue.toml
+| Family | Question | Preset cells |
+| --- | --- | ---: |
+| [Delayed cue and interference](/benchmarks/probes/recall/) | Retain the first cue despite time or competing cues | 5 + 6 |
+| [Delayed XOR](/benchmarks/probes/xor/) | Combine two separated cues | 4 |
+| [Evidence accumulation](/benchmarks/probes/evidence/) | Recover the majority of a pulse stream | 9 |
+| [Context integration](/benchmarks/probes/context/) | Select the relevant evidence stream | 36 |
+| [Temporal order](/benchmarks/probes/order/) | Distinguish A–B from B–A | 3 |
+| [Reversal adaptation](/benchmarks/probes/reversal/) | Adjust after a hidden mapping changes | 1 |
+
+```python
+from collections import Counter
+from brainlesslab.tasks import capacity_probe_presets
+
+cells = capacity_probe_presets()
+print(len(cells))
+print(dict(Counter(cell.task for cell in cells)))
 ```
 
-Use the active task options and resolved protocol.
-Match the horizon to completed task episodes and keep diagnostic labels outside the
-online controller. Physical control and reversal adaptation are excluded from the
-binary offline decoder.
+Expect 64 and the counts above. Each preset stores an ID, task kind, complete
+task options and horizon. It is a difficulty cell, not an independent sample.
 
-The [decoding guide](/benchmarks/probes/decoding/) describes six supported decoder tasks:
-delayed cue, recall interference, delayed XOR, evidence accumulation, context integration
-and temporal order. Historical stage-two studies retain their planned evidence state.
+## Start with one declared cell
 
-Continue with [the task catalogue](/reference/core-catalog/) and [limits](/platform-limits/).
+Construct a `TaskSpec` from the preset, choose a model and resolve a profile.
+Use fixed wiring within each independent block and full trial resets.
+Then compare native response accuracy with references that expose shortcuts:
+persistent input, last observation, constant choice or observation-based oracle.
+
+Binary chance is 0.5. Scores below chance retain negative null-adjusted values.
+The reversal outcome uses its post-change window; it is not the average accuracy
+of every round.
+
+These are available experimental tasks, not a confirmed capacity assessment.
+The [historical planned study](/benchmarks/probes/study/) retains its own source
+and evidence status. Current software does not execute or promote that study.
+
+Continue with a family page, [paired comparisons](/tutorials/compare-conditions/)
+and [offline decoding](/benchmarks/probes/decoding/).

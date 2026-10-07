@@ -129,6 +129,7 @@ export default defineConfig({
             { label: 'Extending BrainlessLab', slug: 'handbook/extending' },
             { label: 'Platform limits', slug: 'platform-limits' },
             { label: 'Learn the implementation', slug: 'python/learning' },
+            { label: 'Measure speed and memory', slug: 'python/performance' },
           ],
         },
         {
@@ -139,6 +140,7 @@ export default defineConfig({
             { label: 'Core catalogue', slug: 'reference/core-catalog' },
             { label: 'Analysis', slug: 'reference/analysis' },
             { label: 'Interfaces', slug: 'reference/interfaces' },
+            { label: 'Glossary', slug: 'glossary' },
           ],
         },
         {

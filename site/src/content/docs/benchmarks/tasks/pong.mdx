@@ -1,21 +1,51 @@
 ---
 title: Pong
-description: Keep native paddle interception outcomes and their protocol explicit.
+description: Measure paddle interception with a bearing-only receptor bank.
 ---
 
-Pong asks about paddle interception in one declared task.
-Its native score measures interception under the declared world rules. The task bound is 1. Check action cadence and scored horizon before comparing conditions.
+## What does the controller observe?
 
-```bash
-uv run brainlesslab check python/plans/delayed-cue.toml
+Pong presents 46 bearing receptors from −90 to +90 degrees in four-degree
+increments. A channel activates when the ball's bearing lies within two degrees
+of its direction. These channels encode bearing relative to the paddle, not
+ball velocity or a labelled hit prediction.
+
+The world is 1,000 units wide and 500 high. The paddle is centred at horizontal
+position 100, starts at vertical position 250 and has half-height 50.
+Two effectors move its centre by `100 * (left - right)` units per tick,
+clamped between 50 and 450. There is one neural frame per world tick.
+
+The ball starts at horizontal position 995 with random vertical position and
+vertical direction. Horizontal speed starts at −5 and vertical speed has magnitude
+5 units per tick. Wall reflections, paddle interception and misses advance the
+world; a miss resets the ball using the declared world stream.
+
+```python
+from brainlesslab import CompositionSpec, NodeSpec, TaskSpec, profile, resolve
+
+target = resolve(profile(CompositionSpec(
+    node=NodeSpec("sorn"),
+    task=TaskSpec("pong", options={"sensory_gain": 1.0}),
+    count=32,
+))).targets[0]
+print(target.horizon, target.n_inputs, target.neural_frames)
 ```
 
-The supplied example checks the active plan syntax. Select this task through its
-`TaskSpec` and inspect its resolved ports, scoring window and seed policy before running.
-Use `task_outcome` and retain the key, raw units and calibration status.
+Expect `7200 46 1`. `sensory_gain` is a nonnegative task option; composition
+`input_gain` is a separate scale applied between encoding and the model.
 
-A signed null adjustment does not make this outcome comparable to another task's units.
-Task performance does not establish general competence, learning or biological fidelity.
-Historical benchmark protocols and tables retain their original evidence status.
+## Count scored events
 
-Continue with [evaluation](/handbook/evaluation/) and [calibration](/reference/analysis/).
+`hit_rate` is scored hits divided by scored hits plus misses. It is zero if the
+scored interval contains neither event. The default horizon is 7,200 ticks and
+the minimum scored interval is 6,000. Warm-up advances physics without adding
+events to the scored counters.
+
+The random-action null samples a uniform signed paddle command each tick.
+A matching empirical calibration is required for adjustment. The upper bound is
+1; it does not establish that a reference controller attains every hit.
+
+Inspect completed ticks and event counts when interpreting a hit rate. Selected
+website recordings demonstrate trajectories, not estimated performance.
+Continue with [evaluation](/handbook/evaluation/) and
+[task comparisons](/handbook/operations/).

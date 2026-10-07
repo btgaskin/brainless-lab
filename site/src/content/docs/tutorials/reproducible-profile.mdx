@@ -1,10 +1,14 @@
 ---
 title: Create a reproducible profile
-description: Preserve scientific settings and random identities in a portable record.
+description: Declare a repeatable composition and preserve native outcomes, uncertainty and provenance.
 ---
 
-A profile asks how one declared composition behaves over independent blocks and trials.
-It characterises that protocol; it does not establish a general capability.
+A profile asks how one model/task composition behaves across declared randomised blocks
+and trials. Use it to inspect variability before selecting parameters or claiming a
+mechanism. The Python `profile` operation produces trial outcomes and block summaries;
+it does not run the historical Julia analysis registry.
+
+## Start from a checked protocol
 
 ```bash
 uv run brainlesslab check python/plans/delayed-cue.toml
@@ -12,21 +16,71 @@ uv run brainlesslab run python/plans/delayed-cue.toml --root records
 uv run brainlesslab inspect records/RECORD_ID
 ```
 
-The supplied example is a bounded diagnostic. Use a task's declared scored horizon
-for ordinary evaluation. Keep the seed partition, warm-up and construction scope
-explicit before enlarging a run.
+The supplied four-trial example checks installation and record generation. Its small
+sample is suitable for a software demonstration. It is not a variance pilot or a
+confirmation study.
 
-The composition records model, task, node count and input gain.
-The evaluation records blocks, trials, horizon, warm-up and seed policy.
-Execution policy records placement, memory budgets, batching and selected channels.
+For your own question, keep these decisions separate:
 
-A complete record should expose requested and resolved configurations,
-per-trial random identities, raw native outcomes and independent-block summaries.
-Checksums and inspection make it reviewable. Completion does not confer confirmation.
+| Layer | Decision |
+| --- | --- |
+| Composition | Node family, parameters, task options, node count and input gain |
+| Evaluation | Blocks, trials, construction scope, horizon, warm-up and seed partition |
+| Numerics | Float64 or float32, strict arithmetic and versioned RNG |
+| Execution | CPU or Metal, admitted batch size, memory and recording budgets |
 
-Use sparse `probe_events` when offline decoding is required.
-Each event retains task, condition, block, trial, entity, feature identity, point and tick.
-Diagnostic labels remain outside the controller.
+## Author and resolve a profile
 
-Continue with [records and results](/handbook/records-results/) and
-[offline decoding](/benchmarks/probes/decoding/).
+```python
+from brainlesslab import (
+    CompositionSpec, EvaluationSpec, NodeSpec, TaskSpec, profile, resolve,
+)
+
+composition = CompositionSpec(
+    NodeSpec("falandays", {"leak": 0.25}),
+    TaskSpec("delayed_cue", {"delays": (32,)}),
+    count=32,
+)
+plan = profile(
+    composition,
+    id="cue-profile",
+    evaluation=EvaluationSpec(
+        blocks=4, trials_per_block=8, construction_scope="block",
+        root_seed=41, seed_partition="development",
+    ),
+)
+resolved = resolve(plan)
+print(resolved.targets[0].horizon, resolved.targets[0].n_inputs)
+```
+
+This resolves to a 48-tick episode with three inputs. Resolution does not execute it.
+With block construction, each block has its own seeded wiring. Every trial starts from
+a full reset of that wiring's initial state and receives its own world stream.
+
+After reviewing the protocol, pass `plan` or `resolved` to `execute` with an
+`ExecutionSpec`. Use `write_plan` to preserve the same scientific request as a v4 TOML
+file. Do not copy an archived Julia plan into the new runner.
+
+## Read the output in the right order
+
+First check completed and failed trial counts. Then inspect the native `TaskOutcome`,
+its scoring window and its normalisation status. A target with a failed or incomplete
+trial has an unavailable aggregate; the runner does not silently shrink its sample.
+
+Read the independent-unit label in each summary. Under block construction, trials
+share one wiring within each block. Their ticks and neural units do not create more
+independent wiring samples. Bootstrap intervals use block means, and fewer than two
+blocks do not produce a model interval.
+
+Use `recording="summary"` for native outcomes. Choose `"probe_events"` only when sparse
+offline decoding is part of the question, or `"replay"` for a bounded diagnostic recording.
+Each channel has an admission budget. Recording more data does not increase the
+number of independent observations.
+
+Runtime timings describe the executed implementation and environment. They are separate
+from task performance. For a speed measurement, follow the
+[runtime performance guide](/python/performance/) rather than treating `benchmark` as
+a timing utility.
+
+Continue with [records and results](/handbook/records-results/),
+[evaluation](/handbook/evaluation/) and [offline decoding](/benchmarks/probes/decoding/).

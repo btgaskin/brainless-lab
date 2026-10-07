@@ -1,33 +1,55 @@
 ---
-title: Active task catalogue
-description: Find supported task-specific outcomes and software boundaries.
+title: Core catalogue
+description: Resolve the active model and task contracts before choosing a study.
 ---
 
-The active Python task names are:
+## Which combinations are available?
 
-| Task | Question |
-| --- | --- |
-| `tracking` | Can a controller follow the moving stimulus? |
-| `pong` | Can the paddle intercept the ball? |
-| `cartpole_plank_easy` | How long does the declared controller balance the pole? |
-| `delayed_cue` | Can it choose the earlier binary cue after a delay? |
-| `recall_interference` | What survives intervening distractors? |
-| `delayed_xor` | Can the delayed binary relation affect the response? |
-| `evidence_accumulation` | Can distributed evidence affect the response? |
-| `context_integration` | Can context select the relevant response rule? |
-| `temporal_order` | Can the order of observations affect the response? |
-| `reversal_adaptation` | Can responses track a changed reward contingency? |
+The active models are `falandays` and `sorn`. Both accept the receptor and effector
+widths declared by the task. They use different local equations and plasticity;
+selecting the same node count does not equate their mechanism or memory footprint.
 
-The six additional capacity-probe families retain 64 declared difficulty cells.
-They are experimental software, rather than validated cognitive constructs.
+| Task | Receptors | Effectors | Neural frames per world tick | Primary outcome |
+| --- | ---: | ---: | ---: | --- |
+| Tracking | 62 | 2 | 1 | `track_score` |
+| Pong | 46 | 2 | 1 | `hit_rate` |
+| Plank CartPole Easy | 8 | 2 | 24 | `fitness` |
+| Delayed cue | 3 | 2 | 1 | `recall_accuracy` |
+| Recall interference | 3 | 2 | 1 | `probe_accuracy` |
+| Delayed XOR | 5 | 2 | 1 | `probe_accuracy` |
+| Evidence accumulation | 3 | 2 | 1 | `probe_accuracy` |
+| Context integration | 7 | 2 | 1 | `probe_accuracy` |
+| Temporal order | 4 | 2 | 1 | `probe_accuracy` |
+| Reversal adaptation | 8 | 2 | 1 | `adaptation_accuracy` |
 
-```bash
-uv run brainlesslab check python/plans/delayed-cue.toml
+```python
+from brainlesslab import TaskSpec
+from brainlesslab.tasks import capacity_probe_presets, definition
+
+for kind in ("tracking", "pong", "cartpole_plank_easy", "delayed_cue"):
+    task = definition(TaskSpec(kind))
+    print(kind, task.n_inputs, task.n_effectors, task.neural_frames)
+print(len(capacity_probe_presets()))
 ```
 
-Respect each task's scored horizon, action cadence and port interface.
-Use `task_outcome` to read its key and raw value.
-Upper bounds are task opportunity bounds, not implemented oracle demonstrations.
+The final line is `64`. This count includes five delayed-cue cells and six
+additional families; it is not 64 independent replications.
 
-Normalised values remain task-specific. Do not form a cross-task competence score.
-Continue with [calibration](/reference/analysis/) and [platform limits](/platform-limits/).
+## Choose the scoring window
+
+Tracking requires at least 2,000 scored ticks and defaults to 2,000. Pong requires
+at least 6,000 and defaults to 7,200. CartPole uses a 15,000-tick maximum and may
+terminate earlier. Physical diagnostic runs can be shorter when explicitly marked
+diagnostic; they do not satisfy the ordinary task protocol.
+
+Probe horizons follow the complete episode schedule. Increasing a delay changes the
+horizon. A run cannot truncate an episode and still claim its declared accuracy.
+Probe warm-up is zero.
+
+Task upper bounds are 1 for Tracking, Pong and binary probes, and 15,000 for
+CartPole. A bound does not imply an implemented controller achieves it.
+Physical null adjustment requires a matching frozen empirical calibration;
+binary probes declare chance 0.5.
+
+Continue with [task contracts](/benchmarks/tasks/), [capacity probes](/benchmarks/probes/)
+and [platform limits](/platform-limits/).

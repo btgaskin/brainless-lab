@@ -28,6 +28,11 @@ uv run brainlesslab inspect records/RECORD_ID
 
 Use [the first-run guide](https://brainless-lab.pages.dev/tutorials/first-simulation/) for the public Python API and record interpretation. [The platform limits](https://brainless-lab.pages.dev/platform-limits/) distinguish implemented backends from qualification receipts.
 
+Use the [performance guide](docs/python/performance.md) to measure startup, warmed
+evaluation, batching, recording and memory. Keep total trials fixed across batch
+capacities and compare CPU/Metal with the same explicit float32 policy.
+The `benchmark` operation measures task outcomes; hardware speed uses the separate profiler.
+
 ## Keep the layers separate
 
 `NodeSpec` and `TaskSpec` describe one model and task. `CompositionSpec` adds node count and input gain. `EvaluationSpec` declares independent blocks, trials, horizon, warm-up and scientific seed partition. `EvaluationTarget` gives a condition stable identities. `Plan` names a question, evidence state and operation. `ExecutionSpec` controls backend, batch size, memory budgets and recording without changing the scientific protocol.
@@ -61,3 +66,6 @@ The Julia implementation is preserved in Git at [revision d0fc756d](https://gith
 Accepted contributions, experiments, benchmark protocols and historical tables retain their source revisions and evidence states. This rewrite does not rerun or promote them. Use [the public catalogue](https://brainless-lab.pages.dev/research/catalogue/) to find immutable records.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), the project-local [BrainlessLab skill](skills/brainless-lab/SKILL.md), [qualification receipts](docs/python/qualification/README.md), and [the implementation exercises](docs/python/learning.md).
+
+For attribution, cite this software and the original work underlying the model you
+use. See [CITATION.cff](CITATION.cff) and the model guides. BrainlessLab is MIT-licensed.

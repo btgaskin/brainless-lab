@@ -1,0 +1,216 @@
+---
+title: Measure speed and memory
+description: Separate startup, warmed evaluation, batching, recording and backend costs.
+---
+
+This guide asks where BrainlessLab spends time and which execution policy suits a
+declared workload. It produces repeatable software measurements. Task scores answer a
+different question: what the model accomplishes in its task.
+
+The existing qualification establishes local CPU and Metal conformance. It does not
+establish a reliable speedup. Start with a small timing diagnostic, then measure batch
+scaling on an otherwise idle machine.
+
+## Decide what to measure
+
+| Measurement | What it includes | What it answers |
+| --- | --- | --- |
+| Worker entry to first result | Imports, resolution, runtime preparation and the first synchronised evaluation | How long does this worker take to produce a result? |
+| First evaluation with an empty application cache | Fresh construction, uploads, kernel compilation and evaluation | How expensive is a new workload? |
+| First evaluation in a new process with a populated cache | Fresh construction and evaluation with an existing application cache | How much work survives a process restart? |
+| Repeated evaluation in one process | Fresh construction, transfers, stepping and summaries with compiled kernels available | What does an ordinary repeated evaluation cost? |
+| Record writing | Source/lock capture, serialisation, checksums and file writes | What does a portable result cost to save? |
+| Host and GPU trace | Sampled call stacks or timestamped API/device events | Which part should we optimise? |
+
+An empty application cache does not clear operating-system or driver caches. A warm
+evaluation still rebuilds the model and worlds; it is not a preallocated kernel-only
+benchmark. The timing tool records worker duration separately. That duration includes
+all samples and diagnostics, so it is not first-result startup latency.
+The entry-to-result measurement excludes interpreter startup and argument parsing.
+Runtime preparation also has its own measurement. A populated cache is a precondition
+for the second process; its presence alone does not establish a kernel cache hit.
+
+For pure stepping time, a later isolated benchmark must reuse allocated state, inject
+fixed action/noise tapes and measure an equal number of neural frames. Backend traces
+are the first way to locate that work. Adding synchronisation around every kernel
+changes scheduling and must be a separate diagnostic.
+
+## Prepare the machine
+
+Install the locked environment and check numerical behaviour:
+
+```bash
+uv sync --locked --group dev
+uv run pytest python/tests/test_falandays.py python/tests/test_sorn.py
+uv run python python/examples/qualify_backends.py fresh-conformance
+```
+
+The last command needs an Apple host with Metal access. CPU64 is the equation reference.
+For a CPU/Metal timing comparison, explicitly use float32 on both. Keep strict arithmetic
+and the declared ordered reductions. A float32 GPU run versus float64 CPU run mixes
+precision and hardware effects.
+
+Before each comparison, record hardware model, GPU, memory, OS, driver/compiler build,
+power source and thermal state. Check background CPU and GPU activity and memory
+pressure. Keep those conditions stable during the run. Run backend jobs serially.
+Do not stop unrelated user processes automatically.
+
+The script records process activity where available. A process snapshot cannot prove
+sustained idleness or GPU idleness. Unsupported telemetry means unknown activity.
+Use Activity Monitor or an appropriate system trace to complete the host check.
+`--allow-background-activity` is an explicit diagnostic opt-in. It records interference;
+it does not qualify a comparison made under load.
+
+## Run a small diagnostic
+
+Use a new directory for every invocation:
+
+```bash
+uv run python python/examples/profile_backend.py scratch-speed-cpu \
+  --backends cpu --dtype float32 --node falandays --task delayed_cue \
+  --count 64 --batch-size 8 --trials 8 --blocks 2 --samples 7 --warmups 1
+```
+
+On an Apple host, use another new directory for a matched comparison:
+
+```bash
+uv run python python/examples/profile_backend.py scratch-speed-matched \
+  --backends cpu metal --dtype float32 --node falandays --task delayed_cue \
+  --count 64 --batch-size 8 --trials 8 --blocks 2 --samples 7 --warmups 1
+```
+
+Replace `falandays` with `sorn` for the second model. The driver uses fresh processes
+and per-backend application cache directories. It retains the first evaluation,
+additional warm-up evaluations and seven warmed measurements. Warm-ups are timed but
+excluded from the summary. They do not change the task's scored window.
+
+Expect `receipt.json` plus worker logs in the destination. A successful invocation
+requires successful, finite trials and retained work counts. Read the sample distribution,
+actual backend, precision, CPU thread count and admitted batch capacities.
+Compare whole distributions rather than selecting the fastest run.
+
+The tool synchronises before and after timed evaluation. Recorded rates divide actual
+completed world ticks or neural frames by that evaluation's elapsed time. They include
+construction and summaries. They are not GPU kernel utilisation.
+
+## Measure batch scaling without changing the experiment
+
+Use this staged matrix as a measurement protocol, not a claim that every cell fits:
+
+| Stage | Models | Nodes | Requested batch capacities | Fixed total trials | Tasks |
+| --- | --- | --- | --- | --- | --- |
+| Initial check | Falandays, SORN | 64 | 1, 8 | 8 | Delayed cue |
+| Batch scaling | Falandays, SORN | 64, 256 | 1, 8, 32, 128 | 128 | Delayed cue, Tracking |
+| Larger dense workload | Falandays, SORN | 1024 | 1, 8, then larger admitted capacities | 128 | One already checked task |
+| Interaction timing | Falandays, SORN | 64, 256 | Two useful capacities from earlier stages | 128 | Pong, Plank CartPole Easy |
+| Recording cost | One checked composition | Same as its baseline | Same admitted capacity | Same trial identities | Summary, sparse events or replay |
+
+For each batch-scaling cell, keep total trials, independent blocks, seed, model parameters,
+task options, horizon and recording fixed. Batch capacity changes execution placement.
+It must not change which worlds run. Use `--trials 128 --blocks 4` for the second stage.
+Use `--cpu-threads 1` for the baseline, then measure a separate explicit CPU-thread policy.
+
+Changing node count changes both the work and the model's scientific composition.
+Describe that as workload scaling. A default memory allowance may admit fewer worlds
+than the requested batch capacity. Plot throughput against the admitted capacity and
+retain the requested value. A sparse connectivity mask still uses dense storage.
+Dense recurrent and plastic-weight work grows approximately with batch size times node
+count squared; establish the practical memory and throughput curve before enlarging it.
+
+Tracking ordinarily needs at least 2,000 scored ticks. Pong's normal horizon is 7,200,
+with a 6,000-scored-tick minimum. Plank CartPole Easy allows a 15,000-step episode and
+uses 24 neural frames per world tick. A shorter physical timing workload requires
+`--diagnostic --horizon VALUE`. State that shorter horizon when reporting it.
+
+CartPole can terminate early. A faster completed episode may mean fewer simulated
+steps. Retain completed ticks, neural frames, terminal counts and native outcomes.
+Use a fixed-tape isolated workload before attributing a difference to kernel speed.
+The fused random/reference-controller path is separate from the reservoir path.
+Fast null calibration does not establish fast neural simulation.
+
+Before comparing cells, verify identical trial identities and unchanged same-policy
+outcomes and work counts across repeats and batch partitions. Cross-backend numerical
+qualification uses declared tolerances; long closed loops can diverge even after short
+equation checks pass. Report those differences rather than replacing the seed bank.
+
+## Measure recording and memory separately
+
+The default `--recording none` skips writing portable records. Evaluation still
+computes trial outcomes and summaries.
+
+Run a checked baseline with `--recording summary`. For a supported binary probe, repeat
+with `--recording probe_events`. Use `--recording replay` only for a bounded display
+workload. Recording changes the execution and observation workload; compare against
+a baseline with the same model, worlds and numerical settings.
+
+The tool times record writing separately after synchronised evaluation. This includes
+source capture, compression, checksums and storage I/O. Sparse or replay observations
+are already generated and transferred during evaluation; writing time does not isolate
+all recording overhead.
+
+Retain managed-memory and recording-budget settings with the result. The budget is an
+admission estimate, not a measured process peak. The process RSS high-water mark is
+cumulative host memory. It does not measure per-stage allocations or device VRAM.
+Use backend/system tools for device allocation and allocator-pool behaviour.
+On Apple silicon, shared memory still does not make process RSS a complete GPU metric.
+
+## Find the bottleneck
+
+Use the tool that answers the current question:
+
+| Tool | Use it for | Limit |
+| --- | --- | --- |
+| py-spy | Python host stacks, construction, RNG, dispatch and record writing | It does not time GPU kernels |
+| Instruments Time Profiler | Host/native work on this Mac | Sampling is not a per-kernel device timeline |
+| Instruments Metal System Trace | Metal submissions, device work, synchronisation and gaps | Capture overhead changes timing |
+| Nsight Systems / Compute | CUDA timelines and kernel analysis on a separately qualified NVIDIA setup | CUDA is not an active BrainlessLab backend |
+| RenderDoc | Inspect supported graphics API captures and dispatch state | It is not the current Metal speed tool |
+
+For a host-stack trace, launch a bounded recording from the repository:
+
+```bash
+uv run --with py-spy py-spy record -o profile.svg -- \
+  python -m brainlesslab.cli run python/plans/delayed-cue.toml --root scratch-records
+```
+
+Follow [py-spy's documentation](https://github.com/benfred/py-spy) for operating-system
+attach permissions and supported native-stack options. Keep this trace separate from
+unprofiled timing samples. Very short runs may need a longer copied development plan
+to provide enough samples.
+
+On this Mac, use Xcode Instruments to launch or attach to the Python workload.
+Compare host time with Metal command-buffer and kernel events. Apple's
+[Metal performance guide](https://developer.apple.com/documentation/xcode/analyzing-the-performance-of-your-metal-app)
+describes the tracing tools. Inspect submission gaps, synchronisation and resource
+traffic before changing kernel code.
+
+For later NVIDIA work, use the
+[Nsight Systems guide](https://docs.nvidia.com/nsight-systems/UserGuide/index.html)
+after numerical backend qualification. Use the
+[RenderDoc introduction](https://renderdoc.org/docs/introduction.html) for its supported
+capture APIs. Tool availability does not enable an unsupported BrainlessLab backend.
+
+Source inspection suggests four candidates to investigate: repeated host kernel
+dispatch, random-tape preparation and tile transfers, dense recurrent/plastic-weight
+traffic, and reductions or finite checks. These are hypotheses. Trace evidence decides
+which deserves optimisation.
+
+## Turn a measurement into a regression gate
+
+Retain the exact revision, lock, source/runtime hashes, workload, execution policy,
+sample distribution, work counts, failures, memory units and host conditions.
+Repeat fresh-process cases if making a stable startup claim; one launch is a diagnostic.
+Repeat important comparisons in alternating backend order or separate sessions.
+Report medians and spread across those sessions.
+
+Shared CI runners can check receipt structure, numerical behaviour, failure handling
+and unintended specialisations. Use stable dedicated hardware for timing thresholds.
+Define a workload-specific practical regression margin from repeated baseline variance.
+A universal wall-time limit on a shared runner can reward incomplete work or punish noise.
+
+If a trace isolates a Quadrants problem, reduce it to a standalone compiler/runtime
+example. Keep the observed version, backend and workaround explicit. The existing
+[aliasing reproduction](https://github.com/btgaskin/brainless-lab/tree/main/docs/python/upstream)
+is a local issue draft, not an accepted upstream contribution.
+Continue with [implementation exercises](/python/learning/) and
+[platform limits](/platform-limits/).

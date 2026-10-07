@@ -1,36 +1,50 @@
 ---
-legacy: true
 title: Delayed XOR
-description: Combine two binary cues across a delay.
+description: Combine two separated binary cues before a common response window.
 ---
 
-Delayed XOR asks whether a controller can retain one binary cue and combine it with a
-second. The left answer means equal; the right answer means different. All four cue
-combinations are sampled with equal probability.
+## What relation is scored?
+
+`delayed_xor` presents two independently chosen binary cues in separate receptor
+banks. The correct response is left when the cues are equal and right when they
+differ. This binary relation motivates the XOR name; the response coding is explicit.
+
+The five receptors are first-left, first-right, second-left, second-right and go.
+Two effectors vote during response only, with ties selecting left.
+There is one neural frame per world tick.
 
 ```text
-first cue (8) → gap (0, 8, 32 or 128) → second cue (8) → go and response (8)
+first cue (8) → gap (32) → second cue (8) → go / response (8)
 ```
 
-`:delayed_xor` has five receptors: first-cue left/right, second-cue left/right, and go.
-The two cue banks distinguish their roles. Neither cue alone determines the answer.
-The outcome is `probe_accuracy`, raw and normalised in [0, 1]; chance is 0.5.
+```python
+from brainlesslab import TaskSpec
+from brainlesslab.tasks import definition, resolve
 
-```julia
-using BrainlessLab
-target = EvaluationTarget(:xor,
-    CompositionSpec(:xor, :null_random, :delayed_xor; n_nodes=8, task_options=Dict(:gap => 32)),
-    EvaluationSpec(horizon=56, root_seed=1610300))
-task_outcome(only(evaluate(target).trials).simulation)
+task = TaskSpec("delayed_xor", options={"gap": 32})
+print(resolve(task))
+print(definition(task))
 ```
 
-`probe_control(:delayed_xor)` retains both cues and computes XOR. For an instantaneous
-comparison control, use `cue_mode=:persistent` and `policy=:memoryless` in `probe_control`.
-Both cues then remain available during response. Transient and hidden modes remove that
-shortcut; constant responses provide the chance reference. Even a zero gap retains a
-separate response window, so it is not the instantaneous control.
+The resolved options include transient cues and eight response ticks.
+The definition reports five inputs, two effectors and horizon 56.
+Four presets use gaps 0, 8, 32 and 128.
 
-The reference controller should achieve full accuracy across all four combinations.
-Success establishes this temporal binary computation, not general logical reasoning.
-Inspect [decoding](/benchmarks/probes/decoding/) separately from native responses and
-use the [study protocol](/benchmarks/probes/study/) for later comparisons. This is a candidate task.
+## Exclude simpler solutions
+
+`cue_mode="transient"` removes each cue after its window.
+`"persistent"` leaves the first bank visible after the first cue and the second bank
+visible after the second cue. Both are then available during response, allowing a
+memoryless relation computation. `"hidden"` suppresses both banks while retaining
+the episode's random choices and timing.
+
+The observation-based oracle retains both cues. Last-cue and constant policies
+cannot in general recover their relation from a transient second cue alone.
+Pair the visibility conditions with declared world identities.
+
+`probe_accuracy` gives one binary result per full trial. Chance is 0.5, the
+upper bound is 1 and warm-up is zero. A successful delayed relation task does not
+establish general symbolic reasoning.
+
+Continue with [decoding](/benchmarks/probes/decoding/) to separate recoverable cue
+information from native response success.

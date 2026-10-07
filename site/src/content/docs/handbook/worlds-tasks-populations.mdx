@@ -1,28 +1,66 @@
 ---
 title: Worlds, tasks and batches
-description: Distinguish stable scientific identities from physical execution slots.
+description: Choose a task and keep randomised trial identities separate from execution slots.
 ---
 
-A task owns its inputs, actions, world update and native outcome.
-A trial executes one declared composition in one independently seeded world.
-A batch groups compatible work for execution; it does not add scientific replicates.
+A task defines observations, action timing, world updates and a native outcome.
+A trial executes that opportunity in one seeded world. A batch groups compatible trials
+for execution; it does not create a shared ecological population.
 
-The active tasks are Tracking, Pong, Plank CartPole Easy, delayed cue, recall
-interference, delayed XOR, evidence accumulation, context integration, temporal order
-and reversal adaptation. The capacity-probe library has 64 declared difficulty cells.
+The active tasks are Tracking, Pong, Plank CartPole Easy, delayed cue, recall interference,
+delayed XOR, evidence accumulation, context integration, temporal order and reversal
+adaptation. Each has its own assumptions and limits.
+
+## Discover a task before assembling it
+
+```python
+from brainlesslab import TaskSpec
+from brainlesslab.tasks import definition, resolve
+
+task = TaskSpec("delayed_cue", {"delays": (32,)})
+print(resolve(task))
+print(definition(task))
+```
+
+Expect a three-input, two-effector task with one neural frame per world tick and a
+48-tick default horizon. The task's native outcome key is `recall_accuracy`.
+
+For the complete plan contract, use:
 
 ```bash
 uv run brainlesslab check python/plans/delayed-cue.toml
 ```
 
-Check compatible ports and a valid task horizon in the resolved output.
-Stable condition/block/trial/entity identities own random streams.
-Physical slots may change with batch size without changing those identities.
-Inactive slots must not advance dynamic or random state.
+Follow [the task catalogue](/reference/core-catalog/) for other widths, cadences and
+default horizons. The 64 capacity cells cover delayed cue and six additional
+experimental families. They are named configurations, not 64 validated cognitive abilities.
 
-Use independent blocks or trials for inference. A larger batch is an execution choice,
-rather than a larger scientific sample. General body composition and mixed populations
-remain outside this release.
+## Interpret a world and a trial
 
-Continue with [evaluation](/handbook/evaluation/) and
-[the probe catalogue](/benchmarks/probes/).
+Tracking and Pong are continuous fixed-horizon control opportunities. CartPole terminates
+when its declared bounds are crossed or its step cap is reached. Binary probes finish at
+the end of their response episode. Reversal adaptation is one continuous multi-round
+session per trial.
+
+A full reset starts the next trial from its initial construction. Rounds inside a reversal
+session are not independently reset trials. Diagnostic labels and world snapshots do not
+become online controller inputs.
+
+## Interpret a batch
+
+Stable stream identities derive from the scientific specification. Execution groups jobs
+with compatible task family, model, port widths and numerical policy. The scheduler can
+split a group into smaller admitted batches without changing those identities.
+
+More slots may improve throughput. They do not enlarge the independent sample in an
+already declared plan. Memory and recording budgets limit what can be admitted; if one
+trajectory cannot fit, the runner fails before constructing its world rather than
+silently reducing node count or changing the protocol.
+
+Check trial status, realised world identities and wiring IDs when comparing batch sizes.
+Exact same-policy equality is a software gate; CPU64 and Metal32 require a different
+numerical qualification because their arithmetic differs.
+
+Continue with [evaluation](/handbook/evaluation/),
+[runtime performance](/python/performance/) and [capacity probes](/benchmarks/probes/).
+General body composition and mixed ecological populations remain historical capabilities.

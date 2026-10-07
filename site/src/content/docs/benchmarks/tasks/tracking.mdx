@@ -1,21 +1,49 @@
 ---
 title: Tracking
-description: Keep native following the moving stimulus outcomes and their protocol explicit.
+description: Measure angular alignment with a moving stimulus.
 ---
 
-Tracking asks about following the moving stimulus in one declared task.
-Its native score measures stimulus tracking under the declared interface. The task bound is 1. Respect the minimum scored horizon and keep warm-up explicit.
+## What must the controller do?
 
-```bash
-uv run brainlesslab check python/plans/delayed-cue.toml
+Tracking moves an observer around a circle to follow a stimulus. The world stores
+observer angle `theta` and stimulus angle `phi` in radians. The stimulus moves
+one degree per world tick by default and reverses direction every 720 ticks.
+
+Two eyes have default offsets of ±30 degrees. Each eye samples 31 directions from
+−60 to +60 degrees in four-degree increments, giving 62 receptor channels.
+Each receptor has a four-degree central response plateau and a Gaussian fall-off
+outside it. `sensory_gain` scales this signal.
+
+The two effectors move the observer by `movement_amp * (left - right)` degrees
+per tick; the default amplitude is 10. There is one neural frame per world tick.
+
+```python
+from brainlesslab import CompositionSpec, NodeSpec, TaskSpec, profile, resolve
+
+target = resolve(profile(CompositionSpec(
+    node=NodeSpec("falandays"),
+    task=TaskSpec("tracking", options={"randomize_start": False}),
+    count=32,
+))).targets[0]
+print(target.horizon, target.n_inputs, target.n_effectors)
 ```
 
-The supplied example checks the active plan syntax. Select this task through its
-`TaskSpec` and inspect its resolved ports, scoring window and seed policy before running.
-Use `task_outcome` and retain the key, raw units and calibration status.
+Expect `2000 62 2`. Disabling random starts sets observer angle π/2, stimulus
+angle zero and direction +1 unless explicitly overridden. The ordinary default
+randomises the initial angles and direction.
 
-A signed null adjustment does not make this outcome comparable to another task's units.
-Task performance does not establish general competence, learning or biological fidelity.
-Historical benchmark protocols and tables retain their original evidence status.
+## Read the native outcome
 
-Continue with [evaluation](/handbook/evaluation/) and [calibration](/reference/analysis/).
+`track_score` is the mean cosine of angular error during the scored interval.
+It ranges from −1 to 1: perfect alignment is 1, perpendicular alignment is zero
+and opposite alignment is −1. The minimum scored horizon is 2,000 ticks.
+Warm-up may precede scoring and still changes the world and adapting reservoir.
+
+The random-action reference samples a uniform signed movement command each world
+tick. Matching empirical calibration is required for a null-adjusted score.
+The upper bound 1 is a mathematical bound, not a measured oracle.
+
+A short diagnostic trajectory can show motion and interface behaviour. It cannot
+establish ordinary task performance. Continue with
+[a paired plasticity comparison](/tutorials/compare-conditions/) and
+[calibration](/reference/analysis/).

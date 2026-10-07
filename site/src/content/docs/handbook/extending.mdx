@@ -1,26 +1,60 @@
 ---
 title: Extending BrainlessLab
-description: Choose the smallest supported change and preserve its conformance boundary.
+description: Choose one narrow boundary and establish its software and evidence limits.
 ---
 
-Prefer model parameters or task options before adding a new substrate.
-Construction, runtime dynamics and offline analysis must remain separate.
+An extension should make a new question possible without changing an existing result's
+meaning. Begin with a model parameter or task option when that expresses the intended
+change. Add a new substrate only when its equations differ.
+
+## Choose the smallest implementation
+
+| Intent | Current path |
+| --- | --- |
+| Change a supported model | `NodeSpec.parameters` |
+| Change task timing or observations | `TaskSpec.options` |
+| Change node count or input scale | `CompositionSpec` |
+| Compare a mechanism | Named targets and declared interventions |
+| Explore parameters | Development-only `sweep` |
+| Add a diagnostic | Pure offline analysis over owned result data |
+| Add a new model or task family | Reviewed package implementation and resolver changes |
+
+There is no general third-party registry or arbitrary body assembly in this release.
+Historical Julia extension methods remain available at their source revision.
+
+## Read equations and tests together
 
 ```bash
 uv sync --locked --group dev
-uv run pytest python/tests/test_sorn.py
+uv run pytest python/tests/test_sorn.py python/tests/test_task_validation.py
 ```
 
-Read a focused model suite alongside its kernels. A new equation needs an independent
-reference calculation, reset/freeze tests, finite-state reporting and batch independence.
-Keep array ranks fixed, use runtime dimensions and own returned snapshots.
+Use these focused suites to understand construction, update ordering, pruning, reset
+and task schedule validation. A passing existing suite does not validate a new equation.
 
-Public scientific values are immutable. Execution policy owns placement and memory;
-it must not silently change trial randomness or scoring.
-Labels are diagnostic metadata, rather than controller inputs.
+Scientific specifications remain immutable host values. Keep device buffers and memory
+admission in execution. Use explicit generators and stable entity/feature IDs. Preserve
+destination/source matrices and fixed ndarray ranks with runtime dimensions.
 
-General registries, arbitrary bodies, evolution and autodiff remain unsupported.
-Historical Julia extensions use their original interface at d0fc756d.
+## Define the new contract before integrating it
 
-Continue with [the extension tutorial](/tutorials/extend-project/) and
-[implementation exercises](/python/learning/).
+For a model, state the old-state/new-state order, threshold equality rule, emitted
+activity, readout, adaptation, frozen modes and reset. Test small hand-calculated states
+with an independent NumPy reference. Include non-finite drives, empty connectivity,
+inactive slots, owned snapshots and batch independence.
+
+For a task, state available observations, action cadence, response windows, ties,
+termination, native units and scoring opportunity. Validate initial schedules before
+device allocation. Keep labels and hidden task truth outside the online controller.
+Choose an appropriate reference policy without calling its observed score an upper bound.
+
+For offline analysis, preserve the independent unit and prevent fit/validation leakage.
+For a backend change, qualify the arithmetic/device path separately from model equations.
+
+Only after those checks should you profile runtime costs or propose an optimisation.
+Preserve a single equation source when introducing fused execution. Canonical ndarray
+access and explicit returned status values avoid stale reads across aliased helper views.
+
+Continue with [the extension tutorial](/tutorials/extend-project/),
+[interfaces](/reference/interfaces/), [learning exercises](/python/learning/) and
+[runtime performance](/python/performance/).

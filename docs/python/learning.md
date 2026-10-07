@@ -1,61 +1,82 @@
-# Learn the implementation by inspecting its evidence
+# Learn the implementation
 
-These exercises develop implementation judgement. They do not produce learning or biological evidence.
+Use these exercises to connect a software question with an observable result.
+Start with the locked development environment. Numerical and timing evidence remain
+separate from learning or biological claims.
 
-## Compare equations before timing
-
-Run the focused model tests with the locked environment:
+## 1. Explain an update before optimising it
 
 ```bash
 uv sync --locked --group dev
-uv run pytest python/tests/test_sorn.py
-uv run pytest python/tests/test_falandays.py
+uv run pytest python/tests/test_falandays.py python/tests/test_sorn.py
 ```
 
-Read the independent NumPy equations beside the Quadrants kernels. Follow old-state inputs, threshold equality, plasticity order and destination/source orientation. Change a copied toy example and explain the expected difference before running it. Do not alter immutable fixtures or accepted records.
+Read the independent NumPy equations beside the Quadrants kernels. Follow old-state
+inputs, destination/source orientation, threshold equality and plasticity order.
+Predict a toy update before running it. Preserve immutable reference fixtures.
 
-A passing equation test establishes its declared software boundary. It does not establish a trained capability or parity with every historical task run.
+The tests should pass. They establish their declared equation and state-transition
+boundary; they do not establish performance on a new task.
 
-## Separate kernel compilation from execution
-
-Start with the serial receipt generator:
+## 2. Follow scientific identity through batching
 
 ```bash
-uv run python python/examples/profile_backend.py scratch-profile --backends cpu --dtype float64
-uv run python python/examples/qualify_backends.py scratch-conformance
+uv run pytest python/tests/test_specs_random.py python/tests/test_evaluation.py
 ```
 
-The second command needs CPU32 and Metal32 on an Apple host.
-Both commands use new output directories. Run GPU workloads one at a time.
-The profiling command reports background compute and refuses an unacknowledged
-busy system. An explicit diagnostic opt-in records interference; it does not
-turn noisy wall time into a speed claim.
+Compare world, wiring and mechanism IDs across batch partitions. Explain why a display
+label or physical device slot cannot define a random stream. Follow full reset,
+inactive worlds, early termination and permanent numerical-failure masks.
 
-Run one small CPU composition, then repeat the warmed call with the same rank and dtype. Record first-call latency separately from warmed time. Change batch size and node count without changing rank. Inspect which kernels compile again, and relate this to the typed ndarray bundles and runtime dimensions.
+Expect the same declared scientific work across supported batch partitions.
+Ticks and nodes still do not become independent replications.
 
-Quadrants exposes compiler diagnostics through `qd.init(print_ir=True)` and cache settings. Use these in a scratch process, because runtime initialisation is process-wide. Compare the IR for destination-owned reductions with a deliberately copied scalar example. The [Quadrants guide](https://genesis-embodied-ai.github.io/quadrants/user_guide/index.html) is the source for supported diagnostic options.
-
-Measure compilation with a fresh cache and execution with a warm cache. Preserve the exact Quadrants version, backend, dtype, thread count and fast-math policy. A faster float32 run does not by itself qualify float32 numerics.
-
-## Find host costs and transfer boundaries
-
-Profile a bounded example with [py-spy](https://github.com/benfred/py-spy):
+## 3. Inspect compilation and cache reuse
 
 ```bash
-uv run --with py-spy py-spy record -o profile.svg -- brainlesslab run python/plans/delayed-cue.toml --root scratch-records
+uv run pytest python/tests/test_compilation.py
 ```
 
-Inspect construction, random-tape preparation, host/device copies, Python launch overhead and record writing. py-spy samples host stacks; it does not resolve GPU kernel time.
+Follow the frozen ndarray bundle fields and static family/mode choices. Change array
+dimensions or runtime scalar values in a copied toy example. Compare compiled counts
+with a static-mode change. Counts detect specialisation; they do not prove a cache hit.
 
-On macOS, attach Instruments to the Python process. Compare Time Profiler and Metal System Trace where the installed tools support them. Record signposts or explicit timestamps around construction, compilation and scored execution. Read [Apple's Instruments guide](https://developer.apple.com/documentation/xcode/improving-your-app-s-performance) before interpreting GPU and CPU overlap.
+For compiler IR, use a separate scratch process and the installed Quadrants diagnostics.
+The [official guide](https://genesis-embodied-ai.github.io/quadrants/user_guide/index.html)
+describes supported options. Preserve runtime version, precision and backend.
 
-## Explore backend tools within the supported boundary
+## 4. Measure a complete workload
 
-The [local Quadrants reproduction](upstream/README.md) and
-[issue draft](upstream/issue-draft.md) show how to reduce an application failure
-to a compiler contract question. They contain measured CPU64, CPU32 and Metal32
-diagnostics. They have not been submitted upstream.
+Use the [performance guide](performance.md). It separates an empty application cache,
+a populated cache in a fresh process and repeated warmed evaluation. Keep trial count
+fixed when changing batch capacity, synchronise timing boundaries and inspect actual
+work counts. Use py-spy for host stacks and Instruments for this Mac's native/Metal work.
 
-NVIDIA Nsight and RenderDoc are later exercises for an explicitly supported backend or upstream Quadrants example. This BrainlessLab release does not qualify CUDA, Vulkan or RenderDoc capture. Do not add a backend label or checkpoint/autodiff claim merely because upstream has a related feature.
+Collect unprofiled timings separately from traces. A profiler can identify a cause
+without producing an unbiased throughput measurement. Additional backends need their
+own numerical qualification before their profiling tools become relevant.
 
-Read the [Quadrants source](https://github.com/Genesis-Embodied-AI/quadrants) for compiler extensions and submit a minimal reproducer upstream when a compiler issue is isolated. General automatic differentiation, durable checkpoint/resume, distributed execution and broad model registries remain outside this release. See [platform limits](../../site/src/content/docs/platform-limits.mdx).
+## 5. Make a result portable
+
+```bash
+uv build
+BRAINLESSLAB_TEST_WHEEL=dist/brainlesslab-0.4.0-py3-none-any.whl uv run pytest python/tests/test_records.py
+```
+
+Inspect the submitted/resolved plan, seed table, trial rows, source archive, lock and
+checksums in a new record. Read the installed-wheel test. Explain which inputs another
+machine needs to repeat the run. A portable record is not a resumable device checkpoint.
+
+## 6. Reduce a compiler issue
+
+```bash
+uv run python docs/python/upstream/ndarray_aliasing.py --backend cpu --dtype float64
+```
+
+This example imports Quadrants without BrainlessLab. Compare the two argument paths
+against the expected array. Read the [issue draft](upstream/issue-draft.md), which states
+the measured version, workaround and limits of the proposed explanation.
+
+The draft has not been submitted upstream. A useful contribution needs a minimal
+reproducer, a precise expected contract, a regression test and maintainer agreement.
+Keep issue triage, local fixes and accepted contributions distinct.

@@ -1,360 +1,57 @@
 ---
 name: brainless-lab
-description: Guide for the active Python and Quadrants BrainlessLab platform, scientific specifications, bounded evaluation, task null calibration, offline diagnostics and evidence boundaries. Use for every repository task. The later Julia guidance applies only to the historical implementation at revision d0fc756d.
+description: Operate and extend the Python and Quadrants BrainlessLab platform while preserving scientific identity, numerical conformance and research evidence.
 ---
 
 # BrainlessLab
 
-## Active Python and Quadrants implementation
+Read the current worktree's `AGENTS.md` before editing. The package is
+`python/src/brainlesslab/`; the public guide is `site/src/content/docs/`.
+Use this project-local skill. Do not install a second global copy.
 
-The active package lives under `python/src/brainlesslab/`. Read `AGENTS.md` and
-`docs/python/README.md` before implementation work. The public site documents the active
-contract. The Julia sections below are historical guidance for revision `d0fc756d`;
-they do not describe implemented Python registries, evolution or embodied populations.
-
-Use the locked environment and smallest declared protocol:
+## Start small
 
 ```bash
 uv sync --locked --group dev
 uv run brainlesslab check python/plans/delayed-cue.toml
 uv run brainlesslab run python/plans/delayed-cue.toml --root records
+uv run brainlesslab inspect records/RECORD_ID
 ```
 
-`check` resolves without simulation. `run` writes a new portable record. Inspect the
-printed record path with `uv run brainlesslab inspect RECORD_PATH`. A complete record
-is software output, not confirmation or maintainer acceptance.
-
-Keep `NodeSpec`, `TaskSpec`, `CompositionSpec`, `EvaluationSpec`, `EvaluationTarget` and
-`Plan` independent of `ExecutionSpec`. The latter selects placement, batch size, memory
-budgets and recording. `NumericalPolicy` declares arithmetic and the versioned RNG.
-Construction is host-side. Quadrants kernels advance neural and task state. Offline
-NumPy analysis consumes owned sparse observations; diagnostic labels never enter the
-online controller. Use stable IDs and destination/source matrix orientation.
-
-Task outcomes retain raw native units. Null-adjusted scores use the task-matched frozen
-calibration and may be negative. Calibration signatures exclude reservoir count,
-topology and input gain. Bootstrap independent model blocks and calibration trajectories
-separately. An invalid denominator makes the adjusted interval unavailable.
-
-Run focused tests, then `uv run pytest`, `uv run ruff check python`, `uv run pyright`
-and `uv build`. Build and test the site after public contract changes. CPU64 equation
-checks, historical Julia reference trajectories and Metal32 qualification are separate
-gates. Architecture jobs need actual receipts before they are called qualified.
-
-The active node families are Falandays and SORN. The capacity probes retain six
-experimental families and 64 difficulty cells. General body composition, evolution,
-checkpoint/resume and autodiff are not implemented in this release. Follow
-`site/src/content/docs/platform-limits.mdx` and `docs/python/learning.md`.
-
-## Historical Julia implementation at d0fc756d
-
-BrainlessLab studies what simple, locally governed neural units can do when coupled to
-bodies and worlds. It supports node design, closed-loop tasks, repeated research
-operations, and versioned experiments.
-
-Always read the repository `AGENTS.md`. Pair this skill with the Julia skill whenever
-Julia code is written or reviewed. Follow `docs/WRITING.md` for public prose.
-
-## Local source and research requests
-
-The maintained skills live in this checkout under `skills/`. The relative links in
-`.agents/skills/` expose these same files for project-local discovery. Edit the source
-files; do not maintain global copies. In another worktree, use that worktree's skills.
-
-For a request to profile or sweep a scientific observation, translate the question into
-the smallest inspectable experiment using the existing operations. Inspect the resolved
-parameters and intervention semantics before running a grid. Use
-[initialisation and adaptation studies](references/initialisation-and-adaptation.md)
-for comparisons of frozen and adapting Falandays networks. Use the CLI reference for
-plan syntax. Execute an authorised bounded stage and inspect its records before expanding.
-
-For a question that grows into a programme, read
-[programme design and presentation](references/programme-design-and-presentation.md).
-It covers agreeing hypotheses with the user, selecting informative figures, recording
-decisions and curating one programme page. Presentation choices never change evidence.
-
-Exploration can be informal. Operate settings through the skill and existing authoring
-helpers; do not require a settings UI, sealed set or hypothesis. For freeze-time curves
-and automated local sharing, read
-[freeze-time exploration](references/freeze-time-exploration.md).
-
-## Preserve the architecture
-
-```text
-runtime
-NodeSpec + TaskSpec + body + InteractionCycle
-  → CompositionSpec
-  → Reservoir + embodied agent(s) + Environment
-  → SimResult
-
-research
-CompositionSpec + EvaluationSpec
-  → EvaluationTarget
-  → operation plan
-  → typed result
-  → record
-
-named EvaluationTargets + operation plans
-  → ExperimentSpec
-```
-
-Keep each type responsible for one level:
-
-- `NodeSpec` owns the node builder, declared parameters, parameter sets, capabilities,
-  equations, and default analyses. Node count belongs to `CompositionSpec`.
-- `TaskSpec` owns setup, ports, interaction timing, raw outcome, anchors, descriptors, and
-  experimental status. It does not own node parameters.
-- `InteractionCycle` defines neural frames within one world step. It does not define trial
-  replication.
-- `CompositionSpec` records the complete runtime composition.
-- `EvaluationSpec` defines blocks, trials per block, horizon, warm-up, construction scope,
-  reset policy, root seed, named streams, and aggregation.
-- `EvaluationTarget` names one composition with one evaluation protocol.
-- `ExperimentSpec` records a scientific question, version, named conditions, operations,
-  evidence state, limitations, description, optional hypotheses/objectives and child experiments.
-  Question-only nodes are valid; execution selects one node and never runs its children.
-
-One `step!` lifecycle serves one agent and a population. Express differences through
-typed bodies, tasks, readouts, interaction cycles, and registered implementations. Do not
-add task-name or organism-name branches to the simulation loop.
-
-## Choose the smallest valid path
-
-Use `simulate` for one diagnostic run:
-
-```julia
-using BrainlessLab
-
-sim = simulate(:tracking; node=:falandays, ticks=1000, seed=11, window=1000)
-task_outcome(sim)
-```
-
-The explicit `window` acknowledges a deliberately short diagnostic. Use at least 2,000
-scored ticks for ordinary Tracking evaluation.
-
-The symbol form is a convenient façade. Construct a `CompositionSpec` when reusable work
-must record node count, parameters, body, task options, and interaction timing.
-
-Use an operation plan for repeated evaluation:
-
-```bash
-julia --project=. bin/brainlesslab.jl check plans/examples/profile_tracking.toml
-julia -t auto --project=. bin/brainlesslab.jl run \
-  plans/examples/profile_tracking.toml --root records
-```
-
-`check` parses, validates, and resolves without simulation. It rejects a scored target when
-`horizon - warmup` is below the task's `minimum_scored_ticks`. `run` executes the plan and
-writes one standard record. Do not introduce another YAML schema, bespoke callback runner,
-or operation-specific protocol format.
-
-## Use the five operations precisely
-
-- `ProfilePlan` characterises one node/task composition with declared analyses. Registered
-  analysis options and recorder compute strides belong in the plan. Aligned analysis
-  series are summarised across independent trials; raw tick traces are not a default
-  record surface. It records the required channels and reports analysis failures.
-  Optional `scope=:block` analyses receive `ProfileBlock`; `BlockAnalysisResult` tables
-  retain independent-block counts separately. `probe_decodability` requires sparse
-  `:probe_events`, fixed wiring within a block, full trial resets and whole-trial splits.
-- `SweepPlan` evaluates explicit or node-default parameter axes. Seeds are paired across
-  cells. Call the output a development grid, not a confirmed optimum.
-- `AblationPlan` compares an implicit baseline with registered interventions. Validation
-  checks the intervention stage and required node capabilities. Inapplicable or unchanged
-  interventions are errors, not silent no-ops.
-- `ScheduledIntervention` applies a registered live intervention before one absolute trial
-  tick. Keep the schedule on `EvaluationTarget`; validation must check the horizon, live
-  hook, and node capabilities.
-- `EvolutionPlan` searches any node that declares a reviewed
-  `Evolution.NodeDesignSpec` through the experimental `BrainlessLab.Evolution` namespace.
-  Built-in designs include Falandays and the dense and structured compartmental models.
-  Search randomness is separate from evaluation streams. SepCMA can evaluate its selected
-  model on held-out targets. Pareto and archive models move to a later `BenchmarkPlan`.
-- `BenchmarkPlan` reports declared conditions within each task. A multi-condition case uses
-  paired blocks and a declared baseline. A one-condition case can omit the baseline and
-  report anchor-relative statistics without contrasts. It does not create a cross-task
-  competence score.
-
-Files under `plans/examples/` are executable syntax checks with small budgets. Versioned
-study bundles live under `experiments/`.
-
-Use `write_experiment` to write an `ExperimentSpec` as `experiment.toml` plus ordinary plan
-files. `read_experiment` rejects inconsistent definitions of a repeated condition. The CLI
-commands `check-experiment` and `run-experiment` validate or execute the bundle; each
-operation still writes its own record.
-
-For a growing programme, use `experiment_branch` or CLI `--branch` to select a node.
-`attach_experiment_run!` validates the full executed protocol and snapshots run checksums
-in a companion ledger; `historical=true` is explicit and never promotes evidence.
-`add_experiment_note!` appends dated authored discussion with run IDs. `render_experiment`
-or `report-experiment` creates a new offline directory containing the tree, copied records,
-discussion and provenance. This does not execute operations. Notes display as escaped
-Markdown source. Shared prepared-state handoffs and reusable saved-record analysis
-operations are not implemented. See `experiments/initialisation-adaptation/README.md`.
-An optional `presentation.toml` selects prose sections and individual recorded figures
-for the single-page view. Methods and all attached records remain expandable; an export
-preserves the presentation configuration. Without selections, figures stay in diagnostics.
-
-## Interpret records correctly
-
-Each operation writes a `brainlesslab-record` bundle:
-
-```text
-record-id/
-├── record.toml
-├── request.toml
-├── resolved.toml
-├── environment/Manifest.toml
-├── seeds.csv
-├── data/
-├── summary/
-├── figures/
-├── report/index.html
-└── DONE
-```
-
-`request.toml` preserves the plan. `resolved.toml` records node defaults, task and body
-options, interaction timing, evaluation settings, and operation-specific resolution.
-`environment/Manifest.toml` preserves the exact dependency resolution used for the run.
-`record.toml` inventories generated files and their SHA-256 checksums. CSV files are the
-authoritative tables; HTML is a readable report over those data.
-
-Shareable records must not contain host names or absolute local paths. `DONE` means record
-generation completed. It does not mean the result is confirmed evidence.
-
-## Contribute public research records
-
-Public run contributions use two stages. Merge the protocol and any software changes first.
-Then generate records from a clean Git commit that is reachable from `main`. A run-only pull
-request must not introduce or execute new code.
-
-Check a contribution with `check-contribution`. A maintainer replays the already-merged
-experiment at the submitted source SHA, adds the replay bundle, and runs
-`compare-contribution DIR --write`. Contributor submission and maintainer replay are
-role-linked records in one contribution. They are not independent evidence.
-
-Only a human maintainer accepts a contribution. After acceptance, regenerate
-`research/catalogue.json` with `index-research`. Keep accepted records immutable and public.
-Aim for at most 1 MiB of text-only files per contribution; 5 MiB is the hard limit.
-Files above 5 MiB are not accepted by this Git-native pipeline. Large datasets remain out
-of scope.
-
-The catalogue can include an explicit `pre-pipeline` compatibility entry for older material.
-Such an entry does not imply acceptance through the contribution process.
-
-## Keep reference and experimental claims narrow
-
-`:falandays` is validated on declared reference trajectories from the Falandays
-implementation. This validation covers the tested construction and update path. It does
-not automatically cover every body, task, behavioural statistic, analysis, or biological
-interpretation.
-
-Tracking, Pong, Plank CartPole Easy, and delayed-cue recall are the v2 benchmark tasks. Wall remains
-available but is not a core benchmark coordinate. The four Plank CartPole levels retain
-experimental software status; Easy's benchmark membership is a separate declaration.
-All use the general `EvaluationSpec`. The direct-control benchmark uses one episode per
-CartPole block and never forms a cross-task aggregate.
-
-Delayed cue requires zero warm-up and enough horizon to finish the longest configured
-episode (144 frames by default). Its accuracy anchors are 0 and 1; chance is 0.5.
-The v2 confirmation protocol is pending. Do not substitute the development pilot for it.
-
-For CTRNN evolution, generate targets with `benchmark_evolution_targets` and use one
-shared genome across the versioned task list. `measure=:benchmark_profile` requires
-maximising NSGA-II and keeps native task units separate. Use disjoint development and
-selection blocks, explicit runtime parameters, and a bounded pilot before larger searches.
-Generation journals support continuation; a stopped run needs a complete checkpoint and
-matching source/environment provenance to resume. Cached model kernels are fixed during
-stepping; replace the complete genome through `reservoir.genome = model` to refresh them.
-
-Performance can reveal a capacity, limit, trade-off, or missing mechanism. Before
-interpreting a poor score, check the task opportunity, body ports, control floor, horizon,
-initialisation, and score definition.
-
-## Extend nodes and tasks through public interfaces
-
-Start from `examples/templates/new_project/`.
-
-A node extension defines methods on imported BrainlessLab generics and registers a
-`NodeSpec`. The builder receives a `NodeBuildContext` and resolved parameter values.
-Declare:
-
-- parameters and validators;
-- whether each parameter belongs to the node or reservoir;
-- default `:sweep` and optional connectivity parameter sets;
-- capabilities used by ablations and tooling;
-- equations and default analyses when known;
-- stability and tags.
-
-Do not infer a node-design space from configurable parameters or struct fields. A supported
-fixed node design declares one reviewed `Evolution.NodeDesignSpec`. Keep runtime state out
-of the model. Online adaptation remains learning or plasticity even without a task loss,
-teacher, fitted readout, or separate training phase.
-
-A task extension registers a `TaskSpec` whose setup returns a `TaskSetup`. Validate port
-widths before tick zero. A task may omit a scalar outcome and remain useful for profiling.
-It cannot enter a scalar benchmark until it declares an outcome key and anchors.
-
-Use `register!` with typed registries. Duplicate keys fail. Julia multiple dispatch remains
-the extension mechanism; registries make implementations discoverable and configurable.
-
-## Protect scientific evidence
-
-Use the experiment evidence states:
-
-```text
-planned → exploratory → tuned → frozen → confirmed → promoted
-```
-
-`retired` records a withdrawn or superseded protocol. Keep calibration, development,
-variance pilots, and held-out evaluation separate. The independent block or trial is the
-usual inferential unit. Ticks and agents within one world do not multiply sample size.
-
-Match the control to the claim. Random action, blind input, matched sham, mechanism
-ablation, model baseline, and oracle policies answer different questions. Exact replay is
-a regression control, not a causal null.
-
-Use `task_outcome(sim)` for the declared task result. Report its key, raw score, normalised
-score when available, normalisation status, scoring window, blocks, trials, construction
-scope, reset, horizon, warm-up, and seed policy. A measured anchor applies only at its
-declared `scored_ticks`; analytic anchors are window-invariant. Normalised Tracking, Pong,
-and Plank CartPole Easy scores remain different quantities.
-
-Treat criticality and information measures as estimator-dependent analyses. State their
-nulls, assumptions, and finite-sample limits. Shared environmental drive can produce
-apparent collective structure.
-
-## Verify changes
-
-Run the narrowest affected tier during iteration. The fast Core tier covers documentation and
-contract changes:
-
-```bash
-BRAINLESSLAB_TEST_SUITE=core julia --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Bare `Pkg.test()` runs every suite and takes about fifteen minutes. Use the tier guidance in
-`test/README.md` to select additional gates for the change.
-
-Build the locked site after guide or skill edits:
-
-```bash
-cd site
-bun run build
-```
-
-Check `git diff --check`. Inspect the final diff for unrelated user changes. Keep the
-project-local discovery links resolving to the checked-in skills. Do not synchronise a
-second installed copy.
-
-## References
-
-Read the relevant reference in full:
-
-- `references/usage-and-workflows.md` for simulation, recording, results, and plots;
-- `references/cli-tools.md` for plans, experiments, and records;
-- `references/designing-nodes.md` for node and runtime-state design;
-- `references/designing-environments-and-tasks.md` for tasks, bodies, ports, and worlds;
-- `references/designing-analyses.md` for analysis and null design;
-- `references/research-workflow.md` for evidence and interpretation;
-- `references/agentic-safeguards.md` for safe agent operation.
+Use the path printed by `run`. Check resolves without simulation; inspect verifies
+checksums. A complete record establishes software execution, not scientific confirmation.
+
+## Keep the core precise
+
+Scientific specifications own model, task, protocol and seed identity.
+`ExecutionSpec` owns placement, batch capacity, memory, cache and recording.
+Use stable IDs, destination/source matrices, owned snapshots and complete trial reset.
+Preserve synchronous updates and permanent per-frame failure masks.
+Changing batch capacity or display labels must not change scientific work.
+
+Falandays and SORN have separate equation and conformance boundaries.
+Keep immutable fixtures and accepted records unchanged. Never inspect sealed worlds
+for planning or debugging. Report task outcome key, raw and normalised value together.
+Do not clip negative adjustments or combine task units into a competence score.
+
+Use independent blocks or trials as inferential units. Keep calibration, development
+and confirmation worlds disjoint. Offline labels never enter the controller.
+Only a human maintainer accepts research contributions.
+
+## Use the maintained guide
+
+| Need | Read |
+| --- | --- |
+| First run and results | [First simulation](../../site/src/content/docs/tutorials/first-simulation.mdx) |
+| Compare conditions | [Comparison guide](../../site/src/content/docs/tutorials/compare-conditions.mdx) |
+| Architecture and ownership | [Architecture](../../docs/python/architecture.md) |
+| Plans and CLI | [Plan reference](../../site/src/content/docs/reference/plan-format.mdx) |
+| Analysis and calibration | [Analysis](../../site/src/content/docs/reference/analysis.mdx) |
+| Speed, memory and profiling | [Performance guide](../../site/src/content/docs/python/performance.mdx) |
+| Supported scope | [Platform limits](../../site/src/content/docs/platform-limits.mdx) |
+
+Follow `AGENTS.md` for checks and `docs/WRITING.md` for prose. Run focused tests,
+execute documented examples and complete package/site gates for public changes.
+Inspect activity before timing; match precision and work, run GPU jobs serially,
+and retain failures. Warm evaluation is not kernel-only time. RSS is not VRAM.
+Report measured results separately from hypotheses and configured CI.
