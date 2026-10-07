@@ -11,6 +11,8 @@ from collections.abc import Sequence
 import numpy as np
 import quadrants as qd
 
+from ._validation import validate_cast
+
 
 @dataclass(frozen=True)
 class FalandaysConfig:
@@ -73,6 +75,10 @@ class InitialState:
 
     def __post_init__(self):
         # Frozen metadata alone does not confer ownership of mutable arrays.
+        if not np.all(np.isin(self.recurrent_mask, (0, 1))):
+            raise ValueError("recurrent_mask must be binary before integer conversion")
+        if not np.all(np.isin(self.signs, (-1, 1))):
+            raise ValueError("signs must be exactly +1 or -1")
         if not np.all(np.isin(np.asarray(self.signs), (-1, 1))):
             raise ValueError("signs must be +1 or -1")
         for name in ("weights", "recurrent_mask", "input_weights", "output_mask",
@@ -172,6 +178,7 @@ class _State:
     finite: qd.types.NDArray[qd.i32, 1]
     learning: qd.types.NDArray[qd.i32, 1]
     weight_learning: qd.types.NDArray[qd.i32, 1]
+    raw_finite: qd.types.NDArray[qd.i32, 2]
 
 
 @dataclass(frozen=True)
@@ -223,6 +230,7 @@ def _integrate(s: _State, f: _Fixed, inputs: qd.types.NDArray[None, 2],
             if f.flags[b, 2] != 0:
                 sigma = f.params[b, 5] + f.params[b, 6] * qd.max(0, threshold - a)
                 a += noise[b, i] * sigma
+            s.raw_finite[b, i] = qd.cast(_is_finite(a) and _is_finite(threshold), qd.i32)
             if f.flags[b, 0] != 0 and a < 0:
                 a = _real_zero(real)
             spike = _real_zero(real)
@@ -247,6 +255,8 @@ def _learn(s: _State, f: _Fixed, active: qd.types.NDArray[qd.i32, 1]):
                         if f.flags[b, 1] != 0 and f.signs[b, j] == -1:
                             change = -delta
                         weight = s.weights[b, i, j] - change
+                        if not _is_finite(weight):
+                            s.raw_finite[b, i] = 0
                         if f.flags[b, 1] != 0 and weight < 0:
                             weight = 0
                         s.weights[b, i, j] = weight
@@ -259,7 +269,10 @@ def _learn(s: _State, f: _Fixed, active: qd.types.NDArray[qd.i32, 1]):
                     for j in range(s.acts.shape[1]):
                         if f.mask[b, i, j] == 0:
                             s.weights[b, i, j] = 0
-            s.targets[b, i] = qd.max(f.params[b, 4], s.targets[b, i] + s.errors[b, i] * f.params[b, 2])
+            target = s.targets[b, i] + s.errors[b, i] * f.params[b, 2]
+            if not _is_finite(target):
+                s.raw_finite[b, i] = 0
+            s.targets[b, i] = qd.max(f.params[b, 4], target)
 
 
 @qd.kernel
@@ -288,11 +301,10 @@ def _finite(s: _State, active: qd.types.NDArray[qd.i32, 1]):
         if active[b] != 0:
             valid = 1
             for i in range(s.acts.shape[1]):
+                if s.raw_finite[b, i] == 0:
+                    valid = 0
                 if not _is_finite(s.acts[b, i]) or not _is_finite(s.targets[b, i]) or not _is_finite(s.errors[b, i]):
                     valid = 0
-                for j in range(s.acts.shape[1]):
-                    if not _is_finite(s.weights[b, i, j]):
-                        valid = 0
             for e in range(s.effectors.shape[1]):
                 if not _is_finite(s.effectors[b, e]):
                     valid = 0
@@ -309,6 +321,7 @@ def _reset(s: _State, f: _Fixed, active: qd.types.NDArray[qd.i32, 1]):
             s.previous[b, i] = 0
             s.errors[b, i] = 0
             s.counts[b, i] = 0
+            s.raw_finite[b, i] = 1
             for j in range(s.acts.shape[1]):
                 s.weights[b, i, j] = f.weights0[b, i, j]
     for b in range(s.acts.shape[0]):
@@ -339,6 +352,7 @@ class ModelBatch:
         dtype = np.dtype(dtype)
         if dtype not in (np.dtype("float64"), np.dtype("float32")):
             raise ValueError("dtype must be float64 or float32")
+        validate_cast(initials, dtype)
         shape = (initials[0].acts.size, initials[0].input_weights.shape[1], initials[0].output_mask.shape[1])
         if any((v.acts.size, v.input_weights.shape[1], v.output_mask.shape[1]) != shape for v in initials):
             raise ValueError("batch slots must have equal node and port widths")
@@ -363,7 +377,8 @@ class ModelBatch:
         self._state = _State(acts, targets, spikes, zeros(), zeros(), zeros(), weights,
                              upload(np.zeros((self.batch_size, self.n_effectors))),
                              upload(np.ones(self.batch_size), True), learning,
-                             upload([v.config.learn_on for v in initials], True))
+                             upload([v.config.learn_on for v in initials], True),
+                             upload(np.ones((self.batch_size, self.count)), True))
         self._fixed = _Fixed(stack("recurrent_mask", True), stack("input_weights"),
                              stack("output_mask"), stack("signs", True),
                              upload([[v.config.leak, v.config.lrate_wmat, v.config.lrate_targ,
@@ -372,6 +387,8 @@ class ModelBatch:
                              upload([[v.config.rectify, v.config.axis == "dale", v.config.drive == "oosawa",
                                       v.config.learn_on] for v in initials], True),
                              stack("weights"), stack("acts"), stack("targets"), stack("spikes"))
+        _readout(self._state, self._fixed,
+                 upload(np.ones(self.batch_size), True), self._precision)
 
     @property
     def activity(self):

@@ -130,7 +130,7 @@ def test_invalid_denominator_point_and_draws_are_unavailable_never_dropped():
 
 
 def test_invalid_calibration_inputs_rejected():
-    for scores in ([0.5] * 100, [np.nan] * 1024, [-1.] * 1024, [2.] * 1024):
+    for scores in ([0.5] * 100, [np.nan] * 1024, [-1.1] * 1024, [2.] * 1024):
         with pytest.raises(ValueError):
             create_empirical_calibration(signature(), scores)
     with pytest.raises(ValueError, match="unique"):

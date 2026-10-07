@@ -18,7 +18,10 @@ def initialise(execution: ExecutionSpec, numerics: NumericalPolicy) -> dict[str,
     if execution.backend == "metal" and numerics.dtype != "float32":
         raise ValueError("Metal requires Float32; select an explicit NumericalPolicy")
     key = (execution.backend, numerics.dtype, execution.cpu_threads, execution.cache)
-    current = qd.lang.impl.get_runtime().prog
+    try:
+        current = qd.lang.impl.get_runtime().prog
+    except qd.lang.exception.QuadrantsRuntimeError:
+        current = None
     if current is _program and _key is not None:
         if key != _key:
             raise RuntimeError("a process owns one numerical runtime; use another process")

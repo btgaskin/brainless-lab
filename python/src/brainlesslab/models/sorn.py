@@ -12,6 +12,8 @@ import math
 import numpy as np
 import quadrants as qd
 
+from ._validation import validate_cast
+
 
 @dataclass(frozen=True)
 class SORNConfig:
@@ -65,6 +67,29 @@ class InitialState:
     t_i: np.ndarray
     x: np.ndarray
     y: np.ndarray
+
+    def __post_init__(self):
+        for name in ("count", "n_inputs", "n_effectors", "n_e"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or value < 1:
+                raise ValueError(f"{name} must be a positive integer")
+        if self.n_e > self.count:
+            raise ValueError("n_e cannot exceed count")
+        n_i = self.count - self.n_e
+        shapes = {
+            "w_ee": (self.n_e, self.n_e), "ee_mask": (self.n_e, self.n_e),
+            "c_e": (self.n_e,), "w_ei": (self.n_e, n_i), "w_ie": (n_i, self.n_e),
+            "w_eu": (self.n_e, self.n_inputs), "output_mask": (self.n_effectors, self.n_e),
+            "t_e": (self.n_e,), "t_i": (n_i,), "x": (self.n_e,), "y": (n_i,),
+        }
+        for name, shape in shapes.items():
+            raw = np.asarray(getattr(self, name))
+            if raw.shape != shape or not np.all(np.isfinite(raw)):
+                raise ValueError(f"{name} must be finite and have shape {shape}")
+            if name in ("ee_mask", "output_mask", "x", "y") and not np.all(np.isin(raw, (0, 1))):
+                raise ValueError(f"{name} must be binary before conversion")
+            owned = np.array(raw, dtype=bool if name in ("ee_mask", "output_mask") else np.float64, copy=True)
+            object.__setattr__(self, name, owned)
 
 
 def _mask(rows, columns, probability, rng, no_self=False):
@@ -150,6 +175,7 @@ class Arrays:
     drive: qd.types.NDArray[None, 2]
     effectors: qd.types.NDArray[None, 2]
     finite: qd.types.NDArray[qd.i32, 1]
+    adaptation_finite: qd.types.NDArray[qd.i32, 2]
 
 
 @qd.kernel
@@ -192,6 +218,7 @@ def _advance(s: Arrays, inputs: qd.types.NDArray[None, 2],
 def _adapt(s: Arrays, active: qd.types.NDArray[qd.i32, 1]):
     for b, i in qd.ndrange(s.x.shape[0], s.x.shape[1]):
         if active[b] != 0:
+            s.adaptation_finite[b, i] = 1
             if s.plasticity[b, 0] != 0:
                 total = s.x[b, i] * 0
                 for j in range(s.x.shape[1]):
@@ -199,13 +226,19 @@ def _adapt(s: Arrays, active: qd.types.NDArray[qd.i32, 1]):
                     if s.ee_mask[b, i, j] != 0:
                         weight = s.w_ee[b, i, j] + s.parameters[b, 0] * (
                             s.x[b, i] * s.prev_x[b, j] - s.prev_x[b, i] * s.x[b, j])
-                        if not (weight > 0):
+                        if qd.math.isnan(weight) or qd.math.isinf(weight):
+                            s.adaptation_finite[b, i] = 0
+                        if weight <= 0:
                             weight = s.x[b, i] * 0
                             s.ee_mask[b, i, j] = 0
                     s.w_ee[b, i, j] = weight
                     total = total + weight
+                if qd.math.isnan(total) or qd.math.isinf(total):
+                    s.adaptation_finite[b, i] = 0
                 if total > 0 and s.c_e[b, i] > 0:
                     scale = s.c_e[b, i] / total
+                    if qd.math.isnan(scale) or qd.math.isinf(scale):
+                        s.adaptation_finite[b, i] = 0
                     for j in range(s.x.shape[1]):
                         if s.ee_mask[b, i, j] != 0:
                             s.w_ee[b, i, j] = s.w_ee[b, i, j] * scale
@@ -223,12 +256,10 @@ def _emit(s: Arrays, active: qd.types.NDArray[qd.i32, 1], n_i: qd.i32):
                 valid = valid & qd.cast(not qd.math.isnan(s.drive[b, i]) and
                                         not qd.math.isinf(s.drive[b, i]), qd.i32)
             for i in range(s.x.shape[1]):
+                valid = valid & s.adaptation_finite[b, i]
                 s.activity[b, i] = s.x[b, i]
                 valid = valid & qd.cast(not qd.math.isnan(s.t_e[b, i]) and
                                         not qd.math.isinf(s.t_e[b, i]), qd.i32)
-                for j in range(s.x.shape[1]):
-                    valid = valid & qd.cast(not qd.math.isnan(s.w_ee[b, i, j]) and
-                                            not qd.math.isinf(s.w_ee[b, i, j]), qd.i32)
             for k in range(n_i):
                 s.activity[b, s.x.shape[1] + k] = s.y[b, k]
             for k in range(s.effectors.shape[1]):
@@ -258,6 +289,7 @@ def _reset(s: Arrays, initial: Arrays, active: qd.types.NDArray[qd.i32, 1], n_i:
     for b in range(s.x.shape[0]):
         if active[b] != 0:
             for i in range(s.x.shape[1]):
+                s.adaptation_finite[b, i] = initial.adaptation_finite[b, i]
                 s.x[b, i] = initial.x[b, i]
                 s.prev_x[b, i] = initial.prev_x[b, i]
                 s.t_e[b, i] = initial.t_e[b, i]
@@ -322,8 +354,10 @@ class ModelBatch:
         np_dtype = np.dtype(dtype)
         if np_dtype not in (np.dtype("float32"), np.dtype("float64")):
             raise ValueError("dtype must be float32 or float64")
+        validate_cast(initials, np_dtype)
         self.dtype = np_dtype
         qd_dtype = qd.f32 if np_dtype == np.dtype("float32") else qd.f64
+        self._real = qd_dtype
         arrays = {}
         for name in ("w_ee", "ee_mask", "c_e", "w_ei", "w_ie", "w_eu",
                      "output_mask", "t_e", "t_i", "x", "y"):
@@ -342,12 +376,13 @@ class ModelBatch:
             drive=np.zeros((self.batch_size, self.count)),
             effectors=np.zeros((self.batch_size, self.n_effectors)),
             finite=np.ones(self.batch_size, dtype=np.int32),
+            adaptation_finite=np.ones((self.batch_size, self.n_e), dtype=np.int32),
         )
 
         def upload():
             uploaded = {}
             for name, values in arrays.items():
-                integer = name in ("ee_mask", "output_mask", "plasticity", "finite")
+                integer = name in ("ee_mask", "output_mask", "plasticity", "finite", "adaptation_finite")
                 value = np.ascontiguousarray(values, dtype=np.int32 if integer else np_dtype)
                 device = qd.ndarray(qd.i32 if integer else qd_dtype, shape=value.shape)
                 device.from_numpy(value)
@@ -365,6 +400,8 @@ class ModelBatch:
             raise ValueError("inputs must have [batch, input] dimensions")
         if noise.shape != (self.batch_size, self.count):
             raise ValueError("noise must have [batch, node] dimensions")
+        if inputs.dtype != self._real or noise.dtype != self._real:
+            raise ValueError("inputs and noise must match the model dtype")
         self._validate_active(active)
         _remember(self.state, active, self.n_i)
         _advance(self.state, inputs, active, self.n_i)
@@ -372,8 +409,8 @@ class ModelBatch:
         _emit(self.state, active, self.n_i)
 
     def _validate_active(self, active):
-        if active.shape != (self.batch_size,):
-            raise ValueError("active must have [batch] dimensions")
+        if active.shape != (self.batch_size,) or active.dtype != qd.i32:
+            raise ValueError("active must have [batch] int32 dimensions")
 
     def reset(self, active):
         self._validate_active(active)

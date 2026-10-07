@@ -54,12 +54,18 @@ class CalibrationSignature:
     action_cadence: int
     numerics: NumericalPolicy
     world_source_hashes: Mapping[str, str]
+    backend: str = "cpu"
+    architecture: str = "unspecified"
     null_policy: str = "iid-uniform-random-action-v1"
     rng_scheme: str = "philox-host-v1"
 
     def __post_init__(self):
         if self.task not in UPPER_BOUNDS:
             raise ValueError("unsupported calibration task")
+        if self.backend not in ("cpu", "metal") or not self.architecture:
+            raise ValueError("calibration requires an explicit backend and architecture")
+        if self.backend == "metal" and self.numerics.dtype != "float32":
+            raise ValueError("Metal calibrations require float32")
         if self.scoring_horizon < 1 or self.warmup < 0 or self.action_cadence < 1:
             raise ValueError("invalid scoring horizon, warm-up or action cadence")
         if not self.initialisation_policy or not self.null_policy:
@@ -135,7 +141,8 @@ def create_empirical_calibration(signature: CalibrationSignature,
     if scores.shape != (NULL_TRAJECTORIES,) or not np.isfinite(scores).all():
         raise ValueError("empirical calibration requires 1024 finite independent trajectory scores")
     upper = UPPER_BOUNDS[signature.task] if upper_bound is None else float(upper_bound)
-    if not math.isfinite(upper) or upper <= 0 or np.any(scores < 0) or np.any(scores > upper):
+    lower = -1.0 if signature.task == "tracking" else 0.0
+    if not math.isfinite(upper) or upper <= 0 or np.any(scores < lower) or np.any(scores > upper):
         raise ValueError("null scores must lie within the declared task bounds")
     ids = tuple(range(NULL_TRAJECTORIES)) if trajectory_ids is None else tuple(trajectory_ids)
     if len(ids) != NULL_TRAJECTORIES or len(set(ids)) != NULL_TRAJECTORIES:
