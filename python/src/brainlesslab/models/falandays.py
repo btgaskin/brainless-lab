@@ -203,7 +203,7 @@ def _save_previous(s: _State, active: qd.types.NDArray[qd.i32, 1]):
 
 
 @qd.func
-def _real_zero(precision: qd.template()):
+def _real_zero(precision: qd.template()):  # pyright: ignore[reportInvalidTypeForm]
     if qd.static(precision == 64):
         return qd.cast(0, qd.f64)
     else:
@@ -213,7 +213,7 @@ def _real_zero(precision: qd.template()):
 @qd.kernel(fastcache=True)
 def _integrate(s: _State, f: _Fixed, inputs: qd.types.NDArray[None, 2],
                noise: qd.types.NDArray[None, 2], active: qd.types.NDArray[qd.i32, 1],
-               real: qd.template()):
+               real: qd.template()):  # pyright: ignore[reportInvalidTypeForm]
     for b, i in qd.ndrange(s.acts.shape[0], s.acts.shape[1]):
         if active[b] != 0:
             sensory = _real_zero(real)
@@ -276,7 +276,8 @@ def _learn(s: _State, f: _Fixed, active: qd.types.NDArray[qd.i32, 1]):
 
 
 @qd.kernel(fastcache=True)
-def _readout(s: _State, f: _Fixed, active: qd.types.NDArray[qd.i32, 1], real: qd.template()):
+def _readout(s: _State, f: _Fixed, active: qd.types.NDArray[qd.i32, 1],
+             real: qd.template()):  # pyright: ignore[reportInvalidTypeForm]
     for b, e in qd.ndrange(s.effectors.shape[0], s.effectors.shape[1]):
         if active[b] != 0:
             total = _real_zero(real)

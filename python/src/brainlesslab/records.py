@@ -29,7 +29,10 @@ if TYPE_CHECKING:
     from .results import EvaluationResult
 
 
-def _portable(value):
+type JSONValue = dict[str, JSONValue] | list[JSONValue] | str | int | float | bool | None
+
+
+def _portable(value: object) -> JSONValue:
     if is_dataclass(value) and not isinstance(value, type):
         return {f.name: _portable(getattr(value, f.name)) for f in fields(value)}
     if isinstance(value, Mapping):
@@ -45,6 +48,13 @@ def _portable(value):
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     raise TypeError(f"nonportable record value: {type(value).__name__}")
+
+
+def _portable_mapping(value: object) -> dict[str, JSONValue]:
+    document = _portable(value)
+    if not isinstance(document, dict):
+        raise TypeError("record metadata must be a mapping or dataclass")
+    return document
 
 
 def _json(path: Path, value):
@@ -140,7 +150,7 @@ def _claim(destination, reservation):
 
 
 def _csv(path, rows):
-    rows = tuple(_portable(row) for row in rows)
+    rows = tuple(_portable_mapping(row) for row in rows)
     keys = sorted({key for row in rows for key in row})
     with path.open("x", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=keys)
@@ -251,15 +261,16 @@ def write_record(
     try:
         write_plan(result.resolved.request, root / "request.toml")
         with (root / "resolved.toml").open("x", encoding="utf-8") as stream:
-            stream.write(tomli_w.dumps(without_none(_portable(result.resolved))))
+            stream.write(tomli_w.dumps(_portable_mapping(without_none(_portable(result.resolved)))))
         data, summary, environment = (root / name for name in ("data", "summary", "environment"))
         for directory in (data, summary, environment):
             directory.mkdir()
         trials = []
         seeds = []
         for trial in result.trials:
-            row = _portable(trial)
-            row.update(row.pop("outcome"))
+            row = _portable_mapping(trial)
+            row.pop("outcome")
+            row.update(_portable_mapping(trial.outcome))
             row.pop("seeds")
             trials.append(row)
             for stream, seed in trial.seeds.items():
@@ -300,7 +311,7 @@ def write_record(
         if result.events:
             rows, features = [], {}
             for index, event in enumerate(result.events):
-                row = _portable(event)
+                row = _portable_mapping(event)
                 row.pop("features")
                 name = f"event_{index:08d}"
                 row["feature_array"] = name

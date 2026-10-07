@@ -410,7 +410,8 @@ def prepare(spec: TaskSpec, rng: np.random.Generator, *, horizon=None) -> Initia
             bounds = [(0, length)]
     metadata |= dict(cue_ends=tuple(cues), response_start=tuple(starts), response_end=tuple(ends),
                      labels=tuple(labels), round_bounds=tuple(bounds))
-    return InitialState(spec, d, o, physical, stimuli, starts, ends, cues, labels,
+    return InitialState(spec, d, o, physical, stimuli,
+                        np.asarray(starts), np.asarray(ends), np.asarray(cues), np.asarray(labels),
                         np.array(bounds, dtype=np.int32).reshape(-1, 2), draws, metadata)
 
 

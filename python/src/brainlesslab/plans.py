@@ -148,10 +148,16 @@ def without_none(value: object) -> object:
 
 
 def write_plan(plan: Plan, path: str | Path) -> Path:
-    payload = {"format": "brainlesslab-plan", "format_version": 4, **plain(plan)}
+    values = plain(plan)
+    if not isinstance(values, dict):
+        raise TypeError("plan must serialise to a mapping")
+    payload = {"format": "brainlesslab-plan", "format_version": 4, **values}
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(tomli_w.dumps(without_none(payload)), encoding="utf-8")
+    filtered = without_none(payload)
+    if not isinstance(filtered, dict):
+        raise TypeError("plan payload must remain a mapping")
+    destination.write_text(tomli_w.dumps(filtered), encoding="utf-8")
     return destination
 
 

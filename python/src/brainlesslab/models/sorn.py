@@ -116,7 +116,7 @@ def _fanout(rows, columns, fraction, rng):
 
 
 def _weights(mask, target, rng):
-    weights = np.zeros(mask.shape, dtype=np.float64)
+    weights: np.ndarray = np.zeros(mask.shape, dtype=np.float64)
     if target:
         weights[mask] = rng.random(np.count_nonzero(mask))
         for row in weights:

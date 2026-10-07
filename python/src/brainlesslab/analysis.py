@@ -104,7 +104,7 @@ class DecoderResult:
     channel: str = "emitted_activity"
 
 
-def _ridge(features, labels, fit, validation, grid):
+def _ridge(features, labels, fit, validation, grid) -> DecoderFit:
     centre = np.mean(features[fit], axis=0)
     scale = np.std(features[fit], axis=0, ddof=0)
     scale[scale == 0] = 1
@@ -122,6 +122,8 @@ def _ridge(features, labels, fit, validation, grid):
             best = DecoderFit(float(regularisation), tuple(map(float, weights)), intercept,
                               tuple(map(float, centre)), tuple(map(float, scale)),
                               tuple(map(int, predictions)), accuracy)
+    if best is None:
+        raise ValueError("ridge requires at least one regularisation value")
     return best
 
 
@@ -145,7 +147,7 @@ def decode(events: Sequence[ProbeEvent], trials: Sequence[ProbeTrial], *,
     grid = tuple(sorted(set(lambdas)))
     if not grid or any(not math.isfinite(v) or v <= 0 for v in grid):
         raise ValueError("ridge lambdas must be finite and positive")
-    groups = defaultdict(list)
+    groups: defaultdict[tuple[str, str, int], list[ProbeTrial]] = defaultdict(list)
     trial_keys = set()
     for trial in trials:
         key = (trial.target_id, trial.task, trial.block_id, trial.trial_id)

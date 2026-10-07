@@ -125,7 +125,11 @@ def _record(signature, method, upper_bound, mean, scores, ids, se, interval,
                    trajectory_ids=tuple(ids), null_standard_error=float(se),
                    null_interval=tuple(map(float, interval)), root_seed=root_seed,
                    bootstrap_repetitions=repetitions, frozen=True)
-    return CalibrationRecord(_digest(payload), **payload)
+    return CalibrationRecord(
+        _digest(payload), signature, method, float(upper_bound), float(mean),
+        tuple(map(float, scores)), tuple(ids), float(se),
+        (float(interval[0]), float(interval[1])), root_seed, repetitions,
+    )
 
 
 def create_empirical_calibration(signature: CalibrationSignature,
@@ -233,13 +237,16 @@ def adjusted_interval(model_block_means: Sequence[float], calibration: Calibrati
                              if len(null_scores) else calibration.null_mean)
     denominators = calibration.upper_bound - null_draws
     invalid = int(np.count_nonzero(~np.isfinite(denominators) | (denominators <= 0)))
-    raw_interval = tuple(map(float, np.quantile(raw_draws, [0.025, 0.975], method="linear")))
-    null_interval = tuple(map(float, np.quantile(null_draws, [0.025, 0.975], method="linear")))
+    raw_low, raw_high = np.quantile(raw_draws, [0.025, 0.975], method="linear")
+    raw_interval = (float(raw_low), float(raw_high))
+    null_low, null_high = np.quantile(null_draws, [0.025, 0.975], method="linear")
+    null_interval = (float(null_low), float(null_high))
     if invalid or outcome.normalised is None:
         return AdjustedInterval(outcome.normalised, None, raw, raw_interval, calibration.null_mean,
                                 null_interval, "invalid_calibration_denominator", invalid,
                                 repetitions, calibration.id)
     ratios = (raw_draws - null_draws) / denominators
-    interval = tuple(map(float, np.quantile(ratios, [0.025, 0.975], method="linear")))
+    low, high = np.quantile(ratios, [0.025, 0.975], method="linear")
+    interval = (float(low), float(high))
     return AdjustedInterval(outcome.normalised, interval, raw, raw_interval, calibration.null_mean,
                             null_interval, "available", 0, repetitions, calibration.id)
