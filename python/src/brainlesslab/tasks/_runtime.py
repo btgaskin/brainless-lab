@@ -329,7 +329,7 @@ def _advance_world(
                     s.finite[b] = 0
             if s.done[b] != 0 and not _finite(s.outcome[b]):
                 s.finite[b] = 0
-    return s.finite[b]
+    return s.finite[b], s.done[b], s.ticks[b], s.round[b]
 
 
 @qd.kernel(fastcache=True)
@@ -623,14 +623,15 @@ def _run_control(
     # Each world owns its complete serial tick/frame sequence. No sums or
     # state updates cross world boundaries, and no floating atomics are used.
     for b in range(s.ticks.shape[0]):
+        done, tick, current_round = s.done[b], s.ticks[b], s.round[b]
         for offset in range(tile_ticks):
             guard[b] = qd.cast(
-                guard[b] != 0 and s.done[b] == 0 and s.finite[b] != 0 and s.ticks[b] < horizons[b],
+                guard[b] != 0 and done == 0 and s.finite[b] != 0 and tick < horizons[b],
                 qd.i32,
             )
             index = offset
             if qd.static(f.kind >= 3):
-                index = qd.min(s.round[b], uniform_tile.shape[0] - 1)
+                index = qd.min(current_round, uniform_tile.shape[0] - 1)
             random_value = uniform_tile[index, b]
             frames = 1
             if qd.static(f.kind == 2):
@@ -647,17 +648,19 @@ def _run_control(
                         _physical_reference_world(physical, b, guard[b], c.effectors)
                     else:
                         _control_world(
-                            c, b, random_value, guard[b], policy, s.inputs, s.ticks[b], s.round[b]
+                            c, b, random_value, guard[b], policy, s.inputs, tick, current_round
                         )
                 else:
                     _control_world(
-                        c, b, random_value, guard[b], policy, s.inputs, s.ticks[b], s.round[b]
+                        c, b, random_value, guard[b], policy, s.inputs, tick, current_round
                     )
                 if guard[b] != 0:
                     frame_cursors[b] += 1
                 accumulated_finite = _accumulate_world(s, f, c.effectors, b, frame0 + 1, guard[b])
                 guard[b] *= qd.cast(accumulated_finite != 0, qd.i32)
-            advanced_finite = _advance_world(s, f, c.effectors, b, guard[b], warmup)
+            advanced_finite, done, tick, current_round = _advance_world(
+                s, f, c.effectors, b, guard[b], warmup
+            )
             guard[b] *= qd.cast(advanced_finite != 0, qd.i32)
 
 

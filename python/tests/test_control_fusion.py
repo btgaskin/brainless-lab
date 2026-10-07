@@ -3,6 +3,7 @@
 import os
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -138,7 +139,69 @@ def exercise(dtype):
                 compare(slow, fast)
                 np.testing.assert_array_equal(slow_guard.to_numpy(), fast_guard.to_numpy())
                 np.testing.assert_array_equal(slow_frames.to_numpy(), fast_frames.to_numpy())
+                np.testing.assert_array_equal(
+                    fast_frames.to_numpy() - [9, 0, 5],
+                    fast.ticks.to_numpy() * fast.definition.neural_frames,
+                )
             cases += 1
+    # Faults occur at first, middle and final tile offsets in each selected
+    # world. Encode failures halt before control; invalid control outputs halt
+    # before advance; a failed physical advance halts the next tile tick.
+    fault_cases = 0
+    for stage in ("encode", "accumulate", "advance"):
+        for offset in (0, 2, 5):
+            for selected in range(3):
+                kind = (
+                    "delayed_cue"
+                    if stage == "encode"
+                    else "pong"
+                    if stage == "advance"
+                    else "tracking"
+                )
+                options = (
+                    {"cue_ticks": 2, "delays": (2,), "response_ticks": 2}
+                    if stage == "encode"
+                    else {}
+                )
+                initials = [
+                    prepare(TaskSpec(kind, options), np.random.default_rng(seed), horizon=6)
+                    for seed in (11, 12, 13)
+                ]
+                if stage == "advance":
+                    physical = initials[selected].physical.copy()
+                    physical[:7] = [5 * offset + 2, 250, 50, -5, 0, 1, 0]
+                    initials[selected] = replace(
+                        initials[selected], physical=physical, draws=np.zeros((1, 2))
+                    )
+                slow, fast = [TaskBatch(initials, dtype=dtype) for _ in range(2)]
+                if stage == "encode":
+                    for batch in (slow, fast):
+                        stimuli = batch._fixed.stimuli.to_numpy()
+                        stimuli[selected, offset, 0] = np.inf
+                        batch._fixed.stimuli.from_numpy(stimuli)
+                tile = np.full((1 if stage == "encode" else 6, 3), 0.7, dtype=dtype)
+                if stage == "accumulate":
+                    tile[offset, selected] = np.inf
+                horizons = np.full(3, 6, dtype=np.int32)
+                slow_guard, fast_guard = [upload([1, 1, 1], qd.i32) for _ in range(2)]
+                slow_frames, fast_frames = [upload([0, 0, 0], qd.i32) for _ in range(2)]
+                unfused(slow, "reference_null", tile, horizons, slow_guard, 6, slow_frames)
+                fast.run_control(
+                    "reference_null",
+                    upload(tile, real),
+                    upload(horizons, qd.i32),
+                    fast_guard,
+                    6,
+                    frame_cursors=fast_frames,
+                )
+                compare(slow, fast)
+                np.testing.assert_array_equal(slow_guard.to_numpy(), fast_guard.to_numpy())
+                np.testing.assert_array_equal(slow_frames.to_numpy(), fast_frames.to_numpy())
+                assert fast_guard.to_numpy()[selected] == 0
+                assert fast.finite.to_numpy()[selected] == 0
+                assert fast.ticks.to_numpy()[selected] == offset + (stage == "advance")
+                assert fast_frames.to_numpy()[selected] == offset + (stage != "encode")
+                fault_cases += 1
     # Numerical failure discovered by an encoder must mask the controller in
     # that same frame and remain masked for every later frame and tick.
     for kind in ("tracking", "cartpole_plank_easy"):
@@ -194,7 +257,10 @@ def exercise(dtype):
         arguments.update(kwargs)
         with pytest.raises(ValueError):
             batch.run_control(**arguments)
-    print(f"{dtype}: {cases} task/controller pairs, failure masks and argument checks passed")
+    print(
+        f"{dtype}: {cases} task/controller pairs, {fault_cases} staged selected-world faults, "
+        "frame ledgers and argument checks passed"
+    )
 
 
 @pytest.mark.parametrize("dtype", ["float64", "float32"])
